@@ -582,22 +582,41 @@ function rankCardHTML(){
 // ---------- Brock, das Begleit-Monster ----------
 // Körper in der Akzentfarbe, Augen/Mund im Gegenton — passt sich damit jedem Design an.
 function monster(size,mood){ size=size||86;
-  const blink='<animate attributeName="ry" values="11;11;1;11;11" dur="4.6s" keyTimes="0;.44;.48;.52;1" repeatCount="indefinite"/>';
-  const mouth = mood==='happy'
-    ? '<path d="M39 66c4 9 18 9 22 0" fill="none" stroke-width="3.4" stroke-linecap="round"/><path d="M44 71c3 2.6 9 2.6 12 0" fill="none" stroke-width="3" stroke-linecap="round"/>'
-    : '<path d="M41 67c3.5 5 14 5 18 0" fill="none" stroke-width="3.4" stroke-linecap="round"/>';
-  return `<svg class="mon" viewBox="0 0 100 104" width="${size}" height="${Math.round(size*1.04)}" aria-hidden="true">
-    <g class="mon-b"><animateTransform attributeName="transform" type="translate" values="0 0;0 -2.6;0 0" dur="3.2s" repeatCount="indefinite" calcMode="spline" keyTimes="0;.5;1" keySplines=".4 0 .4 1;.4 0 .4 1"/>
-      <path d="M31 20c-2.5-7-3.5-11.5-2-13.5 2-2.5 7 3.5 10.5 9.5z"/>
-      <path d="M69 20c2.5-7 3.5-11.5 2-13.5-2-2.5-7 3.5-10.5 9.5z"/>
-      <ellipse cx="13" cy="58" rx="7" ry="10"><animateTransform attributeName="transform" type="rotate" values="0 15 50;-22 15 50;0 15 50" dur="2.4s" repeatCount="indefinite" calcMode="spline" keyTimes="0;.5;1" keySplines=".4 0 .4 1;.4 0 .4 1"/></ellipse>
-      <ellipse cx="87" cy="60" rx="7" ry="10"/>
-      <path d="M50 92C29 92 17 78 17 57 17 34 31 17 50 17s33 17 33 40c0 21-12 35-33 35z"/>
-      <ellipse cx="37" cy="95" rx="10" ry="6"/><ellipse cx="63" cy="95" rx="10" ry="6"/>
-      <g class="mon-e"><ellipse cx="38" cy="50" rx="10" ry="11">${blink}</ellipse><ellipse cx="62" cy="50" rx="10" ry="11">${blink}</ellipse></g>
-      <g class="mon-i"><ellipse cx="39.5" cy="52" rx="4.6" ry="5">${blink.replace(/11;11;1;11;11/,'5;5;.6;5;5')}</ellipse><ellipse cx="63.5" cy="52" rx="4.6" ry="5">${blink.replace(/11;11;1;11;11/,'5;5;.6;5;5')}</ellipse>
-        ${mouth}</g>
-    </g></svg>`; }
+  const bl=(a,b)=>`<animate attributeName="ry" values="${a};${a};${b};${a};${a}" dur="4.6s" keyTimes="0;.44;.48;.52;1" repeatCount="indefinite"/>`;
+  const happy = mood==='happy';
+  const mouth = happy
+    ? `<path d="M32 68c4 15 36 15 40 0z" fill="#2b0a4d"/>
+       <path d="M36.5 69.5h6l-3 8z" fill="#fff"/><path d="M61.5 69.5h6l-3 8z" fill="#fff"/>
+       <path d="M48 79.5h8l-4-6z" fill="#fff"/>
+       <path d="M42 76c5 5 15 5 20 0" fill="none" stroke="#ff7aa8" stroke-width="4" stroke-linecap="round"/>`
+    : `<path d="M35 68c4 11 30 11 34 0z" fill="#2b0a4d"/>
+       <path d="M39 69h5.5l-2.7 7z" fill="#fff"/><path d="M60 69h5.5l-2.7 7z" fill="#fff"/>`;
+  return `<svg class="mon" viewBox="0 0 104 110" width="${size}" height="${Math.round(size*1.06)}" aria-hidden="true">
+   <defs>
+     <linearGradient id="bkBody" x1="0" y1="0" x2="0" y2="1">
+       <stop offset="0" stop-color="#a855f7"/><stop offset="1" stop-color="#5b21b6"/></linearGradient>
+     <linearGradient id="bkHorn" x1="0" y1="0" x2="0" y2="1">
+       <stop offset="0" stop-color="#fef9c3"/><stop offset="1" stop-color="#f5b544"/></linearGradient>
+   </defs>
+   <g><animateTransform attributeName="transform" type="translate" values="0 0;0 -3;0 0" dur="3.2s" repeatCount="indefinite" calcMode="spline" keyTimes="0;.5;1" keySplines=".4 0 .4 1;.4 0 .4 1"/>
+     <path d="M85 82c11 1 17-6 15-15" fill="none" stroke="#5b21b6" stroke-width="7" stroke-linecap="round"/>
+     <path d="M104 61l-9 12-6-11z" fill="url(#bkHorn)"/>
+     <path d="M30 22L17 2l27 13z" fill="url(#bkHorn)"/>
+     <path d="M74 22L87 2 60 15z" fill="url(#bkHorn)"/>
+     <path d="M41 15l4-11 5 10zM52 13l4-12 5 11z" fill="url(#bkHorn)"/>
+     <g><animateTransform attributeName="transform" type="rotate" values="0 18 52;-24 18 52;0 18 52" dur="2.4s" repeatCount="indefinite" calcMode="spline" keyTimes="0;.5;1" keySplines=".4 0 .4 1;.4 0 .4 1"/>
+       <ellipse cx="13" cy="59" rx="8" ry="11" fill="#6d28d9"/>
+       <path d="M7 67l-4 6 5-1zM13 70l-1 7 4-5zM19 68l3 6 1-6z" fill="url(#bkHorn)"/></g>
+     <ellipse cx="91" cy="60" rx="8" ry="11" fill="#6d28d9"/>
+     <path d="M52 97C30 97 17 81 17 59 17 35 32 17 52 17s35 18 35 42c0 22-13 38-35 38z" fill="url(#bkBody)"/>
+     <ellipse cx="52" cy="72" rx="23" ry="19" fill="#c4a4f7" opacity=".45"/>
+     <path d="M36 98c7 0 11 3 11 6H27c-1-4 2-6 9-6zM68 98c7 0 10 2 9 6H57c0-3 4-6 11-6z" fill="#6d28d9"/>
+     <path d="M28 103l-2 5 4-3zM35 104v5l3-4zM42 103l3 5 1-5zM59 103l-2 5 4-3zM66 104v5l3-4zM73 103l3 5 1-5z" fill="url(#bkHorn)"/>
+     <g fill="#fff"><ellipse cx="39" cy="52" rx="12" ry="13">${bl(13,1)}</ellipse><ellipse cx="65" cy="52" rx="12" ry="13">${bl(13,1)}</ellipse></g>
+     <g fill="#2b0a4d"><ellipse cx="41" cy="54" rx="5.4" ry="6">${bl(6,'.7')}</ellipse><ellipse cx="67" cy="54" rx="5.4" ry="6">${bl(6,'.7')}</ellipse></g>
+     <g fill="#3b0764"><path d="M25 34l19 7-2 6-18-6z"/><path d="M79 34l-19 7 2 6 18-6z"/></g>
+     ${mouth}
+   </g></svg>`; }
 function mascot(text,mood,size){ return `<div class="mascot">${monster(size,mood)}<div class="bubble">${text}</div></div>`; }
 
 // ---------- Einrichtungs-Assistent ----------
