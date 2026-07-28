@@ -322,7 +322,7 @@ let sessions=DB.get('sessions',[]);
 let active=DB.get('active',null);
 let settings=DB.get('settings',{rest:90});
 let profile=DB.get('profile',{xp:0, theme:'system'});
-let devAdmin=DB.get('devadmin',false);
+let isAdmin=DB.get('isadmin',false);   // kommt aus profiles.is_admin, lokal gemerkt für offline
 let session=DB.get('session',null);
 const SUPA_URL='https://uvtxkdasgllnfkvtnkrq.supabase.co';
 const SUPA_KEY='sb_publishable_7UvOL7KzzgJK6om8OwUsSg_usOMz92l';
@@ -559,12 +559,12 @@ function renderSettings(){
       <button class="btn danger" data-act="resetall">Alles zurücksetzen</button>
       <div class="tiny muted" style="margin-top:6px">Löscht alle Trainings, Einheiten und den Fortschritt (zurück zum Start). Vorher am besten ein Backup speichern.</div>
     </div>`;
-  if(devAdmin) h+=`<button class="btn ghost" data-nav="admin" style="margin-top:14px;color:var(--muted)">Admin / Test</button>`;
+  if(isAdmin) h+=`<button class="btn ghost" data-nav="admin" style="margin-top:14px;color:var(--muted)">Admin / Test</button>`;
   app.innerHTML=h;
 }
 
 function renderAdmin(){
-  if(!devAdmin){ view='settings'; return renderSettings(); }
+  if(!isAdmin){ view='settings'; return renderSettings(); }
   document.getElementById('subtitle').textContent='Admin / Test';
   const lp=levelFromXP(profile.xp), rank=rankForLevel(lp.level);
   let h=`<button class="link" data-nav="settings">‹ Einstellungen</button>`;
@@ -665,8 +665,19 @@ async function cloudPush(){ if(!await ensureToken()) return false;
     setSync(r.ok); if(r.ok) setDirty(false); return r.ok; }
   catch(e){ setSync(false); return false; } }
 function scheduleSync(){ if(!session) return; setDirty(true); clearTimeout(syncT); syncT=setTimeout(cloudPush,2000); }
+// Admin-Rechte hängen am Konto (profiles.is_admin), nicht am Gerät.
+// Der Wert wird lokal gemerkt, damit der Bereich auch offline sichtbar bleibt.
+async function loadAdminFlag(){ if(!await ensureToken()) return;
+  try{ const r=await fetch(`${SUPA_URL}/rest/v1/profiles?id=eq.${session.user.id}&select=is_admin`,{headers:authHeaders(true)});
+    if(!r.ok) return; const rows=await r.json();
+    const v=!!(rows&&rows.length&&rows[0].is_admin);
+    if(v!==isAdmin){ isAdmin=v; DB.set('isadmin',v);
+      if(!v&&view==='admin') view='settings';
+      if(session) render(); } }
+  catch(e){} }
 // Beim Start: lokale ungesicherte Änderungen haben Vorrang, sonst Cloud laden.
 async function cloudSyncStart(){ if(!session) return;
+  loadAdminFlag();
   if(dirty){ await cloudPush(); return; }
   const res=await cloudPull(); if(!res.ok) return;
   if(res.data){ loadBlob(res.data); if(session) render(); } else await cloudPush(); }
@@ -677,7 +688,7 @@ async function authSignUp(username,email,password){ username=(username||'').trim
   const r=await fetch(`${SUPA_URL}/auth/v1/signup`,{method:'POST',headers:{'apikey':SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password,data:{username}})});
   const d=await r.json(); if(!r.ok) throw d.msg||d.error_description||d.error||'Registrierung fehlgeschlagen.';
   if(!d.access_token) throw 'Konto erstellt. Falls E-Mail-Bestätigung aktiv ist: E-Mail bestätigen, dann anmelden.';
-  setSession(d,username); setDirty(true); await cloudPush(); }
+  setSession(d,username); isAdmin=false; DB.set('isadmin',false); setDirty(true); await cloudPush(); }
 async function authSignIn(idOrEmail,password){ idOrEmail=(idOrEmail||'').trim();
   if(!idOrEmail||!password) throw 'Bitte E-Mail/Username und Passwort eingeben.';
   let email=idOrEmail; if(!idOrEmail.includes('@')){ email=await supaRPC('email_for_username',{uname:idOrEmail}); if(!email) throw 'Username nicht gefunden.'; }
@@ -686,6 +697,7 @@ async function authSignIn(idOrEmail,password){ idOrEmail=(idOrEmail||'').trim();
   setSession(d); const res=await cloudPull();
   if(res.ok && res.data) loadBlob(res.data);            // Konto hat Daten → die gelten
   else if(res.ok){ setDirty(true); await cloudPush(); } // Konto noch leer → lokale Daten übernehmen
+  await loadAdminFlag();
 }
 // Abmelden nur, wenn nichts Ungesichertes offen ist — sonst wären die Daten weg.
 async function authSignOut(){
@@ -694,6 +706,7 @@ async function authSignOut(){
   clearSession();
   plans=seedPlans(); sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null;
   DB.set('plans',plans); DB.set('sessions',sessions); DB.set('profile',profile); DB.set('settings',settings); DB.set('active',null);
+  isAdmin=false; DB.set('isadmin',false);
   setDirty(false); authMode='login'; view='home'; return true; }
 async function doAuth(mode){ const v=id=>{ const el=document.getElementById(id); return el?el.value:''; };
   const btn=document.querySelector('[data-act="doLogin"],[data-act="doRegister"]');
@@ -801,14 +814,6 @@ if(active) view='workout';
 render();                 // ohne Anmeldung erscheint hier das Login-Fenster
 cloudSyncStart();         // im Hintergrund; ohne Netz startet die App trotzdem normal
 window.addEventListener('online',()=>{ if(session&&dirty) cloudPush(); });
-
-// Versteckte Admin-Freischaltung: 5x auf den Titel tippen (nur auf Karls Gerät)
-(function(){ let n=0,t0=0; const el=document.getElementById('apptitle'); if(!el) return;
-  el.addEventListener('click',()=>{ const now=Date.now(); if(now-t0>1500) n=0; t0=now; n++;
-    if(n>=5){ n=0; devAdmin=!devAdmin; DB.set('devadmin',devAdmin);
-      toast(devAdmin?'Admin freigeschaltet':'Admin deaktiviert');
-      if(view==='settings') render(); else if(!devAdmin&&view==='admin'){ view='settings'; render(); } } });
-})();
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
