@@ -714,7 +714,9 @@ function renderOnboard(){
       ${[0,1,2,3,4,5,6].filter(x=>!days.includes(x)).map(x=>`<div class="row between muted"><span>${DAYLONG[x]}</span><span>Ruhetag</span></div>`).join('')}
     </div>
     <div class="tiny muted" style="margin-top:12px">${d.vol==='low'?'3 Sätze':'4 Sätze'} je Übung · ${d.vol==='low'?5:6} Übungen pro Einheit${d.favs.length?` · ${d.favs.length} Lieblingsübungen bevorzugt`:''}</div>
-    ${plans.length?`<div class="tiny" style="color:var(--danger);margin-top:10px">Deine bisherigen ${plans.length} Trainings werden dabei ersetzt.</div>`:''}
+    ${(obCanLeave()||sessions.length)&&plans.length
+      ? `<div class="tiny" style="color:var(--danger);margin-top:10px">Deine bisherigen ${plans.length} Trainings werden dabei ersetzt.</div>`
+      : ''}
     <button class="btn primary" style="margin-top:16px" data-act="ob:finish">Plan erstellen</button>
     <button class="link" data-act="ob:back" style="width:100%;text-align:center;margin-top:12px">Zurück</button>
     ${obCanLeave()?`<button class="link" data-act="ob:cancel" style="width:100%;text-align:center;margin-top:8px">Abbrechen — alles so lassen</button>`:''}</div>`; }
