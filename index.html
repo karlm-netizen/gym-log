@@ -105,6 +105,25 @@
   .del-x{color:var(--muted); background:none; font-size:20px; padding:4px 8px}
   .empty{text-align:center; color:var(--muted); padding:30px 10px}
   .ex-ico{flex:0 0 auto; display:grid; place-items:center; background:var(--card2); border:1px solid var(--line); border-radius:10px; color:var(--txt)}
+  .chip{background:var(--card2); border:1px solid var(--line); color:var(--txt); border-radius:11px;
+    padding:9px 12px; font-size:13px; font-weight:600}
+  .chip.on{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
+  .chip.big{padding:14px 0; font-size:17px; font-weight:800}
+  .ob-grid{display:grid; grid-template-columns:repeat(5,1fr); gap:8px}
+  .ob-days{display:grid; grid-template-columns:repeat(7,1fr); gap:6px}
+  .ob-days .chip{padding:11px 0; text-align:center}
+  .ob-favs{display:flex; flex-wrap:wrap; gap:7px}
+  .ob-favs .chip{padding:8px 11px; font-size:12.5px; font-weight:500}
+  .ob-dots{display:flex; gap:6px; justify-content:center; margin:2px 0 16px}
+  .ob-dots i{width:26px; height:4px; border-radius:99px; background:var(--line)}
+  .ob-dots i.on{background:var(--accent)}
+  .ob-opt{display:block; width:100%; text-align:left; background:var(--card2); border:1px solid var(--line);
+    border-radius:14px; padding:14px; margin-bottom:10px; color:var(--txt)}
+  .ob-opt.on{border-color:var(--accent)}
+  .ob-opt b{display:block; font-size:15px; margin-bottom:4px}
+  .ob-opt span{display:block; font-size:12.5px; color:var(--muted); line-height:1.55}
+  .ob-sum > div{padding:9px 0; border-bottom:1px solid var(--line); font-size:14px}
+  .ob-sum > div:last-child{border-bottom:none}
   .exa{fill:none; stroke:var(--txt); stroke-width:3; stroke-linecap:round; stroke-linejoin:round}
   .exa .ma{stroke:var(--accent); stroke-width:4.4}
   @media (prefers-reduced-motion: reduce){ .exa animate, .exa animateTransform{display:none} }
@@ -412,6 +431,9 @@ let sessions=DB.get('sessions',[]);
 let active=DB.get('active',null);
 let settings=DB.get('settings',{rest:90});
 let profile=DB.get('profile',{xp:0, theme:'system'});
+if(profile.vol==null) profile.vol='high';        // 'low' = wenig Sätze/Wdh, 'high' = viel
+if(profile.favs==null) profile.favs=[];          // Lieblingsübungen
+if(profile.days==null) profile.days=null;        // Trainingstage, 0=Mo … 6=So
 let devAdmin=DB.get('devadmin',false);
 let session=DB.get('session',null);
 const SUPA_URL='https://uvtxkdasgllnfkvtnkrq.supabase.co';
@@ -420,6 +442,65 @@ function save(){ DB.set('plans',plans); DB.set('sessions',sessions); DB.set('act
 
 let view='home', editPlanId=null, detailSessionId=null;
 const app=document.getElementById('app');
+
+// ---------- Einrichtung: Split, Volumen, Lieblingsübungen ----------
+const DAYNAME=['Mo','Di','Mi','Do','Fr','Sa','So'];
+const DAYLONG=['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
+function todayIdx(){ return (new Date().getDay()+6)%7; }   // 0 = Montag
+// Welcher Split bei wie vielen Tagen
+const SPLITS={
+ 2:[['Oberkörper','upper'],['Unterkörper','lower']],
+ 3:[['Push','push'],['Pull','pull'],['Beine','legs']],
+ 4:[['Oberkörper A','upperA'],['Unterkörper A','lowerA'],['Oberkörper B','upperB'],['Unterkörper B','lowerB']],
+ 5:[['Push','push'],['Pull','pull'],['Beine','legs'],['Oberkörper','upperB'],['Unterkörper','lowerB']],
+ 6:[['Push A','push'],['Pull A','pull'],['Beine A','legs'],['Push B','pushB'],['Pull B','pullB'],['Beine B','legsB']]
+};
+const DAYPOOL={
+ push:['Bankdrücken','Schrägbankdrücken','Schulterdrücken (KH)','Seitheben','Butterfly / Pec Deck','Trizepsdrücken (Kabel)'],
+ pushB:['Kurzhantel-Bankdrücken','Schulterdrücken (LH)','Kabel-Fliegende','Seitheben am Kabel','Dips (Brust)','Überkopf-Trizepsdrücken'],
+ pull:['Klimmzüge','Langhantelrudern','Latzug breit','Face Pulls','Bizeps-Curls (LH)','Hammer-Curls'],
+ pullB:['Latzug eng','Kabelrudern sitzend','T-Bar-Rudern','Reverse Butterfly','SZ-Curls','Kabel-Curls'],
+ legs:['Kniebeuge','Rumänisches Kreuzheben','Beinpresse','Beinbeuger','Wadenheben stehend','Crunches'],
+ legsB:['Frontkniebeuge','Kreuzheben','Hack Squat','Beinstrecker','Wadenheben sitzend','Beinheben liegend'],
+ upper:['Bankdrücken','Latzug breit','Schulterdrücken (KH)','Langhantelrudern','Bizeps-Curls (LH)','Trizepsdrücken (Kabel)'],
+ upperA:['Bankdrücken','Langhantelrudern','Schulterdrücken (LH)','Seitheben','Bizeps-Curls (LH)','Trizepsdrücken (Kabel)'],
+ upperB:['Schrägbankdrücken','Klimmzüge','Arnold-Press','Face Pulls','Hammer-Curls','Stirndrücken (French Press)'],
+ lower:['Kniebeuge','Rumänisches Kreuzheben','Beinpresse','Beinbeuger','Wadenheben stehend','Plank'],
+ lowerA:['Kniebeuge','Beinpresse','Beinbeuger','Wadenheben stehend','Crunches','Plank'],
+ lowerB:['Kreuzheben','Ausfallschritte','Beinstrecker','Hip Thrust','Wadenheben sitzend','Beinheben liegend']
+};
+// Auswahl für die Lieblingsübungen-Frage
+const FAVPOOL={
+ push:['Bankdrücken','Schrägbankdrücken','Kurzhantel-Bankdrücken','Butterfly / Pec Deck','Schulterdrücken (KH)','Seitheben','Dips (Brust)','Trizepsdrücken (Kabel)'],
+ pull:['Klimmzüge','Latzug breit','Langhantelrudern','Kabelrudern sitzend','T-Bar-Rudern','Face Pulls','Bizeps-Curls (LH)','Hammer-Curls'],
+ legs:['Kniebeuge','Frontkniebeuge','Beinpresse','Kreuzheben','Rumänisches Kreuzheben','Beinstrecker','Beinbeuger','Wadenheben stehend']
+};
+const FAVLABEL={push:'Brust · Schulter · Trizeps', pull:'Rücken · Bizeps', legs:'Beine'};
+function groupsOf(key){ return key.startsWith('upper')?['push','pull'] : key.startsWith('lower')?['legs']
+  : key.startsWith('push')?['push'] : key.startsWith('pull')?['pull'] : ['legs']; }
+function baseReps(name){ const e=EXLIB.find(x=>x.name===name); return e?e.reps:10; }
+function volSets(){ return profile.vol==='low'?3:4; }
+function volReps(name){ const b=baseReps(name);
+  return profile.vol==='low' ? Math.max(5,Math.round(b*0.7)) : Math.max(8,Math.round(b*1.2)); }
+function pickExercises(key){
+  const gs=groupsOf(key), pool=DAYPOOL[key]||DAYPOOL.upper, max=profile.vol==='low'?5:6;
+  const favs=(profile.favs||[]).filter(n=>gs.some(g=>FAVPOOL[g].includes(n)));
+  const out=[], seen=new Set();
+  favs.concat(pool).forEach(n=>{ if(!seen.has(n)&&out.length<max){ seen.add(n); out.push(n); } });
+  return out;
+}
+// Baut aus den Antworten fertige Trainings, je eins pro gewähltem Wochentag
+function buildPlans(){
+  const days=(profile.days||[]).slice().sort((a,b)=>a-b);
+  const split=SPLITS[Math.min(6,Math.max(2,days.length))]||SPLITS[3];
+  return days.map((d,i)=>{ const [nm,key]=split[i%split.length];
+    return { id:uid(), name:nm, day:d,
+      exercises:pickExercises(key).map(n=>({id:uid(),name:n,sets:volSets(),reps:volReps(n)})) }; });
+}
+function planForToday(){ const t=todayIdx(); return plans.find(p=>p.day===t)||null; }
+function nextTrainingDay(){ const t=todayIdx();
+  for(let i=1;i<=7;i++){ const d=(t+i)%7; const p=plans.find(x=>x.day===d); if(p) return {d,p}; }
+  return null; }
 
 function fmtDate(ts){ return new Date(ts).toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'}); }
 function fmtTime(ts){ return new Date(ts).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}); }
@@ -447,7 +528,7 @@ function setNav(){ const map=(view==='history'||view==='session'||view==='settin
 function render(){
   if(!session){ document.body.classList.add('gate'); renderAuthGate(); return; }
   document.body.classList.remove('gate'); setNav();
-  ({home:renderHome, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, rang:renderRang, settings:renderSettings, admin:renderAdmin}[view]||renderHome)(); }
+  ({home:renderHome, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, rang:renderRang, settings:renderSettings, admin:renderAdmin}[view]||renderHome)(); }
 
 function renderAuthGate(err){ const login=authMode==='login';
   document.getElementById('subtitle').textContent = login?'Anmelden':'Konto erstellen';
@@ -486,6 +567,78 @@ function rankCardHTML(){
   </div>`;
 }
 
+// ---------- Einrichtungs-Assistent ----------
+let obStep=0, obDraft=null;
+const OB_DEFDAYS={2:[0,3],3:[0,2,4],4:[0,1,3,4],5:[0,1,2,3,4],6:[0,1,2,3,4,5]};
+function startOnboard(){ obStep=0;
+  obDraft={ n:(profile.days&&profile.days.length)||3, days:(profile.days||OB_DEFDAYS[3]).slice(),
+            vol:profile.vol||'high', favs:(profile.favs||[]).slice() };
+  view='onboard'; render(); }
+function renderOnboard(){
+  const d=obDraft, last=5;
+  document.getElementById('subtitle').textContent='Einrichtung';
+  let h=`<div class="ob-dots">${[0,1,2,3,4,5].map(i=>`<i class="${i<=obStep?'on':''}"></i>`).join('')}</div>`;
+
+  if(obStep===0){ h+=`<div class="card">
+    <h2 style="margin-top:0">Lass uns deinen Plan bauen</h2>
+    <p class="muted" style="font-size:13.5px;line-height:1.65">Vier kurze Fragen — danach stehen deine Trainings fertig da,
+    mit Übungen, Sätzen und Wiederholungen. Ändern kannst du alles jederzeit.</p>
+    <button class="btn primary" data-act="ob:next">Los geht's</button>
+    <button class="link" data-act="ob:skip" style="width:100%;text-align:center;margin-top:12px">Überspringen</button></div>`; }
+
+  else if(obStep===1){ h+=`<div class="card">
+    <h2 style="margin-top:0">Wie oft pro Woche?</h2>
+    <p class="muted tiny" style="margin-bottom:14px">Danach richtet sich, wie dein Split aufgeteilt wird.</p>
+    <div class="ob-grid">${[2,3,4,5,6].map(n=>`<button class="chip big ${d.n===n?'on':''}" data-act="ob:n:${n}">${n}×</button>`).join('')}</div>
+    <div class="tiny muted" style="margin-top:12px">${splitHint(d.n)}</div>
+    ${obNav()}</div>`; }
+
+  else if(obStep===2){ h+=`<div class="card">
+    <h2 style="margin-top:0">An welchen Tagen?</h2>
+    <p class="muted tiny" style="margin-bottom:14px">Ausgewählt = Training, Rest = Ruhetag. Du hast ${d.days.length} von ${d.n} gewählt.</p>
+    <div class="ob-days">${DAYNAME.map((n,i)=>`<button class="chip ${d.days.includes(i)?'on':''}" data-act="ob:day:${i}">${n}</button>`).join('')}</div>
+    ${d.days.length===0?`<div class="tiny" style="color:var(--danger);margin-top:12px">Wähle mindestens einen Tag.</div>`:''}
+    ${obNav(d.days.length===0)}</div>`; }
+
+  else if(obStep===3){ h+=`<div class="card">
+    <h2 style="margin-top:0">Wie trainierst du lieber?</h2>
+    <button class="ob-opt ${d.vol==='low'?'on':''}" data-act="ob:vol:low">
+      <b>Wenig Volumen</b><span>3 Sätze, weniger Wiederholungen mit mehr Gewicht. Kürzere Einheiten, Fokus auf Kraft.</span></button>
+    <button class="ob-opt ${d.vol==='high'?'on':''}" data-act="ob:vol:high">
+      <b>Viel Volumen</b><span>4 Sätze, mehr Wiederholungen. Längere Einheiten, Fokus auf Muskelaufbau.</span></button>
+    ${obNav()}</div>`; }
+
+  else if(obStep===4){ h+=`<div class="card">
+    <h2 style="margin-top:0">Lieblingsübungen?</h2>
+    <p class="muted tiny" style="margin-bottom:6px">Optional — was du hier wählst, kommt in deinen Trainings zuerst.</p>
+    ${Object.keys(FAVPOOL).map(g=>`<div style="margin-top:14px">
+      <div class="tiny muted" style="margin-bottom:7px">${FAVLABEL[g]}</div>
+      <div class="ob-favs">${FAVPOOL[g].map(n=>`<button class="chip ${d.favs.includes(n)?'on':''}" data-fav="${esc(n)}">${esc(n)}</button>`).join('')}</div></div>`).join('')}
+    ${obNav()}</div>`; }
+
+  else { const days=d.days.slice().sort((a,b)=>a-b);
+    const split=SPLITS[Math.min(6,Math.max(2,days.length))]||SPLITS[3];
+    h+=`<div class="card">
+    <h2 style="margin-top:0">Passt das so?</h2>
+    <div class="ob-sum">
+      ${days.map((x,i)=>`<div class="row between"><span>${DAYLONG[x]}</span><b>${split[i%split.length][0]}</b></div>`).join('')}
+      ${[0,1,2,3,4,5,6].filter(x=>!days.includes(x)).map(x=>`<div class="row between muted"><span>${DAYLONG[x]}</span><span>Ruhetag</span></div>`).join('')}
+    </div>
+    <div class="tiny muted" style="margin-top:12px">${d.vol==='low'?'3 Sätze':'4 Sätze'} je Übung · ${d.vol==='low'?5:6} Übungen pro Einheit${d.favs.length?` · ${d.favs.length} Lieblingsübungen bevorzugt`:''}</div>
+    ${plans.length?`<div class="tiny" style="color:var(--danger);margin-top:10px">Deine bisherigen ${plans.length} Trainings werden dabei ersetzt.</div>`:''}
+    <button class="btn primary" style="margin-top:16px" data-act="ob:finish">Plan erstellen</button>
+    <button class="link" data-act="ob:back" style="width:100%;text-align:center;margin-top:12px">Zurück</button></div>`; }
+
+  app.innerHTML=h;
+}
+function obNav(disabled){ return `<div class="fab-row" style="margin-top:18px">
+  <button class="btn ghost" data-act="ob:back">Zurück</button>
+  <button class="btn primary" data-act="ob:next" ${disabled?'disabled style="opacity:.45"':''}>Weiter</button></div>`; }
+function splitHint(n){ return ({2:'Oberkörper und Unterkörper im Wechsel.',3:'Push, Pull und Beine — der Klassiker.',
+  4:'Oberkörper und Unterkörper, je zweimal mit anderen Übungen.',5:'Push, Pull, Beine plus zwei gemischte Tage.',
+  6:'Push, Pull, Beine — zweimal durch die Woche.'})[n]||''; }
+
+// ---------- Start ----------
 function renderHome(){
   document.getElementById('subtitle').textContent='Dein Trainings-Begleiter';
   const week=sessions.filter(s=>Date.now()-s.date<7*864e5).length;
@@ -500,16 +653,37 @@ function renderHome(){
     <div class="stat"><b>${sessions.length}</b><span>Einheiten</span></div>
     <div class="stat"><b>${week}</b><span>diese Woche</span></div>
     <div class="stat"><b>${totalVol>=1000?(totalVol/1000).toFixed(1)+'t':totalVol}</b><span>${totalVol>=1000?'Volumen':'kg Vol.'}</span></div></div>`;
-  h+=`<div class="row between" style="margin:22px 4px 6px"><h2>Trainings</h2><button class="link" data-act="newplan">+ Neu</button></div>`;
-  if(plans.length===0){ h+=`<div class="empty">Noch keine Trainings.<br>Tipp „+ Neu" und bau dir eins.</div>`; }
-  else plans.forEach(p=>{ h+=`<div class="card">
+
+  const p=planForToday();
+  h+=`<div class="row between" style="margin:22px 4px 6px"><h2>Heute · ${DAYLONG[todayIdx()]}</h2></div>`;
+  if(p){ h+=`<div class="card" style="border-color:var(--accent)">
+      <div class="plan-chip"><span class="dot"></span><b>${esc(p.name)}</b></div>
+      <div class="muted tiny" style="margin-top:6px">${p.exercises.length} Übungen · ${esc(p.exercises.map(e=>e.name).filter(Boolean).slice(0,3).join(', '))}${p.exercises.length>3?' …':''}</div>
+      <button class="btn primary" style="margin-top:12px" data-startplan="${p.id}">Starten</button></div>`; }
+  else { const nx=nextTrainingDay();
+    h+=`<div class="card"><b>Ruhetag</b>
+      <div class="muted tiny" style="margin-top:6px">${nx?`Weiter geht's am ${DAYLONG[nx.d]} mit ${esc(nx.p.name)}.`:'Noch keine Trainingstage festgelegt.'}</div>
+      ${plans.length?'':`<button class="btn primary" style="margin-top:12px" data-act="ob:start">Plan einrichten</button>`}</div>`; }
+
+  h+=`<div class="card" data-nav="plans" style="cursor:pointer;margin-top:10px"><div class="row between">
+      <b>Alle Trainings</b><span class="muted">${plans.length} ›</span></div></div>`;
+  h+=`<button class="btn" style="margin-top:8px" data-act="freestyle">Freies Training</button>`;
+  app.innerHTML=h;
+}
+
+function renderPlans(){
+  document.getElementById('subtitle').textContent='Alle Trainings';
+  let h=`<button class="link" data-nav="home">‹ Start</button>
+    <div class="row between" style="margin:6px 4px 6px"><h2>Trainings</h2><button class="link" data-act="newplan">+ Neu</button></div>`;
+  if(plans.length===0){ h+=`<div class="empty">Noch keine Trainings.<br>Tipp „+ Neu" oder richte einen Plan ein.</div>`; }
+  else plans.slice().sort((a,b)=>(a.day==null?9:a.day)-(b.day==null?9:b.day)).forEach(p=>{ h+=`<div class="card">
     <div class="row between">
-      <div><div class="plan-chip"><span class="dot"></span><b>${esc(p.name)}</b></div>
+      <div><div class="plan-chip"><span class="dot"></span><b>${esc(p.name)}</b>${p.day!=null?`<span class="pill" style="margin-left:8px">${DAYNAME[p.day]}</span>`:''}</div>
         <div class="muted tiny" style="margin-top:4px">${p.exercises.length} Übungen · ${esc(p.exercises.map(e=>e.name).filter(Boolean).slice(0,3).join(', '))}${p.exercises.length>3?' …':''}</div></div>
       <button class="btn sm ghost link" data-editplan="${p.id}">Bearbeiten</button>
     </div>
     <button class="btn primary" style="margin-top:12px" data-startplan="${p.id}">Starten</button></div>`; });
-  h+=`<button class="btn" style="margin-top:8px" data-act="freestyle">Freies Training</button>`;
+  h+=`<button class="btn ghost" style="margin-top:14px" data-act="ob:start">Plan neu einrichten</button>`;
   app.innerHTML=h;
 }
 
@@ -517,6 +691,9 @@ function renderPlan(){
   const p=plans.find(x=>x.id===editPlanId); if(!p){ view='home'; return render(); }
   document.getElementById('subtitle').textContent='Training bearbeiten';
   let h=`<div class="field"><label>Name des Trainings</label><input id="planName" value="${esc(p.name)}" placeholder="z.B. Push"></div>
+    <div class="field" style="margin-top:2px"><label>Wochentag</label>
+      <div class="ob-days">${DAYNAME.map((n,i)=>`<button class="chip ${p.day===i?'on':''}" data-planday="${i}">${n}</button>`).join('')}</div>
+      <div class="tiny muted" style="margin-top:7px">Bestimmt, wann dieses Training auf der Startseite erscheint. Nochmal tippen = kein fester Tag.</div></div>
     <div class="row between" style="margin:16px 4px 4px"><h2>Übungen</h2></div>`;
   p.exercises.forEach((e,i)=>{ h+=`<div class="card">
     <div class="row" style="gap:8px">
@@ -629,6 +806,10 @@ function renderSettings(){
       <div class="row between"><div class="row" style="gap:10px">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v5h5"/><path d="M12 8v4l3 2"/></svg>
         <b>Verlauf & Rekorde</b></div><span class="muted">›</span></div></div>`;
+  h+=`<div class="card" data-act="ob:start" style="cursor:pointer">
+      <div class="row between"><div class="row" style="gap:10px">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M8 14h3M8 17.5h6"/></svg>
+        <div><b>Trainingsplan einrichten</b><div class="tiny muted">Split, Tage und Volumen neu festlegen</div></div></div><span class="muted">›</span></div></div>`;
   h+=`<div class="card">
       <label class="tiny muted" style="display:block;margin-bottom:6px">Ansicht</label>
       <div class="fab-row" style="margin-bottom:6px">
@@ -789,7 +970,8 @@ async function doAuth(mode){ const v=id=>{ const el=document.getElementById(id);
   const btn=document.querySelector('[data-act="doLogin"],[data-act="doRegister"]');
   if(btn){ btn.disabled=true; btn.textContent='Moment …'; }
   try{ if(mode==='register') await authSignUp(v('au_user'),v('au_id'),v('au_pw')); else await authSignIn(v('au_id'),v('au_pw'));
-    view = active ? 'workout' : 'home'; render(); toast('Angemeldet'); }
+    if(active) view='workout'; else if(!profile.onboarded) return startOnboard(); else view='home';
+    render(); toast('Angemeldet'); }
   catch(e){ renderAuthGate(typeof e==='string'?e:'Fehler — bitte nochmal.'); } }
 
 // ---------- Training ----------
@@ -823,8 +1005,12 @@ function confirmTwice(key,btn,label,run){ if(armed[key]){ clearTimeout(armed[key
 if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ if((profile.theme||'system')==='system') applyTheme(); }); }
 
 document.addEventListener('click',ev=>{
-  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin]');
+  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday]');
   if(!t) return;
+  if(t.dataset.fav){ const n=t.dataset.fav, i=obDraft.favs.indexOf(n);
+    if(i<0) obDraft.favs.push(n); else obDraft.favs.splice(i,1); renderOnboard(); return; }
+  if(t.dataset.planday){ syncPlanInputs(); const p=plans.find(x=>x.id===editPlanId);
+    if(p){ const v=+t.dataset.planday; p.day = (p.day===v) ? null : v; save(); } render(); return; }
   if(t.dataset.setbase){ profile.theme=t.dataset.setbase; save(); applyTheme(); render(); return; }
   if(t.dataset.admin){ const [cmd,arg]=t.dataset.admin.split(':'); const cur=levelFromXP(profile.xp).level;
     if(cmd==='xp') profile.xp=Math.max(0,profile.xp+(+arg));
@@ -852,7 +1038,19 @@ document.addEventListener('click',ev=>{
   const a=t.dataset.act;
   if(a==='resume'){ view='workout'; render(); }
   else if(a==='discard'){ confirmTwice('disc',t,'Wirklich verwerfen?',()=>{ active=null; save(); stopRest(); paintTimer(); render(); }); }
-  else if(a==='newplan'){ const p={id:uid(),name:'Neues Training',exercises:[{id:uid(),name:'',sets:3,reps:10}]}; plans.push(p); save(); editPlanId=p.id; view='plan'; render(); }
+  else if(a==='ob:start'){ startOnboard(); }
+  else if(a==='ob:next'){ if(obStep===1&&!obDraft.days.length) obDraft.days=(OB_DEFDAYS[obDraft.n]||OB_DEFDAYS[3]).slice();
+    obStep=Math.min(5,obStep+1); renderOnboard(); }
+  else if(a==='ob:back'){ if(obStep===0){ view='home'; render(); } else { obStep--; renderOnboard(); } }
+  else if(a==='ob:skip'){ profile.onboarded=true; save(); view='home'; render(); }
+  else if(a&&a.startsWith('ob:n:')){ obDraft.n=+a.slice(5); obDraft.days=(OB_DEFDAYS[obDraft.n]||OB_DEFDAYS[3]).slice(); renderOnboard(); }
+  else if(a&&a.startsWith('ob:day:')){ const i=+a.slice(7), k=obDraft.days.indexOf(i);
+    if(k<0) obDraft.days.push(i); else obDraft.days.splice(k,1); renderOnboard(); }
+  else if(a&&a.startsWith('ob:vol:')){ obDraft.vol=a.slice(7); renderOnboard(); }
+  else if(a==='ob:finish'){ profile.days=obDraft.days.slice().sort((x,y)=>x-y); profile.vol=obDraft.vol;
+    profile.favs=obDraft.favs.slice(); profile.onboarded=true;
+    plans=buildPlans(); active=null; save(); view='home'; render(); toast('Plan steht — viel Erfolg!'); }
+  else if(a==='newplan'){ const p={id:uid(),name:'Neues Training',day:null,exercises:[{id:uid(),name:'',sets:volSets(),reps:10}]}; plans.push(p); save(); editPlanId=p.id; view='plan'; render(); }
   else if(a==='freestyle'){ startWorkout({id:'free',name:'Freies Training',exercises:[{id:uid(),name:'Übung 1',sets:3,reps:10}]}); }
   else if(a==='addex'){ plans.find(x=>x.id===editPlanId).exercises.push({id:uid(),name:'',sets:3,reps:10}); save(); render(); }
   else if(a==='library'){ openLibrary(); }
@@ -888,6 +1086,7 @@ document.addEventListener('change',ev=>{ if(ev.target && ev.target.id==='importF
 // ---------- Start ----------
 applyTheme();
 if(active) view='workout';
+else if(session && !profile.onboarded) startOnboard();   // neues Konto → erst der Assistent
 render();                 // ohne Anmeldung erscheint hier das Login-Fenster
 cloudSyncStart();         // im Hintergrund; ohne Netz startet die App trotzdem normal
 window.addEventListener('online',()=>{ if(session&&dirty) cloudPush(); });
