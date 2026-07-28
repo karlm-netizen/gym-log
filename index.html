@@ -970,8 +970,9 @@ async function doAuth(mode){ const v=id=>{ const el=document.getElementById(id);
   const btn=document.querySelector('[data-act="doLogin"],[data-act="doRegister"]');
   if(btn){ btn.disabled=true; btn.textContent='Moment …'; }
   try{ if(mode==='register') await authSignUp(v('au_user'),v('au_id'),v('au_pw')); else await authSignIn(v('au_id'),v('au_pw'));
-    if(active) view='workout'; else if(!profile.onboarded) return startOnboard(); else view='home';
-    render(); toast('Angemeldet'); }
+    // Nach einer Registrierung immer einrichten, beim Anmelden nur wenn noch nie geschehen.
+    if(mode==='register' || !profile.onboarded) return startOnboard();
+    view = active ? 'workout' : 'home'; render(); toast('Angemeldet'); }
   catch(e){ renderAuthGate(typeof e==='string'?e:'Fehler — bitte nochmal.'); } }
 
 // ---------- Training ----------
