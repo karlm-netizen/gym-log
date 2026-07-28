@@ -595,19 +595,14 @@ function monster(size,mood,stage){ size=size||86;
   const nSpike = st<2?0 : st<5?2 : st<7?3 : 4;
   const hc = BK_HORN[st]||BK_HORN[0], gid='bkH'+st;
   // Flex-Pose: Bizeps und Schultern wachsen mit dem Rang
-  const aw=(6+f*5).toFixed(1), bx=(7+f*5).toFixed(1), by=(6+f*3).toFixed(1), fr=(5+f*2.6).toFixed(1);
-  const flex=(a,b)=>`<animate attributeName="rx" values="${a};${b};${a}" dur="2.6s" repeatCount="indefinite" calcMode="spline" keyTimes="0;.5;1" keySplines=".4 0 .4 1;.4 0 .4 1"/>`;
-  const armSide=(sx,ex,fx,mir)=>`
-    <g stroke="#6d28d9" stroke-width="${aw}" stroke-linecap="round" fill="none">
-      <path d="M${sx} 62L${ex} 66"/><path d="M${ex} 66L${fx} 44"/></g>
-    <ellipse cx="${(ex+(fx-ex)*0.45).toFixed(1)}" cy="55" rx="${bx}" ry="${by}" fill="#8b46f0"
-      transform="rotate(${mir?26:-26} ${(ex+(fx-ex)*0.45).toFixed(1)} 55)">${flex(bx,(+bx+1.6).toFixed(1))}</ellipse>
-    <circle cx="${fx}" cy="42" r="${fr}" fill="#6d28d9"/>
-    <path d="M${fx-4.5} 37l-1.5-5 3.5 3zM${fx} 35l0-5.5 2.5 4.5zM${fx+4.5} 37l3.5-4 0 5z" fill="url(#${gid})"/>`;
-  const arms = armSide(26,7,13,0) + armSide(78,97,91,1);
-  const delts = st<2 ? '' :
-    `<ellipse cx="25" cy="47" rx="${(5+f*5).toFixed(1)}" ry="${(6+f*4).toFixed(1)}" fill="#8b46f0" opacity=".9"/>
-     <ellipse cx="79" cy="47" rx="${(5+f*5).toFixed(1)}" ry="${(6+f*4).toFixed(1)}" fill="#8b46f0" opacity=".9"/>`;
+  const ar=(7+f*1.6).toFixed(1);                                     // schlichte Ärmchen, keine Muskeln
+  const arms = `
+    <g><animateTransform attributeName="transform" type="rotate" values="0 20 54;-22 20 54;0 20 54" dur="2.4s" repeatCount="indefinite" calcMode="spline" keyTimes="0;.5;1" keySplines=".4 0 .4 1;.4 0 .4 1"/>
+      <ellipse cx="14" cy="59" rx="${ar}" ry="${(+ar+3).toFixed(1)}" fill="#6d28d9"/>
+      <path d="M8 68l-4 6 5-1zM14 71l-1 7 4-5zM20 69l3 6 1-6z" fill="url(#${gid})"/></g>
+    <ellipse cx="90" cy="60" rx="${ar}" ry="${(+ar+3).toFixed(1)}" fill="#6d28d9"/>
+    <path d="M84 69l-4 6 5-1zM90 72l-1 7 4-5zM96 70l3 6 1-6z" fill="url(#${gid})"/>`;
+  const delts = '';
   const bl=(a,b)=>`<animate attributeName="ry" values="${a};${a};${b};${a};${a}" dur="4.6s" keyTimes="0;.44;.48;.52;1" repeatCount="indefinite"/>`;
   const happy = mood==='happy';
   const eyeInk = st>=6 ? hc[1] : '#2b0a4d';
