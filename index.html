@@ -157,8 +157,8 @@
   nav button{flex:1; background:none; padding:9px 0 8px; color:var(--muted); display:flex; flex-direction:column;
     align-items:center; gap:3px; font-size:11px}
   nav button.on{color:var(--accent)} nav svg{width:22px;height:22px}
-  body.gate #nav, body.gate #timerbar{display:none}
-  body.gate main{padding-bottom:32px}
+  body.gate #nav, body.gate #timerbar, body.setup #nav, body.setup #timerbar{display:none}
+  body.gate main, body.setup main{padding-bottom:32px}
   .gate-hero{text-align:center; margin:18px 0 22px}
   .gate-hero .big{font-size:22px; font-weight:800; margin-bottom:6px}
   .toast{position:fixed; left:50%; bottom:120px; transform:translateX(-50%); background:var(--ok); color:var(--bg);
@@ -526,8 +526,10 @@ function applyTheme(){
 function setNav(){ const map=(view==='history'||view==='session'||view==='settings'||view==='admin')?'settings':(view==='rang')?'rang':'home';
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on', b.dataset.nav===map)); }
 function render(){
-  if(!session){ document.body.classList.add('gate'); renderAuthGate(); return; }
-  document.body.classList.remove('gate'); setNav();
+  if(!session){ document.body.classList.add('gate'); document.body.classList.remove('setup'); renderAuthGate(); return; }
+  document.body.classList.remove('gate');
+  document.body.classList.toggle('setup', view==='onboard');   // Assistent: untere Leiste ausblenden
+  setNav();
   ({home:renderHome, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, rang:renderRang, settings:renderSettings, admin:renderAdmin}[view]||renderHome)(); }
 
 function renderAuthGate(err){ const login=authMode==='login';
@@ -583,8 +585,7 @@ function renderOnboard(){
     <h2 style="margin-top:0">Lass uns deinen Plan bauen</h2>
     <p class="muted" style="font-size:13.5px;line-height:1.65">Vier kurze Fragen — danach stehen deine Trainings fertig da,
     mit Übungen, Sätzen und Wiederholungen. Ändern kannst du alles jederzeit.</p>
-    <button class="btn primary" data-act="ob:next">Los geht's</button>
-    <button class="link" data-act="ob:skip" style="width:100%;text-align:center;margin-top:12px">Überspringen</button></div>`; }
+    <button class="btn primary" data-act="ob:next">Los geht's</button></div>`; }
 
   else if(obStep===1){ h+=`<div class="card">
     <h2 style="margin-top:0">Wie oft pro Woche?</h2>
@@ -1042,8 +1043,7 @@ document.addEventListener('click',ev=>{
   else if(a==='ob:start'){ startOnboard(); }
   else if(a==='ob:next'){ if(obStep===1&&!obDraft.days.length) obDraft.days=(OB_DEFDAYS[obDraft.n]||OB_DEFDAYS[3]).slice();
     obStep=Math.min(5,obStep+1); renderOnboard(); }
-  else if(a==='ob:back'){ if(obStep===0){ view='home'; render(); } else { obStep--; renderOnboard(); } }
-  else if(a==='ob:skip'){ profile.onboarded=true; save(); view='home'; render(); }
+  else if(a==='ob:back'){ if(obStep>0){ obStep--; renderOnboard(); } }   // Schritt 0 ist der Anfang, kein Ausstieg
   else if(a&&a.startsWith('ob:n:')){ obDraft.n=+a.slice(5); obDraft.days=(OB_DEFDAYS[obDraft.n]||OB_DEFDAYS[3]).slice(); renderOnboard(); }
   else if(a&&a.startsWith('ob:day:')){ const i=+a.slice(7), k=obDraft.days.indexOf(i);
     if(k<0) obDraft.days.push(i); else obDraft.days.splice(k,1); renderOnboard(); }
