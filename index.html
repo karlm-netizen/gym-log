@@ -597,11 +597,11 @@ function monster(size,mood,stage){ size=size||86;
   // Flex-Pose: Bizeps und Schultern wachsen mit dem Rang
   const ar=(7+f*1.6).toFixed(1);                                     // schlichte Ärmchen, keine Muskeln
   const arms = `
-    <g><animateTransform attributeName="transform" type="rotate" values="0 20 54;-22 20 54;0 20 54" dur="2.4s" repeatCount="indefinite" calcMode="spline" keyTimes="0;.5;1" keySplines=".4 0 .4 1;.4 0 .4 1"/>
-      <ellipse cx="14" cy="59" rx="${ar}" ry="${(+ar+3).toFixed(1)}" fill="#6d28d9"/>
-      <path d="M8 68l-4 6 5-1zM14 71l-1 7 4-5zM20 69l3 6 1-6z" fill="url(#${gid})"/></g>
-    <ellipse cx="90" cy="60" rx="${ar}" ry="${(+ar+3).toFixed(1)}" fill="#6d28d9"/>
-    <path d="M84 69l-4 6 5-1zM90 72l-1 7 4-5zM96 70l3 6 1-6z" fill="url(#${gid})"/>`;
+    <g><animateTransform attributeName="transform" type="rotate" values="0 22 70;-18 22 70;0 22 70" dur="2.4s" repeatCount="indefinite" calcMode="spline" keyTimes="0;.5;1" keySplines=".4 0 .4 1;.4 0 .4 1"/>
+      <ellipse cx="15" cy="75" rx="${ar}" ry="${(+ar+3).toFixed(1)}" fill="#6d28d9"/>
+      <path d="M9 84l-4 6 5-1zM15 87l-1 7 4-5zM21 85l3 6 1-6z" fill="url(#${gid})"/></g>
+    <ellipse cx="89" cy="76" rx="${ar}" ry="${(+ar+3).toFixed(1)}" fill="#6d28d9"/>
+    <path d="M83 85l-4 6 5-1zM89 88l-1 7 4-5zM95 86l3 6 1-6z" fill="url(#${gid})"/>`;
   const delts = '';
   const bl=(a,b)=>`<animate attributeName="ry" values="${a};${a};${b};${a};${a}" dur="4.6s" keyTimes="0;.44;.48;.52;1" repeatCount="indefinite"/>`;
   const happy = mood==='happy';
