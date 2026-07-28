@@ -654,10 +654,14 @@ const OB_SAY=[
  'Hast du Lieblingsübungen? Die pack ich dir nach vorn.',
  'Alles klar! Schau nochmal drüber, dann leg ich los.'
 ];
+let obReturn='home';   // wohin „Abbrechen" zurückführt
 function startOnboard(){ obStep=0;
+  if(view!=='onboard') obReturn=(view==='settings'||view==='plans')?view:'home';
   obDraft={ n:(profile.days&&profile.days.length)||3, days:(profile.days||OB_DEFDAYS[3]).slice(),
             vol:profile.vol||'high', favs:(profile.favs||[]).slice() };
   view='onboard'; render(); }
+// Beim allerersten Mal (frisch registriert) gibt es keinen Ausweg — danach schon.
+function obCanLeave(){ return !!profile.onboarded; }
 function renderOnboard(){
   const d=obDraft, last=5;
   document.getElementById('subtitle').textContent='Einrichtung';
@@ -668,7 +672,8 @@ function renderOnboard(){
     <h2 style="margin-top:0">Lass uns deinen Plan bauen</h2>
     <p class="muted" style="font-size:13.5px;line-height:1.65">Vier kurze Fragen — danach stehen deine Trainings fertig da,
     mit Übungen, Sätzen und Wiederholungen. Ändern kannst du alles jederzeit.</p>
-    <button class="btn primary" data-act="ob:next">Los geht's</button></div>`; }
+    <button class="btn primary" data-act="ob:next">Los geht's</button>
+    ${obCanLeave()?`<button class="link" data-act="ob:cancel" style="width:100%;text-align:center;margin-top:12px">Abbrechen — alles so lassen</button>`:''}</div>`; }
 
   else if(obStep===1){ h+=`<div class="card">
     <h2 style="margin-top:0">Wie oft pro Woche?</h2>
@@ -711,13 +716,15 @@ function renderOnboard(){
     <div class="tiny muted" style="margin-top:12px">${d.vol==='low'?'3 Sätze':'4 Sätze'} je Übung · ${d.vol==='low'?5:6} Übungen pro Einheit${d.favs.length?` · ${d.favs.length} Lieblingsübungen bevorzugt`:''}</div>
     ${plans.length?`<div class="tiny" style="color:var(--danger);margin-top:10px">Deine bisherigen ${plans.length} Trainings werden dabei ersetzt.</div>`:''}
     <button class="btn primary" style="margin-top:16px" data-act="ob:finish">Plan erstellen</button>
-    <button class="link" data-act="ob:back" style="width:100%;text-align:center;margin-top:12px">Zurück</button></div>`; }
+    <button class="link" data-act="ob:back" style="width:100%;text-align:center;margin-top:12px">Zurück</button>
+    ${obCanLeave()?`<button class="link" data-act="ob:cancel" style="width:100%;text-align:center;margin-top:8px">Abbrechen — alles so lassen</button>`:''}</div>`; }
 
   app.innerHTML=h;
 }
 function obNav(disabled){ return `<div class="fab-row" style="margin-top:18px">
   <button class="btn ghost" data-act="ob:back">Zurück</button>
-  <button class="btn primary" data-act="ob:next" ${disabled?'disabled style="opacity:.45"':''}>Weiter</button></div>`; }
+  <button class="btn primary" data-act="ob:next" ${disabled?'disabled style="opacity:.45"':''}>Weiter</button></div>
+  ${obCanLeave()?`<button class="link" data-act="ob:cancel" style="width:100%;text-align:center;margin-top:12px">Abbrechen — alles so lassen</button>`:''}`; }
 function splitHint(n){ return ({2:'Oberkörper und Unterkörper im Wechsel.',3:'Push, Pull und Beine — der Klassiker.',
   4:'Oberkörper und Unterkörper, je zweimal mit anderen Übungen.',5:'Push, Pull, Beine plus zwei gemischte Tage.',
   6:'Push, Pull, Beine — zweimal durch die Woche.'})[n]||''; }
@@ -1131,7 +1138,9 @@ document.addEventListener('click',ev=>{
   else if(a==='ob:start'){ startOnboard(); }
   else if(a==='ob:next'){ if(obStep===1&&!obDraft.days.length) obDraft.days=(OB_DEFDAYS[obDraft.n]||OB_DEFDAYS[3]).slice();
     obStep=Math.min(5,obStep+1); renderOnboard(); }
-  else if(a==='ob:back'){ if(obStep>0){ obStep--; renderOnboard(); } }   // Schritt 0 ist der Anfang, kein Ausstieg
+  else if(a==='ob:back'){ if(obStep>0){ obStep--; renderOnboard(); }
+    else if(obCanLeave()){ view=obReturn; render(); } }                  // frisch registriert: kein Ausstieg
+  else if(a==='ob:cancel'){ if(obCanLeave()){ view=obReturn; render(); toast('Nichts geändert'); } }
   else if(a&&a.startsWith('ob:n:')){ obDraft.n=+a.slice(5); obDraft.days=(OB_DEFDAYS[obDraft.n]||OB_DEFDAYS[3]).slice(); renderOnboard(); }
   else if(a&&a.startsWith('ob:day:')){ const i=+a.slice(7), k=obDraft.days.indexOf(i);
     if(k<0) obDraft.days.push(i); else obDraft.days.splice(k,1); renderOnboard(); }
