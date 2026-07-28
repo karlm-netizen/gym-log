@@ -135,6 +135,10 @@
   nav button{flex:1; background:none; padding:9px 0 8px; color:var(--muted); display:flex; flex-direction:column;
     align-items:center; gap:3px; font-size:11px}
   nav button.on{color:var(--accent)} nav svg{width:22px;height:22px}
+  body.gate #nav, body.gate #timerbar{display:none}
+  body.gate main{padding-bottom:32px}
+  .gate-hero{text-align:center; margin:18px 0 22px}
+  .gate-hero .big{font-size:22px; font-weight:800; margin-bottom:6px}
   .toast{position:fixed; left:50%; bottom:120px; transform:translateX(-50%); background:var(--ok); color:var(--bg);
     padding:10px 16px; border-radius:12px; font-weight:700; z-index:60; opacity:0; transition:opacity .2s;
     pointer-events:none; max-width:88%; text-align:center}
@@ -350,8 +354,26 @@ function applyTheme(){
 // ---------- Rendering ----------
 function setNav(){ const map=(view==='history'||view==='session'||view==='settings'||view==='admin')?'settings':(view==='rang')?'rang':'home';
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on', b.dataset.nav===map)); }
-function render(){ setNav();
+function render(){
+  if(!session){ document.body.classList.add('gate'); renderAuthGate(); return; }
+  document.body.classList.remove('gate'); setNav();
   ({home:renderHome, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, rang:renderRang, settings:renderSettings, admin:renderAdmin}[view]||renderHome)(); }
+
+function renderAuthGate(err){ const login=authMode==='login';
+  document.getElementById('subtitle').textContent = login?'Anmelden':'Konto erstellen';
+  app.innerHTML=`<div class="gate-hero">
+      <div class="big">${login?'Willkommen zurück':'Leg los'}</div>
+      <div class="tiny muted">${login?'Melde dich an, um deine Trainings zu sehen.':'Erstelle ein Konto — deine Daten sind dann auf jedem Gerät da.'}</div>
+    </div>
+    <div class="card">
+      ${login?'':`<div class="field" style="margin:0 0 10px"><label>Username</label><input id="au_user" autocomplete="username" placeholder="dein Name"></div>`}
+      <div class="field" style="margin:0 0 10px"><label>${login?'E-Mail oder Username':'E-Mail'}</label><input id="au_id" autocomplete="${login?'username':'email'}" placeholder="${login?'E-Mail oder Username':'du@mail.de'}"></div>
+      <div class="field" style="margin:0 0 10px"><label>Passwort</label><input id="au_pw" type="password" autocomplete="${login?'current-password':'new-password'}" placeholder="mind. 6 Zeichen"></div>
+      ${err?`<div class="tiny" style="color:var(--danger);margin:2px 2px 10px">${esc(err)}</div>`:''}
+      <button class="btn primary" data-act="${login?'doLogin':'doRegister'}">${login?'Anmelden':'Konto erstellen'}</button>
+      <button class="link" data-act="authSwitch" style="width:100%;text-align:center;margin-top:12px">${login?'Noch kein Konto? Registrieren':'Schon ein Konto? Anmelden'}</button>
+    </div>`;
+  const f=document.getElementById(login?'au_id':'au_user'); if(f) f.focus(); }
 
 function rankCardHTML(){
   const lp=levelFromXP(profile.xp), rank=rankForLevel(lp.level), pct=Math.round(lp.into/lp.need*100);
@@ -512,9 +534,7 @@ function renderRang(){
 function renderSettings(){
   document.getElementById('subtitle').textContent='Einstellungen';
   const usr='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>';
-  let h = session
-    ? `<div class="card"><div class="row between"><div class="row" style="gap:10px">${usr}<div><b>${esc(session.username||session.user.email)}</b><div class="tiny muted">${esc(session.user.email)} · Cloud aktiv</div></div></div><button class="btn sm ghost" data-act="logout" style="color:var(--danger);width:auto">Abmelden</button></div></div>`
-    : `<div class="card" data-act="openauth" style="cursor:pointer"><div class="row between"><div class="row" style="gap:10px">${usr}<div><b>Anmelden / Konto erstellen</b><div class="tiny muted">Daten sichern & auf mehreren Geräten nutzen</div></div></div><span class="muted">›</span></div></div>`;
+  let h = `<div class="card"><div class="row between"><div class="row" style="gap:10px">${usr}<div><b>${esc(session.username||session.user.email)}</b><div class="tiny muted">${esc(session.user.email)} · ${syncState}</div></div></div><button class="btn sm ghost" data-act="logout" style="color:var(--danger);width:auto">Abmelden</button></div></div>`;
   h+=`<div class="card" data-nav="history" style="cursor:pointer">
       <div class="row between"><div class="row" style="gap:10px">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v5h5"/><path d="M12 8v4l3 2"/></svg>
@@ -610,7 +630,11 @@ function genDemo(){ const names=['Bankdrücken','Kniebeuge','Rudern','Schulterdr
 }
 
 // ---------- Konto & Cloud-Sync (Supabase) ----------
-let authMode='login', syncT;
+let authMode='login', syncT, syncState='Cloud aktiv';
+let dirty=DB.get('dirty',false);   // lokale Änderungen, die noch nicht in der Cloud sind
+function setDirty(v){ dirty=v; DB.set('dirty',v); }
+function setSync(ok){ const s= ok?'Cloud aktiv':'Offline — wird nachgeholt';
+  if(s!==syncState){ syncState=s; if(view==='settings'&&session) renderSettings(); } }
 function authHeaders(withToken){ return {'apikey':SUPA_KEY,'Content-Type':'application/json',
   'Authorization':'Bearer '+((withToken&&session&&session.access_token)?session.access_token:SUPA_KEY)}; }
 async function supaRPC(fn,args){ try{ const r=await fetch(`${SUPA_URL}/rest/v1/rpc/${fn}`,{method:'POST',headers:authHeaders(false),body:JSON.stringify(args)}); return r.ok?await r.json():null; }catch(e){ return null; } }
@@ -618,20 +642,34 @@ function setSession(d,username){ session={ access_token:d.access_token, refresh_
     expires_at:Date.now()+((d.expires_in||3600)*1000), user:{id:d.user.id,email:d.user.email},
     username: username || (d.user.user_metadata&&d.user.user_metadata.username) || d.user.email }; DB.set('session',session); }
 function clearSession(){ session=null; DB.set('session',null); }
+// Wichtig: Kein Rauswurf bei Netzproblemen — nur wenn der Server die Anmeldung wirklich ablehnt.
 async function ensureToken(){ if(!session) return false; if(Date.now()<session.expires_at-30000) return true;
   try{ const r=await fetch(`${SUPA_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{'apikey':SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:session.refresh_token})});
-    if(!r.ok) throw 0; setSession(await r.json(), session.username); return true; }catch(e){ clearSession(); return false; } }
+    if(r.ok){ setSession(await r.json(), session.username); return true; }
+    if(r.status>=400&&r.status<500){ clearSession(); render(); toast('Bitte neu anmelden'); return false; }
+    setSync(false); return false; }
+  catch(e){ setSync(false); return false; } }
 function appDataBlob(){ return {plans,sessions,profile,settings}; }
 function loadBlob(d){ if(!d) return; if(Array.isArray(d.plans)) plans=d.plans; if(Array.isArray(d.sessions)) sessions=d.sessions;
   if(d.profile) profile=d.profile; if(d.settings) settings=d.settings;
   DB.set('plans',plans); DB.set('sessions',sessions); DB.set('profile',profile); DB.set('settings',settings); applyTheme(); }
-async function cloudPull(){ if(!await ensureToken()) return null;
+// Liefert {ok,data}: ok=false heißt "konnte nicht laden" (Netz), NICHT "Konto ist leer".
+async function cloudPull(){ if(!await ensureToken()) return {ok:false,data:null};
   try{ const r=await fetch(`${SUPA_URL}/rest/v1/gymlog_data?id=eq.${session.user.id}&select=data`,{headers:authHeaders(true)});
-    if(!r.ok) return null; const rows=await r.json(); return (rows&&rows.length)?rows[0].data:null; }catch(e){ return null; } }
+    if(!r.ok){ setSync(false); return {ok:false,data:null}; }
+    const rows=await r.json(); setSync(true); return {ok:true,data:(rows&&rows.length)?rows[0].data:null}; }
+  catch(e){ setSync(false); return {ok:false,data:null}; } }
 async function cloudPush(){ if(!await ensureToken()) return false;
   try{ const r=await fetch(`${SUPA_URL}/rest/v1/gymlog_data`,{method:'POST',headers:{...authHeaders(true),'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify([{id:session.user.id,data:appDataBlob(),updated_at:new Date().toISOString()}])}); return r.ok; }catch(e){ return false; } }
-function scheduleSync(){ if(!session) return; clearTimeout(syncT); syncT=setTimeout(cloudPush,2000); }
+      body:JSON.stringify([{id:session.user.id,data:appDataBlob(),updated_at:new Date().toISOString()}])});
+    setSync(r.ok); if(r.ok) setDirty(false); return r.ok; }
+  catch(e){ setSync(false); return false; } }
+function scheduleSync(){ if(!session) return; setDirty(true); clearTimeout(syncT); syncT=setTimeout(cloudPush,2000); }
+// Beim Start: lokale ungesicherte Änderungen haben Vorrang, sonst Cloud laden.
+async function cloudSyncStart(){ if(!session) return;
+  if(dirty){ await cloudPush(); return; }
+  const res=await cloudPull(); if(!res.ok) return;
+  if(res.data){ loadBlob(res.data); if(session) render(); } else await cloudPush(); }
 async function authSignUp(username,email,password){ username=(username||'').trim(); email=(email||'').trim();
   if(!username||!email||!password) throw 'Bitte Username, E-Mail und Passwort ausfüllen.';
   if(password.length<6) throw 'Passwort mind. 6 Zeichen.';
@@ -639,29 +677,30 @@ async function authSignUp(username,email,password){ username=(username||'').trim
   const r=await fetch(`${SUPA_URL}/auth/v1/signup`,{method:'POST',headers:{'apikey':SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password,data:{username}})});
   const d=await r.json(); if(!r.ok) throw d.msg||d.error_description||d.error||'Registrierung fehlgeschlagen.';
   if(!d.access_token) throw 'Konto erstellt. Falls E-Mail-Bestätigung aktiv ist: E-Mail bestätigen, dann anmelden.';
-  setSession(d,username); await cloudPush(); }
+  setSession(d,username); setDirty(true); await cloudPush(); }
 async function authSignIn(idOrEmail,password){ idOrEmail=(idOrEmail||'').trim();
   if(!idOrEmail||!password) throw 'Bitte E-Mail/Username und Passwort eingeben.';
   let email=idOrEmail; if(!idOrEmail.includes('@')){ email=await supaRPC('email_for_username',{uname:idOrEmail}); if(!email) throw 'Username nicht gefunden.'; }
   const r=await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'apikey':SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});
   const d=await r.json(); if(!r.ok) throw d.error_description||d.msg||'E-Mail/Username oder Passwort falsch.';
-  setSession(d); const cloud=await cloudPull(); if(cloud) loadBlob(cloud); else await cloudPush(); }
-async function authSignOut(){ if(session){ try{ await fetch(`${SUPA_URL}/auth/v1/logout`,{method:'POST',headers:authHeaders(true)}); }catch(e){} } clearSession(); }
-function openAuth(){ authMode='login'; renderAuth(); }
-function renderAuth(err){ const m=document.getElementById('modal'); const login=authMode==='login';
-  m.innerHTML=`<div class="modal-box" style="max-width:360px;text-align:left">
-    <div class="row between" style="margin-bottom:14px"><b>${login?'Anmelden':'Konto erstellen'}</b><button class="del-x" data-act="closemodal" style="margin:0">✕</button></div>
-    ${login?'':`<div class="field" style="margin:0 0 10px"><label>Username</label><input id="au_user" autocomplete="off" placeholder="dein Name"></div>`}
-    <div class="field" style="margin:0 0 10px"><label>${login?'E-Mail oder Username':'E-Mail'}</label><input id="au_id" autocomplete="off" placeholder="${login?'E-Mail oder Username':'du@mail.de'}"></div>
-    <div class="field" style="margin:0 0 10px"><label>Passwort</label><input id="au_pw" type="password" autocomplete="off" placeholder="mind. 6 Zeichen"></div>
-    ${err?`<div class="tiny" style="color:var(--danger);margin:2px 2px 8px">${esc(err)}</div>`:''}
-    <button class="btn primary" data-act="${login?'doLogin':'doRegister'}">${login?'Anmelden':'Konto erstellen'}</button>
-    <button class="link" data-act="authSwitch" style="width:100%;text-align:center;margin-top:10px">${login?'Noch kein Konto? Registrieren':'Schon ein Konto? Anmelden'}</button></div>`;
-  m.classList.add('show'); }
+  setSession(d); const res=await cloudPull();
+  if(res.ok && res.data) loadBlob(res.data);            // Konto hat Daten → die gelten
+  else if(res.ok){ setDirty(true); await cloudPush(); } // Konto noch leer → lokale Daten übernehmen
+}
+// Abmelden nur, wenn nichts Ungesichertes offen ist — sonst wären die Daten weg.
+async function authSignOut(){
+  if(dirty && !await cloudPush()) return false;
+  if(session){ try{ await fetch(`${SUPA_URL}/auth/v1/logout`,{method:'POST',headers:authHeaders(true)}); }catch(e){} }
+  clearSession();
+  plans=seedPlans(); sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null;
+  DB.set('plans',plans); DB.set('sessions',sessions); DB.set('profile',profile); DB.set('settings',settings); DB.set('active',null);
+  setDirty(false); authMode='login'; view='home'; return true; }
 async function doAuth(mode){ const v=id=>{ const el=document.getElementById(id); return el?el.value:''; };
+  const btn=document.querySelector('[data-act="doLogin"],[data-act="doRegister"]');
+  if(btn){ btn.disabled=true; btn.textContent='Moment …'; }
   try{ if(mode==='register') await authSignUp(v('au_user'),v('au_id'),v('au_pw')); else await authSignIn(v('au_id'),v('au_pw'));
-    closeModal(); render(); toast('Angemeldet'); }
-  catch(e){ renderAuth(typeof e==='string'?e:'Fehler — bitte nochmal.'); } }
+    view = active ? 'workout' : 'home'; render(); toast('Angemeldet'); }
+  catch(e){ renderAuthGate(typeof e==='string'?e:'Fehler — bitte nochmal.'); } }
 
 // ---------- Training ----------
 function startWorkout(plan){ const ex=plan.exercises.map(e=>{ const lp=lastPerf(e.name);
@@ -729,11 +768,11 @@ document.addEventListener('click',ev=>{
   else if(a==='library'){ openLibrary(); }
   else if(a==='export'){ exportData(); }
   else if(a==='resetall'){ confirmTwice('rst',t,'Wirklich alles löschen?',()=>{ plans=seedPlans(); sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null; save(); applyTheme(); view='rang'; render(); toast('Zurückgesetzt'); }); }
-  else if(a==='openauth'){ openAuth(); }
-  else if(a==='authSwitch'){ authMode=(authMode==='login')?'register':'login'; renderAuth(); }
+  else if(a==='authSwitch'){ authMode=(authMode==='login')?'register':'login'; renderAuthGate(); }
   else if(a==='doLogin'){ doAuth('login'); }
   else if(a==='doRegister'){ doAuth('register'); }
-  else if(a==='logout'){ authSignOut().then(()=>{ render(); toast('Abgemeldet'); }); }
+  else if(a==='logout'){ confirmTwice('lo',t,'Abmelden?',()=>{ authSignOut().then(ok=>{ render();
+      toast(ok?'Abgemeldet':'Kein Netz — Daten noch nicht gesichert. Später nochmal.'); }); }); }
   else if(a==='saveplan'){ syncPlanInputs(); const p=plans.find(x=>x.id===editPlanId); p.exercises=p.exercises.filter(e=>e.name.trim()); if(!p.exercises.length) p.exercises.push({id:uid(),name:'Übung',sets:3,reps:10}); save(); view='home'; render(); }
   else if(a==='delplan'){ confirmTwice('dp',t,'Training löschen?',()=>{ plans=plans.filter(x=>x.id!==editPlanId); save(); view='home'; render(); }); }
   else if(a==='finish'){ finishWorkout(); }
@@ -759,7 +798,9 @@ document.addEventListener('change',ev=>{ if(ev.target && ev.target.id==='importF
 // ---------- Start ----------
 applyTheme();
 if(active) view='workout';
-render();
+render();                 // ohne Anmeldung erscheint hier das Login-Fenster
+cloudSyncStart();         // im Hintergrund; ohne Netz startet die App trotzdem normal
+window.addEventListener('online',()=>{ if(session&&dirty) cloudPush(); });
 
 // Versteckte Admin-Freischaltung: 5x auf den Titel tippen (nur auf Karls Gerät)
 (function(){ let n=0,t0=0; const el=document.getElementById('apptitle'); if(!el) return;
