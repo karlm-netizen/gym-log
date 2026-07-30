@@ -105,9 +105,9 @@
   .del-x{color:var(--muted); background:none; font-size:20px; padding:4px 8px}
   .empty{text-align:center; color:var(--muted); padding:30px 10px}
   .ex-ico{flex:0 0 auto; display:grid; place-items:center; background:var(--card2); border:1px solid var(--line); border-radius:10px; color:var(--txt)}
-  .mon .mon-b{fill:var(--accent)}
-  .mon .mon-e{fill:#fff}
-  .mon .mon-i{fill:var(--accent-ink); stroke:var(--accent-ink)}
+  .mon{display:block; height:auto; animation:monbob 3.2s ease-in-out infinite}
+  @keyframes monbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+  @media (prefers-reduced-motion: reduce){ .mon{animation:none} }
   .mascot{display:flex; align-items:center; gap:11px; margin:2px 2px 16px}
   .mascot .mon{flex:0 0 auto}
   .bubble{position:relative; background:var(--card); border:1px solid var(--line); border-radius:15px;
@@ -581,66 +581,9 @@ function rankCardHTML(){
 
 // ---------- Brock, das Begleit-Monster ----------
 // Körper in der Akzentfarbe, Augen/Mund im Gegenton — passt sich damit jedem Design an.
-// Brock entwickelt sich mit dem Rang: Stufe 0 (Couch-Potato) bis 8 (Gigachad).
-// Hörner werden größer und wechseln die Farbe, Statur und Stacheln wachsen mit.
-const BK_HORN=[
- ['#b9c7a8','#7e8f6a'], ['#a3d977','#5f9e34'], ['#6ee7a0','#16a34a'],
- ['#7af2d5','#12b98d'], ['#8fb6ff','#3567e0'], ['#c9a6ff','#7c3aed'],
- ['#ffb08a','#ff4d2e'], ['#ffe58a','#e0960f'], ['#b8f7ff','#3ecbff']
-];
-function brockStage(){ const l=levelFromXP(profile.xp).level; const i=RANKS.indexOf(rankForLevel(l)); return i<0?0:i; }
 function monster(size,mood,stage){ size=size||86;
-  const st = (stage==null?brockStage():stage), f=st/8;              // 0 … 1
-  const hs = 0.62+f*0.75;                                            // Hornlänge
-  const nSpike = st<2?0 : st<5?2 : st<7?3 : 4;
-  const hc = BK_HORN[st]||BK_HORN[0], gid='bkH'+st;
-  // Flex-Pose: Bizeps und Schultern wachsen mit dem Rang
-  const ar=(7+f*1.6).toFixed(1);                                     // schlichte Ärmchen, keine Muskeln
-  const arms = `
-    <g><animateTransform attributeName="transform" type="rotate" values="0 22 70;-18 22 70;0 22 70" dur="2.4s" repeatCount="indefinite" calcMode="spline" keyTimes="0;.5;1" keySplines=".4 0 .4 1;.4 0 .4 1"/>
-      <ellipse cx="15" cy="75" rx="${ar}" ry="${(+ar+3).toFixed(1)}" fill="#6d28d9"/>
-      <path d="M9 84l-4 6 5-1zM15 87l-1 7 4-5zM21 85l3 6 1-6z" fill="url(#${gid})"/></g>
-    <ellipse cx="89" cy="76" rx="${ar}" ry="${(+ar+3).toFixed(1)}" fill="#6d28d9"/>
-    <path d="M83 85l-4 6 5-1zM89 88l-1 7 4-5zM95 86l3 6 1-6z" fill="url(#${gid})"/>`;
-  const delts = '';
-  const bl=(a,b)=>`<animate attributeName="ry" values="${a};${a};${b};${a};${a}" dur="4.6s" keyTimes="0;.44;.48;.52;1" repeatCount="indefinite"/>`;
-  const happy = mood==='happy';
-  const eyeInk = st>=6 ? hc[1] : '#2b0a4d';
-  const spikes=[]; for(let i=0;i<nSpike;i++){ const x=52-(nSpike-1)*6+i*12, h=7+f*7;
-    spikes.push(`<path d="M${x-4} 16L${x} ${16-h} ${x+4} 15z" fill="url(#${gid})"/>`); }
-  const mouth = happy
-    ? `<path d="M32 68c4 15 36 15 40 0z" fill="#2b0a4d"/>
-       <path d="M36.5 69.5h6l-3 8z" fill="#fff"/><path d="M61.5 69.5h6l-3 8z" fill="#fff"/>
-       <path d="M48 79.5h8l-4-6z" fill="#fff"/>
-       <path d="M42 76c5 5 15 5 20 0" fill="none" stroke="#ff7aa8" stroke-width="4" stroke-linecap="round"/>`
-    : `<path d="M35 68c4 11 30 11 34 0z" fill="#2b0a4d"/>
-       <path d="M39 69h5.5l-2.7 7z" fill="#fff"/><path d="M60 69h5.5l-2.7 7z" fill="#fff"/>`;
-  return `<svg class="mon" viewBox="0 0 104 112" width="${size}" height="${Math.round(size*1.08)}" aria-hidden="true">
-   <defs>
-     <linearGradient id="bkBody" x1="0" y1="0" x2="0" y2="1">
-       <stop offset="0" stop-color="#a855f7"/><stop offset="1" stop-color="#5b21b6"/></linearGradient>
-     <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
-       <stop offset="0" stop-color="${hc[0]}"/><stop offset="1" stop-color="${hc[1]}"/></linearGradient>
-   </defs>
-   <g><animateTransform attributeName="transform" type="translate" values="0 0;0 -3;0 0" dur="3.2s" repeatCount="indefinite" calcMode="spline" keyTimes="0;.5;1" keySplines=".4 0 .4 1;.4 0 .4 1"/>
-     ${st>=3?`<path d="M85 84c11 1 17-6 15-15" fill="none" stroke="#5b21b6" stroke-width="7" stroke-linecap="round"/>
-       <path d="M104 63l-9 12-6-11z" fill="url(#${gid})"/>`:''}
-     <path d="M31 23L${31-15*hs} ${23-22*hs} 45 16z" fill="url(#${gid})"/>
-     <path d="M73 23L${73+15*hs} ${23-22*hs} 59 16z" fill="url(#${gid})"/>
-     ${spikes.join('')}
-     <path d="M52 97C30 97 17 81 17 59 17 35 32 17 52 17s35 18 35 42c0 22-13 38-35 38z" fill="url(#bkBody)"/>
-     ${delts}
-     ${arms}
-     <ellipse cx="52" cy="72" rx="23" ry="19" fill="#c4a4f7" opacity=".45"/>
-     <path d="M36 98c7 0 11 3 11 6H27c-1-4 2-6 9-6zM68 98c7 0 10 2 9 6H57c0-3 4-6 11-6z" fill="#6d28d9"/>
-     <path d="M28 103l-2 5 4-3zM35 104v5l3-4zM42 103l3 5 1-5zM59 103l-2 5 4-3zM66 104v5l3-4zM73 103l3 5 1-5z" fill="url(#${gid})"/>
-     <g fill="#fff"><ellipse cx="39" cy="55" rx="11.5" ry="12">${bl(12,1)}</ellipse><ellipse cx="65" cy="55" rx="11.5" ry="12">${bl(12,1)}</ellipse></g>
-     <g fill="${eyeInk}"><ellipse cx="41" cy="57" rx="5.2" ry="5.8">${bl('5.8','.7')}</ellipse><ellipse cx="67" cy="57" rx="5.2" ry="5.8">${bl('5.8','.7')}</ellipse></g>
-     <g fill="#fff" opacity=".9"><circle cx="37.5" cy="52.5" r="2.2"/><circle cx="63.5" cy="52.5" r="2.2"/></g>
-     <g stroke="#3b0764" stroke-width="6" stroke-linecap="round" fill="none">
-       <path d="M28 33L45 41"/><path d="M76 33L59 41"/></g>
-     ${mouth}
-   </g></svg>`; }
+  // Brock kommt als fertige Grafik (brock.png). Er wippt nur noch sanft.
+  return `<img class="mon" src="brock.png" width="${size}" height="${Math.round(size*1.19)}" alt="" aria-hidden="true">`; }
 function mascot(text,mood,size){ return `<div class="mascot">${monster(size,mood)}<div class="bubble">${text}</div></div>`; }
 
 // ---------- Einrichtungs-Assistent ----------
@@ -866,8 +809,8 @@ function renderRang(){
   // Brock wächst mit dem Rang mit
   h+=`<div class="card" style="text-align:center;padding-top:8px">
       ${monster(120, nx?'':'happy')}
-      <div style="font-size:14px;font-weight:700;margin-top:2px">Brock · Stufe ${brockStage()+1} von ${RANKS.length}</div>
-      <div class="tiny muted" style="margin-top:4px">${nx?`Mit „${esc(nx.name)}" wird er stärker.`:'Voll ausgewachsen — mehr geht nicht.'}</div></div>`;
+      <div style="font-size:14px;font-weight:700;margin-top:2px">Brock</div>
+      <div class="tiny muted" style="margin-top:4px">${nx?`Noch ${nx.min-lp.level} Level bis „${esc(nx.name)}".`:'Höchster Rang erreicht.'}</div></div>`;
   // Leiter
   h+=`<div class="row between" style="margin:16px 4px 8px"><h2>Rang-Leiter</h2></div>`;
   RANKS.forEach(r=>{ const reached=lp.level>=r.min, cur=r.name===rank.name;
