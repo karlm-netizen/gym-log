@@ -95,6 +95,8 @@
     color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.5px}
   .set-head span{text-align:center}
   .hint{color:var(--muted); font-size:12px; padding:2px 4px 8px}
+  .hint b{color:var(--txt)}
+  .hint.up{color:var(--ok)} .hint.up b{color:var(--ok)}
   .field{margin:10px 0}
   .field label{display:block; font-size:12px; color:var(--muted); margin-bottom:5px}
   .field input{width:100%; background:var(--card2); border:1px solid var(--line); border-radius:12px;
@@ -105,6 +107,10 @@
   .del-x{color:var(--muted); background:none; font-size:20px; padding:4px 8px}
   .empty{text-align:center; color:var(--muted); padding:30px 10px}
   .ex-ico{flex:0 0 auto; display:grid; place-items:center; background:var(--card2); border:1px solid var(--line); border-radius:10px; color:var(--txt)}
+  .ex-move{display:flex; flex-direction:column; gap:3px; flex:0 0 auto}
+  .ex-move button{background:var(--card2); border:1px solid var(--line); color:var(--txt);
+    border-radius:8px; width:30px; height:23px; font-size:11px; line-height:1; padding:0}
+  .ex-move button:disabled{opacity:.3}
   .mon{display:block; height:auto; animation:monbob 3.2s ease-in-out infinite}
   @keyframes monbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
   @media (prefers-reduced-motion: reduce){ .mon{animation:none} }
@@ -449,7 +455,7 @@ const SUPA_URL='https://uvtxkdasgllnfkvtnkrq.supabase.co';
 const SUPA_KEY='sb_publishable_7UvOL7KzzgJK6om8OwUsSg_usOMz92l';
 function save(){ DB.set('plans',plans); DB.set('sessions',sessions); DB.set('active',active); DB.set('settings',settings); DB.set('profile',profile); scheduleSync(); }
 
-let view='home', editPlanId=null, detailSessionId=null;
+let view='home', editPlanId=null, detailSessionId=null, detailExName=null;
 const app=document.getElementById('app');
 
 // ---------- Einrichtung: Split, Volumen, Lieblingsübungen ----------
@@ -517,6 +523,27 @@ function volume(en){ let v=0; en.forEach(e=>e.sets.forEach(s=>{ if(s.done) v+=(+
 function doneSets(en){ let n=0; en.forEach(e=>e.sets.forEach(s=>{ if(s.done) n++; })); return n; }
 function lastPerf(name){ for(let i=sessions.length-1;i>=0;i--){ const e=sessions[i].entries.find(x=>x.name===name);
   if(e){ const d=e.sets.filter(s=>s.done&&(+s.weight||+s.reps)); if(d.length){ const b=d[d.length-1]; return {w:+b.weight||0,r:+b.reps||0}; } } } return null; }
+// ---------- Steigerung vorschlagen ----------
+// Alle Ziel-Wdh im letzten Training geschafft → mehr Gewicht. Sonst dasselbe nochmal.
+function lastEntry(name){ for(let i=sessions.length-1;i>=0;i--){
+  const e=sessions[i].entries.find(x=>x.name===name); if(e&&e.sets.length) return e; } return null; }
+function stepFor(name){ const n=(name||'').toLowerCase();
+  return /kniebeug|squat|kreuzheb|deadlift|beinpress|hack squat|hip thrust|langhantelrudern|beinbeuger|beinstrecker/.test(n) ? 5 : 2.5; }
+function fmtKg(v){ return (Math.round(v*10)/10).toString().replace('.',','); }
+function suggest(name,target){
+  const e=lastEntry(name); if(!e) return null;
+  const done=e.sets.filter(s=>s.done); if(!done.length) return null;
+  const w=Math.max(...done.map(s=>+s.weight||0));
+  const minReps=Math.min(...done.map(s=>+s.reps||0));
+  const tgt=+target||10;
+  if(w>0){
+    if(minReps>=tgt){ const nw=w+stepFor(name);
+      return {w:nw, up:true, text:`Heute <b>${fmtKg(nw)} kg</b> × ${tgt} — letztes Mal ${fmtKg(w)} kg geschafft`}; }
+    return {w:w, up:false, text:`Nochmal <b>${fmtKg(w)} kg</b> — Ziel sind ${tgt} Wdh, letztes Mal ${minReps}`};
+  }
+  if(minReps>=tgt) return {up:true, text:`Heute <b>${minReps+1} Wdh</b> — letztes Mal ${minReps} geschafft`};
+  return {up:false, text:`Ziel: <b>${tgt} Wdh</b> — letztes Mal ${minReps}`};
+}
 function prFor(name){ let best=0,rep=0; sessions.forEach(s=>s.entries.forEach(e=>{ if(e.name===name) e.sets.forEach(st=>{ if(st.done&&+st.weight>best){ best=+st.weight; rep=+st.reps||0; } }); })); return best?{w:best,r:rep}:null; }
 
 // ---------- Theme anwenden ----------
@@ -532,14 +559,14 @@ function applyTheme(){
 }
 
 // ---------- Rendering ----------
-function setNav(){ const map=(view==='history'||view==='session'||view==='settings'||view==='admin')?'settings':(view==='rang')?'rang':'home';
+function setNav(){ const map=(view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='admin')?'settings':(view==='rang')?'rang':'home';
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on', b.dataset.nav===map)); }
 function render(){
   if(!session){ document.body.classList.add('gate'); document.body.classList.remove('setup'); renderAuthGate(); return; }
   document.body.classList.remove('gate');
   document.body.classList.toggle('setup', view==='onboard');   // Assistent: untere Leiste ausblenden
   setNav();
-  ({home:renderHome, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, rang:renderRang, settings:renderSettings, admin:renderAdmin}[view]||renderHome)(); }
+  ({home:renderHome, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, settings:renderSettings, admin:renderAdmin}[view]||renderHome)(); }
 
 function renderAuthGate(err){ const login=authMode==='login';
   document.getElementById('subtitle').textContent = login?'Anmelden':'Konto erstellen';
@@ -736,6 +763,9 @@ function renderPlan(){
       ${iconTile(e.name,e.icon,48)}
       <input class="ex-name" data-i="${i}" value="${esc(e.name)}" placeholder="Übungsname"
         style="background:var(--card2);border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:11px;font-size:15px;flex:1">
+      <div class="ex-move">
+        <button data-moveex="${i}:-1" ${i===0?'disabled':''} aria-label="nach oben">▲</button>
+        <button data-moveex="${i}:1" ${i===p.exercises.length-1?'disabled':''} aria-label="nach unten">▼</button></div>
       <button class="del-x" data-delex="${i}">✕</button></div>
     <div class="row" style="margin-top:10px;gap:8px">
       <div style="flex:1"><label class="muted tiny">Sätze</label>
@@ -755,14 +785,15 @@ function renderPlan(){
 function renderWorkout(){
   document.getElementById('subtitle').textContent=esc(active.planName);
   let h=`<div class="row between" style="margin:6px 4px 2px"><h2>${esc(active.planName)}</h2><span class="pill">${doneSets(active.exercises)} Sätze</span></div>`;
-  active.exercises.forEach((e,ei)=>{ const on=ei===active.currentIdx, lp=lastPerf(e.name);
+  active.exercises.forEach((e,ei)=>{ const on=ei===active.currentIdx, lp=lastPerf(e.name), sg=suggest(e.name,e.reps);
     h+=`<div class="ex ${on?'active':''}"><div class="ex-head" data-focusex="${ei}">
       <div class="row" style="gap:10px">${iconTile(e.name,e.icon,44)}<div class="name">${esc(e.name)||'Übung'}</div></div>
       <div class="muted tiny">${e.sets.filter(s=>s.done).length}/${e.sets.length}</div></div>`;
-    if(on){ h+=`<div class="ex-body">${lp?`<div class="hint">Letztes Mal: ${lp.w?lp.w+' kg':''}${lp.w&&lp.r?' × ':''}${lp.r?lp.r+' Wdh':''}</div>`:`<div class="hint">Erstes Mal — leg los.</div>`}
+    if(on){ h+=`<div class="ex-body">${sg?`<div class="hint ${sg.up?'up':''}">${sg.up?'↑ ':''}${sg.text}</div>`
+        :`<div class="hint">Erstes Mal — leg los.</div>`}
       <div class="set-head"><span>#</span><span>kg</span><span>Wdh</span><span></span></div>`;
       e.sets.forEach((s,si)=>{ h+=`<div class="set ${s.done?'done':''}"><div class="idx">${si+1}</div>
-        <input type="number" inputmode="decimal" step="0.5" placeholder="${lp&&lp.w?lp.w:'kg'}" value="${s.weight??''}" data-ex="${ei}" data-set="${si}" data-f="weight">
+        <input type="number" inputmode="decimal" step="0.5" placeholder="${sg&&sg.w?sg.w:(lp&&lp.w?lp.w:'kg')}" value="${s.weight??''}" data-ex="${ei}" data-set="${si}" data-f="weight">
         <input type="number" inputmode="numeric" placeholder="${e.reps||'Wdh'}" value="${s.reps??''}" data-ex="${ei}" data-set="${si}" data-f="reps">
         <button class="check ${s.done?'on':''}" data-check="${ei}:${si}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 6"/></svg></button></div>`; });
       h+=`<div class="row" style="gap:8px;margin-top:8px"><button class="link" data-addset="${ei}">+ Satz</button>
@@ -784,8 +815,60 @@ function renderHistory(){
     <div style="text-align:right"><b>${volume(s.entries)}</b><div class="tiny muted">kg Vol.</div></div></div></div>`; });
   const names=[...new Set(sessions.flatMap(s=>s.entries.map(e=>e.name)))];
   const prs=names.map(n=>({n,pr:prFor(n)})).filter(x=>x.pr);
-  if(prs.length){ h+=`<div class="row between" style="margin:22px 4px 4px"><h2>Rekorde</h2></div><div class="card">`;
-    prs.forEach(x=>{ h+=`<div class="sess"><span>${esc(x.n)}</span><b>${x.pr.w} kg${x.pr.r?' × '+x.pr.r:''}</b></div>`; }); h+=`</div>`; }
+  if(prs.length){ h+=`<div class="row between" style="margin:22px 4px 4px"><h2>Rekorde</h2>
+      <span class="tiny muted">antippen für Verlauf</span></div><div class="card">`;
+    prs.forEach(x=>{ h+=`<div class="sess" data-openex="${esc(x.n)}" style="cursor:pointer">
+      <span>${esc(x.n)} <span class="muted">›</span></span><b>${x.pr.w} kg${x.pr.r?' × '+x.pr.r:''}</b></div>`; }); h+=`</div>`; }
+  app.innerHTML=h;
+}
+
+// ---------- Verlauf einer einzelnen Übung ----------
+function exHistory(name){ const out=[];
+  sessions.forEach(s=>{ const e=s.entries.find(x=>x.name===name); if(!e) return;
+    const d=e.sets.filter(x=>x.done); if(!d.length) return;
+    out.push({ date:s.date, w:Math.max(...d.map(x=>+x.weight||0)),
+      vol:d.reduce((a,x)=>a+(+x.weight||0)*(+x.reps||0),0), sets:d.length,
+      reps:d.reduce((a,x)=>a+(+x.reps||0),0) }); });
+  return out; }
+function lineChart(vals,w,h){
+  if(vals.length<2) return '';
+  const min=Math.min(...vals), max=Math.max(...vals), span=(max-min)||1, pad=10;
+  const pt=(v,i)=>[ pad+(w-2*pad)*i/(vals.length-1), h-pad-(h-2*pad)*((v-min)/span) ];
+  const ps=vals.map(pt);
+  const line=ps.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const area=line+` L${ps[ps.length-1][0].toFixed(1)} ${h-pad} L${ps[0][0].toFixed(1)} ${h-pad} Z`;
+  const dots=ps.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.6" fill="var(--accent)"/>`).join('');
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none" style="display:block">
+    <path d="${area}" fill="var(--accent)" opacity=".13"/>
+    <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    ${dots}</svg>`;
+}
+function renderExDetail(){
+  const name=detailExName, hist=exHistory(name);
+  document.getElementById('subtitle').textContent='Verlauf';
+  let h=`<button class="link" data-act="backhist">‹ Verlauf</button>
+    <div class="row" style="gap:10px;margin:6px 4px 12px">${iconTile(name,'',48)}<h2 style="margin:0">${esc(name)}</h2></div>`;
+  if(hist.length===0){ app.innerHTML=h+`<div class="empty">Noch keine Einheiten mit dieser Übung.</div>`; return; }
+  const pr=prFor(name), first=hist[0], last=hist[hist.length-1];
+  const diff=last.w-first.w;
+  h+=`<div class="grid3">
+      <div class="stat"><b>${hist.length}</b><span>Einheiten</span></div>
+      <div class="stat"><b>${pr?pr.w:'—'}</b><span>Bestes kg</span></div>
+      <div class="stat"><b>${diff>0?'+':''}${fmtKg(diff)}</b><span>kg seit Start</span></div></div>`;
+  if(hist.length>1){
+    h+=`<div class="row between" style="margin:20px 4px 6px"><h2>Gewicht</h2>
+        <span class="tiny muted">${fmtKg(Math.min(...hist.map(x=>x.w)))}–${fmtKg(Math.max(...hist.map(x=>x.w)))} kg</span></div>
+      <div class="card" style="padding:10px 6px">${lineChart(hist.map(x=>x.w),300,110)}</div>`;
+    h+=`<div class="row between" style="margin:18px 4px 6px"><h2>Volumen</h2>
+        <span class="tiny muted">kg pro Einheit</span></div>
+      <div class="card" style="padding:10px 6px">${lineChart(hist.map(x=>x.vol),300,110)}</div>`;
+  } else {
+    h+=`<div class="empty" style="margin-top:16px">Ab der zweiten Einheit siehst du hier eine Kurve.</div>`;
+  }
+  h+=`<div class="row between" style="margin:20px 4px 6px"><h2>Einheiten</h2></div><div class="card">`;
+  [...hist].reverse().forEach(x=>{ h+=`<div class="sess"><span>${fmtDate(x.date)}</span>
+    <b>${fmtKg(x.w)} kg <span class="muted" style="font-weight:400">· ${x.sets} Sätze · ${x.reps} Wdh</span></b></div>`; });
+  h+=`</div>`;
   app.innerHTML=h;
 }
 
@@ -1047,10 +1130,16 @@ function confirmTwice(key,btn,label,run){ if(armed[key]){ clearTimeout(armed[key
 if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ if((profile.theme||'system')==='system') applyTheme(); }); }
 
 document.addEventListener('click',ev=>{
-  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday]');
+  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-moveex],[data-openex]');
   if(!t) return;
   if(t.dataset.fav){ const n=t.dataset.fav, i=obDraft.favs.indexOf(n);
     if(i<0) obDraft.favs.push(n); else obDraft.favs.splice(i,1); renderOnboard(); return; }
+  if(t.dataset.openex){ detailExName=t.dataset.openex; view='exdetail'; render(); return; }
+  if(t.dataset.moveex){ syncPlanInputs(); const [i,d]=t.dataset.moveex.split(':').map(Number);
+    const p=plans.find(x=>x.id===editPlanId), j=i+d;
+    if(p && j>=0 && j<p.exercises.length){ const a=p.exercises;
+      [a[i],a[j]]=[a[j],a[i]]; save(); }
+    render(); return; }
   if(t.dataset.planday){ syncPlanInputs(); const p=plans.find(x=>x.id===editPlanId);
     if(p){ const v=+t.dataset.planday; p.day = (p.day===v) ? null : v; save(); } render(); return; }
   if(t.dataset.setbase){ profile.theme=t.dataset.setbase; save(); applyTheme(); render(); return; }
