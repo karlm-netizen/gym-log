@@ -776,7 +776,9 @@ function renderHome(){
   document.getElementById('subtitle').textContent='Dein Trainings-Begleiter';
   const week=sessions.filter(s=>Date.now()-s.date<7*864e5).length;
   const totalVol=sessions.reduce((a,s)=>a+volume(s.entries),0);
-  let h=rankCardHTML();
+  // Brock begrüßt oben, danach kommt der Rest.
+  let h=`<div class="mascot" style="margin:2px 2px 16px">${monster(96)}<div class="bubble">${brockSay()}</div></div>`;
+  h+=rankCardHTML();
   if(active){ h+=`<div class="card" style="border-color:var(--accent)">
     <div class="row between"><h2>Training läuft</h2><span class="pill">${esc(active.planName)}</span></div>
     <p class="muted tiny" style="margin:6px 0 12px">${doneSets(active.exercises)} Sätze · seit ${fmtTime(active.date)}</p>
@@ -958,8 +960,7 @@ function renderRang(){
   const lp=levelFromXP(profile.xp), real=rankForLevel(lp.level), shown=equippedRank(), nx=nextRank(lp.level), unlocked=unlockedThemes(lp.level);
   let h=rankCardHTML();
   h+=`<div class="tiny muted" style="text-align:center;margin:-4px 0 8px">Gesamt-XP: ${profile.xp}${nx?` · Nächster Rang „${esc(nx.name)}" ab Level ${nx.min}`:' · Höchster Rang erreicht'}</div>`;
-  // Brock steht frei — kein Kasten mehr — und sagt etwas zur Lage.
-  h+=`<div class="mascot" style="margin:14px 2px 18px">${monster(104, nx?'':'happy')}<div class="bubble">${brockSay()}</div></div>`;
+  // Brock steht nicht mehr hier, sondern oben auf der Startseite.
   // Leiter — erreichte Ränge lassen sich antippen und als Look übernehmen
   h+=`<div class="row between" style="margin:16px 4px 4px"><h2>Rang-Leiter</h2></div>
       <div class="tiny muted" style="margin:0 4px 8px">Tipp einen erreichten Rang an, um sein Aussehen zu tragen.</div>`;
