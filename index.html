@@ -783,9 +783,17 @@ function renderHome(){
     <button class="btn primary" style="margin-top:12px" data-act="resume">Fortsetzen</button>
     <button class="btn ghost sm" style="margin-top:8px;color:var(--danger)" data-act="discard">Verwerfen</button></div>`; }
 
-  // 2 · Heute
+  // 2 · Fortschritt
+  h+=`<div class="row between" style="margin:${active?'22px':'2px'} 4px 6px"><h2>Fortschritt</h2></div>`;
+  h+=rankCardHTML();
+  h+=`<div class="grid3" style="margin-top:10px">
+    <div class="stat"><b>${sessions.length}</b><span>Einheiten</span></div>
+    <div class="stat"><b>${week}</b><span>diese Woche</span></div>
+    <div class="stat"><b>${totalVol>=1000?(totalVol/1000).toFixed(1)+'t':totalVol}</b><span>${totalVol>=1000?'Volumen':'kg Vol.'}</span></div></div>`;
+
+  // 3 · Heute
   const p=planForToday();
-  h+=`<div class="row between" style="margin:${active?'22px':'2px'} 4px 6px"><h2>Heute · ${DAYLONG[todayIdx()]}</h2></div>`;
+  h+=`<div class="row between" style="margin:24px 4px 6px"><h2>Heute · ${DAYLONG[todayIdx()]}</h2></div>`;
   if(p){ h+=`<div class="card" style="border-color:var(--accent)">
       <div class="plan-chip"><span class="dot"></span><b>${esc(p.name)}</b></div>
       <div class="muted tiny" style="margin-top:6px">${p.exercises.length} Übungen · ${esc(p.exercises.map(e=>e.name).filter(Boolean).slice(0,3).join(', '))}${p.exercises.length>3?' …':''}</div>
@@ -799,14 +807,6 @@ function renderHome(){
 
   h+=`<div class="card" data-nav="plans" style="cursor:pointer;margin-top:10px"><div class="row between">
       <b>Alle Trainings</b><span class="muted">${plans.length} ›</span></div></div>`;
-
-  // 3 · Fortschritt
-  h+=`<div class="row between" style="margin:24px 4px 6px"><h2>Fortschritt</h2></div>`;
-  h+=rankCardHTML();
-  h+=`<div class="grid3" style="margin-top:10px">
-    <div class="stat"><b>${sessions.length}</b><span>Einheiten</span></div>
-    <div class="stat"><b>${week}</b><span>diese Woche</span></div>
-    <div class="stat"><b>${totalVol>=1000?(totalVol/1000).toFixed(1)+'t':totalVol}</b><span>${totalVol>=1000?'Volumen':'kg Vol.'}</span></div></div>`;
   app.innerHTML=h;
 }
 
