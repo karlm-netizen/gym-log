@@ -121,6 +121,10 @@
     padding:11px 13px; font-size:13.5px; line-height:1.55; flex:1}
   .bubble:before{content:''; position:absolute; left:-7px; top:26px; width:12px; height:12px; background:var(--card);
     border-left:1px solid var(--line); border-bottom:1px solid var(--line); transform:rotate(45deg)}
+  /* Kleine Fassung: Brock sitzt direkt in der Heute-Karte, deshalb Blase auf Kartenhintergrund */
+  .mascot.mini{gap:9px; margin:12px 0 0}
+  .mascot.mini .bubble{background:var(--card2); padding:9px 12px; font-size:13px; border-radius:13px}
+  .mascot.mini .bubble:before{background:var(--card2); top:17px; left:-6px; width:10px; height:10px}
   .chip{background:var(--card2); border:1px solid var(--line); color:var(--txt); border-radius:11px;
     padding:9px 12px; font-size:13px; font-weight:600}
   .chip.on{background:var(--accent); color:var(--accent-ink); border-color:var(--accent)}
@@ -645,14 +649,19 @@ const BROCK_SAY={
   rest:[ 'Ruhetag. Muskeln wachsen jetzt, nicht im Gym.',
          'Heute frei. Genieß es, morgen zählt es wieder.',
          'Ruhetag — Faulenzen gehört zum Plan dazu.',
-         'Heute nichts zu tun. Ich mach auch nichts.' ]
+         'Heute nichts zu tun. Ich mach auch nichts.' ],
+  running:[ 'Läuft gerade. Nicht schlappmachen.',
+            'Du bist mittendrin — ich zähl mit.',
+            'Weiter, der Satz macht sich nicht von allein.',
+            'Dranbleiben. Ich guck zu.' ]
 };
 function sessionsOn(ts){ return sessions.filter(s=>sameDay(s.date,ts)); }
 function trainedToday(){ return sessionsOn(Date.now()).length>0; }
 function missedYesterday(){ const y=Date.now()-864e5, d=(new Date(y).getDay()+6)%7;
   return plans.some(p=>p.day===d) && sessionsOn(y).length===0; }
 function brockSay(){
-  const key = trainedToday() ? 'done' : missedYesterday() ? 'missed' : planForToday() ? 'todo' : 'rest';
+  const key = active ? 'running' : trainedToday() ? 'done' : missedYesterday() ? 'missed'
+            : planForToday() ? 'todo' : 'rest';
   const list=BROCK_SAY[key];
   // Über den Tag stabil — der Spruch springt nicht bei jedem Antippen.
   return list[Math.floor(Date.now()/864e5)%list.length];
@@ -760,32 +769,44 @@ function splitHint(n){ return ({2:'Oberkörper und Unterkörper im Wechsel.',3:'
 function renderHome(){
   const week=sessions.filter(s=>Date.now()-s.date<7*864e5).length;
   const totalVol=sessions.reduce((a,s)=>a+volume(s.entries),0);
-  // Oben der Rang, darunter Brock mit seinem Spruch, dann der Rest.
-  let h=rankCardHTML();
-  h+=`<div class="mascot" style="margin:14px 2px 16px">${monster(96)}<div class="bubble">${brockSay()}</div></div>`;
+  // Reihenfolge nach Zweck: zuerst wofuer man die App aufmacht (heute trainieren),
+  // dann der Fortschritt, dann Nachschlagen. Brock sitzt klein in der Heute-Karte,
+  // weil sein Spruch sich genau darauf bezieht.
+  const brock=`<div class="mascot mini">${monster(56)}<div class="bubble">${brockSay()}</div></div>`;
+  let h='';
+
+  // 1 · Laufendes Training hat immer Vorrang
   if(active){ h+=`<div class="card" style="border-color:var(--accent)">
     <div class="row between"><h2>Training läuft</h2><span class="pill">${esc(active.planName)}</span></div>
-    <p class="muted tiny" style="margin:6px 0 12px">${doneSets(active.exercises)} Sätze · seit ${fmtTime(active.date)}</p>
-    <button class="btn primary" data-act="resume">Fortsetzen</button>
+    <p class="muted tiny" style="margin:6px 0 0">${doneSets(active.exercises)} Sätze · seit ${fmtTime(active.date)}</p>
+    ${brock}
+    <button class="btn primary" style="margin-top:12px" data-act="resume">Fortsetzen</button>
     <button class="btn ghost sm" style="margin-top:8px;color:var(--danger)" data-act="discard">Verwerfen</button></div>`; }
-  h+=`<div class="grid3">
-    <div class="stat"><b>${sessions.length}</b><span>Einheiten</span></div>
-    <div class="stat"><b>${week}</b><span>diese Woche</span></div>
-    <div class="stat"><b>${totalVol>=1000?(totalVol/1000).toFixed(1)+'t':totalVol}</b><span>${totalVol>=1000?'Volumen':'kg Vol.'}</span></div></div>`;
 
+  // 2 · Heute
   const p=planForToday();
-  h+=`<div class="row between" style="margin:22px 4px 6px"><h2>Heute · ${DAYLONG[todayIdx()]}</h2></div>`;
+  h+=`<div class="row between" style="margin:${active?'22px':'2px'} 4px 6px"><h2>Heute · ${DAYLONG[todayIdx()]}</h2></div>`;
   if(p){ h+=`<div class="card" style="border-color:var(--accent)">
       <div class="plan-chip"><span class="dot"></span><b>${esc(p.name)}</b></div>
       <div class="muted tiny" style="margin-top:6px">${p.exercises.length} Übungen · ${esc(p.exercises.map(e=>e.name).filter(Boolean).slice(0,3).join(', '))}${p.exercises.length>3?' …':''}</div>
-      <button class="btn primary" style="margin-top:12px" data-startplan="${p.id}">Starten</button></div>`; }
+      ${active?'':brock}
+      <button class="btn primary" style="margin-top:12px" data-startplan="${p.id}">${active?'Nochmal starten':'Starten'}</button></div>`; }
   else { const nx=nextTrainingDay();
     h+=`<div class="card"><b>Ruhetag</b>
       <div class="muted tiny" style="margin-top:6px">${nx?`Weiter geht's am ${DAYLONG[nx.d]} mit ${esc(nx.p.name)}.`:'Noch keine Trainingstage festgelegt.'}</div>
+      ${active?'':brock}
       ${plans.length?'':`<button class="btn primary" style="margin-top:12px" data-act="ob:start">Plan einrichten</button>`}</div>`; }
 
   h+=`<div class="card" data-nav="plans" style="cursor:pointer;margin-top:10px"><div class="row between">
       <b>Alle Trainings</b><span class="muted">${plans.length} ›</span></div></div>`;
+
+  // 3 · Fortschritt
+  h+=`<div class="row between" style="margin:24px 4px 6px"><h2>Fortschritt</h2></div>`;
+  h+=rankCardHTML();
+  h+=`<div class="grid3" style="margin-top:10px">
+    <div class="stat"><b>${sessions.length}</b><span>Einheiten</span></div>
+    <div class="stat"><b>${week}</b><span>diese Woche</span></div>
+    <div class="stat"><b>${totalVol>=1000?(totalVol/1000).toFixed(1)+'t':totalVol}</b><span>${totalVol>=1000?'Volumen':'kg Vol.'}</span></div></div>`;
   app.innerHTML=h;
 }
 
