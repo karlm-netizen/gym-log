@@ -210,8 +210,8 @@
 <nav id="nav">
   <button data-nav="home" class="on">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Start</button>
-  <button data-nav="rang">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3"/><path d="M7 5H4v2a3 3 0 0 0 3 3"/></svg>Rang</button>
+  <button data-nav="body">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="4"/><path d="M8.5 11a3.5 3.5 0 0 1 7 0"/><path d="M12 11l2.2-2.4"/></svg>Körper</button>
   <button data-nav="settings">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Einstellungen</button>
 </nav>
@@ -454,10 +454,22 @@ let profile=DB.get('profile',{xp:0, theme:'system'});
 if(profile.vol==null) profile.vol='high';        // 'low' = wenig Sätze/Wdh, 'high' = viel
 if(profile.favs==null) profile.favs=[];          // Lieblingsübungen
 if(profile.days==null) profile.days=null;        // Trainingstage, 0=Mo … 6=So
+// Felder auffüllen, die es in älteren Ständen noch nicht gab (alte Backups, Zurücksetzen, Abmelden).
+function normalizeProfile(){
+  if(!profile||typeof profile!=='object') profile={xp:0,theme:'system'};
+  if(typeof profile.xp!=='number') profile.xp=0;
+  if(!Array.isArray(profile.weights)) profile.weights=[];   // [{date, kg}] — Körpergewicht über die Zeit
+  if(profile.rankSkin===undefined) profile.rankSkin=null;   // ausgerüsteter Rang (null = der echte)
+}
+normalizeProfile();
 let devAdmin=DB.get('devadmin',false);
 let session=DB.get('session',null);
 const SUPA_URL='https://uvtxkdasgllnfkvtnkrq.supabase.co';
 const SUPA_KEY='sb_publishable_7UvOL7KzzgJK6om8OwUsSg_usOMz92l';
+// ⚠️ Platzhalter — für die Datenschutz-Seite. Vor dem Weitergeben an andere ausfüllen:
+// eine Kontaktmöglichkeit ist Pflicht, sobald nicht mehr nur du die App nutzt.
+const PRIVACY_OWNER='Karl (privat betriebene App)';
+const PRIVACY_CONTACT='— Kontaktadresse noch einzutragen —';
 function save(){ DB.set('plans',plans); DB.set('sessions',sessions); DB.set('active',active); DB.set('settings',settings); DB.set('profile',profile); scheduleSync(); }
 
 let view='home', editPlanId=null, detailSessionId=null, detailExName=null;
@@ -565,14 +577,16 @@ function applyTheme(){
 }
 
 // ---------- Rendering ----------
-function setNav(){ const map=(view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='admin')?'settings':(view==='rang')?'rang':'home';
+// Die Rang-Ansicht hat keinen eigenen Platz mehr in der Leiste — man kommt nur über die
+// Rang-Karte auf der Startseite dorthin, deshalb bleibt dort „Start" markiert.
+function setNav(){ const map=(view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='admin'||view==='privacy')?'settings':(view==='body')?'body':'home';
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on', b.dataset.nav===map)); }
 function render(){
   if(!session){ document.body.classList.add('gate'); document.body.classList.remove('setup'); renderAuthGate(); return; }
   document.body.classList.remove('gate');
   document.body.classList.toggle('setup', view==='onboard');   // Assistent: untere Leiste ausblenden
   setNav();
-  ({home:renderHome, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, settings:renderSettings, admin:renderAdmin}[view]||renderHome)(); }
+  ({home:renderHome, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, body:renderBody, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin}[view]||renderHome)(); }
 
 function renderAuthGate(err){ const login=authMode==='login';
   document.getElementById('subtitle').textContent = login?'Anmelden':'Konto erstellen';
@@ -591,8 +605,16 @@ function renderAuthGate(err){ const login=authMode==='login';
     </div>`;
   const f=document.getElementById(login?'au_id':'au_user'); if(f) f.focus(); }
 
+// Welcher Rang angezeigt wird: normalerweise der echte, sonst der ausgerüstete.
+// Level und XP bleiben davon unberührt — ausgerüstet wird nur der Look.
+function equippedRank(){
+  const lvl=levelFromXP(profile.xp).level, real=rankForLevel(lvl);
+  if(profile.rankSkin==null) return real;
+  const r=RANKS.find(x=>x.min===profile.rankSkin);
+  return (r && lvl>=r.min) ? r : real;      // nicht (mehr) erreicht → zurück auf echt
+}
 function rankCardHTML(){
-  const lp=levelFromXP(profile.xp), rank=rankForLevel(lp.level), pct=Math.round(lp.into/lp.need*100);
+  const lp=levelFromXP(profile.xp), rank=equippedRank(), pct=Math.round(lp.into/lp.need*100);
   const sparks = (rank.aura||0)>=4
     ? '<i class="spark" style="left:12%;top:24%"></i><i class="spark" style="left:84%;top:28%;animation-delay:.6s"></i><i class="spark" style="left:66%;top:72%;animation-delay:1.1s"></i><i class="spark" style="left:26%;top:66%;animation-delay:.35s"></i>'
     : '';
@@ -619,6 +641,37 @@ function monster(size,mood,stage){ size=size||86;
   return `<img class="mon" src="brock.png" width="${size}" height="${Math.round(size*1.19)}" alt="" aria-hidden="true">`; }
 function mascot(text,mood,size){ return `<div class="mascot">${monster(size,mood)}<div class="bubble">${text}</div></div>`; }
 
+// Brocks Sprüche hängen an der Lage: heute schon trainiert, heute noch was vor,
+// gestern einen Trainingstag verpasst, oder einfach Ruhetag.
+const BROCK_SAY={
+  done:[ 'Stark! Heute erledigt — ich hab genau zugeschaut.',
+         'Sauber. Jetzt darfst du dich fühlen wie ein Kleiderschrank.',
+         'Training steht, Haken dran. So läuft das.',
+         'Fertig für heute. Ich bin fast ein bisschen stolz.' ],
+  missed:[ 'Gestern war Trainingstag … ich hab gewartet. Ganz allein.',
+           'Gestern nichts gewesen, hm? Die Hanteln haben sich beschwert.',
+           'Ich sag ja nichts wegen gestern. Aber ich denk es mir.',
+           'Gestern ausgefallen — heute dafür doppelt gut aussehen, ja?' ],
+  todo:[ 'Heute steht was an. Schuhe an, los.',
+         'Dein Training wartet. Und ich warte mit.',
+         'Heute ist Trainingstag. Nicht lange nachdenken.',
+         'Einmal anfangen — der Rest kommt von allein.' ],
+  rest:[ 'Ruhetag. Muskeln wachsen jetzt, nicht im Gym.',
+         'Heute frei. Genieß es, morgen zählt es wieder.',
+         'Ruhetag — Faulenzen gehört zum Plan dazu.',
+         'Heute nichts zu tun. Ich mach auch nichts.' ]
+};
+function sessionsOn(ts){ return sessions.filter(s=>sameDay(s.date,ts)); }
+function trainedToday(){ return sessionsOn(Date.now()).length>0; }
+function missedYesterday(){ const y=Date.now()-864e5, d=(new Date(y).getDay()+6)%7;
+  return plans.some(p=>p.day===d) && sessionsOn(y).length===0; }
+function brockSay(){
+  const key = trainedToday() ? 'done' : missedYesterday() ? 'missed' : planForToday() ? 'todo' : 'rest';
+  const list=BROCK_SAY[key];
+  // Über den Tag stabil — der Spruch springt nicht bei jedem Antippen.
+  return list[Math.floor(Date.now()/864e5)%list.length];
+}
+
 // ---------- Einrichtungs-Assistent ----------
 let obStep=0, obDraft=null;
 const OB_DEFDAYS={2:[0,3],3:[0,2,4],4:[0,1,3,4],5:[0,1,2,3,4],6:[0,1,2,3,4,5]};
@@ -628,21 +681,23 @@ const OB_SAY=[
  'Und an welchen Tagen genau? Der Rest sind deine Ruhetage.',
  'Lieber kurz und schwer — oder lang und viel? Beides ist richtig.',
  'Hast du Lieblingsübungen? Die pack ich dir nach vorn.',
+ 'Wie viel wiegst du gerade? Damit hast du später einen Startpunkt.',
  'Alles klar! Schau nochmal drüber, dann leg ich los.'
 ];
 let obReturn='home';   // wohin „Abbrechen" zurückführt
 function startOnboard(){ obStep=0;
   if(view!=='onboard') obReturn=(view==='settings'||view==='plans')?view:'home';
+  const lw=lastWeight();
   obDraft={ n:(profile.days&&profile.days.length)||3, days:(profile.days||OB_DEFDAYS[3]).slice(),
-            vol:profile.vol||'high', favs:(profile.favs||[]).slice() };
+            vol:profile.vol||'high', favs:(profile.favs||[]).slice(), w:lw?String(lw.kg):'' };
   view='onboard'; render(); }
 // Beim allerersten Mal (frisch registriert) gibt es keinen Ausweg — danach schon.
 function obCanLeave(){ return !!profile.onboarded; }
 function renderOnboard(){
-  const d=obDraft, last=5;
+  const d=obDraft, last=6;
   document.getElementById('subtitle').textContent='Einrichtung';
-  let h=`<div class="ob-dots">${[0,1,2,3,4,5].map(i=>`<i class="${i<=obStep?'on':''}"></i>`).join('')}</div>`;
-  h+=mascot(OB_SAY[obStep], (obStep===0||obStep===5)?'happy':'', obStep===0?96:72);
+  let h=`<div class="ob-dots">${[0,1,2,3,4,5,6].map(i=>`<i class="${i<=obStep?'on':''}"></i>`).join('')}</div>`;
+  h+=mascot(OB_SAY[obStep], (obStep===0||obStep===last)?'happy':'', obStep===0?96:72);
 
   if(obStep===0){ h+=`<div class="card">
     <h2 style="margin-top:0">Lass uns deinen Plan bauen</h2>
@@ -681,6 +736,15 @@ function renderOnboard(){
       <div class="ob-favs">${FAVPOOL[g].map(n=>`<button class="chip ${d.favs.includes(n)?'on':''}" data-fav="${esc(n)}">${esc(n)}</button>`).join('')}</div></div>`).join('')}
     ${obNav()}</div>`; }
 
+  else if(obStep===5){ h+=`<div class="card">
+    <h2 style="margin-top:0">Dein Gewicht</h2>
+    <p class="muted tiny" style="margin-bottom:14px">Freiwillig — du kannst das Feld leer lassen und später
+      jederzeit unter „Körper" nachtragen.</p>
+    <div class="field" style="margin:0"><label>Aktuelles Gewicht (kg)</label>
+      <input id="obWeight" type="number" inputmode="decimal" step="0.1" min="20" max="500"
+             placeholder="z. B. 78,5" value="${esc(d.w||'')}"></div>
+    ${obNav()}</div>`; }
+
   else { const days=d.days.slice().sort((a,b)=>a-b);
     const split=SPLITS[Math.min(6,Math.max(2,days.length))]||SPLITS[3];
     h+=`<div class="card">
@@ -689,7 +753,7 @@ function renderOnboard(){
       ${days.map((x,i)=>`<div class="row between"><span>${DAYLONG[x]}</span><b>${split[i%split.length][0]}</b></div>`).join('')}
       ${[0,1,2,3,4,5,6].filter(x=>!days.includes(x)).map(x=>`<div class="row between muted"><span>${DAYLONG[x]}</span><span>Ruhetag</span></div>`).join('')}
     </div>
-    <div class="tiny muted" style="margin-top:12px">${d.vol==='low'?'3 Sätze × 6–10 Wdh':'4 Sätze × 8–12 Wdh'} je Übung · ${d.vol==='low'?5:6} Übungen pro Einheit${d.favs.length?` · ${d.favs.length} Lieblingsübungen bevorzugt`:''}</div>
+    <div class="tiny muted" style="margin-top:12px">${d.vol==='low'?'3 Sätze × 6–10 Wdh':'4 Sätze × 8–12 Wdh'} je Übung · ${d.vol==='low'?5:6} Übungen pro Einheit${d.favs.length?` · ${d.favs.length} Lieblingsübungen bevorzugt`:''}${(+String(d.w).replace(',','.'))>0?` · Startgewicht ${fmtKg(+String(d.w).replace(',','.'))} kg`:''}</div>
     ${(obCanLeave()||sessions.length)&&plans.length
       ? `<div class="tiny" style="color:var(--danger);margin-top:10px">Deine bisherigen ${plans.length} Trainings werden dabei ersetzt.</div>`
       : ''}
@@ -736,7 +800,6 @@ function renderHome(){
 
   h+=`<div class="card" data-nav="plans" style="cursor:pointer;margin-top:10px"><div class="row between">
       <b>Alle Trainings</b><span class="muted">${plans.length} ›</span></div></div>`;
-  h+=`<button class="btn" style="margin-top:8px" data-act="freestyle">Freies Training</button>`;
   app.innerHTML=h;
 }
 
@@ -892,28 +955,27 @@ function renderSession(){
 
 function renderRang(){
   document.getElementById('subtitle').textContent='Rang & Designs';
-  const lp=levelFromXP(profile.xp), rank=rankForLevel(lp.level), nx=nextRank(lp.level), unlocked=unlockedThemes(lp.level);
+  const lp=levelFromXP(profile.xp), real=rankForLevel(lp.level), shown=equippedRank(), nx=nextRank(lp.level), unlocked=unlockedThemes(lp.level);
   let h=rankCardHTML();
   h+=`<div class="tiny muted" style="text-align:center;margin:-4px 0 8px">Gesamt-XP: ${profile.xp}${nx?` · Nächster Rang „${esc(nx.name)}" ab Level ${nx.min}`:' · Höchster Rang erreicht'}</div>`;
-  // Brock wächst mit dem Rang mit
-  h+=`<div class="card" style="text-align:center;padding-top:8px">
-      ${monster(120, nx?'':'happy')}
-      <div style="font-size:14px;font-weight:700;margin-top:2px">Brock</div>
-      <div class="tiny muted" style="margin-top:4px">${nx?`Noch ${nx.min-lp.level} Level bis „${esc(nx.name)}".`:'Höchster Rang erreicht.'}</div></div>`;
-  // Leiter
-  h+=`<div class="row between" style="margin:16px 4px 8px"><h2>Rang-Leiter</h2></div>`;
-  RANKS.forEach(r=>{ const reached=lp.level>=r.min, cur=r.name===rank.name;
+  // Brock steht frei — kein Kasten mehr — und sagt etwas zur Lage.
+  h+=`<div class="mascot" style="margin:14px 2px 18px">${monster(104, nx?'':'happy')}<div class="bubble">${brockSay()}</div></div>`;
+  // Leiter — erreichte Ränge lassen sich antippen und als Look übernehmen
+  h+=`<div class="row between" style="margin:16px 4px 4px"><h2>Rang-Leiter</h2></div>
+      <div class="tiny muted" style="margin:0 4px 8px">Tipp einen erreichten Rang an, um sein Aussehen zu tragen.</div>`;
+  RANKS.forEach(r=>{ const reached=lp.level>=r.min, isReal=r.min===real.min, isShown=r.min===shown.min;
     const sparks=(r.aura||0)>=4?'<i class="spark" style="left:9%;top:30%"></i><i class="spark" style="left:88%;top:34%;animation-delay:.6s"></i><i class="spark" style="left:70%;top:64%;animation-delay:1s"></i>':'';
-    h+=`<div class="card rankcard aura-${r.aura||0}" style="--rc:${r.color};margin:8px 0;padding:12px;${reached?'':'opacity:.82'}">
+    h+=`<div class="card rankcard aura-${r.aura||0}" ${reached?`data-skin="${r.min}" style="--rc:${r.color};margin:8px 0;padding:12px;cursor:pointer${isShown?';border-color:var(--rc)':''}"`:`style="--rc:${r.color};margin:8px 0;padding:12px;opacity:.82"`}>
       ${sparks}
       <div class="rc-body row between">
         <div class="row" style="gap:10px">
           <div class="badge" style="width:34px;height:34px;flex:0 0 34px">${rankBadge(r,26,'L'+r.min)}</div>
-          <div><b>${esc(r.name)}</b> ${cur?'<span class="pill" style="background:var(--accent);color:var(--accent-ink)">jetzt</span>':''}
+          <div><b>${esc(r.name)}</b> ${isReal?'<span class="pill" style="background:var(--accent);color:var(--accent-ink)">dein Rang</span>':''}${isShown&&!isReal?'<span class="pill" style="background:var(--rc);color:#fff">getragen</span>':''}
             <div class="tiny muted">ab Level ${r.min}${r.unlock?` · Design „${THEMES[r.unlock].label}"`:''}</div></div>
         </div>
         <div>${reached?'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--ok)" stroke-width="3"><path d="M5 12l5 5L20 6"/></svg>':'<span class="tiny muted">🔒</span>'}</div>
       </div></div>`; });
+  if(profile.rankSkin!=null) h+=`<button class="btn ghost sm" style="margin-top:4px" data-skin="${profile.rankSkin}">Wieder meinen echten Rang zeigen</button>`;
   // Designs
   h+=`<div class="row between" style="margin:18px 4px 4px"><h2>Designs</h2></div><div class="theme-grid">`;
   Object.entries(THEMES).forEach(([key,t])=>{ const free=t.free, open=unlocked.has(key), on=profile.theme===key;
@@ -925,6 +987,60 @@ function renderRang(){
       ${open?'':'<span class="lock">🔒</span>'}${on?'<span class="lock" style="color:var(--accent)">✓</span>':''}</div>`; });
   h+=`</div>`;
   // Einstellungen
+  app.innerHTML=h;
+}
+
+// ---------- Körper ----------
+// Eigener Tab unten. Hält aktuell das Körpergewicht; hier kommt später mehr dazu (Ernährung).
+function weightList(){ return (profile.weights||[]).slice().sort((a,b)=>a.date-b.date); }
+function lastWeight(){ const w=weightList(); return w.length?w[w.length-1]:null; }
+function sameDay(a,b){ return new Date(a).toDateString()===new Date(b).toDateString(); }
+// Ein Eintrag pro Tag — nochmal wiegen am selben Tag überschreibt den alten Wert.
+function addWeight(kg){
+  kg=Math.round((+kg)*10)/10;
+  if(!(kg>0)||kg>500) return false;
+  const now=Date.now(), i=(profile.weights||[]).findIndex(x=>sameDay(x.date,now));
+  if(i>=0) profile.weights[i]={date:now,kg}; else profile.weights.push({date:now,kg});
+  save(); return true;
+}
+function renderBody(){
+  document.getElementById('subtitle').textContent='Körper';
+  const w=weightList(), cur=lastWeight();
+  let h=`<div class="card">
+      <div class="row between" style="margin-bottom:10px"><h2 style="margin:0">Gewicht</h2>
+        ${cur?`<span class="pill">zuletzt ${fmtDate(cur.date)}</span>`:''}</div>
+      <div class="row" style="gap:8px;align-items:flex-end">
+        <div class="field" style="flex:1;margin:0"><label>Heute wiegen (kg)</label>
+          <input id="wInput" type="number" inputmode="decimal" step="0.1" min="20" max="500"
+                 placeholder="${cur?fmtKg(cur.kg):'z. B. 78,5'}"></div>
+        <button class="btn primary" style="width:auto;padding:12px 18px" data-act="addweight">Eintragen</button>
+      </div>
+      <div class="tiny muted" style="margin-top:8px">Am besten morgens, nüchtern, immer zur gleichen Zeit —
+        dann sind die Zahlen vergleichbar. Ein Eintrag pro Tag; nochmal wiegen überschreibt den heutigen Wert.</div>
+    </div>`;
+
+  if(w.length===0){ h+=`<div class="empty" style="margin-top:14px">Noch nichts eingetragen.<br>Trag dein Gewicht ein, dann entsteht hier deine Kurve.</div>`;
+    app.innerHTML=h; return; }
+
+  const first=w[0], diff=cur.kg-first.kg;
+  h+=`<div class="grid3" style="margin-top:14px">
+      <div class="stat"><b>${fmtKg(first.kg)}</b><span>Start</span></div>
+      <div class="stat"><b>${fmtKg(cur.kg)}</b><span>Aktuell</span></div>
+      <div class="stat"><b>${diff>0?'+':''}${fmtKg(diff)}</b><span>kg Differenz</span></div></div>`;
+
+  if(w.length>1){
+    h+=`<div class="row between" style="margin:20px 4px 6px"><h2>Verlauf</h2>
+        <span class="tiny muted">${fmtKg(Math.min(...w.map(x=>x.kg)))}–${fmtKg(Math.max(...w.map(x=>x.kg)))} kg</span></div>
+      <div class="card" style="padding:10px 6px">${lineChart(w.map(x=>x.kg),300,110)}</div>`;
+  } else {
+    h+=`<div class="empty" style="margin-top:16px">Ab dem zweiten Eintrag siehst du hier eine Kurve.</div>`;
+  }
+
+  h+=`<div class="row between" style="margin:20px 4px 6px"><h2>Einträge</h2></div><div class="card">`;
+  [...w].reverse().forEach(x=>{ h+=`<div class="sess"><span>${fmtDate(x.date)}</span>
+      <span class="row" style="gap:10px"><b>${fmtKg(x.kg)} kg</b>
+      <button class="link" style="padding:0 2px;color:var(--muted)" data-delweight="${x.date}">✕</button></span></div>`; });
+  h+=`</div>`;
   app.innerHTML=h;
 }
 
@@ -960,7 +1076,66 @@ function renderSettings(){
       <button class="btn danger" data-act="resetall">Alles zurücksetzen</button>
       <div class="tiny muted" style="margin-top:6px">Löscht alle Trainings, Einheiten und den Fortschritt (zurück zum Start). Vorher am besten ein Backup speichern.</div>
     </div>`;
+  h+=`<div class="card" data-nav="privacy" style="cursor:pointer">
+      <div class="row between"><div class="row" style="gap:10px">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v6c0 4.4-3 8-7 9-4-1-7-4.6-7-9V6z"/><path d="M9.5 12l1.8 1.8 3.4-3.6"/></svg>
+        <div><b>Datenschutz</b><div class="tiny muted">Welche Daten gespeichert werden und warum</div></div></div><span class="muted">›</span></div></div>`;
+  h+=`<div class="card">
+      <label class="tiny muted" style="display:block;margin-bottom:6px">Konto</label>
+      <button class="btn danger" data-act="delaccount">Konto löschen</button>
+      <div class="tiny muted" style="margin-top:6px">Löscht dein Konto und <b>alle</b> Daten dauerhaft — auch in der Cloud.
+        Das lässt sich nicht rückgängig machen. Wenn du sie behalten willst, speichere vorher ein Backup.</div>
+    </div>`;
   if(devAdmin) h+=`<button class="btn ghost" data-nav="admin" style="margin-top:14px;color:var(--muted)">Admin / Test</button>`;
+  app.innerHTML=h;
+}
+
+// ---------- Datenschutz ----------
+function renderPrivacy(){
+  document.getElementById('subtitle').textContent='Datenschutz';
+  let h=`<button class="link" data-nav="settings">‹ Einstellungen</button>
+    <div class="card" style="line-height:1.7;font-size:13.5px">
+      <h2 style="margin:0 0 10px">Datenschutz</h2>
+
+      <b>Wer ist verantwortlich</b>
+      <p class="muted" style="margin:4px 0 14px">Diese App wird privat betrieben.
+        Verantwortlich ist <b style="color:var(--txt)">${esc(PRIVACY_OWNER)}</b>,
+        erreichbar unter <b style="color:var(--txt)">${esc(PRIVACY_CONTACT)}</b>.</p>
+
+      <b>Welche Daten gespeichert werden</b>
+      <p class="muted" style="margin:4px 0 4px">Nur das, was die App zum Funktionieren braucht:</p>
+      <ul class="muted" style="margin:0 0 14px;padding-left:18px">
+        <li>E-Mail-Adresse und Username (für die Anmeldung)</li>
+        <li>Passwort — nur verschlüsselt, niemand kann es lesen</li>
+        <li>deine Trainings, geloggten Einheiten, Sätze und Gewichte</li>
+        <li>dein Körpergewicht, wenn du es einträgst</li>
+        <li>XP, Level und deine Einstellungen</li>
+      </ul>
+
+      <b>Wo die Daten liegen</b>
+      <p class="muted" style="margin:4px 0 14px">Auf deinem Gerät und zusätzlich bei
+        <b style="color:var(--txt)">Supabase</b>, damit du sie auf mehreren Geräten hast.
+        Ohne Konto bleibt alles nur lokal.</p>
+
+      <b>Wofür sie benutzt werden</b>
+      <p class="muted" style="margin:4px 0 14px">Ausschließlich dafür, dir deine eigenen Trainings anzuzeigen.
+        <b style="color:var(--txt)">Keine Werbung, kein Tracking, keine Analyse-Dienste, keine Weitergabe an Dritte.</b>
+        Es werden auch keine Cookies zu Werbezwecken gesetzt.</p>
+
+      <b>Wer sie sehen kann</b>
+      <p class="muted" style="margin:4px 0 14px">Du. Und technisch bedingt der Betreiber der App —
+        deine Trainingsdaten liegen unverschlüsselt in der Datenbank und könnten dort eingesehen werden.
+        Das passiert nicht absichtlich, aber es ist ehrlicher, dass du es weißt.</p>
+
+      <b>Wie lange</b>
+      <p class="muted" style="margin:4px 0 14px">Bis du dein Konto löschst. Danach sind sie weg.</p>
+
+      <b>Deine Rechte</b>
+      <p class="muted" style="margin:4px 0 0">Du kannst jederzeit alle deine Daten als Datei herunterladen
+        (Einstellungen → „Backup speichern") und dein Konto mit allen Daten löschen
+        (Einstellungen → „Konto löschen"). Du musst dafür niemanden fragen.
+        Für Auskunft oder Fragen erreichst du den Betreiber unter der Adresse oben.</p>
+    </div>`;
   app.innerHTML=h;
 }
 
@@ -1018,8 +1193,8 @@ function importData(file){
   r.onload=()=>{ try{ const d=JSON.parse(r.result);
       if(!d || !Array.isArray(d.plans)) throw 0;
       plans=d.plans; sessions=Array.isArray(d.sessions)?d.sessions:[];
-      profile=d.profile||{xp:0,theme:'system'}; settings=d.settings||{rest:90}; active=null;
-      save(); applyTheme(); view='rang'; render(); toast('Backup geladen');
+      profile=d.profile||{xp:0,theme:'system'}; settings=d.settings||{rest:90}; active=null; normalizeProfile();
+      save(); applyTheme(); view='home'; render(); toast('Backup geladen');
     }catch(e){ toast('Datei ungültig'); } };
   r.readAsText(file);
 }
@@ -1052,7 +1227,7 @@ async function ensureToken(){ if(!session) return false; if(Date.now()<session.e
   catch(e){ setSync(false); return false; } }
 function appDataBlob(){ return {plans,sessions,profile,settings}; }
 function loadBlob(d){ if(!d) return; if(Array.isArray(d.plans)) plans=d.plans; if(Array.isArray(d.sessions)) sessions=d.sessions;
-  if(d.profile) profile=d.profile; if(d.settings) settings=d.settings;
+  if(d.profile) profile=d.profile; if(d.settings) settings=d.settings; normalizeProfile();
   DB.set('plans',plans); DB.set('sessions',sessions); DB.set('profile',profile); DB.set('settings',settings); applyTheme(); }
 // Liefert {ok,data}: ok=false heißt "konnte nicht laden" (Netz), NICHT "Konto ist leer".
 async function cloudPull(){ if(!await ensureToken()) return {ok:false,data:null};
@@ -1093,9 +1268,30 @@ async function authSignOut(){
   if(dirty && !await cloudPush()) return false;
   if(session){ try{ await fetch(`${SUPA_URL}/auth/v1/logout`,{method:'POST',headers:authHeaders(true)}); }catch(e){} }
   clearSession();
-  plans=seedPlans(); sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null;
+  plans=seedPlans(); sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null; normalizeProfile();
   DB.set('plans',plans); DB.set('sessions',sessions); DB.set('profile',profile); DB.set('settings',settings); DB.set('active',null);
   setDirty(false); authMode='login'; view='home'; return true; }
+// Konto löschen: erst die Daten in der Cloud, dann das Konto selbst.
+// Das Konto zu entfernen kann der Browser nicht allein — dafür braucht es die
+// Server-Funktion `delete_own_account` in Supabase. Fehlt sie, sind zumindest
+// alle Daten weg; das sagen wir dann auch ehrlich statt Erfolg zu melden.
+async function deleteAccount(){
+  if(!session) return 'none';
+  const uidNow=session.user.id;
+  let dataGone=false, accountGone=false;
+  if(await ensureToken()){
+    try{ const r=await fetch(`${SUPA_URL}/rest/v1/gymlog_data?id=eq.${uidNow}`,{method:'DELETE',headers:authHeaders(true)});
+      dataGone=r.ok; }catch(e){}
+    try{ const r=await fetch(`${SUPA_URL}/rest/v1/rpc/delete_own_account`,{method:'POST',headers:authHeaders(true),body:'{}'});
+      accountGone=r.ok; }catch(e){}
+  }
+  if(!dataGone && !accountGone) return 'offline';       // nichts erreicht — Konto bleibt bestehen
+  clearSession();
+  plans=seedPlans(); sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null; normalizeProfile();
+  DB.set('plans',plans); DB.set('sessions',sessions); DB.set('profile',profile); DB.set('settings',settings); DB.set('active',null);
+  setDirty(false); authMode='login'; view='home';
+  return accountGone?'full':'dataonly';
+}
 async function doAuth(mode){ const v=id=>{ const el=document.getElementById(id); return el?el.value:''; };
   const btn=document.querySelector('[data-act="doLogin"],[data-act="doRegister"]');
   if(btn){ btn.disabled=true; btn.textContent='Moment …'; }
@@ -1136,8 +1332,14 @@ function confirmTwice(key,btn,label,run){ if(armed[key]){ clearTimeout(armed[key
 if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ if((profile.theme||'system')==='system') applyTheme(); }); }
 
 document.addEventListener('click',ev=>{
-  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-moveex],[data-openex]');
+  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-moveex],[data-openex],[data-delweight],[data-skin]');
   if(!t) return;
+  if(t.dataset.delweight){ const ts=+t.dataset.delweight;
+    confirmTwice('dw'+ts,t,'Löschen?',()=>{ profile.weights=(profile.weights||[]).filter(x=>x.date!==ts); save(); render(); }); return; }
+  if(t.dataset.skin){ const min=+t.dataset.skin, lvl=levelFromXP(profile.xp).level;
+    const r=RANKS.find(x=>x.min===min); if(!r||lvl<r.min) return;      // gesperrte Ränge bleiben gesperrt
+    profile.rankSkin = (profile.rankSkin===min) ? null : min;          // nochmal tippen = wieder der echte Rang
+    save(); render(); toast(profile.rankSkin===null?'Wieder dein echter Rang':`„${r.name}" ausgerüstet`); return; }
   if(t.dataset.fav){ const n=t.dataset.fav, i=obDraft.favs.indexOf(n);
     if(i<0) obDraft.favs.push(n); else obDraft.favs.splice(i,1); renderOnboard(); return; }
   if(t.dataset.openex){ detailExName=t.dataset.openex; view='exdetail'; render(); return; }
@@ -1179,7 +1381,7 @@ document.addEventListener('click',ev=>{
   else if(a==='discard'){ confirmTwice('disc',t,'Wirklich verwerfen?',()=>{ active=null; save(); stopRest(); paintTimer(); render(); }); }
   else if(a==='ob:start'){ startOnboard(); }
   else if(a==='ob:next'){ if(obStep===1&&!obDraft.days.length) obDraft.days=(OB_DEFDAYS[obDraft.n]||OB_DEFDAYS[3]).slice();
-    obStep=Math.min(5,obStep+1); renderOnboard(); }
+    obStep=Math.min(6,obStep+1); renderOnboard(); }
   else if(a==='ob:back'){ if(obStep>0){ obStep--; renderOnboard(); }
     else if(obCanLeave()){ view=obReturn; render(); } }                  // frisch registriert: kein Ausstieg
   else if(a==='ob:cancel'){ if(obCanLeave()){ view=obReturn; render(); toast('Nichts geändert'); } }
@@ -1189,18 +1391,24 @@ document.addEventListener('click',ev=>{
   else if(a&&a.startsWith('ob:vol:')){ obDraft.vol=a.slice(7); renderOnboard(); }
   else if(a==='ob:finish'){ profile.days=obDraft.days.slice().sort((x,y)=>x-y); profile.vol=obDraft.vol;
     profile.favs=obDraft.favs.slice(); profile.onboarded=true;
+    const w=+String(obDraft.w||'').replace(',','.'); if(w>0) addWeight(w);   // Startgewicht, falls angegeben
     plans=buildPlans(); active=null; save(); view='home'; render(); toast('Plan steht — viel Erfolg!'); }
   else if(a==='newplan'){ const p={id:uid(),name:'Neues Training',day:null,exercises:[{id:uid(),name:'',sets:volSets(),reps:10}]}; plans.push(p); save(); editPlanId=p.id; view='plan'; render(); }
-  else if(a==='freestyle'){ startWorkout({id:'free',name:'Freies Training',exercises:[{id:uid(),name:'Übung 1',sets:3,reps:10}]}); }
   else if(a==='addex'){ plans.find(x=>x.id===editPlanId).exercises.push({id:uid(),name:'',sets:3,reps:10}); save(); render(); }
   else if(a==='library'){ openLibrary(); }
+  else if(a==='addweight'){ const el=document.getElementById('wInput'); const v=el?el.value.replace(',','.'):'';
+    if(addWeight(v)){ render(); toast('Eingetragen'); } else toast('Bitte ein Gewicht in kg eingeben'); }
   else if(a==='export'){ exportData(); }
-  else if(a==='resetall'){ confirmTwice('rst',t,'Wirklich alles löschen?',()=>{ plans=seedPlans(); sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null; save(); applyTheme(); view='rang'; render(); toast('Zurückgesetzt'); }); }
+  else if(a==='resetall'){ confirmTwice('rst',t,'Wirklich alles löschen?',()=>{ plans=seedPlans(); sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null; normalizeProfile(); save(); applyTheme(); view='home'; render(); toast('Zurückgesetzt'); }); }
   else if(a==='authSwitch'){ authMode=(authMode==='login')?'register':'login'; renderAuthGate(); }
   else if(a==='doLogin'){ doAuth('login'); }
   else if(a==='doRegister'){ doAuth('register'); }
   else if(a==='logout'){ confirmTwice('lo',t,'Abmelden?',()=>{ authSignOut().then(ok=>{ render();
       toast(ok?'Abgemeldet':'Kein Netz — Daten noch nicht gesichert. Später nochmal.'); }); }); }
+  else if(a==='delaccount'){ confirmTwice('da',t,'Konto wirklich löschen?',()=>{ deleteAccount().then(res=>{ render();
+      if(res==='full') toast('Konto und alle Daten gelöscht');
+      else if(res==='dataonly') showModal('<b>Deine Daten sind gelöscht.</b><div class="tiny muted" style="margin-top:8px">Alle Trainings, Einheiten und dein Fortschritt sind weg — auch in der Cloud. Die Anmeldung selbst (E-Mail und Passwort) konnte nicht entfernt werden; melde dich beim Betreiber, wenn auch die weg soll.</div>');
+      else toast('Kein Netz — nichts gelöscht. Bitte später nochmal.'); }); }); }
   else if(a==='saveplan'){ syncPlanInputs(); const p=plans.find(x=>x.id===editPlanId); p.exercises=p.exercises.filter(e=>e.name.trim()); if(!p.exercises.length) p.exercises.push({id:uid(),name:'Übung',sets:3,reps:10}); save(); view='home'; render(); }
   else if(a==='delplan'){ confirmTwice('dp',t,'Training löschen?',()=>{ plans=plans.filter(x=>x.id!==editPlanId); save(); view='home'; render(); }); }
   else if(a==='finish'){ finishWorkout(); }
@@ -1212,6 +1420,7 @@ document.addEventListener('click',ev=>{
 
 document.addEventListener('input',ev=>{ const t=ev.target;
   if(t.id==='libSearch'){ renderLibList(t.value); return; }
+  if(t.id==='obWeight'&&obDraft){ obDraft.w=t.value; return; }   // ohne Neuzeichnen mitschreiben
   if(t.dataset.f&&active){ active.exercises[+t.dataset.ex].sets[+t.dataset.set][t.dataset.f]=t.value; DB.set('active',active); return; }
   if(t.id==='planName'){ const p=plans.find(x=>x.id===editPlanId); if(p){ p.name=t.value; DB.set('plans',plans); } }
   if(t.id==='restInput'){ settings.rest=Math.max(10,+t.value||90); DB.set('settings',settings); }
