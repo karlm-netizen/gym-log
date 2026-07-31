@@ -760,9 +760,9 @@ function splitHint(n){ return ({2:'Oberkörper und Unterkörper im Wechsel.',3:'
 function renderHome(){
   const week=sessions.filter(s=>Date.now()-s.date<7*864e5).length;
   const totalVol=sessions.reduce((a,s)=>a+volume(s.entries),0);
-  // Brock begrüßt oben, danach kommt der Rest.
-  let h=`<div class="mascot" style="margin:2px 2px 16px">${monster(96)}<div class="bubble">${brockSay()}</div></div>`;
-  h+=rankCardHTML();
+  // Oben der Rang, darunter Brock mit seinem Spruch, dann der Rest.
+  let h=rankCardHTML();
+  h+=`<div class="mascot" style="margin:14px 2px 16px">${monster(96)}<div class="bubble">${brockSay()}</div></div>`;
   if(active){ h+=`<div class="card" style="border-color:var(--accent)">
     <div class="row between"><h2>Training läuft</h2><span class="pill">${esc(active.planName)}</span></div>
     <p class="muted tiny" style="margin:6px 0 12px">${doneSets(active.exercises)} Sätze · seit ${fmtTime(active.date)}</p>
