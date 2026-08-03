@@ -457,10 +457,12 @@ let devAdmin=DB.get('devadmin',false);
 let session=DB.get('session',null);
 const SUPA_URL='https://uvtxkdasgllnfkvtnkrq.supabase.co';
 const SUPA_KEY='sb_publishable_7UvOL7KzzgJK6om8OwUsSg_usOMz92l';
-// ⚠️ Platzhalter — für die Datenschutz-Seite. Vor dem Weitergeben an andere ausfüllen:
-// eine Kontaktmöglichkeit ist Pflicht, sobald nicht mehr nur du die App nutzt.
-const PRIVACY_OWNER='Karl (privat betriebene App)';
-const PRIVACY_CONTACT='— Kontaktadresse noch einzutragen —';
+// Für die Datenschutz-Seite. Bewusst ohne Wohnanschrift: Art. 13 DSGVO verlangt
+// „Name und Kontaktdaten", eine erreichbare E-Mail erfüllt das — und diese Seite
+// liegt in einem öffentlichen Repo, wo eine Privatadresse dauerhaft samt
+// Git-Historie stünde. Karls Entscheidung am 03.08.2026.
+const PRIVACY_OWNER='Karl Fangmeyer (privat betriebene App)';
+const PRIVACY_CONTACT='karlm.fangmeyer@gmail.com';
 function save(){ DB.set('plans',plans); DB.set('sessions',sessions); DB.set('active',active); DB.set('settings',settings); DB.set('profile',profile); scheduleSync(); }
 
 let view='home', editPlanId=null, detailSessionId=null, detailExName=null;
