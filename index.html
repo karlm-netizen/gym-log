@@ -84,6 +84,12 @@
   .set input{width:100%; background:var(--card2); border:1px solid var(--line); border-radius:10px;
     color:var(--txt); padding:11px 8px; font-size:16px; text-align:center}
   .set.done input{opacity:.5}
+  /* Laufzeit oben rechts im Training: soll man im Vorbeigehen ablesen koennen, deshalb gross
+     und in der Akzentfarbe. tabular-nums, damit die Ziffern beim Ticken nicht springen. */
+  .sessclock{text-align:right; line-height:1.1; flex:0 0 auto}
+  .sessclock b{display:block; font-size:26px; font-weight:800; color:var(--ok);
+    font-variant-numeric:tabular-nums; letter-spacing:.5px}
+  .sessclock span{display:block; font-size:11px; color:var(--muted); margin-top:2px}
   /* Aufwaermsatz: zaehlt nicht mit, deshalb sichtbar zurueckgenommen und mit „W" statt Nummer */
   .set.warm .idx{color:var(--ok); font-size:12px}
   .set.warm input{border-style:dashed}
@@ -200,6 +206,46 @@
   .modal-box{background:var(--card); border:1px solid var(--accent); border-radius:20px; padding:24px;
     max-width:340px; width:100%; text-align:center}
   .modal-box .big{font-size:40px; font-weight:800; margin:6px 0}
+
+  /* ============================================================
+     PC-Version (ab 900 px). Dieselbe App, nur anders angeordnet:
+     die untere Leiste wandert als Seitenleiste nach links, der Inhalt
+     wird breiter und liegt in zwei Spalten. Kein zweiter Quelltext —
+     alles ueber Umbrueche, damit es eine App bleibt.
+     ============================================================ */
+  @media (min-width: 900px){
+    body{max-width:none; padding:0 0 40px 232px; padding-top:32px}
+    #app.wrap{max-width:980px; margin:0 auto; padding:0 32px}
+
+    /* Untere Leiste wird zur Seitenleiste */
+    nav{top:0; bottom:0; right:auto; left:0; width:232px; max-width:none; flex-direction:column;
+      justify-content:flex-start; gap:4px; padding:26px 14px; border-top:none;
+      border-right:1px solid var(--line)}
+    nav:before{content:'Gym-Log'; display:block; font-size:17px; font-weight:800;
+      color:var(--txt); padding:0 12px 18px}
+    nav button{flex:0 0 auto; flex-direction:row; justify-content:flex-start; gap:12px;
+      font-size:14.5px; font-weight:600; padding:11px 12px; border-radius:12px; width:100%}
+    nav button.on{background:var(--card2)}
+    body.gate{padding-left:0} body.setup{padding-left:0}
+
+    /* Pausen-Timer sitzt rechts unten statt ueber der Leiste */
+    #timerbar{left:auto; right:24px; bottom:24px; width:380px; max-width:none; margin:0; padding:0}
+
+    /* Zwei Spalten: Karten fliessen nebeneinander statt endlos untereinander */
+    .cols2{display:grid; grid-template-columns:1fr 1fr; gap:0 24px; align-items:start}
+    .cols2 > .spanne{grid-column:1 / -1}
+
+    /* Auf breiten Schirmen darf mehr nebeneinander */
+    .grid3{grid-template-columns:repeat(3,1fr)}
+    .ob-favs .chip{font-size:13px}
+    .theme-grid{grid-template-columns:repeat(3,1fr)}
+    .modal-box{max-width:460px}
+    /* Zeiger nur dort, wo wirklich geklickt werden kann */
+    .card[data-nav],.card[data-act],.lib-row,.chip,.btn,.iconbtn{cursor:pointer}
+  }
+  @media (min-width: 1280px){
+    #app.wrap{max-width:1120px}
+  }
 </style>
 </head>
 <body>
@@ -462,7 +508,19 @@ function seedPlans(){ const mk=(n,ex)=>({id:uid(),name:n,exercises:ex.map(([a,s,
   return [ mk('Push',[['Bankdrücken',4,8],['Schulterdrücken',3,10],['Trizeps-Drücken',3,12]]),
            mk('Pull',[['Klimmzüge',4,8],['Rudern',4,10],['Bizeps-Curls',3,12]]),
            mk('Beine',[['Kniebeuge',4,8],['Beinpresse',3,12],['Wadenheben',4,15]]) ]; }
-let plans=DB.get('plans',null); if(plans==null){ plans=seedPlans(); DB.set('plans',plans); }
+// ---------- Trainingsplaene ----------
+// Seit dem 05.08. gibt es eine Ebene mehr: mehrere *Trainingsplaene*, von denen einer der aktuelle
+// ist. Ein Trainingsplan enthaelt die einzelnen Trainings (Push, Pull, Beine …).
+// `plans` zeigt immer auf die Trainings des aktuellen Plans — dasselbe Array-Objekt, damit
+// push/splice an beiden Stellen wirken. Nur beim *Ersetzen* muss setPlans() genommen werden.
+function neuerPlan(name,liste){ return {id:uid(), name:name||'Mein Plan', created:Date.now(), plans:liste||[]}; }
+let programs=DB.get('programs',null);
+if(!Array.isArray(programs) || !programs.length){
+  const alt=DB.get('plans',null);                       // Bestand aus der Zeit vor der Umstellung
+  programs=[neuerPlan('Mein Plan', Array.isArray(alt)&&alt.length?alt:seedPlans())];
+  DB.set('programs',programs);
+}
+let plans=[];                                            // wird gleich unter dem Profil gesetzt
 let sessions=DB.get('sessions',[]);
 let active=DB.get('active',null);
 let settings=DB.get('settings',{rest:90});
@@ -478,6 +536,22 @@ function normalizeProfile(){
   if(profile.rankSkin===undefined) profile.rankSkin=null;   // ausgerüsteter Rang (null = der echte)
 }
 normalizeProfile();
+
+// Der aktuelle Trainingsplan. Faellt auf den ersten zurueck, wenn der gemerkte weg ist —
+// und legt notfalls einen an, damit die App nie ohne Plan dasteht.
+function activeProg(){
+  if(!Array.isArray(programs)||!programs.length) programs=[neuerPlan('Mein Plan',seedPlans())];
+  let p=programs.find(x=>x.id===profile.prog);
+  if(!p){ p=programs[0]; profile.prog=p.id; }
+  if(!Array.isArray(p.plans)) p.plans=[];
+  return p;
+}
+// plans zeigt auf die Trainings des aktuellen Plans — dasselbe Array, nicht eine Kopie.
+function bindPlans(){ plans=activeProg().plans; return plans; }
+// Nur fuers *Ersetzen* der ganzen Liste; einzelne push/splice wirken ueber die Referenz von selbst.
+function setPlans(arr){ const p=activeProg(); p.plans=arr; plans=arr; }
+function progById(id){ return (programs||[]).find(x=>x.id===id)||null; }
+bindPlans();
 let devAdmin=DB.get('devadmin',false);
 let session=DB.get('session',null);
 const SUPA_URL='https://uvtxkdasgllnfkvtnkrq.supabase.co';
@@ -489,9 +563,13 @@ const SUPA_KEY='sb_publishable_7UvOL7KzzgJK6om8OwUsSg_usOMz92l';
 const PRIVACY_OWNER='Karl Fangmeyer (privat betriebene App)';
 const PRIVACY_CONTACT='karlm.fangmeyer@gmail.com';
 const PRIVACY_STAND='5. August 2026';   // bei jeder inhaltlichen Aenderung mit hochziehen
-function save(){ DB.set('plans',plans); DB.set('sessions',sessions); DB.set('active',active); DB.set('settings',settings); DB.set('profile',profile); scheduleSync(); }
+function save(){ DB.set('programs',programs); DB.set('sessions',sessions); DB.set('active',active); DB.set('settings',settings); DB.set('profile',profile); scheduleSync(); }
 
-let view='home', editPlanId=null, detailSessionId=null, detailExName=null;
+let view='home', editPlanId=null, editProgId=null, detailSessionId=null, detailExName=null;
+// Welchen Trainingsplan man gerade bearbeitet. Kann ein anderer sein als der aktuelle —
+// Bearbeiten soll nicht heimlich den Plan wechseln, den man gerade trainiert.
+function editProg(){ return progById(editProgId) || activeProg(); }
+function editPlans(){ return editProg().plans; }
 const app=document.getElementById('app');
 
 // ---------- Einrichtung: Split, Volumen, Lieblingsübungen ----------
@@ -646,11 +724,14 @@ function render(){
   document.body.classList.remove('gate');
   document.body.classList.toggle('setup', view==='onboard');   // Assistent: untere Leiste ausblenden
   setNav();
-  ({home:renderHome, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, body:renderBody, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin}[view]||renderHome)();
+  ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, body:renderBody, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin}[view]||renderHome)();
   syncSessionClock();
   // Geteilter Plan aus dem Link: erst anbieten, wenn jemand angemeldet ist und nicht gerade
   // im Assistenten steckt — sonst laege das Fenster ueber der Pflicht-Einrichtung.
-  if(planImport && !importGezeigt && view!=='onboard'){ importGezeigt=true; zeigeImport(); } }
+  if(planImport && !importGezeigt && view!=='onboard'){ importGezeigt=true;
+    // Ein unerwartetes Format darf nicht die ganze Ansicht mitreissen.
+    if(planImport && Array.isArray(planImport.p) && planImport.p.length){ try{ zeigeImport(); }catch(e){ planImport=null; } }
+    else planImport=null; } }
 
 // ---------- Laufzeit der Einheit ----------
 // Eigener Ticker statt render() im Sekundentakt: ein Neuzeichnen wuerde die Eingabefelder
@@ -768,31 +849,29 @@ function brockSay(){
 // ---------- Einrichtungs-Assistent ----------
 let obStep=0, obDraft=null;
 const OB_DEFDAYS={2:[0,3],3:[0,2,4],4:[0,1,3,4],5:[0,1,2,3,4],6:[0,1,2,3,4,5]};
+// Fuenf Schritte. Nach dem Gewicht wird hier gar nicht mehr gefragt (Karl, 05.08.) — das steht
+// unter „Koerper" und hat im Plan-Assistenten nichts verloren.
 const OB_SAY=[
  'Hi, ich bin <b>Brock</b>! Wie kommen wir zu deinem Plan?',
  'Wie oft schaffst du es pro Woche ins Gym? Sei ehrlich zu mir.',
  'Und an welchen Tagen genau? Der Rest sind deine Ruhetage.',
  'Lieber kurz und schwer — oder lang und viel? Beides ist richtig.',
  'Hast du Lieblingsübungen? Die pack ich dir nach vorn.',
- 'Wie viel wiegst du gerade? Damit hast du später einen Startpunkt.',
  'Alles klar! Schau nochmal drüber, dann leg ich los.'
 ];
-let obReturn='home';   // wohin „Abbrechen" zurückführt
-// Nach dem Gewicht wird nur gefragt, wenn noch keins da ist. Sonst waere die Frage beim erneuten
-// Einrichten nicht nur laestig, sondern falsch: addWeight() datiert auf HEUTE, ein vorbelegter
-// alter Wert landete also als heutige Messung in der Koerper-Kurve.
-function obAsksWeight(){ return !lastWeight(); }
-function obSteps(){ return obAsksWeight()?[0,1,2,3,4,5,6]:[0,1,2,3,4,6]; }
+const OB_LAST=5;                       // Zusammenfassung
+let obReturn='home';                   // wohin „Abbrechen" zurückführt
 function startOnboard(){ obStep=0;
-  if(view!=='onboard') obReturn=(view==='settings'||view==='plans')?view:'home';
+  if(view!=='onboard') obReturn=(view==='settings'||view==='plans'||view==='progs')?view:'home';
   obDraft={ n:(profile.days&&profile.days.length)||3, days:(profile.days||OB_DEFDAYS[3]).slice(),
-            vol:profile.vol||'high', warm:!!profile.warmup, favs:(profile.favs||[]).slice(), w:'' };
+            vol:profile.vol||'high', warm:!!profile.warmup, favs:(profile.favs||[]).slice(),
+            name:'' };
   view='onboard'; render(); }
 // Beim allerersten Mal (frisch registriert) gibt es keinen Ausweg — danach schon.
 function obCanLeave(){ return !!profile.onboarded; }
 function renderOnboard(){
-  const d=obDraft, last=6;
-  let h=`<div class="ob-dots">${obSteps().map(i=>`<i class="${i<=obStep?'on':''}"></i>`).join('')}</div>`;
+  const d=obDraft, last=OB_LAST;
+  let h=`<div class="ob-dots">${[0,1,2,3,4,5].map(i=>`<i class="${i<=obStep?'on':''}"></i>`).join('')}</div>`;
   // Der Assistent ist NICHT das Tutorial — hier zeigt Brock den getragenen Rang wie ueberall sonst.
   // Beim ersten Konto ist das Couch-Potato, was zum Einstieg passt.
   h+=mascot(OB_SAY[obStep], (obStep===0||obStep===last)?'happy':'', obStep===0?96:72, equippedRank());
@@ -844,15 +923,6 @@ function renderOnboard(){
       <div class="ob-favs">${FAVPOOL[g].map(n=>`<button class="chip ${d.favs.includes(n)?'on':''}" data-fav="${esc(n)}">${esc(n)}</button>`).join('')}</div></div>`).join('')}
     ${obNav()}</div>`; }
 
-  else if(obStep===5){ h+=`<div class="card">
-    <h2 style="margin-top:0">Dein Gewicht</h2>
-    <p class="muted tiny" style="margin-bottom:14px">Freiwillig — du kannst das Feld leer lassen und später
-      jederzeit unter „Körper" nachtragen.</p>
-    <div class="field" style="margin:0"><label>Aktuelles Gewicht (kg)</label>
-      <input id="obWeight" type="number" inputmode="decimal" step="0.1" min="20" max="500"
-             placeholder="z. B. 78,5" value="${esc(d.w||'')}"></div>
-    ${obNav()}</div>`; }
-
   else { const days=d.days.slice().sort((a,b)=>a-b);
     const split=SPLITS[Math.min(6,Math.max(2,days.length))]||SPLITS[3];
     h+=`<div class="card">
@@ -861,10 +931,11 @@ function renderOnboard(){
       ${days.map((x,i)=>`<div class="row between"><span>${DAYLONG[x]}</span><b>${split[i%split.length][0]}</b></div>`).join('')}
       ${[0,1,2,3,4,5,6].filter(x=>!days.includes(x)).map(x=>`<div class="row between muted"><span>${DAYLONG[x]}</span><span>Ruhetag</span></div>`).join('')}
     </div>
-    <div class="tiny muted" style="margin-top:12px">${d.vol==='low'?'3 Sätze × 6–10 Wdh':'4 Sätze × 8–12 Wdh'} je Übung · ${d.vol==='low'?5:6} Übungen pro Einheit${d.warm?' · mit Aufwärmsatz':''}${d.favs.length?` · ${d.favs.length} Lieblingsübungen bevorzugt`:''}${(+String(d.w).replace(',','.'))>0?` · Startgewicht ${fmtKg(+String(d.w).replace(',','.'))} kg`:''}</div>
-    ${(obCanLeave()||sessions.length)&&plans.length
-      ? `<div class="tiny" style="color:var(--danger);margin-top:10px">Deine bisherigen ${plans.length} Trainings werden dabei ersetzt.</div>`
-      : ''}
+    <div class="tiny muted" style="margin-top:12px">${d.vol==='low'?'3 Sätze × 6–10 Wdh':'4 Sätze × 8–12 Wdh'} je Übung · ${d.vol==='low'?5:6} Übungen pro Einheit${d.warm?' · mit Aufwärmsatz':''}${d.favs.length?` · ${d.favs.length} Lieblingsübungen bevorzugt`:''}</div>
+    <div class="field" style="margin:14px 0 0"><label>Name des Trainingsplans</label>
+      <input id="obName" placeholder="z.B. PPL 3er" value="${esc(d.name||'')}"></div>
+    <div class="tiny muted" style="margin-top:10px">Kommt als <b>neuer</b> Trainingsplan dazu und wird
+      dein aktueller. Bestehende Pläne bleiben erhalten.</div>
     <button class="btn primary" style="margin-top:16px" data-act="ob:finish">Plan erstellen</button>
     <button class="link" data-act="ob:back" style="width:100%;text-align:center;margin-top:12px">Zurück</button>
     ${obCanLeave()?`<button class="link" data-act="ob:cancel" style="width:100%;text-align:center;margin-top:8px">Abbrechen — alles so lassen</button>`:''}</div>`; }
@@ -875,6 +946,9 @@ function obNav(disabled){ return `<div class="fab-row" style="margin-top:18px">
   <button class="btn ghost" data-act="ob:back">Zurück</button>
   <button class="btn primary" data-act="ob:next" ${disabled?'disabled style="opacity:.45"':''}>Weiter</button></div>
   ${obCanLeave()?`<button class="link" data-act="ob:cancel" style="width:100%;text-align:center;margin-top:12px">Abbrechen — alles so lassen</button>`:''}`; }
+// Wenn Karl keinen Namen eintippt, benennt sich der Plan nach seinem Split.
+function splitName(n){ return ({2:'Upper/Lower',3:'Push/Pull/Legs',4:'Upper/Lower 4er',
+  5:'5er-Split',6:'PPL 6er'})[n] || `${n}er-Plan`; }
 function splitHint(n){ return ({2:'Upper/Lower — Oberkörper und Unterkörper im Wechsel.',
   3:'Push/Pull/Legs — der Klassiker.',
   4:'Upper/Lower, zweimal die Woche mit anderen Übungen.',
@@ -887,17 +961,20 @@ function renderHome(){
   // Brock sitzt klein in der Heute-Karte, weil sein Spruch sich genau darauf bezieht.
   // Der Begleiter waechst mit: er zeigt den getragenen Rang, nicht mehr den alten Brock.
   const brock=`<div class="mascot mini">${monster(56,'',equippedRank())}<div class="bubble">${brockSay()}</div></div>`;
-  let h='';
+  // Auf dem PC (ab 900 px) stehen die zwei Blöcke nebeneinander, am Handy untereinander.
+  // Dieselben Karten, nur ein Umbruch — kein eigener Bau fürs breite Fenster.
+  let h='<div class="cols2"><div>';
 
   // 1 · Fortschritt. Die drei Kacheln (Einheiten / diese Woche / kg Vol.) sind am 05.08. auf
   // Karls Ansage raus — die Zahlen stehen im Verlauf, hier waren sie nur Beiwerk.
   h+=`<div class="row between" style="margin:2px 4px 6px"><h2>Fortschritt</h2></div>`;
   h+=rankCardHTML();
+  h+='</div><div>';
 
   // 2 · Heute. Ein laufendes Training steht seit dem 05.08. NICHT mehr ganz oben, sondern
   // direkt unter dieser Überschrift — Karls Ansage.
   const p=planForToday();
-  h+=`<div class="row between" style="margin:24px 4px 6px"><h2>Heute · ${DAYLONG[todayIdx()]}</h2></div>`;
+  h+=`<div class="row between" style="margin:2px 4px 6px"><h2>Heute · ${DAYLONG[todayIdx()]}</h2></div>`;
   if(active){ h+=`<div class="card" style="border-color:var(--accent)">
     <div class="row between"><h2>Training läuft</h2><span class="pill">${esc(active.planName)}</span></div>
     <p class="muted tiny" style="margin:6px 0 0"><b data-sesstime style="color:var(--txt)">${fmtClock(Date.now()-active.date)}</b> · ${doneSets(active.exercises)} Sätze · seit ${fmtTime(active.date)}</p>
@@ -915,39 +992,66 @@ function renderHome(){
       ${brock}
       ${plans.length?'':`<button class="btn primary" style="margin-top:12px" data-act="ob:start">Plan einrichten</button>`}</div>`; }
 
-  h+=`<div class="card" data-nav="plans" style="cursor:pointer;margin-top:10px"><div class="row between">
-      <b>Alle Trainings</b><span class="muted">${plans.length} ›</span></div></div>`;
+  h+=`<div class="card" data-nav="progs" style="cursor:pointer;margin-top:10px"><div class="row between">
+      <b>Alle Trainingspläne</b><span class="muted">${programs.length} ›</span></div></div>`;
+  h+='</div></div>';
+  app.innerHTML=h;
+}
+
+// ---------- Alle Trainingspläne ----------
+const ICON_TEILEN='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
+function renderProgs(){
+  const akt=activeProg();
+  let h=`<button class="link" data-nav="home">‹ Start</button>
+    <div class="row between" style="margin:6px 4px 8px"><h2>Alle Trainingspläne</h2></div>`;
+  programs.forEach(pr=>{
+    const ist=pr.id===akt.id, tage=(pr.plans||[]).filter(x=>x.day!=null).length;
+    h+=`<div class="card" style="${ist?'border-color:var(--ok)':''}">
+      <div class="row between">
+        <div><b>${esc(pr.name)}</b>${ist?' <span class="pill" style="background:var(--ok);color:var(--bg)">aktuell</span>':''}
+          <div class="muted tiny" style="margin-top:4px">${(pr.plans||[]).length} Trainings${tage?` · ${tage}× pro Woche`:''}</div></div>
+        <button class="iconbtn" data-shareprog="${pr.id}" aria-label="Teilen" title="Teilen">${ICON_TEILEN}</button>
+      </div>
+      <div class="fab-row" style="margin-top:12px">
+        ${ist?'':`<button class="btn primary" data-useprog="${pr.id}">Auswählen</button>`}
+        <button class="btn" data-editprog="${pr.id}">Bearbeiten</button>
+        ${programs.length>1?`<button class="btn danger" data-delprog="${pr.id}">Löschen</button>`:''}
+      </div></div>`;
+  });
+  h+=`<div class="row between" style="margin:22px 4px 6px"><h2>Neuer Trainingsplan</h2></div>
+    <div class="fab-row">
+      <button class="btn" data-act="ob:start">Bauen lassen</button>
+      <button class="btn" data-act="newprog">Leer anlegen</button></div>
+    <div class="tiny muted" style="text-align:center;margin-top:8px">„Bauen lassen" fragt nach Tagen und Volumen und stellt die Trainings zusammen.</div>`;
   app.innerHTML=h;
 }
 
 function renderPlans(){
-  let h=`<button class="link" data-nav="home">‹ Start</button>
-    <div class="row between" style="margin:6px 4px 6px"><h2>Trainings</h2>
-      <button class="iconbtn" data-act="shareplan" aria-label="Trainingsplan teilen" title="Trainingsplan teilen">
-        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
-      </button></div>`;
-  if(plans.length===0){ h+=`<div class="empty">Noch keine Trainings.<br>Leg eins von Hand an — oder lass dir einen Plan bauen.</div>`; }
-  else plans.slice().sort((a,b)=>(a.day==null?9:a.day)-(b.day==null?9:b.day)).forEach(p=>{ h+=`<div class="card">
+  const pr=editProg(), ist=pr.id===activeProg().id;
+  let h=`<button class="link" data-nav="progs">‹ Alle Trainingspläne</button>
+    <div class="row between" style="margin:6px 4px 6px"><h2>${esc(pr.name)}</h2>
+      <button class="iconbtn" data-shareprog="${pr.id}" aria-label="Trainingsplan teilen" title="Trainingsplan teilen">${ICON_TEILEN}</button></div>
+    <div class="field" style="margin:0 0 12px"><label>Name des Trainingsplans</label>
+      <input id="progName" value="${esc(pr.name)}" placeholder="z.B. PPL 3er"></div>
+    ${ist?'':`<div class="tiny muted" style="margin:0 4px 12px">Nicht dein aktueller Plan — zum Trainieren erst unter „Alle Trainingspläne" auswählen.</div>`}`;
+  const liste=editPlans();
+  if(liste.length===0){ h+=`<div class="empty">Noch keine Trainings.<br>Leg eins von Hand an — oder lass dir einen Plan bauen.</div>`; }
+  else liste.slice().sort((a,b)=>(a.day==null?9:a.day)-(b.day==null?9:b.day)).forEach(p=>{ h+=`<div class="card">
     <div class="row between">
       <div><div class="plan-chip"><span class="dot"></span><b>${esc(p.name)}</b>${p.day!=null?`<span class="pill" style="margin-left:8px">${DAYNAME[p.day]}</span>`:''}</div>
         <div class="muted tiny" style="margin-top:4px">${p.exercises.length} Übungen · ${esc(p.exercises.map(e=>e.name).filter(Boolean).slice(0,3).join(', '))}${p.exercises.length>3?' …':''}</div></div>
       <button class="btn sm ghost link" data-editplan="${p.id}">Bearbeiten</button>
     </div>
-    <button class="btn primary" style="margin-top:12px" data-startplan="${p.id}">Starten</button></div>`; });
-  // Die zwei Wege stehen gleichberechtigt nebeneinander — derselbe Punkt wie in Schritt 0
-  // des Assistenten. Das „+ Neu" oben ist dafür weggefallen, es war der halbe Weg allein.
-  h+=`<div class="fab-row" style="margin-top:14px">
-    <button class="btn ghost" data-act="newplan">+ Neues Training</button>
-    <button class="btn ghost" data-act="ob:start">Automatisch bauen</button></div>
-    <div class="tiny muted" style="text-align:center;margin-top:8px">„Automatisch bauen" ersetzt deine bisherigen Trainings.</div>`;
+    ${ist?`<button class="btn primary" style="margin-top:12px" data-startplan="${p.id}">Starten</button>`:''}</div>`; });
+  h+=`<button class="btn ghost" style="margin-top:14px" data-act="newplan">+ Neues Training</button>`;
   app.innerHTML=h;
 }
 
 function renderPlan(){
-  const p=plans.find(x=>x.id===editPlanId); if(!p){ view='home'; return render(); }
+  const p=editPlans().find(x=>x.id===editPlanId); if(!p){ view='home'; return render(); }
   // Tage, an denen schon ein anderes Training haengt, sind nicht waehlbar — sonst stuenden
   // zwei Trainings am selben Tag und die Startseite koennte nur eines davon anbieten.
-  const belegt={}; plans.forEach(x=>{ if(x.id!==p.id && x.day!=null) belegt[x.day]=x.name; });
+  const belegt={}; editPlans().forEach(x=>{ if(x.id!==p.id && x.day!=null) belegt[x.day]=x.name; });
   const belegtListe=Object.keys(belegt).map(d=>`${DAYNAME[+d]} · ${belegt[+d]}`).join(' · ');
   let h=`<div class="field"><label>Name des Trainings</label><input id="planName" value="${esc(p.name)}" placeholder="z.B. Push"></div>
     <div class="field" style="margin-top:2px"><label>Wochentag</label>
@@ -993,8 +1097,8 @@ function renderPlan(){
 }
 
 function renderWorkout(){
-  let h=`<div class="row between" style="margin:6px 4px 2px"><h2>${esc(active.planName)}</h2>
-    <span class="pill"><b data-sesstime>${fmtClock(Date.now()-active.date)}</b> · ${doneSets(active.exercises)} Sätze</span></div>`;
+  let h=`<div class="row between" style="margin:6px 4px 6px"><h2>${esc(active.planName)}</h2>
+    <div class="sessclock"><b data-sesstime>${fmtClock(Date.now()-active.date)}</b><span>${doneSets(active.exercises)} Sätze</span></div></div>`;
   active.exercises.forEach((e,ei)=>{ const on=ei===active.currentIdx, lp=lastPerf(e.name), sg=suggest(e.name,e);
     h+=`<div class="ex ${on?'active':''}"><div class="ex-head" data-focusex="${ei}">
       <div class="row" style="gap:10px">${iconTile(e.name,e.icon,44)}<div class="name">${esc(e.name)||'Übung'}</div></div>
@@ -1187,10 +1291,12 @@ function renderSettings(){
   const usr='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>';
   // Reihenfolge nach Karls Ansage (05.08.): Trainingsplan ganz oben, alles Konto-artige unten
   // gebuendelt bei „Konto loeschen" — vorher stand der Benutzer-Kasten allein an der Spitze.
-  let h = `<div class="card" data-act="ob:start" style="cursor:pointer">
+  // „Trainingsplan einrichten" ist am 05.08. hier weggefallen — das Anlegen sitzt jetzt bei
+  // „Alle Trainingspläne", zusammen mit Wechseln, Teilen und Löschen (Karls Ansage).
+  let h = `<div class="card" data-nav="progs" style="cursor:pointer">
       <div class="row between"><div class="row" style="gap:10px">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M8 14h3M8 17.5h6"/></svg>
-        <div><b>Trainingsplan einrichten</b><div class="tiny muted">Split, Tage und Volumen neu festlegen</div></div></div><span class="muted">›</span></div></div>`;
+        <div><b>Alle Trainingspläne</b><div class="tiny muted">${programs.length} ${programs.length===1?'Plan':'Pläne'} · anlegen, wechseln, teilen</div></div></div><span class="muted">›</span></div></div>`;
   h+=`<div class="card" data-nav="history" style="cursor:pointer">
       <div class="row between"><div class="row" style="gap:10px">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v5h5"/><path d="M12 8v4l3 2"/></svg>
@@ -1331,6 +1437,9 @@ function renderAdmin(){
 let rest={total:0,remaining:0,id:null}; const tb=document.getElementById('timerbar');
 function startRest(sec){ stopRest(); rest.total=sec; rest.remaining=sec; rest.id=setInterval(tick,1000); paintTimer(); }
 function stopRest(){ if(rest.id){ clearInterval(rest.id); rest.id=null; } }
+// stopRest haelt nur die Uhr an — rest.remaining bleibt stehen, und paintTimer zeigt die Leiste
+// dann weiter. Beim Beenden, Abbrechen oder Verwerfen muss sie ganz weg, also auch die Restzeit.
+function endRest(){ stopRest(); rest.remaining=0; rest.total=0; paintTimer(); }
 function tick(){ rest.remaining--; if(rest.remaining<=0){ stopRest(); if(navigator.vibrate) navigator.vibrate([300,120,300]); toast('Pause vorbei — weiter!'); } paintTimer(); }
 function adjust(d){ if(!rest.id&&rest.remaining<=0){ startRest(Math.max(5,d)); return; } rest.remaining=Math.max(0,rest.remaining+d); rest.total=Math.max(rest.total,rest.remaining); paintTimer(); }
 function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('show'); tb.innerHTML=''; return; }
@@ -1363,16 +1472,18 @@ function b64dec(t){ t=String(t).replace(/-/g,'+').replace(/_/g,'/');
   return new TextDecoder().decode(b); }
 // Kurzform: nur was den Plan ausmacht. Keine ids (der Empfaenger vergibt eigene), keine
 // Einheiten, kein Fortschritt, kein Name — geteilt wird der Plan, nicht die Historie.
-function planCode(){
-  return b64enc(JSON.stringify({v:1, p:plans.map(p=>({
+function planCode(prog){
+  const pr=prog||activeProg();
+  return b64enc(JSON.stringify({v:2, name:String(pr.name||'Trainingsplan').slice(0,40), p:(pr.plans||[]).map(p=>({
     n:String(p.name||'Training').slice(0,40), d:(p.day==null?null:+p.day), w:planWarm(p)?1:0,
     e:(p.exercises||[]).filter(e=>e.name).map(e=>[String(e.name).slice(0,60), +e.sets||3, volOf(e)==='low'?'l':'h'])
   })).filter(p=>p.e.length)}));
 }
-function planLink(){ return location.origin+location.pathname+'#p='+planCode(); }
-function sharePlan(){
-  if(!plans.length){ toast('Noch keine Trainings zum Teilen'); return; }
-  const url=planLink(), text=`Mein Trainingsplan aus Gym-Log (${plans.length} Trainings)`;
+function planLink(prog){ return location.origin+location.pathname+'#p='+planCode(prog); }
+function sharePlan(progId){
+  const pr=(progId?progById(progId):null)||activeProg();
+  if(!pr.plans||!pr.plans.length){ toast('Dieser Plan hat noch keine Trainings'); return; }
+  const url=planLink(pr), text=`„${pr.name}" — mein Trainingsplan aus Gym-Log (${pr.plans.length} Trainings)`;
   const fallback=()=>{ (navigator.clipboard?navigator.clipboard.writeText(url):Promise.reject())
     .then(()=>toast('Link kopiert'))
     .catch(()=>showModal(`<div class="tiny muted">Link zum Weitergeben</div>
@@ -1386,18 +1497,20 @@ let planImport=null, importGezeigt=false;
 function leseImportAusLink(){
   const m=/[#&]p=([A-Za-z0-9\-_]+)/.exec(location.hash||''); if(!m) return;
   try{ const d=JSON.parse(b64dec(m[1]));
-    if(d && d.v===1 && Array.isArray(d.p) && d.p.length) planImport=d.p.slice(0,10);
+    // v1 waren nur Trainings ohne Plan-Namen, v2 bringt den Namen mit. Beides annehmen.
+    if(d && (d.v===1||d.v===2) && Array.isArray(d.p) && d.p.length)
+      planImport={name:(d.name||'Geteilter Plan'), p:d.p.slice(0,10)};
   }catch(e){ planImport=null; }
   try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){}
 }
 function zeigeImport(){
-  const liste=planImport.map(p=>`<div class="row between" style="padding:5px 0;border-bottom:1px solid var(--line)">
+  const liste=planImport.p.map(p=>`<div class="row between" style="padding:5px 0;border-bottom:1px solid var(--line)">
     <span>${esc(p.n)}${p.d!=null?` <span class="muted tiny">· ${DAYNAME[p.d]||''}</span>`:''}</span>
     <span class="muted tiny">${(p.e||[]).length} Übungen</span></div>`).join('');
   const m=document.getElementById('modal');
   m.innerHTML=`<div class="modal-box" style="max-width:400px;text-align:left">
-    <b>Geteilter Trainingsplan</b>
-    <div class="tiny muted" style="margin:6px 0 10px">Wird zu deinen Trainings hinzugefügt. Deine eigenen bleiben stehen.</div>
+    <b>${esc(planImport.name)}</b>
+    <div class="tiny muted" style="margin:6px 0 10px">Kommt als eigener Trainingsplan dazu. Deine bestehenden Pläne bleiben.</div>
     ${liste}
     <div class="fab-row" style="margin-top:16px">
       <button class="btn" data-act="importno">Nein danke</button>
@@ -1405,21 +1518,23 @@ function zeigeImport(){
   m.classList.add('show');
 }
 function importierePlan(){
-  // Belegte Wochentage: der Import darf die Ein-Training-pro-Tag-Regel nicht aushebeln.
-  // Kollidiert ein Tag, kommt das Training ohne festen Tag rein statt gar nicht.
-  let ohneTag=0;
-  planImport.forEach(p=>{
+  // Der geteilte Plan kommt als eigener Trainingsplan dazu — nicht in einen bestehenden hinein.
+  // Innerhalb des neuen Plans gilt die Ein-Training-pro-Tag-Regel weiter: kollidiert ein Tag
+  // mit einem schon im selben Plan vergebenen, kommt das Training ohne festen Tag rein.
+  const neu=[]; let ohneTag=0;
+  planImport.p.forEach(p=>{
     let tag=(p.d==null)?null:+p.d;
-    if(tag!=null && plans.some(x=>x.day===tag)){ tag=null; ohneTag++; }
-    plans.push({id:uid(), name:p.n, day:tag, warmup:!!p.w,
+    if(tag!=null && neu.some(x=>x.day===tag)){ tag=null; ohneTag++; }
+    neu.push({id:uid(), name:p.n, day:tag, warmup:!!p.w,
       exercises:(p.e||[]).map(e=>({id:uid(), name:e[0], sets:+e[1]||3, reps:10, vol:e[2]==='l'?'low':'high'}))});
   });
-  const n=planImport.length; planImport=null; save(); closeModal(); view='plans'; render();
-  toast(ohneTag ? `${n} übernommen — ${ohneTag} ohne Tag (schon belegt)` : `${n} Trainings übernommen`);
+  const pr=neuerPlan(planImport.name, neu); programs.push(pr);
+  planImport=null; save(); closeModal(); editProgId=pr.id; view='plans'; render();
+  toast(ohneTag ? `„${pr.name}" übernommen — ${ohneTag} ohne Tag` : `„${pr.name}" übernommen`);
 }
 
 function exportData(){
-  const data={app:'gym-log', version:1, exportedAt:new Date().toISOString(), plans, sessions, profile, settings};
+  const data={app:'gym-log', version:2, exportedAt:new Date().toISOString(), programs, plans, sessions, profile, settings};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob), a=document.createElement('a');
   a.href=url; a.download='gym-log-daten-'+new Date().toISOString().slice(0,10)+'.json';
@@ -1453,10 +1568,15 @@ async function ensureToken(){ if(!session) return false; if(Date.now()<session.e
     if(r.status>=400&&r.status<500){ clearSession(); render(); toast('Bitte neu anmelden'); return false; }
     setSync(false); return false; }
   catch(e){ setSync(false); return false; } }
-function appDataBlob(){ return {plans,sessions,profile,settings}; }
-function loadBlob(d){ if(!d) return; if(Array.isArray(d.plans)) plans=d.plans; if(Array.isArray(d.sessions)) sessions=d.sessions;
-  if(d.profile) profile=d.profile; if(d.settings) settings=d.settings; normalizeProfile();
-  DB.set('plans',plans); DB.set('sessions',sessions); DB.set('profile',profile); DB.set('settings',settings); applyTheme(); }
+function appDataBlob(){ return {programs,plans,sessions,profile,settings}; }
+function loadBlob(d){ if(!d) return;
+  // Neue Staende bringen programs mit. Aeltere (und Backups von vor dem 05.08.) nur plans —
+  // die wandern in einen Trainingsplan, damit nichts verlorengeht.
+  if(Array.isArray(d.programs)&&d.programs.length) programs=d.programs;
+  else if(Array.isArray(d.plans)) programs=[neuerPlan('Mein Plan',d.plans)];
+  if(Array.isArray(d.sessions)) sessions=d.sessions;
+  if(d.profile) profile=d.profile; if(d.settings) settings=d.settings; normalizeProfile(); bindPlans();
+  DB.set('programs',programs); DB.set('sessions',sessions); DB.set('profile',profile); DB.set('settings',settings); applyTheme(); }
 // Liefert {ok,data}: ok=false heißt "konnte nicht laden" (Netz), NICHT "Konto ist leer".
 async function cloudPull(){ if(!await ensureToken()) return {ok:false,data:null};
   try{ const r=await fetch(`${SUPA_URL}/rest/v1/gymlog_data?id=eq.${session.user.id}&select=data`,{headers:authHeaders(true)});
@@ -1496,8 +1616,8 @@ async function authSignOut(){
   if(dirty && !await cloudPush()) return false;
   if(session){ try{ await fetch(`${SUPA_URL}/auth/v1/logout`,{method:'POST',headers:authHeaders(true)}); }catch(e){} }
   clearSession();
-  plans=seedPlans(); sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null; normalizeProfile();
-  DB.set('plans',plans); DB.set('sessions',sessions); DB.set('profile',profile); DB.set('settings',settings); DB.set('active',null);
+  programs=[neuerPlan('Mein Plan',seedPlans())]; sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null; normalizeProfile(); bindPlans();
+  DB.set('programs',programs); DB.set('sessions',sessions); DB.set('profile',profile); DB.set('settings',settings); DB.set('active',null);
   setDirty(false); authMode='login'; view='home'; return true; }
 // Konto löschen: erst die Daten in der Cloud, dann das Konto selbst.
 // Das Konto zu entfernen kann der Browser nicht allein — dafür braucht es die
@@ -1515,8 +1635,8 @@ async function deleteAccount(){
   }
   if(!dataGone && !accountGone) return 'offline';       // nichts erreicht — Konto bleibt bestehen
   clearSession();
-  plans=seedPlans(); sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null; normalizeProfile();
-  DB.set('plans',plans); DB.set('sessions',sessions); DB.set('profile',profile); DB.set('settings',settings); DB.set('active',null);
+  programs=[neuerPlan('Mein Plan',seedPlans())]; sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null; normalizeProfile(); bindPlans();
+  DB.set('programs',programs); DB.set('sessions',sessions); DB.set('profile',profile); DB.set('settings',settings); DB.set('active',null);
   setDirty(false); authMode='login'; view='home';
   return accountGone?'full':'dataonly';
 }
@@ -1554,7 +1674,7 @@ function finishWorkout(){
   profile.xp+=gained;
   // dur = wie lange die Einheit gedauert hat. Einheiten vor dem 05.08. haben kein dur.
   sessions.push({id:active.id,date:active.date,dur:Date.now()-active.date,planName:active.planName,entries});
-  active=null; stopRest(); paintTimer();
+  active=null; endRest();
   const afterL=levelFromXP(profile.xp).level, afterRank=rankForLevel(afterL);
   save(); view='home';
   if(afterL>beforeL){ let extra='';
@@ -1573,7 +1693,7 @@ function confirmTwice(key,btn,label,run){ if(armed[key]){ clearTimeout(armed[key
 if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ if((profile.theme||'system')==='system') applyTheme(); }); }
 
 document.addEventListener('click',ev=>{
-  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-planwarm],[data-libnew],[data-moveex],[data-openex],[data-delweight],[data-skin]');
+  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-planwarm],[data-libnew],[data-useprog],[data-editprog],[data-delprog],[data-shareprog],[data-moveex],[data-openex],[data-delweight],[data-skin]');
   if(!t) return;
   if(t.dataset.delweight){ const ts=+t.dataset.delweight;
     confirmTwice('dw'+ts,t,'Löschen?',()=>{ profile.weights=(profile.weights||[]).filter(x=>x.date!==ts); save(); render(); }); return; }
@@ -1585,17 +1705,17 @@ document.addEventListener('click',ev=>{
     if(i<0) obDraft.favs.push(n); else obDraft.favs.splice(i,1); renderOnboard(); return; }
   if(t.dataset.openex){ detailExName=t.dataset.openex; view='exdetail'; render(); return; }
   if(t.dataset.moveex){ syncPlanInputs(); const [i,d]=t.dataset.moveex.split(':').map(Number);
-    const p=plans.find(x=>x.id===editPlanId), j=i+d;
+    const p=editPlans().find(x=>x.id===editPlanId), j=i+d;
     if(p && j>=0 && j<p.exercises.length){ const a=p.exercises;
       [a[i],a[j]]=[a[j],a[i]]; save(); }
     render(); return; }
-  if(t.dataset.planday){ syncPlanInputs(); const p=plans.find(x=>x.id===editPlanId);
+  if(t.dataset.planday){ syncPlanInputs(); const p=editPlans().find(x=>x.id===editPlanId);
     if(p){ const v=+t.dataset.planday;
-      if(plans.some(x=>x.id!==p.id && x.day===v)) return;   // belegter Tag, auch wenn der Knopf durchrutscht
+      if(editPlans().some(x=>x.id!==p.id && x.day===v)) return;   // belegter Tag, auch wenn der Knopf durchrutscht
       p.day = (p.day===v) ? null : v; save(); } render(); return; }
-  if(t.dataset.exvol){ syncPlanInputs(); const [i,v]=t.dataset.exvol.split(':'); const p=plans.find(x=>x.id===editPlanId);
+  if(t.dataset.exvol){ syncPlanInputs(); const [i,v]=t.dataset.exvol.split(':'); const p=editPlans().find(x=>x.id===editPlanId);
     if(p&&p.exercises[+i]){ p.exercises[+i].vol=v; save(); } render(); return; }
-  if(t.dataset.planwarm){ syncPlanInputs(); const p=plans.find(x=>x.id===editPlanId);
+  if(t.dataset.planwarm){ syncPlanInputs(); const p=editPlans().find(x=>x.id===editPlanId);
     if(p){ p.warmup=t.dataset.planwarm==='1'; save(); } render(); return; }
   if(t.dataset.setbase){ profile.theme=t.dataset.setbase; save(); applyTheme(); render(); return; }
   if(t.dataset.admin){ const [cmd,arg]=t.dataset.admin.split(':'); const cur=levelFromXP(profile.xp).level;
@@ -1607,16 +1727,27 @@ document.addEventListener('click',ev=>{
     else if(cmd==='demo') genDemo();
     else if(cmd==='clearhist') sessions=[];
     save(); applyTheme(); render(); return; }
-  if(t.dataset.libadd){ syncPlanInputs(); const [nm,ic,rp]=t.dataset.libadd.split('|'); const p=plans.find(x=>x.id===editPlanId);
+  if(t.dataset.libadd){ syncPlanInputs(); const [nm,ic,rp]=t.dataset.libadd.split('|'); const p=editPlans().find(x=>x.id===editPlanId);
     if(p){ p.exercises.push({id:uid(),name:nm,icon:ic,sets:volSets(),reps:+rp||10,vol:profile.vol}); save(); } closeModal(); render(); return; }
-  if(t.dataset.libnew){ syncPlanInputs(); const nm=t.dataset.libnew.slice(0,60); const p=plans.find(x=>x.id===editPlanId);
+  if(t.dataset.libnew){ syncPlanInputs(); const nm=t.dataset.libnew.slice(0,60); const p=editPlans().find(x=>x.id===editPlanId);
     if(p){ p.exercises.push({id:uid(),name:nm,sets:volSets(),reps:10,vol:profile.vol,eigen:true}); save(); }
     closeModal(); render(); toast(`„${nm}" angelegt`); return; }
   if(t.dataset.theme){ const lvl=levelFromXP(profile.xp).level; if(unlockedThemes(lvl).has(t.dataset.theme)){ profile.theme=t.dataset.theme; save(); applyTheme(); render(); } return; }
   if(t.dataset.nav){ view=t.dataset.nav; render(); return; }
   if(t.dataset.rest){ const r=t.dataset.rest; if(r==='skip'){ stopRest(); rest.remaining=0; paintTimer(); } else adjust(+r); return; }
+  if(t.dataset.useprog){ const pr=progById(t.dataset.useprog);
+    if(pr){ profile.prog=pr.id; bindPlans(); active=null; save(); render(); toast(`„${pr.name}" ist jetzt dein Plan`); } return; }
+  if(t.dataset.editprog){ editProgId=t.dataset.editprog; view='plans'; render(); return; }
+  if(t.dataset.shareprog){ sharePlan(t.dataset.shareprog); return; }
+  if(t.dataset.delprog){ const id=t.dataset.delprog, pr=progById(id);
+    if(!pr||programs.length<2) return;                       // der letzte Plan bleibt stehen
+    confirmTwice('dpr'+id,t,'Plan löschen?',()=>{
+      programs=programs.filter(x=>x.id!==id);
+      if(profile.prog===id){ profile.prog=programs[0].id; active=null; }
+      if(editProgId===id) editProgId=null;
+      bindPlans(); save(); view='progs'; render(); toast('Gelöscht'); }); return; }
   if(t.dataset.editplan){ editPlanId=t.dataset.editplan; view='plan'; render(); return; }
-  if(t.dataset.startplan){ startWorkout(plans.find(p=>p.id===t.dataset.startplan)); return; }
+  if(t.dataset.startplan){ startWorkout(editPlans().find(p=>p.id===t.dataset.startplan)); return; }
   if(t.dataset.opensess){ detailSessionId=t.dataset.opensess; view='session'; render(); return; }
   if(t.dataset.focusex){ active.currentIdx=+t.dataset.focusex; save(); render(); return; }
   if(t.dataset.check){ const [ei,si]=t.dataset.check.split(':').map(Number); const s=active.exercises[ei].sets[si]; s.done=!s.done;
@@ -1627,10 +1758,10 @@ document.addEventListener('click',ev=>{
     if(s.done){ startRest(settings.rest); if(navigator.vibrate) navigator.vibrate(40); } render(); return; }
   if(t.dataset.addset!=null){ const e=active.exercises[+t.dataset.addset], last=e.sets[e.sets.length-1]||{}; e.sets.push({weight:last.weight||'',reps:last.reps||'',done:false}); save(); render(); return; }
   if(t.dataset.delset!=null){ const e=active.exercises[+t.dataset.delset]; if(e.sets.length>1){ e.sets.pop(); save(); render(); } return; }
-  if(t.dataset.delex!=null){ plans.find(x=>x.id===editPlanId).exercises.splice(+t.dataset.delex,1); save(); render(); return; }
+  if(t.dataset.delex!=null){ editPlans().find(x=>x.id===editPlanId).exercises.splice(+t.dataset.delex,1); save(); render(); return; }
   const a=t.dataset.act;
   if(a==='resume'){ view='workout'; render(); }
-  else if(a==='discard'){ confirmTwice('disc',t,'Wirklich verwerfen?',()=>{ active=null; save(); stopRest(); paintTimer(); render(); }); }
+  else if(a==='discard'){ confirmTwice('disc',t,'Wirklich verwerfen?',()=>{ active=null; save(); endRest(); render(); }); }
   else if(a==='ob:start'){ startOnboard(); }
   // Selbst anlegen: nichts wird gebaut und nichts ersetzt — nur der Assistent gilt als erledigt,
   // damit die untere Leiste zurückkommt. Das Volumen bleibt auf dem Standard 'high' (8–12 Wdh),
@@ -1638,10 +1769,8 @@ document.addEventListener('click',ev=>{
   else if(a==='ob:manual'){ profile.onboarded=true;
     save(); view='plans'; render(); toast('Du legst selbst an'); }
   else if(a==='ob:next'){ if(obStep===1&&!obDraft.days.length) obDraft.days=(OB_DEFDAYS[obDraft.n]||OB_DEFDAYS[3]).slice();
-    let s=obStep+1; if(s===5&&!obAsksWeight()) s=6;        // Gewicht schon da → Schritt uebersprungen
-    obStep=Math.min(6,s); renderOnboard(); }
-  else if(a==='ob:back'){ if(obStep>0){ let s=obStep-1; if(s===5&&!obAsksWeight()) s=4;
-      obStep=s; renderOnboard(); }
+    obStep=Math.min(OB_LAST,obStep+1); renderOnboard(); }
+  else if(a==='ob:back'){ if(obStep>0){ obStep--; renderOnboard(); }
     else if(obCanLeave()){ view=obReturn; render(); } }                  // frisch registriert: kein Ausstieg
   else if(a==='ob:cancel'){ if(obCanLeave()){ view=obReturn; render(); toast('Nichts geändert'); } }
   else if(a&&a.startsWith('ob:n:')){ obDraft.n=+a.slice(5); obDraft.days=(OB_DEFDAYS[obDraft.n]||OB_DEFDAYS[3]).slice(); renderOnboard(); }
@@ -1652,19 +1781,23 @@ document.addEventListener('click',ev=>{
   else if(a==='ob:finish'){ profile.days=obDraft.days.slice().sort((x,y)=>x-y); profile.vol=obDraft.vol;
     profile.warmup=!!obDraft.warm;
     profile.favs=obDraft.favs.slice(); profile.onboarded=true;
-    const w=+String(obDraft.w||'').replace(',','.'); if(w>0) addWeight(w);   // Startgewicht, falls angegeben
-    plans=buildPlans(); active=null; save(); view='home'; render(); toast('Plan steht — viel Erfolg!'); }
-  else if(a==='newplan'){ const p={id:uid(),name:'Neues Training',day:null,warmup:!!profile.warmup,exercises:[{id:uid(),name:'',sets:volSets(),reps:10,vol:profile.vol}]}; plans.push(p); save(); editPlanId=p.id; view='plan'; render(); }
+    // Neuer Trainingsplan statt Ersetzen: bestehende Plaene bleiben, der neue wird der aktuelle.
+    const nm=(obDraft.name||'').trim() || splitName(obDraft.days.length);
+    const prog=neuerPlan(nm, buildPlans());
+    programs.push(prog); profile.prog=prog.id; bindPlans();
+    active=null; save(); view='home'; render(); toast(`„${nm}" steht — viel Erfolg!`); }
+  else if(a==='newplan'){ const p={id:uid(),name:'Neues Training',day:null,warmup:!!profile.warmup,exercises:[{id:uid(),name:'',sets:volSets(),reps:10,vol:profile.vol}]}; editPlans().push(p); save(); editPlanId=p.id; view='plan'; render(); }
   // sets war hier fest auf 3, waehrend der Assistent 4 gibt — jetzt beides aus volSets()
-  else if(a==='addex'){ plans.find(x=>x.id===editPlanId).exercises.push({id:uid(),name:'',sets:volSets(),reps:10,vol:profile.vol}); save(); render(); }
+  else if(a==='addex'){ editPlans().find(x=>x.id===editPlanId).exercises.push({id:uid(),name:'',sets:volSets(),reps:10,vol:profile.vol}); save(); render(); }
   else if(a==='library'){ openLibrary(); }
   else if(a==='addweight'){ const el=document.getElementById('wInput'); const v=el?el.value.replace(',','.'):'';
     if(addWeight(v)){ render(); toast('Eingetragen'); } else toast('Bitte ein Gewicht in kg eingeben'); }
-  else if(a==='shareplan'){ sharePlan(); }
+  else if(a==='newprog'){ const pr=neuerPlan('Neuer Plan',[]); programs.push(pr);
+    editProgId=pr.id; save(); view='plans'; render(); }
   else if(a==='importyes'){ importierePlan(); }
   else if(a==='importno'){ planImport=null; closeModal(); }
   else if(a==='export'){ exportData(); }
-  else if(a==='resetall'){ confirmTwice('rst',t,'Wirklich alles löschen?',()=>{ plans=seedPlans(); sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null; normalizeProfile(); save(); applyTheme(); view='home'; render(); toast('Zurückgesetzt'); }); }
+  else if(a==='resetall'){ confirmTwice('rst',t,'Wirklich alles löschen?',()=>{ programs=[neuerPlan('Mein Plan',seedPlans())]; sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null; normalizeProfile(); bindPlans(); save(); applyTheme(); view='home'; render(); toast('Zurückgesetzt'); }); }
   else if(a==='authSwitch'){ authMode=(authMode==='login')?'register':'login'; renderAuthGate(); }
   else if(a==='doLogin'){ doAuth('login'); }
   else if(a==='doRegister'){ doAuth('register'); }
@@ -1674,23 +1807,25 @@ document.addEventListener('click',ev=>{
       if(res==='full') toast('Konto und alle Daten gelöscht');
       else if(res==='dataonly') showModal('<b>Deine Daten sind gelöscht.</b><div class="tiny muted" style="margin-top:8px">Alle Trainings, Einheiten und dein Fortschritt sind weg — auch in der Cloud. Die Anmeldung selbst (E-Mail und Passwort) konnte nicht entfernt werden; melde dich beim Betreiber, wenn auch die weg soll.</div>');
       else toast('Kein Netz — nichts gelöscht. Bitte später nochmal.'); }); }); }
-  else if(a==='saveplan'){ syncPlanInputs(); const p=plans.find(x=>x.id===editPlanId); p.exercises=p.exercises.filter(e=>e.name.trim()); if(!p.exercises.length) p.exercises.push({id:uid(),name:'Übung',sets:3,reps:10}); save(); view='home'; render(); }
-  else if(a==='delplan'){ confirmTwice('dp',t,'Training löschen?',()=>{ plans=plans.filter(x=>x.id!==editPlanId); save(); view='home'; render(); }); }
+  else if(a==='saveplan'){ syncPlanInputs(); const p=editPlans().find(x=>x.id===editPlanId); p.exercises=p.exercises.filter(e=>e.name.trim()); if(!p.exercises.length) p.exercises.push({id:uid(),name:'Übung',sets:3,reps:10}); save(); view='home'; render(); }
+  else if(a==='delplan'){ confirmTwice('dp',t,'Training löschen?',()=>{ const pr=editProg();
+    pr.plans=pr.plans.filter(x=>x.id!==editPlanId); bindPlans(); save(); view='plans'; render(); }); }
   else if(a==='finish'){ finishWorkout(); }
-  else if(a==='cancelworkout'){ confirmTwice('cw',t,'Training abbrechen?',()=>{ active=null; save(); stopRest(); paintTimer(); view='home'; render(); }); }
+  else if(a==='cancelworkout'){ confirmTwice('cw',t,'Training abbrechen?',()=>{ active=null; save(); endRest(); view='home'; render(); }); }
   else if(a==='backhist'){ view='history'; render(); }
   else if(a==='delsess'){ confirmTwice('ds',t,'Einheit löschen?',()=>{ sessions=sessions.filter(x=>x.id!==detailSessionId); save(); view='history'; render(); }); }
   else if(a==='closemodal'){ closeModal(); }
 });
 
 document.addEventListener('input',ev=>{ const t=ev.target;
+  if(t.id==='obName'&&obDraft){ obDraft.name=t.value; return; }   // ohne Neuzeichnen mitschreiben
   if(t.id==='libSearch'){ renderLibList(t.value); return; }
-  if(t.id==='obWeight'&&obDraft){ obDraft.w=t.value; return; }   // ohne Neuzeichnen mitschreiben
   if(t.dataset.f&&active){ active.exercises[+t.dataset.ex].sets[+t.dataset.set][t.dataset.f]=t.value; DB.set('active',active); return; }
-  if(t.id==='planName'){ const p=plans.find(x=>x.id===editPlanId); if(p){ p.name=t.value; DB.set('plans',plans); } }
+  if(t.id==='progName'){ const pr=editProg(); if(pr){ pr.name=t.value.trim()||'Plan'; DB.set('programs',programs); } }
+  if(t.id==='planName'){ const p=editPlans().find(x=>x.id===editPlanId); if(p){ p.name=t.value; DB.set('programs',programs); } }
   if(t.id==='restInput'){ settings.rest=Math.max(10,+t.value||90); DB.set('settings',settings); }
 });
-function syncPlanInputs(){ const p=plans.find(x=>x.id===editPlanId); if(!p) return;
+function syncPlanInputs(){ const p=editPlans().find(x=>x.id===editPlanId); if(!p) return;
   const n=document.getElementById('planName'); if(n) p.name=n.value.trim()||'Training';
   document.querySelectorAll('.ex-name').forEach(el=>p.exercises[+el.dataset.i].name=el.value);
   document.querySelectorAll('.ex-sets').forEach(el=>p.exercises[+el.dataset.i].sets=Math.max(1,+el.value||1)); }

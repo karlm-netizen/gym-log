@@ -4,6 +4,34 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-05
 
+### Mehrere Trainingspläne, PC-Version und Kleinigkeiten (nachts)
+
+- **Es gibt jetzt mehrere Trainingspläne.** Bisher gab es *eine* Liste von Trainings. Ein
+  Trainingsplan (z.B. „PPL 3er") enthält jetzt seine Trainings, und einer davon ist der aktuelle.
+  „Alle Trainings" heißt entsprechend **„Alle Trainingspläne"** und listet die Pläne auf. Je Plan:
+  **Auswählen** (macht ihn zum aktuellen), **Bearbeiten**, **Teilen**, **Löschen**. Darunter
+  „Bauen lassen" (der Assistent) und „Leer anlegen".
+  - Der Assistent **ersetzt nichts mehr**, sondern legt einen **neuen** Plan an und macht ihn zum
+    aktuellen. Er fragt am Ende nach einem Namen.
+  - **Bearbeiten wechselt den aktuellen Plan nicht.** In einem Plan, der nicht der aktuelle ist,
+    gibt es kein „Starten" — sonst würde man versehentlich aus dem falschen Plan trainieren.
+  - **Geteilte Pläne kommen als eigener Plan dazu**, nicht in einen bestehenden hinein. Der Link
+    trägt jetzt auch den Namen des Plans.
+  - **Bestehende Daten wandern automatisch** in einen Plan namens „Mein Plan" — beim Start und
+    beim Laden alter Sicherungen und Cloud-Stände.
+  - **„Trainingsplan einrichten" ist aus den Einstellungen verschwunden**; dort steht jetzt ein
+    Verweis auf „Alle Trainingspläne", wo alles zum Thema Plan zusammenliegt.
+- **PC-Version.** Ab 900 px Fensterbreite: die untere Leiste wird zur **Seitenleiste links**, der
+  Inhalt wird breiter und liegt auf der Startseite in **zwei Spalten**, der Pausen-Timer sitzt
+  rechts unten. Kein zweiter Quelltext — dieselbe App, nur andere Anordnung.
+- **Die Laufzeit oben rechts ist deutlich größer** und in der Signalfarbe, mit festen Ziffernbreiten,
+  damit sie beim Ticken nicht springt.
+- ⚠️ **Der Pausen-Timer blieb nach dem Training stehen.** `stopRest()` hielt nur die Uhr an, die
+  Restzeit blieb gesetzt — und damit die Leiste sichtbar. Beim Beenden, Abbrechen und Verwerfen
+  wird sie jetzt richtig abgeräumt.
+- **Die Gewichtsfrage ist ganz aus dem Assistenten raus.** Sechs Schritte statt sieben; Gewicht
+  trägt man unter „Körper" ein.
+
 ### Vier neue Funktionen (spät abends)
 
 - **Laufzeit der Einheit.** Sobald ein Training läuft, tickt oben rechts eine Uhr — auch auf der
