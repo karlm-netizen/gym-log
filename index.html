@@ -682,17 +682,21 @@ const OB_SAY=[
  'Alles klar! Schau nochmal drüber, dann leg ich los.'
 ];
 let obReturn='home';   // wohin „Abbrechen" zurückführt
+// Nach dem Gewicht wird nur gefragt, wenn noch keins da ist. Sonst waere die Frage beim erneuten
+// Einrichten nicht nur laestig, sondern falsch: addWeight() datiert auf HEUTE, ein vorbelegter
+// alter Wert landete also als heutige Messung in der Koerper-Kurve.
+function obAsksWeight(){ return !lastWeight(); }
+function obSteps(){ return obAsksWeight()?[0,1,2,3,4,5,6]:[0,1,2,3,4,6]; }
 function startOnboard(){ obStep=0;
   if(view!=='onboard') obReturn=(view==='settings'||view==='plans')?view:'home';
-  const lw=lastWeight();
   obDraft={ n:(profile.days&&profile.days.length)||3, days:(profile.days||OB_DEFDAYS[3]).slice(),
-            vol:profile.vol||'high', favs:(profile.favs||[]).slice(), w:lw?String(lw.kg):'' };
+            vol:profile.vol||'high', favs:(profile.favs||[]).slice(), w:'' };
   view='onboard'; render(); }
 // Beim allerersten Mal (frisch registriert) gibt es keinen Ausweg — danach schon.
 function obCanLeave(){ return !!profile.onboarded; }
 function renderOnboard(){
   const d=obDraft, last=6;
-  let h=`<div class="ob-dots">${[0,1,2,3,4,5,6].map(i=>`<i class="${i<=obStep?'on':''}"></i>`).join('')}</div>`;
+  let h=`<div class="ob-dots">${obSteps().map(i=>`<i class="${i<=obStep?'on':''}"></i>`).join('')}</div>`;
   h+=mascot(OB_SAY[obStep], (obStep===0||obStep===last)?'happy':'', obStep===0?96:72);
 
   if(obStep===0){ h+=`<div class="card">
@@ -1387,8 +1391,10 @@ document.addEventListener('click',ev=>{
   else if(a==='ob:manual'){ profile.onboarded=true;
     save(); view='plans'; render(); toast('Du legst selbst an'); }
   else if(a==='ob:next'){ if(obStep===1&&!obDraft.days.length) obDraft.days=(OB_DEFDAYS[obDraft.n]||OB_DEFDAYS[3]).slice();
-    obStep=Math.min(6,obStep+1); renderOnboard(); }
-  else if(a==='ob:back'){ if(obStep>0){ obStep--; renderOnboard(); }
+    let s=obStep+1; if(s===5&&!obAsksWeight()) s=6;        // Gewicht schon da → Schritt uebersprungen
+    obStep=Math.min(6,s); renderOnboard(); }
+  else if(a==='ob:back'){ if(obStep>0){ let s=obStep-1; if(s===5&&!obAsksWeight()) s=4;
+      obStep=s; renderOnboard(); }
     else if(obCanLeave()){ view=obReturn; render(); } }                  // frisch registriert: kein Ausstieg
   else if(a==='ob:cancel'){ if(obCanLeave()){ view=obReturn; render(); toast('Nichts geändert'); } }
   else if(a&&a.startsWith('ob:n:')){ obDraft.n=+a.slice(5); obDraft.days=(OB_DEFDAYS[obDraft.n]||OB_DEFDAYS[3]).slice(); renderOnboard(); }
