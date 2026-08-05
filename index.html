@@ -727,9 +727,9 @@ function renderOnboard(){
   else if(obStep===3){ h+=`<div class="card">
     <h2 style="margin-top:0">Wie trainierst du lieber?</h2>
     <button class="ob-opt ${d.vol==='low'?'on':''}" data-act="ob:vol:low">
-      <b>Wenig Volumen — 6–10 Wdh</b><span>3 Sätze je Übung, mehr Gewicht. Kürzere Einheiten, Fokus auf Kraft.</span></button>
+      <b>Wenig Volumen — 6–10 Wdh</b><span>3 Sätze je Übung, mehr Gewicht. Kürzere Einheiten.</span></button>
     <button class="ob-opt ${d.vol==='high'?'on':''}" data-act="ob:vol:high">
-      <b>Viel Volumen — 8–12 Wdh</b><span>4 Sätze je Übung, mehr Wiederholungen. Längere Einheiten, Fokus auf Muskelaufbau.</span></button>
+      <b>Viel Volumen — 8–12 Wdh</b><span>4 Sätze je Übung, mehr Wiederholungen. Längere Einheiten.</span></button>
     ${obNav()}</div>`; }
 
   else if(obStep===4){ h+=`<div class="card">
