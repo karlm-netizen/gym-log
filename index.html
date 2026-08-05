@@ -84,6 +84,9 @@
   .set input{width:100%; background:var(--card2); border:1px solid var(--line); border-radius:10px;
     color:var(--txt); padding:11px 8px; font-size:16px; text-align:center}
   .set.done input{opacity:.5}
+  /* Aufwaermsatz: zaehlt nicht mit, deshalb sichtbar zurueckgenommen und mit „W" statt Nummer */
+  .set.warm .idx{color:var(--ok); font-size:12px}
+  .set.warm input{border-style:dashed}
   .set .target{padding:11px 8px; font-size:15px; font-weight:700; text-align:center;
     color:var(--muted); border:1px dashed var(--line); border-radius:10px; white-space:nowrap}
   .set.done .target{opacity:.5}
@@ -300,7 +303,10 @@ const EXANIM={
  twist:`${G}<path d="M14 38h14"/><circle cx="16" cy="30" r="3"/><path d="M18 32L26 36"/><path class="ma" d="M20 33L25 35"/><path d="M22 34L28 30">${AN('M22 34L28 30;M22 34L28 40;M22 34L28 30',2.2)}</path>`,
  run:`${G}<circle cx="24" cy="10" r="3.2"/><path d="M24 13v12"/><path class="ma" d="M23.5 27L21 34"/><path d="M24 25L20 33L18 41">${AN('M24 25L20 33L18 41;M24 25L28 31L31 39;M24 25L20 33L18 41',1.1)}</path><path d="M24 25L28 32L31 40">${AN('M24 25L28 32L31 40;M24 25L20 32L17 40;M24 25L28 32L31 40',1.1)}</path><path d="M23 17L17 22">${AN('M23 17L17 22;M23 17L29 22;M23 17L17 22',1.1)}</path>`,
  bike:`${G}<circle cx="31" cy="34" r="7"/><path d="M12 22h8"/><path d="M16 22v6"/><circle cx="16" cy="15" r="3"/><path d="M17 18L21 26"/><path class="ma" d="M21 26L26 30"/><path d="M26 30L31 34">${AN('M26 30L31 34;M26 30L35 33;M26 30L31 34',1.6)}</path>`,
- rope:`${G}<path d="M20 20C10 20 10 40 24 40C38 40 38 20 28 20"/><circle cx="24" cy="11" r="3.2"/><path d="M24 14v12"/><path class="ma" d="M23.5 28L21.5 34"/><g>${AT('0 0;0 -3;0 0',.9)}<path d="M24 26L21 38M24 26L27 38"/></g>`
+ rope:`${G}<path d="M20 20C10 20 10 40 24 40C38 40 38 20 28 20"/><circle cx="24" cy="11" r="3.2"/><path d="M24 14v12"/><path class="ma" d="M23.5 28L21.5 34"/><g>${AT('0 0;0 -3;0 0',.9)}<path d="M24 26L21 38M24 26L27 38"/></g>`,
+ // Neutrale Hantel — das Bild fuer eigene Uebungen und fuer alles, was sich nicht zuordnen laesst.
+ // Kein Maennchen, weil die Bewegung dahinter unbekannt ist; sie wippt nur leicht.
+ dumbbell:`<g>${AT('0 0;0 -2;0 0',2.6)}<path d="M14 24h20"/><path d="M11 17v14M17 14.5v19M31 14.5v19M37 17v14"/></g>`
 };
 const EXLIB=[
   // Brust
@@ -421,23 +427,32 @@ function guessMove(name){ const n=(name||'').toLowerCase();
   if(/seilspring|rope/.test(n)) return 'rope';
   if(/fahrrad|ergo|bike|rad/.test(n)) return 'bike';
   if(/lauf|sprint|cross|stepper|cardio/.test(n)) return 'run';
-  return 'curl';
+  // Nichts erkannt → neutrale Hantel. Vorher stand hier 'curl', also machte jede unbekannte
+  // Uebung Bizeps-Curls; bei eigenen Uebungen war das fast immer falsch.
+  return 'dumbbell';
 }
 function iconTile(name,stored,size){ size=size||44;
-  const mv=EXANIM[EXMOVE[name]||guessMove(name)]||EXANIM.curl;
+  const mv=EXANIM[EXMOVE[name]||guessMove(name)]||EXANIM.dumbbell;
   return `<div class="ex-ico" style="width:${size}px;height:${size}px"><svg class="exa" viewBox="0 0 48 48" width="${size-4}" height="${size-4}" aria-hidden="true">${mv}</svg></div>`; }
 function libRowHTML(x){ return `<button class="lib-row" data-libadd="${esc(x.name)}|${x.icon}|${x.reps}">${iconTile(x.name,x.icon,44)}<span>${esc(x.name)}</span></button>`; }
+// Eigene Uebung: was man in die Suche tippt, ist zugleich der Name. Steht nichts Passendes in
+// der Bibliothek, legt eine Zeile die Uebung genau so an — Icon wird geraten, sonst die Hantel.
+function libNewHTML(name){ return `<button class="lib-row" data-libnew="${esc(name)}" style="color:var(--ok)">
+  ${iconTile(name,null,44)}<span>„<b>${esc(name)}</b>" als eigene Übung anlegen</span></button>`; }
 function renderLibList(q){ const list=document.getElementById('libList'); if(!list) return;
-  q=(q||'').trim().toLowerCase();
+  const roh=(q||'').trim(); q=roh.toLowerCase();
   const items=q?EXLIB.filter(x=>x.name.toLowerCase().includes(q)):EXLIB;
-  list.innerHTML=items.length ? items.map(libRowHTML).join('')
-    : `<div class="empty" style="padding:20px">Nichts gefunden. Mit „+ Eigene" legst du eine eigene Übung an.</div>`;
+  const genau=items.some(x=>x.name.toLowerCase()===q);
+  let h=items.map(libRowHTML).join('');
+  if(roh && !genau) h+=libNewHTML(roh);                      // eigene Uebung als letzte Zeile
+  if(!h) h=`<div class="empty" style="padding:20px">Tipp einen Namen ein, um eine eigene Übung anzulegen.</div>`;
+  list.innerHTML=h;
 }
 function openLibrary(){
   const m=document.getElementById('modal');
   m.innerHTML=`<div class="modal-box" style="max-width:400px;text-align:left;max-height:82vh;display:flex;flex-direction:column;padding:16px">
     <div class="row between" style="margin-bottom:10px"><b>Übung wählen · ${EXLIB.length}</b><button class="del-x" data-act="closemodal" style="margin:0">✕</button></div>
-    <input id="libSearch" placeholder="Suchen…" autocomplete="off" style="width:100%;background:var(--card2);border:1px solid var(--line);border-radius:12px;color:var(--txt);padding:12px;font-size:16px;margin-bottom:10px">
+    <input id="libSearch" placeholder="Suchen oder eigene eintippen…" autocomplete="off" style="width:100%;background:var(--card2);border:1px solid var(--line);border-radius:12px;color:var(--txt);padding:12px;font-size:16px;margin-bottom:10px">
     <div id="libList" style="overflow:auto;margin:0 -4px;flex:1"></div></div>`;
   m.classList.add('show'); renderLibList('');
 }
@@ -548,7 +563,9 @@ function buildPlans(){
   const days=(profile.days||[]).slice().sort((a,b)=>a-b);
   const split=SPLITS[Math.min(6,Math.max(2,days.length))]||SPLITS[3];
   return days.map((d,i)=>{ const [nm,key]=split[i%split.length];
+    // Aufwaermsatz aus der Wahl im Assistenten
     return { id:uid(), name:nm, day:d,
+      warmup:!!profile.warmup,
       exercises:pickExercises(key).map(n=>({id:uid(),name:n,sets:volSets(),reps:volReps(n),vol:profile.vol})) }; });
 }
 function planForToday(){ const t=todayIdx(); return plans.find(p=>p.day===t)||null; }
@@ -558,14 +575,25 @@ function nextTrainingDay(){ const t=todayIdx();
 
 function fmtDate(ts){ return new Date(ts).toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'}); }
 function fmtTime(ts){ return new Date(ts).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}); }
-function volume(en){ let v=0; en.forEach(e=>e.sets.forEach(s=>{ if(s.done) v+=(+s.weight||0)*(+s.reps||0); })); return Math.round(v); }
-function doneSets(en){ let n=0; en.forEach(e=>e.sets.forEach(s=>{ if(s.done) n++; })); return n; }
+// Laufende Uhr im Training: sekundengenau, weil man ihr beim Laufen zusieht.
+function fmtClock(ms){ const t=Math.max(0,Math.floor(ms/1000)), h=Math.floor(t/3600), m=Math.floor(t%3600/60), s=t%60;
+  return (h?h+':'+String(m).padStart(2,'0'):String(m))+':'+String(s).padStart(2,'0'); }
+// Abgeschlossene Einheit: auf die Minute gerundet, Sekunden sind da ohne Belang.
+function fmtDauer(ms){ if(!(ms>0)) return null; const min=Math.round(ms/60000);
+  return min<60 ? min+' min' : Math.floor(min/60)+' h '+String(min%60).padStart(2,'0')+' min'; }
+// Aufwaermsaetze zaehlen nirgends mit: nicht beim Volumen, nicht bei den Saetzen, nicht bei XP,
+// nicht beim Rekord und vor allem nicht bei der Steigerung — sonst zoege der leichte erste Satz
+// die Wiederholungs-Regel nach unten und es gaebe nie mehr Gewicht.
+function arbeit(sets){ return (sets||[]).filter(s=>!s.warm); }
+function volume(en){ let v=0; en.forEach(e=>arbeit(e.sets).forEach(s=>{ if(s.done) v+=(+s.weight||0)*(+s.reps||0); })); return Math.round(v); }
+function doneSets(en){ let n=0; en.forEach(e=>arbeit(e.sets).forEach(s=>{ if(s.done) n++; })); return n; }
 function lastPerf(name){ for(let i=sessions.length-1;i>=0;i--){ const e=sessions[i].entries.find(x=>x.name===name);
-  if(e){ const d=e.sets.filter(s=>s.done&&(+s.weight||+s.reps)); if(d.length){ const b=d[d.length-1]; return {w:+b.weight||0,r:+b.reps||0}; } } } return null; }
+  if(e){ const d=arbeit(e.sets).filter(s=>s.done&&(+s.weight||+s.reps)); if(d.length){ const b=d[d.length-1]; return {w:+b.weight||0,r:+b.reps||0}; } } } return null; }
 // ---------- Steigerung vorschlagen ----------
 // Letztes Mal jeden Satz abgehakt → mehr Gewicht. Sonst dasselbe nochmal.
 function lastEntry(name){ for(let i=sessions.length-1;i>=0;i--){
-  const e=sessions[i].entries.find(x=>x.name===name); if(e&&e.sets.length) return e; } return null; }
+  const e=sessions[i].entries.find(x=>x.name===name);
+  if(e){ const s=arbeit(e.sets); if(s.length) return {name:e.name, sets:s}; } } return null; }
 function stepFor(name){ const n=(name||'').toLowerCase();
   return /kniebeug|squat|kreuzheb|deadlift|beinpress|hack squat|hip thrust|langhantelrudern|beinbeuger|beinstrecker/.test(n) ? 5 : 2.5; }
 function fmtKg(v){ return (Math.round(v*10)/10).toString().replace('.',','); }
@@ -594,7 +622,7 @@ function suggest(name,ex){
   if(drueber) return {up:true, text:`Letztes Mal ${minWdh} Wdh — heute schwerer machen, z.B. mit Zusatzgewicht`};
   return {up:false, text:`Ziel <b>${lo}–${hi} Wdh</b> — letztes Mal ${alle?`${minWdh} Wdh`:`${done.length} von ${e.sets.length} Sätzen`}`};
 }
-function prFor(name){ let best=0,rep=0; sessions.forEach(s=>s.entries.forEach(e=>{ if(e.name===name) e.sets.forEach(st=>{ if(st.done&&+st.weight>best){ best=+st.weight; rep=+st.reps||0; } }); })); return best?{w:best,r:rep}:null; }
+function prFor(name){ let best=0,rep=0; sessions.forEach(s=>s.entries.forEach(e=>{ if(e.name===name) arbeit(e.sets).forEach(st=>{ if(st.done&&+st.weight>best){ best=+st.weight; rep=+st.reps||0; } }); })); return best?{w:best,r:rep}:null; }
 
 // ---------- Theme anwenden ----------
 function resolveSystem(){ return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light'; }
@@ -618,7 +646,27 @@ function render(){
   document.body.classList.remove('gate');
   document.body.classList.toggle('setup', view==='onboard');   // Assistent: untere Leiste ausblenden
   setNav();
-  ({home:renderHome, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, body:renderBody, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin}[view]||renderHome)(); }
+  ({home:renderHome, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, body:renderBody, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin}[view]||renderHome)();
+  syncSessionClock();
+  // Geteilter Plan aus dem Link: erst anbieten, wenn jemand angemeldet ist und nicht gerade
+  // im Assistenten steckt — sonst laege das Fenster ueber der Pflicht-Einrichtung.
+  if(planImport && !importGezeigt && view!=='onboard'){ importGezeigt=true; zeigeImport(); } }
+
+// ---------- Laufzeit der Einheit ----------
+// Eigener Ticker statt render() im Sekundentakt: ein Neuzeichnen wuerde die Eingabefelder
+// leeren und den Fokus wegnehmen, waehrend man tippt. Angefasst wird nur der Text.
+let sessClock=null;
+function paintSessionTime(){
+  const els=document.querySelectorAll('[data-sesstime]');
+  if(!els.length) return;
+  const t=active?fmtClock(Date.now()-active.date):'';
+  els.forEach(el=>{ el.textContent=t; });
+}
+function syncSessionClock(){
+  const braucht=!!active && !!document.querySelector('[data-sesstime]');
+  if(braucht){ paintSessionTime(); if(!sessClock) sessClock=setInterval(paintSessionTime,1000); }
+  else if(sessClock){ clearInterval(sessClock); sessClock=null; }
+}
 
 function renderAuthGate(err){ const login=authMode==='login';
   app.innerHTML=`<div class="gate-hero">
@@ -738,7 +786,7 @@ function obSteps(){ return obAsksWeight()?[0,1,2,3,4,5,6]:[0,1,2,3,4,6]; }
 function startOnboard(){ obStep=0;
   if(view!=='onboard') obReturn=(view==='settings'||view==='plans')?view:'home';
   obDraft={ n:(profile.days&&profile.days.length)||3, days:(profile.days||OB_DEFDAYS[3]).slice(),
-            vol:profile.vol||'high', favs:(profile.favs||[]).slice(), w:'' };
+            vol:profile.vol||'high', warm:!!profile.warmup, favs:(profile.favs||[]).slice(), w:'' };
   view='onboard'; render(); }
 // Beim allerersten Mal (frisch registriert) gibt es keinen Ausweg — danach schon.
 function obCanLeave(){ return !!profile.onboarded; }
@@ -780,6 +828,12 @@ function renderOnboard(){
       <b>Wenig Volumen — 6–10 Wdh</b><span>3 Sätze je Übung, mehr Gewicht. Kürzere Einheiten.</span></button>
     <button class="ob-opt ${d.vol==='high'?'on':''}" data-act="ob:vol:high">
       <b>Viel Volumen — 8–12 Wdh</b><span>4 Sätze je Übung, mehr Wiederholungen. Längere Einheiten.</span></button>
+    <div class="tiny muted" style="margin:18px 0 8px">Aufwärmsatz</div>
+    <button class="ob-opt ${d.warm?'on':''}" data-act="ob:warm:1">
+      <b>Mit Aufwärmsatz</b><span>Vor jeder Übung ein lockerer Satz mit rund 70 % des Arbeitsgewichts.
+      Er zählt nicht für Volumen, XP oder die Steigerung.</span></button>
+    <button class="ob-opt ${d.warm?'':'on'}" data-act="ob:warm:0">
+      <b>Ohne</b><span>Direkt mit dem Arbeitsgewicht anfangen.</span></button>
     ${obNav()}</div>`; }
 
   else if(obStep===4){ h+=`<div class="card">
@@ -807,7 +861,7 @@ function renderOnboard(){
       ${days.map((x,i)=>`<div class="row between"><span>${DAYLONG[x]}</span><b>${split[i%split.length][0]}</b></div>`).join('')}
       ${[0,1,2,3,4,5,6].filter(x=>!days.includes(x)).map(x=>`<div class="row between muted"><span>${DAYLONG[x]}</span><span>Ruhetag</span></div>`).join('')}
     </div>
-    <div class="tiny muted" style="margin-top:12px">${d.vol==='low'?'3 Sätze × 6–10 Wdh':'4 Sätze × 8–12 Wdh'} je Übung · ${d.vol==='low'?5:6} Übungen pro Einheit${d.favs.length?` · ${d.favs.length} Lieblingsübungen bevorzugt`:''}${(+String(d.w).replace(',','.'))>0?` · Startgewicht ${fmtKg(+String(d.w).replace(',','.'))} kg`:''}</div>
+    <div class="tiny muted" style="margin-top:12px">${d.vol==='low'?'3 Sätze × 6–10 Wdh':'4 Sätze × 8–12 Wdh'} je Übung · ${d.vol==='low'?5:6} Übungen pro Einheit${d.warm?' · mit Aufwärmsatz':''}${d.favs.length?` · ${d.favs.length} Lieblingsübungen bevorzugt`:''}${(+String(d.w).replace(',','.'))>0?` · Startgewicht ${fmtKg(+String(d.w).replace(',','.'))} kg`:''}</div>
     ${(obCanLeave()||sessions.length)&&plans.length
       ? `<div class="tiny" style="color:var(--danger);margin-top:10px">Deine bisherigen ${plans.length} Trainings werden dabei ersetzt.</div>`
       : ''}
@@ -846,7 +900,7 @@ function renderHome(){
   h+=`<div class="row between" style="margin:24px 4px 6px"><h2>Heute · ${DAYLONG[todayIdx()]}</h2></div>`;
   if(active){ h+=`<div class="card" style="border-color:var(--accent)">
     <div class="row between"><h2>Training läuft</h2><span class="pill">${esc(active.planName)}</span></div>
-    <p class="muted tiny" style="margin:6px 0 0">${doneSets(active.exercises)} Sätze · seit ${fmtTime(active.date)}</p>
+    <p class="muted tiny" style="margin:6px 0 0"><b data-sesstime style="color:var(--txt)">${fmtClock(Date.now()-active.date)}</b> · ${doneSets(active.exercises)} Sätze · seit ${fmtTime(active.date)}</p>
     ${brock}
     <button class="btn primary" style="margin-top:12px" data-act="resume">Fortsetzen</button>
     <button class="btn ghost sm" style="margin-top:8px;color:var(--danger)" data-act="discard">Verwerfen</button></div>`; }
@@ -868,7 +922,10 @@ function renderHome(){
 
 function renderPlans(){
   let h=`<button class="link" data-nav="home">‹ Start</button>
-    <div class="row between" style="margin:6px 4px 6px"><h2>Trainings</h2></div>`;
+    <div class="row between" style="margin:6px 4px 6px"><h2>Trainings</h2>
+      <button class="iconbtn" data-act="shareplan" aria-label="Trainingsplan teilen" title="Trainingsplan teilen">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+      </button></div>`;
   if(plans.length===0){ h+=`<div class="empty">Noch keine Trainings.<br>Leg eins von Hand an — oder lass dir einen Plan bauen.</div>`; }
   else plans.slice().sort((a,b)=>(a.day==null?9:a.day)-(b.day==null?9:b.day)).forEach(p=>{ h+=`<div class="card">
     <div class="row between">
@@ -899,6 +956,12 @@ function renderPlan(){
         : `<button class="chip ${p.day===i?'on':''}" data-planday="${i}">${n}</button>`).join('')}</div>
       <div class="tiny muted" style="margin-top:7px">Bestimmt, wann dieses Training auf der Startseite erscheint. Nochmal tippen = kein fester Tag.</div>
       ${belegtListe?`<div class="tiny muted" style="margin-top:5px">Ausgegraut = schon belegt: ${esc(belegtListe)}</div>`:''}</div>
+    <div class="field" style="margin-top:2px"><label>Aufwärmsatz</label>
+      <div class="ex-vol">
+        <button class="chip ${planWarm(p)?'on':''}" data-planwarm="1">Mit</button>
+        <button class="chip ${planWarm(p)?'':'on'}" data-planwarm="0">Ohne</button></div>
+      <div class="tiny muted" style="margin-top:7px">Ein lockerer Satz mit rund 70 % vor jeder Übung.
+        Zählt nicht für Volumen, XP oder die Steigerung.</div></div>
     <div class="row between" style="margin:16px 4px 4px"><h2>Übungen</h2>
       <span class="tiny muted">Ziel je Übung</span></div>`;
   p.exercises.forEach((e,i)=>{ h+=`<div class="card">
@@ -930,17 +993,20 @@ function renderPlan(){
 }
 
 function renderWorkout(){
-  let h=`<div class="row between" style="margin:6px 4px 2px"><h2>${esc(active.planName)}</h2><span class="pill">${doneSets(active.exercises)} Sätze</span></div>`;
+  let h=`<div class="row between" style="margin:6px 4px 2px"><h2>${esc(active.planName)}</h2>
+    <span class="pill"><b data-sesstime>${fmtClock(Date.now()-active.date)}</b> · ${doneSets(active.exercises)} Sätze</span></div>`;
   active.exercises.forEach((e,ei)=>{ const on=ei===active.currentIdx, lp=lastPerf(e.name), sg=suggest(e.name,e);
     h+=`<div class="ex ${on?'active':''}"><div class="ex-head" data-focusex="${ei}">
       <div class="row" style="gap:10px">${iconTile(e.name,e.icon,44)}<div class="name">${esc(e.name)||'Übung'}</div></div>
-      <div class="muted tiny">${e.sets.filter(s=>s.done).length}/${e.sets.length}</div></div>`;
+      <div class="muted tiny">${arbeit(e.sets).filter(s=>s.done).length}/${arbeit(e.sets).length}</div></div>`;
     if(on){ h+=`<div class="ex-body">${sg?`<div class="hint ${sg.up?'up':''}">${sg.up?'↑ ':''}${sg.text}</div>`
         :`<div class="hint">Erstes Mal — leg los.</div>`}
       <div class="set-head"><span>#</span><span>kg</span><span>Wdh</span><span></span></div>`;
-      e.sets.forEach((s,si)=>{ h+=`<div class="set ${s.done?'done':''}"><div class="idx">${si+1}</div>
-        <input type="number" inputmode="decimal" step="0.5" placeholder="${sg&&sg.w?sg.w:(lp&&lp.w?lp.w:'kg')}" value="${s.weight??''}" data-ex="${ei}" data-set="${si}" data-f="weight">
-        <input type="number" inputmode="numeric" step="1" min="1" placeholder="${exLabel(e)}" value="${s.reps??''}" data-ex="${ei}" data-set="${si}" data-f="reps">
+      let nr=0;
+      e.sets.forEach((s,si)=>{ if(!s.warm) nr++;
+        h+=`<div class="set ${s.done?'done':''} ${s.warm?'warm':''}"><div class="idx">${s.warm?'W':nr}</div>
+        <input type="number" inputmode="decimal" step="0.5" placeholder="${s.warm?(warmKg(sg&&sg.w||(lp&&lp.w))||'kg'):(sg&&sg.w?sg.w:(lp&&lp.w?lp.w:'kg'))}" value="${s.weight??''}" data-ex="${ei}" data-set="${si}" data-f="weight">
+        <input type="number" inputmode="numeric" step="1" min="1" placeholder="${s.warm?'locker':exLabel(e)}" value="${s.reps??''}" data-ex="${ei}" data-set="${si}" data-f="reps">
         <button class="check ${s.done?'on':''}" data-check="${ei}:${si}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 6"/></svg></button></div>`; });
       h+=`<div class="row" style="gap:8px;margin-top:8px"><button class="link" data-addset="${ei}">+ Satz</button>
         <button class="link" data-delset="${ei}" style="color:var(--muted)">− Satz</button></div></div>`; }
@@ -954,9 +1020,9 @@ function renderHistory(){
   const back=`<button class="link" data-nav="settings">‹ Einstellungen</button>`;
   if(sessions.length===0){ app.innerHTML=back+`<div class="empty">Noch keine Einheiten.<br>Starte dein erstes Training.</div>`; return; }
   let h=back+`<div class="row between" style="margin:6px 4px 4px"><h2>Einheiten</h2></div>`;
-  [...sessions].reverse().forEach(s=>{ h+=`<div class="card" data-opensess="${s.id}"><div class="row between">
+  [...sessions].reverse().forEach(s=>{ const d=fmtDauer(s.dur); h+=`<div class="card" data-opensess="${s.id}"><div class="row between">
     <div><div class="plan-chip"><span class="dot"></span><b>${esc(s.planName)}</b></div>
-      <div class="muted tiny" style="margin-top:4px">${fmtDate(s.date)} · ${doneSets(s.entries)} Sätze</div></div>
+      <div class="muted tiny" style="margin-top:4px">${fmtDate(s.date)} · ${doneSets(s.entries)} Sätze${d?` · ${d}`:''}</div></div>
     <div style="text-align:right"><b>${volume(s.entries)}</b><div class="tiny muted">kg Vol.</div></div></div></div>`; });
   const names=[...new Set(sessions.flatMap(s=>s.entries.map(e=>e.name)))];
   const prs=names.map(n=>({n,pr:prFor(n)})).filter(x=>x.pr);
@@ -1018,8 +1084,10 @@ function renderExDetail(){
 
 function renderSession(){
   const s=sessions.find(x=>x.id===detailSessionId); if(!s){ view='history'; return render(); }
+  const dauer=fmtDauer(s.dur);
   let h=`<button class="link" data-act="backhist">‹ Verlauf</button>
-    <div class="row between" style="margin:6px 4px 10px"><h2>${esc(s.planName)}</h2><span class="pill">${volume(s.entries)} kg Vol.</span></div>`;
+    <div class="row between" style="margin:6px 4px 4px"><h2>${esc(s.planName)}</h2><span class="pill">${volume(s.entries)} kg Vol.</span></div>
+    <div class="tiny muted" style="margin:0 4px 10px">${fmtDate(s.date)} · ${fmtTime(s.date)}${dauer?` · <b style="color:var(--txt)">${dauer}</b>`:''}</div>`;
   s.entries.forEach(e=>{ const d=e.sets.filter(x=>x.done); if(!d.length) return;
     h+=`<div class="card"><div class="row" style="gap:10px">${iconTile(e.name,e.icon,40)}<b>${esc(e.name)}</b></div><div style="margin-top:8px">`;
     d.forEach((st,i)=>{ h+=`<div class="sess"><span class="muted">Satz ${i+1}</span><b>${st.weight||0} kg × ${st.reps||0}</b></div>`; }); h+=`</div></div>`; });
@@ -1283,6 +1351,73 @@ function closeModal(){ document.getElementById('modal').classList.remove('show')
 // ⚠️ Das Gegenstück (Datei wieder einlesen) ist bewusst weg — gesichert wird über
 // das Konto, und ein zweiter Weg, der Daten hineinschiebt, käme dem Abgleich in
 // die Quere.
+// ---------- Trainingsplan teilen ----------
+// Der Plan steckt vollstaendig im Link — kein Server noetig, der Empfaenger braucht nur die App.
+// btoa kann nur Bytes, deshalb der Umweg ueber TextEncoder; sonst zerbricht es an Umlauten.
+function b64enc(str){ const b=new TextEncoder().encode(str); let s='';
+  b.forEach(x=>{ s+=String.fromCharCode(x); });
+  return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+function b64dec(t){ t=String(t).replace(/-/g,'+').replace(/_/g,'/');
+  const s=atob(t), b=new Uint8Array(s.length);
+  for(let i=0;i<s.length;i++) b[i]=s.charCodeAt(i);
+  return new TextDecoder().decode(b); }
+// Kurzform: nur was den Plan ausmacht. Keine ids (der Empfaenger vergibt eigene), keine
+// Einheiten, kein Fortschritt, kein Name — geteilt wird der Plan, nicht die Historie.
+function planCode(){
+  return b64enc(JSON.stringify({v:1, p:plans.map(p=>({
+    n:String(p.name||'Training').slice(0,40), d:(p.day==null?null:+p.day), w:planWarm(p)?1:0,
+    e:(p.exercises||[]).filter(e=>e.name).map(e=>[String(e.name).slice(0,60), +e.sets||3, volOf(e)==='low'?'l':'h'])
+  })).filter(p=>p.e.length)}));
+}
+function planLink(){ return location.origin+location.pathname+'#p='+planCode(); }
+function sharePlan(){
+  if(!plans.length){ toast('Noch keine Trainings zum Teilen'); return; }
+  const url=planLink(), text=`Mein Trainingsplan aus Gym-Log (${plans.length} Trainings)`;
+  const fallback=()=>{ (navigator.clipboard?navigator.clipboard.writeText(url):Promise.reject())
+    .then(()=>toast('Link kopiert'))
+    .catch(()=>showModal(`<div class="tiny muted">Link zum Weitergeben</div>
+      <textarea readonly style="width:100%;height:90px;margin-top:8px;background:var(--card2);border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:10px;font-size:12px">${esc(url)}</textarea>`)); };
+  if(navigator.share){ navigator.share({title:'Trainingsplan',text,url}).catch(e=>{ if(!e||e.name!=='AbortError') fallback(); }); }
+  else fallback();
+}
+// Empfangen: der Link wird beim Start gelesen, der Hash sofort entfernt (sonst haengt er beim
+// naechsten Oeffnen noch dran) und das Angebot erst nach der Anmeldung gezeigt.
+let planImport=null, importGezeigt=false;
+function leseImportAusLink(){
+  const m=/[#&]p=([A-Za-z0-9\-_]+)/.exec(location.hash||''); if(!m) return;
+  try{ const d=JSON.parse(b64dec(m[1]));
+    if(d && d.v===1 && Array.isArray(d.p) && d.p.length) planImport=d.p.slice(0,10);
+  }catch(e){ planImport=null; }
+  try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){}
+}
+function zeigeImport(){
+  const liste=planImport.map(p=>`<div class="row between" style="padding:5px 0;border-bottom:1px solid var(--line)">
+    <span>${esc(p.n)}${p.d!=null?` <span class="muted tiny">· ${DAYNAME[p.d]||''}</span>`:''}</span>
+    <span class="muted tiny">${(p.e||[]).length} Übungen</span></div>`).join('');
+  const m=document.getElementById('modal');
+  m.innerHTML=`<div class="modal-box" style="max-width:400px;text-align:left">
+    <b>Geteilter Trainingsplan</b>
+    <div class="tiny muted" style="margin:6px 0 10px">Wird zu deinen Trainings hinzugefügt. Deine eigenen bleiben stehen.</div>
+    ${liste}
+    <div class="fab-row" style="margin-top:16px">
+      <button class="btn" data-act="importno">Nein danke</button>
+      <button class="btn primary" data-act="importyes">Übernehmen</button></div></div>`;
+  m.classList.add('show');
+}
+function importierePlan(){
+  // Belegte Wochentage: der Import darf die Ein-Training-pro-Tag-Regel nicht aushebeln.
+  // Kollidiert ein Tag, kommt das Training ohne festen Tag rein statt gar nicht.
+  let ohneTag=0;
+  planImport.forEach(p=>{
+    let tag=(p.d==null)?null:+p.d;
+    if(tag!=null && plans.some(x=>x.day===tag)){ tag=null; ohneTag++; }
+    plans.push({id:uid(), name:p.n, day:tag, warmup:!!p.w,
+      exercises:(p.e||[]).map(e=>({id:uid(), name:e[0], sets:+e[1]||3, reps:10, vol:e[2]==='l'?'low':'high'}))});
+  });
+  const n=planImport.length; planImport=null; save(); closeModal(); view='plans'; render();
+  toast(ohneTag ? `${n} übernommen — ${ohneTag} ohne Tag (schon belegt)` : `${n} Trainings übernommen`);
+}
+
 function exportData(){
   const data={app:'gym-log', version:1, exportedAt:new Date().toISOString(), plans, sessions, profile, settings};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
@@ -1395,9 +1530,20 @@ async function doAuth(mode){ const v=id=>{ const el=document.getElementById(id);
   catch(e){ renderAuthGate(typeof e==='string'?e:'Fehler — bitte nochmal.'); } }
 
 // ---------- Training ----------
-function startWorkout(plan){ const ex=plan.exercises.map(e=>{ const lp=lastPerf(e.name);
+// Aufwaermgewicht: rund 70 % des Arbeitsgewichts, auf 2,5 kg gerundet, damit es an der Stange
+// auch auflegbar ist. Ohne Vorgeschichte bleibt das Feld leer.
+function warmKg(w){ if(!(w>0)) return ''; const v=Math.round(w*0.7/2.5)*2.5; return v>0?v:''; }
+// Plaene ohne eigenes warmup (alle vor dem 05.08.) folgen der Wahl aus dem Assistenten.
+function planWarm(p){ return p && p.warmup!=null ? !!p.warmup : !!profile.warmup; }
+function startWorkout(plan){
+  // Aufwaermsatz: pro Uebung einer, vorneweg, markiert mit warm:true. Ob es ihn gibt, steht am
+  // Plan (Karls Wahl im Assistenten oder im Editor).
+  const warm = plan.warmup!=null ? !!plan.warmup : !!profile.warmup;
+  const ex=plan.exercises.map(e=>{ const lp=lastPerf(e.name);
     // vol wandert mit ins Training — sonst zeigte die Satz-Zeile ein anderes Ziel als der Editor
-    return {id:uid(),name:e.name,icon:e.icon,reps:e.reps,vol:e.vol,sets:Array.from({length:e.sets||3},()=>({weight:lp&&lp.w?lp.w:'',reps:'',done:false}))}; });
+    const sets=Array.from({length:e.sets||3},()=>({weight:lp&&lp.w?lp.w:'',reps:'',done:false}));
+    if(warm) sets.unshift({weight:warmKg(lp&&lp.w),reps:'',done:false,warm:true});
+    return {id:uid(),name:e.name,icon:e.icon,reps:e.reps,vol:e.vol,sets}; });
   active={id:uid(),date:Date.now(),planId:plan.id,planName:plan.name,currentIdx:0,exercises:ex}; save(); view='workout'; render(); }
 
 function finishWorkout(){
@@ -1406,7 +1552,8 @@ function finishWorkout(){
   const beforeL=levelFromXP(profile.xp).level, beforeRank=rankForLevel(beforeL).name;
   const gained=doneSets(entries)*10 + 50 + Math.floor(volume(entries)/1000)*20;
   profile.xp+=gained;
-  sessions.push({id:active.id,date:active.date,planName:active.planName,entries});
+  // dur = wie lange die Einheit gedauert hat. Einheiten vor dem 05.08. haben kein dur.
+  sessions.push({id:active.id,date:active.date,dur:Date.now()-active.date,planName:active.planName,entries});
   active=null; stopRest(); paintTimer();
   const afterL=levelFromXP(profile.xp).level, afterRank=rankForLevel(afterL);
   save(); view='home';
@@ -1426,7 +1573,7 @@ function confirmTwice(key,btn,label,run){ if(armed[key]){ clearTimeout(armed[key
 if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ if((profile.theme||'system')==='system') applyTheme(); }); }
 
 document.addEventListener('click',ev=>{
-  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-moveex],[data-openex],[data-delweight],[data-skin]');
+  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-planwarm],[data-libnew],[data-moveex],[data-openex],[data-delweight],[data-skin]');
   if(!t) return;
   if(t.dataset.delweight){ const ts=+t.dataset.delweight;
     confirmTwice('dw'+ts,t,'Löschen?',()=>{ profile.weights=(profile.weights||[]).filter(x=>x.date!==ts); save(); render(); }); return; }
@@ -1448,6 +1595,8 @@ document.addEventListener('click',ev=>{
       p.day = (p.day===v) ? null : v; save(); } render(); return; }
   if(t.dataset.exvol){ syncPlanInputs(); const [i,v]=t.dataset.exvol.split(':'); const p=plans.find(x=>x.id===editPlanId);
     if(p&&p.exercises[+i]){ p.exercises[+i].vol=v; save(); } render(); return; }
+  if(t.dataset.planwarm){ syncPlanInputs(); const p=plans.find(x=>x.id===editPlanId);
+    if(p){ p.warmup=t.dataset.planwarm==='1'; save(); } render(); return; }
   if(t.dataset.setbase){ profile.theme=t.dataset.setbase; save(); applyTheme(); render(); return; }
   if(t.dataset.admin){ const [cmd,arg]=t.dataset.admin.split(':'); const cur=levelFromXP(profile.xp).level;
     if(cmd==='xp') profile.xp=Math.max(0,profile.xp+(+arg));
@@ -1460,6 +1609,9 @@ document.addEventListener('click',ev=>{
     save(); applyTheme(); render(); return; }
   if(t.dataset.libadd){ syncPlanInputs(); const [nm,ic,rp]=t.dataset.libadd.split('|'); const p=plans.find(x=>x.id===editPlanId);
     if(p){ p.exercises.push({id:uid(),name:nm,icon:ic,sets:volSets(),reps:+rp||10,vol:profile.vol}); save(); } closeModal(); render(); return; }
+  if(t.dataset.libnew){ syncPlanInputs(); const nm=t.dataset.libnew.slice(0,60); const p=plans.find(x=>x.id===editPlanId);
+    if(p){ p.exercises.push({id:uid(),name:nm,sets:volSets(),reps:10,vol:profile.vol,eigen:true}); save(); }
+    closeModal(); render(); toast(`„${nm}" angelegt`); return; }
   if(t.dataset.theme){ const lvl=levelFromXP(profile.xp).level; if(unlockedThemes(lvl).has(t.dataset.theme)){ profile.theme=t.dataset.theme; save(); applyTheme(); render(); } return; }
   if(t.dataset.nav){ view=t.dataset.nav; render(); return; }
   if(t.dataset.rest){ const r=t.dataset.rest; if(r==='skip'){ stopRest(); rest.remaining=0; paintTimer(); } else adjust(+r); return; }
@@ -1496,16 +1648,21 @@ document.addEventListener('click',ev=>{
   else if(a&&a.startsWith('ob:day:')){ const i=+a.slice(7), k=obDraft.days.indexOf(i);
     if(k<0) obDraft.days.push(i); else obDraft.days.splice(k,1); renderOnboard(); }
   else if(a&&a.startsWith('ob:vol:')){ obDraft.vol=a.slice(7); renderOnboard(); }
+  else if(a&&a.startsWith('ob:warm:')){ obDraft.warm=a.slice(8)==='1'; renderOnboard(); }
   else if(a==='ob:finish'){ profile.days=obDraft.days.slice().sort((x,y)=>x-y); profile.vol=obDraft.vol;
+    profile.warmup=!!obDraft.warm;
     profile.favs=obDraft.favs.slice(); profile.onboarded=true;
     const w=+String(obDraft.w||'').replace(',','.'); if(w>0) addWeight(w);   // Startgewicht, falls angegeben
     plans=buildPlans(); active=null; save(); view='home'; render(); toast('Plan steht — viel Erfolg!'); }
-  else if(a==='newplan'){ const p={id:uid(),name:'Neues Training',day:null,exercises:[{id:uid(),name:'',sets:volSets(),reps:10,vol:profile.vol}]}; plans.push(p); save(); editPlanId=p.id; view='plan'; render(); }
+  else if(a==='newplan'){ const p={id:uid(),name:'Neues Training',day:null,warmup:!!profile.warmup,exercises:[{id:uid(),name:'',sets:volSets(),reps:10,vol:profile.vol}]}; plans.push(p); save(); editPlanId=p.id; view='plan'; render(); }
   // sets war hier fest auf 3, waehrend der Assistent 4 gibt — jetzt beides aus volSets()
   else if(a==='addex'){ plans.find(x=>x.id===editPlanId).exercises.push({id:uid(),name:'',sets:volSets(),reps:10,vol:profile.vol}); save(); render(); }
   else if(a==='library'){ openLibrary(); }
   else if(a==='addweight'){ const el=document.getElementById('wInput'); const v=el?el.value.replace(',','.'):'';
     if(addWeight(v)){ render(); toast('Eingetragen'); } else toast('Bitte ein Gewicht in kg eingeben'); }
+  else if(a==='shareplan'){ sharePlan(); }
+  else if(a==='importyes'){ importierePlan(); }
+  else if(a==='importno'){ planImport=null; closeModal(); }
   else if(a==='export'){ exportData(); }
   else if(a==='resetall'){ confirmTwice('rst',t,'Wirklich alles löschen?',()=>{ plans=seedPlans(); sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null; normalizeProfile(); save(); applyTheme(); view='home'; render(); toast('Zurückgesetzt'); }); }
   else if(a==='authSwitch'){ authMode=(authMode==='login')?'register':'login'; renderAuthGate(); }
@@ -1541,6 +1698,7 @@ document.addEventListener('change',ev=>{ if(view==='plan') syncPlanInputs(); });
 
 // ---------- Start ----------
 applyTheme();
+leseImportAusLink();      // geteilter Plan im Link? Hash gleich entfernen, Angebot kommt nach dem Login
 if(active) view='workout';
 else if(session && !profile.onboarded) startOnboard();   // neues Konto → erst der Assistent
 render();                 // ohne Anmeldung erscheint hier das Login-Fenster
