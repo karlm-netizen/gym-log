@@ -238,7 +238,9 @@ const THEMES = {
 // ---------- Ränge ----------
 // aura 0 = schlicht/matt, steigt bis 4 = volle Aura (Puls + Schimmer + Funken)
 // img = Brock in dieser Stufe (Karls Blatt vom 05.08., Reihenfolge dort = Reihenfolge hier).
-// Der alte brock.png bleibt der Erzaehler: Anmeldung und Einrichtungs-Assistent behalten ihn.
+// Der alte brock.png bleibt nur noch dort, wo es keinen Rang zu zeigen gibt: auf dem
+// Anmeldeschirm (da ist noch niemand angemeldet) und spaeter im Tutorial.
+// ⚠️ Der Einrichtungs-Assistent ist NICHT das Tutorial — dort zeigt Brock den Rang.
 const RANKS = [
   {name:'Couch-Potato', min:1,  color:'#79808c', aura:0, img:'brock-1.png'},
   {name:'Noob',         min:3,  color:'#8c977a', aura:0, img:'brock-2.png'},
@@ -654,7 +656,7 @@ function monster(size,mood,rank){ size=size||86;
 function rankMon(r,size,locked){
   return `<img src="${esc(brockSrc(r))}" width="${size}" height="${size}" alt="" aria-hidden="true"
     style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain${locked?';filter:brightness(0) invert(.55);opacity:.55':''}">`; }
-function mascot(text,mood,size){ return `<div class="mascot">${monster(size,mood)}<div class="bubble">${text}</div></div>`; }
+function mascot(text,mood,size,rank){ return `<div class="mascot">${monster(size,mood,rank)}<div class="bubble">${text}</div></div>`; }
 
 // Brocks Sprüche hängen an der Lage: heute schon trainiert, heute noch was vor,
 // gestern einen Trainingstag verpasst, oder einfach Ruhetag.
@@ -720,7 +722,9 @@ function obCanLeave(){ return !!profile.onboarded; }
 function renderOnboard(){
   const d=obDraft, last=6;
   let h=`<div class="ob-dots">${obSteps().map(i=>`<i class="${i<=obStep?'on':''}"></i>`).join('')}</div>`;
-  h+=mascot(OB_SAY[obStep], (obStep===0||obStep===last)?'happy':'', obStep===0?96:72);
+  // Der Assistent ist NICHT das Tutorial — hier zeigt Brock den getragenen Rang wie ueberall sonst.
+  // Beim ersten Konto ist das Couch-Potato, was zum Einstieg passt.
+  h+=mascot(OB_SAY[obStep], (obStep===0||obStep===last)?'happy':'', obStep===0?96:72, equippedRank());
 
   if(obStep===0){ h+=`<div class="card">
     <h2 style="margin-top:0">Wie willst du anfangen?</h2>
