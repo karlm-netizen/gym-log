@@ -237,16 +237,18 @@ const THEMES = {
 
 // ---------- Ränge ----------
 // aura 0 = schlicht/matt, steigt bis 4 = volle Aura (Puls + Schimmer + Funken)
+// img = Brock in dieser Stufe (Karls Blatt vom 05.08., Reihenfolge dort = Reihenfolge hier).
+// Der alte brock.png bleibt der Erzaehler: Anmeldung und Einrichtungs-Assistent behalten ihn.
 const RANKS = [
-  {name:'Couch-Potato', min:1,  color:'#79808c', aura:0},
-  {name:'Noob',         min:3,  color:'#8c977a', aura:0},
-  {name:'Warm-Duscher', min:6,  color:'#6fa8c9', aura:0},
-  {name:'Gym-Rookie',   min:10, color:'#2fd0aa', aura:1, unlock:'midnight'},
-  {name:'Pumper',       min:15, color:'#4f8cff', aura:1},
-  {name:'Eisen-Junkie', min:21, color:'#9b6bff', aura:2, grad:['#c19bff','#7a3cff'], unlock:'crimson'},
-  {name:'Beast-Mode',   min:28, color:'#ff4d5e', aura:3, grad:['#ff7a3d','#ff2e63']},
-  {name:'Gym-Legende',  min:36, color:'#e8b23a', aura:3, grad:['#ffe27a','#e0960f'], unlock:'gold'},
-  {name:'Gigachad',     min:45, color:'#9be7ff', aura:4, grad:['#7af7ff','#c56bff'], unlock:'neon'},
+  {name:'Couch-Potato', min:1,  color:'#79808c', aura:0, img:'brock-1.png'},
+  {name:'Noob',         min:3,  color:'#8c977a', aura:0, img:'brock-2.png'},
+  {name:'Warm-Duscher', min:6,  color:'#6fa8c9', aura:0, img:'brock-3.png'},
+  {name:'Gym-Rookie',   min:10, color:'#2fd0aa', aura:1, unlock:'midnight', img:'brock-4.png'},
+  {name:'Pumper',       min:15, color:'#4f8cff', aura:1, img:'brock-5.png'},
+  {name:'Eisen-Junkie', min:21, color:'#9b6bff', aura:2, grad:['#c19bff','#7a3cff'], unlock:'crimson', img:'brock-6.png'},
+  {name:'Beast-Mode',   min:28, color:'#ff4d5e', aura:3, grad:['#ff7a3d','#ff2e63'], img:'brock-7.png'},
+  {name:'Gym-Legende',  min:36, color:'#e8b23a', aura:3, grad:['#ffe27a','#e0960f'], unlock:'gold', img:'brock-8.png'},
+  {name:'Gigachad',     min:45, color:'#9be7ff', aura:4, grad:['#7af7ff','#c56bff'], unlock:'neon', img:'brock-9.png'},
 ];
 function levelFromXP(xp){ let lvl=1, need=100; while(xp>=need){ xp-=need; lvl++; need=100+(lvl-1)*40; } return {level:lvl, into:xp, need}; }
 function xpForLevel(t){ let xp=0; for(let l=1;l<t;l++) xp+=100+(l-1)*40; return xp; }
@@ -627,7 +629,7 @@ function rankCardHTML(){
     <div class="rc-body">
       <div class="row between">
         <div class="row" style="gap:12px">
-          <div class="badge">${rankBadge(rank,30,'c')}</div>
+          <div class="badge" style="width:56px;height:56px;flex:0 0 56px">${rankMon(rank,56)}</div>
           <div><div class="tiny muted">Rang</div><b style="font-size:18px">${esc(rank.name)}</b></div>
         </div>
         <div style="text-align:right"><div class="tiny muted">Level</div><b style="font-size:24px">${lp.level}</b></div>
@@ -640,9 +642,18 @@ function rankCardHTML(){
 
 // ---------- Brock, das Begleit-Monster ----------
 // Körper in der Akzentfarbe, Augen/Mund im Gegenton — passt sich damit jedem Design an.
-function monster(size,mood,stage){ size=size||86;
-  // Brock kommt als fertige Grafik (brock.png). Er wippt nur noch sanft.
-  return `<img class="mon" src="brock.png" width="${size}" height="${Math.round(size*1.19)}" alt="" aria-hidden="true">`; }
+// Ohne Rang der alte Brock (brock.png) — so bleiben Anmeldung und Assistent, wie Karl es wollte.
+// Mit Rang die Stufe aus RANKS. Hoehe kommt aus .mon{height:auto}, die Blaetter haben je ein
+// eigenes Seitenverhaeltnis und wuerden von einer festen Hoehe verzerrt.
+function brockSrc(rank){ return (rank&&rank.img) || 'brock.png'; }
+function monster(size,mood,rank){ size=size||86;
+  return `<img class="mon" src="${brockSrc(rank)}" width="${size}" alt="" aria-hidden="true">`; }
+// Brock im Abzeichen-Kasten: gesperrte Raenge als Silhouette, damit die Stufe erkennbar bleibt,
+// aber noch etwas zu holen ist. Mittelgrau statt schwarz — reines Schwarz verschwand im
+// dunklen Design vollstaendig. brightness(0) macht alles schwarz, invert(.55) hebt es auf Grau.
+function rankMon(r,size,locked){
+  return `<img src="${esc(brockSrc(r))}" width="${size}" height="${size}" alt="" aria-hidden="true"
+    style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain${locked?';filter:brightness(0) invert(.55);opacity:.55':''}">`; }
 function mascot(text,mood,size){ return `<div class="mascot">${monster(size,mood)}<div class="bubble">${text}</div></div>`; }
 
 // Brocks Sprüche hängen an der Lage: heute schon trainiert, heute noch was vor,
@@ -794,7 +805,8 @@ function renderHome(){
   // Reihenfolge nach Zweck: zuerst wofuer man die App aufmacht (heute trainieren),
   // dann der Fortschritt, dann Nachschlagen. Brock sitzt klein in der Heute-Karte,
   // weil sein Spruch sich genau darauf bezieht.
-  const brock=`<div class="mascot mini">${monster(56)}<div class="bubble">${brockSay()}</div></div>`;
+  // Der Begleiter waechst mit: er zeigt den getragenen Rang, nicht mehr den alten Brock.
+  const brock=`<div class="mascot mini">${monster(56,'',equippedRank())}<div class="bubble">${brockSay()}</div></div>`;
   let h='';
 
   // 1 · Laufendes Training hat immer Vorrang
@@ -1005,7 +1017,7 @@ function renderRang(){
       ${sparks}
       <div class="rc-body row between">
         <div class="row" style="gap:10px">
-          <div class="badge" style="width:34px;height:34px;flex:0 0 34px">${rankBadge(r,26,'L'+r.min)}</div>
+          <div class="badge" style="width:46px;height:46px;flex:0 0 46px">${rankMon(r,46,!reached)}</div>
           <div><b>${esc(r.name)}</b> ${isReal?'<span class="pill" style="background:var(--accent);color:var(--accent-ink)">dein Rang</span>':''}${isShown&&!isReal?'<span class="pill" style="background:var(--rc);color:#fff">getragen</span>':''}
             <div class="tiny muted">ab Level ${r.min}${r.unlock?` · Design „${THEMES[r.unlock].label}"`:''}</div></div>
         </div>
