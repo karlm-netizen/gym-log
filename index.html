@@ -89,6 +89,12 @@
   .set.done .target{opacity:.5}
   .ex-target{width:100%; padding:11px 8px; font-size:15px; font-weight:700; text-align:center;
     color:var(--muted); background:transparent; border:1px dashed var(--line); border-radius:10px}
+  /* Ohne min-width:0 schrumpft ein Flex-Element nie unter seine Inhaltsbreite — bei 320 px
+     schob das Namensfeld den Loesch-Knopf aus dem Bild. Bestand schon vor dem 05.08. */
+  .ex-name{min-width:0}
+  .ex-vol{display:grid; grid-template-columns:1fr 1fr; gap:6px}
+  .ex-vol .chip{padding:11px 0; text-align:center; font-size:12.5px}
+  .chip[disabled]{opacity:.35}
   .check{width:44px;height:42px; border-radius:10px; background:var(--card2); border:1px solid var(--line);
     display:grid; place-items:center; color:var(--muted)}
   .check.on{background:var(--ok); border-color:var(--ok); color:var(--bg)}
@@ -463,6 +469,7 @@ const SUPA_KEY='sb_publishable_7UvOL7KzzgJK6om8OwUsSg_usOMz92l';
 // Git-Historie stünde. Karls Entscheidung am 03.08.2026.
 const PRIVACY_OWNER='Karl Fangmeyer (privat betriebene App)';
 const PRIVACY_CONTACT='karlm.fangmeyer@gmail.com';
+const PRIVACY_STAND='5. August 2026';   // bei jeder inhaltlichen Aenderung mit hochziehen
 function save(){ DB.set('plans',plans); DB.set('sessions',sessions); DB.set('active',active); DB.set('settings',settings); DB.set('profile',profile); scheduleSync(); }
 
 let view='home', editPlanId=null, detailSessionId=null, detailExName=null;
@@ -506,8 +513,12 @@ function groupsOf(key){ return key.startsWith('upper')?['push','pull'] : key.sta
 function volSets(){ return profile.vol==='low'?3:4; }
 // Ziel-Wiederholungen sind ein Bereich statt einer festen Zahl — kommt aus der Volumen-Wahl
 function repRange(){ return profile.vol==='low' ? [6,10] : [8,12]; }
-function repLabel(){ const [a,b]=repRange(); return `${a}–${b}`; }
 function volReps(){ return repRange()[0]; }
+// Ziel je Uebung: e.vol ueberschreibt die globale Wahl aus dem Assistenten. Uebungen ohne
+// eigenes vol (alle vor dem 05.08.) fallen auf profile.vol zurueck — dort aendert sich nichts.
+function volOf(e){ return (e&&e.vol) || profile.vol || 'high'; }
+function exRange(e){ return volOf(e)==='low' ? [6,10] : [8,12]; }
+function exLabel(e){ const [a,b]=exRange(e); return `${a}–${b}`; }
 function pickExercises(key){
   const gs=groupsOf(key), pool=DAYPOOL[key]||DAYPOOL.upper, max=profile.vol==='low'?5:6;
   const favs=(profile.favs||[]).filter(n=>gs.some(g=>FAVPOOL[g].includes(n)));
@@ -521,7 +532,7 @@ function buildPlans(){
   const split=SPLITS[Math.min(6,Math.max(2,days.length))]||SPLITS[3];
   return days.map((d,i)=>{ const [nm,key]=split[i%split.length];
     return { id:uid(), name:nm, day:d,
-      exercises:pickExercises(key).map(n=>({id:uid(),name:n,sets:volSets(),reps:volReps(n)})) }; });
+      exercises:pickExercises(key).map(n=>({id:uid(),name:n,sets:volSets(),reps:volReps(n),vol:profile.vol})) }; });
 }
 function planForToday(){ const t=todayIdx(); return plans.find(p=>p.day===t)||null; }
 function nextTrainingDay(){ const t=todayIdx();
@@ -541,12 +552,13 @@ function lastEntry(name){ for(let i=sessions.length-1;i>=0;i--){
 function stepFor(name){ const n=(name||'').toLowerCase();
   return /kniebeug|squat|kreuzheb|deadlift|beinpress|hack squat|hip thrust|langhantelrudern|beinbeuger|beinstrecker/.test(n) ? 5 : 2.5; }
 function fmtKg(v){ return (Math.round(v*10)/10).toString().replace('.',','); }
-function suggest(name){
+// ex = die Uebung im laufenden Training; ihr Ziel schlaegt die globale Wahl
+function suggest(name,ex){
   const e=lastEntry(name); if(!e) return null;
   const done=e.sets.filter(s=>s.done); if(!done.length) return null;
   const w=Math.max(...done.map(s=>+s.weight||0));
   const all=done.length===e.sets.length;          // jeder Satz abgehakt = Ziel erreicht
-  const [lo,hi]=repRange();
+  const [lo,hi]=exRange(ex);
   if(w>0){
     if(all){ const nw=w+stepFor(name);
       return {w:nw, up:true, text:`Heute <b>${fmtKg(nw)} kg</b> × ${lo}–${hi} — letztes Mal ${fmtKg(w)} kg komplett geschafft`}; }
@@ -842,12 +854,19 @@ function renderPlans(){
 
 function renderPlan(){
   const p=plans.find(x=>x.id===editPlanId); if(!p){ view='home'; return render(); }
+  // Tage, an denen schon ein anderes Training haengt, sind nicht waehlbar — sonst stuenden
+  // zwei Trainings am selben Tag und die Startseite koennte nur eines davon anbieten.
+  const belegt={}; plans.forEach(x=>{ if(x.id!==p.id && x.day!=null) belegt[x.day]=x.name; });
+  const belegtListe=Object.keys(belegt).map(d=>`${DAYNAME[+d]} · ${belegt[+d]}`).join(' · ');
   let h=`<div class="field"><label>Name des Trainings</label><input id="planName" value="${esc(p.name)}" placeholder="z.B. Push"></div>
     <div class="field" style="margin-top:2px"><label>Wochentag</label>
-      <div class="ob-days">${DAYNAME.map((n,i)=>`<button class="chip ${p.day===i?'on':''}" data-planday="${i}">${n}</button>`).join('')}</div>
-      <div class="tiny muted" style="margin-top:7px">Bestimmt, wann dieses Training auf der Startseite erscheint. Nochmal tippen = kein fester Tag.</div></div>
+      <div class="ob-days">${DAYNAME.map((n,i)=> belegt[i]!=null
+        ? `<button class="chip" disabled aria-label="${esc(DAYLONG[i])} — belegt von ${esc(belegt[i])}">${n}</button>`
+        : `<button class="chip ${p.day===i?'on':''}" data-planday="${i}">${n}</button>`).join('')}</div>
+      <div class="tiny muted" style="margin-top:7px">Bestimmt, wann dieses Training auf der Startseite erscheint. Nochmal tippen = kein fester Tag.</div>
+      ${belegtListe?`<div class="tiny muted" style="margin-top:5px">Ausgegraut = schon belegt: ${esc(belegtListe)}</div>`:''}</div>
     <div class="row between" style="margin:16px 4px 4px"><h2>Übungen</h2>
-      <span class="tiny muted">Ziel ${repLabel()} Wdh</span></div>`;
+      <span class="tiny muted">Ziel je Übung</span></div>`;
   p.exercises.forEach((e,i)=>{ h+=`<div class="card">
     <div class="row" style="gap:8px">
       ${iconTile(e.name,e.icon,48)}
@@ -861,8 +880,11 @@ function renderPlan(){
       <div style="flex:1"><label class="muted tiny">Sätze</label>
         <input type="number" inputmode="numeric" class="ex-sets" data-i="${i}" value="${e.sets}" min="1"
           style="width:100%;background:var(--card2);border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:11px;font-size:16px;text-align:center"></div>
-      <div style="flex:1"><label class="muted tiny">Ziel</label>
-        <div class="ex-target">${repLabel()} Wdh</div></div></div></div>`; });
+      <div style="flex:1"><label class="muted tiny">Ziel (Wdh)</label>
+        <div class="ex-vol" style="margin-top:2px">
+          <button class="chip ${volOf(e)==='low'?'on':''}" data-exvol="${i}:low">6–10</button>
+          <button class="chip ${volOf(e)==='high'?'on':''}" data-exvol="${i}:high">8–12</button>
+        </div></div></div></div>`; });
   h+=`<div class="fab-row" style="margin-top:6px">
     <button class="btn primary" data-act="library">+ Aus Bibliothek</button>
     <button class="btn" data-act="addex">+ Eigene</button></div>
@@ -873,7 +895,7 @@ function renderPlan(){
 
 function renderWorkout(){
   let h=`<div class="row between" style="margin:6px 4px 2px"><h2>${esc(active.planName)}</h2><span class="pill">${doneSets(active.exercises)} Sätze</span></div>`;
-  active.exercises.forEach((e,ei)=>{ const on=ei===active.currentIdx, lp=lastPerf(e.name), sg=suggest(e.name);
+  active.exercises.forEach((e,ei)=>{ const on=ei===active.currentIdx, lp=lastPerf(e.name), sg=suggest(e.name,e);
     h+=`<div class="ex ${on?'active':''}"><div class="ex-head" data-focusex="${ei}">
       <div class="row" style="gap:10px">${iconTile(e.name,e.icon,44)}<div class="name">${esc(e.name)||'Übung'}</div></div>
       <div class="muted tiny">${e.sets.filter(s=>s.done).length}/${e.sets.length}</div></div>`;
@@ -882,7 +904,7 @@ function renderWorkout(){
       <div class="set-head"><span>#</span><span>kg</span><span>Ziel</span><span></span></div>`;
       e.sets.forEach((s,si)=>{ h+=`<div class="set ${s.done?'done':''}"><div class="idx">${si+1}</div>
         <input type="number" inputmode="decimal" step="0.5" placeholder="${sg&&sg.w?sg.w:(lp&&lp.w?lp.w:'kg')}" value="${s.weight??''}" data-ex="${ei}" data-set="${si}" data-f="weight">
-        <div class="target">${repLabel()} Wdh</div>
+        <div class="target">${exLabel(e)} Wdh</div>
         <button class="check ${s.done?'on':''}" data-check="${ei}:${si}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 6"/></svg></button></div>`; });
       h+=`<div class="row" style="gap:8px;margin-top:8px"><button class="link" data-addset="${ei}">+ Satz</button>
         <button class="link" data-delset="${ei}" style="color:var(--muted)">− Satz</button></div></div>`; }
@@ -1117,29 +1139,51 @@ function renderPrivacy(){
         <li>XP, Level und deine Einstellungen</li>
       </ul>
 
+      <b>Warum wir das dürfen</b>
+      <p class="muted" style="margin:4px 0 14px">Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO:
+        ohne Konto und ohne deine Trainingsdaten kann die App das nicht tun, wofür du sie benutzt.
+        Freiwillige Angaben — dein <b style="color:var(--txt)">Körpergewicht</b> — beruhen auf deiner
+        Einwilligung (lit. a); die kannst du jederzeit zurücknehmen, indem du die Einträge löschst.</p>
+
       <b>Wo die Daten liegen</b>
       <p class="muted" style="margin:4px 0 14px">Auf deinem Gerät und zusätzlich bei
         <b style="color:var(--txt)">Supabase</b>, damit du sie auf mehreren Geräten hast.
-        Ohne Konto bleibt alles nur lokal.</p>
+        Supabase arbeitet dabei nur im Auftrag und nach Weisung (Auftragsverarbeitung, Art. 28 DSGVO).
+        Die Server dieses Projekts stehen in der <b style="color:var(--txt)">EU</b> —
+        <b style="color:var(--txt)">deine Daten verlassen die EU nicht.</b>
+        Die App braucht ein Konto; einen Weg, sie ganz ohne Anmeldung zu benutzen, gibt es nicht.</p>
 
       <b>Wofür sie benutzt werden</b>
       <p class="muted" style="margin:4px 0 14px">Ausschließlich dafür, dir deine eigenen Trainings anzuzeigen.
         <b style="color:var(--txt)">Keine Werbung, kein Tracking, keine Analyse-Dienste, keine Weitergabe an Dritte.</b>
-        Es werden auch keine Cookies zu Werbezwecken gesetzt.</p>
+        Es werden auch keine Cookies zu Werbezwecken gesetzt. XP, Level und Rang rechnet die App allein
+        aus deinen Einheiten aus — das bleibt in der App und hat für dich keinerlei Folgen nach außen.</p>
 
       <b>Wer sie sehen kann</b>
       <p class="muted" style="margin:4px 0 14px">Du. Und technisch bedingt der Betreiber der App —
         deine Trainingsdaten liegen unverschlüsselt in der Datenbank und könnten dort eingesehen werden.
-        Das passiert nicht absichtlich, aber es ist ehrlicher, dass du es weißt.</p>
+        Das passiert nicht absichtlich, aber es ist ehrlicher, dass du es weißt.
+        Andere Nutzer können deine Daten <b style="color:var(--txt)">nicht</b> sehen; die Datenbank gibt
+        jedem Konto nur die eigenen Zeilen heraus.</p>
 
       <b>Wie lange</b>
-      <p class="muted" style="margin:4px 0 14px">Bis du dein Konto löschst. Danach sind sie weg.</p>
+      <p class="muted" style="margin:4px 0 14px">Bis du dein Konto löschst. Danach sind sie weg —
+        „Konto löschen" entfernt die Daten <i>und</i> die Anmeldung, nicht nur das eine.</p>
 
       <b>Deine Rechte</b>
-      <p class="muted" style="margin:4px 0 10px">Du kannst jederzeit alle deine Daten als Datei
-        herunterladen (Knopf unten) und dein Konto mit allen Daten löschen
-        (Einstellungen → „Konto löschen"). Du musst dafür niemanden fragen.
-        Für Auskunft oder Fragen erreichst du den Betreiber unter der Adresse oben.</p>
+      <p class="muted" style="margin:4px 0 6px">Du hast das Recht auf Auskunft (Art. 15), Berichtigung
+        (Art. 16), Löschung (Art. 17), Einschränkung der Verarbeitung (Art. 18), Datenübertragbarkeit
+        (Art. 20) und Widerspruch (Art. 21). Zwei davon kannst du sofort selbst ausüben, ohne jemanden
+        zu fragen:</p>
+      <ul class="muted" style="margin:0 0 10px;padding-left:18px">
+        <li><b style="color:var(--txt)">Datenübertragbarkeit</b> — der Knopf unten lädt alles als Datei</li>
+        <li><b style="color:var(--txt)">Löschung</b> — Einstellungen → „Konto löschen"</li>
+      </ul>
+      <p class="muted" style="margin:0 0 14px">Für alles Übrige genügt eine Nachricht an die Adresse oben.
+        Du kannst dich außerdem bei der für deinen Wohnort zuständigen Datenschutz-Aufsichtsbehörde
+        beschweren (Art. 77).</p>
+
+      <p class="muted tiny" style="margin:0 0 12px">Stand: ${esc(PRIVACY_STAND)}</p>
 
       <!-- Der Download steht seit dem 03.08. hier statt bei den Einstellungen:
            er ist die Umsetzung der Datenübertragbarkeit (Art. 20 DSGVO) und
@@ -1308,7 +1352,8 @@ async function doAuth(mode){ const v=id=>{ const el=document.getElementById(id);
 
 // ---------- Training ----------
 function startWorkout(plan){ const ex=plan.exercises.map(e=>{ const lp=lastPerf(e.name);
-    return {id:uid(),name:e.name,icon:e.icon,reps:e.reps,sets:Array.from({length:e.sets||3},()=>({weight:lp&&lp.w?lp.w:'',reps:'',done:false}))}; });
+    // vol wandert mit ins Training — sonst zeigte die Satz-Zeile ein anderes Ziel als der Editor
+    return {id:uid(),name:e.name,icon:e.icon,reps:e.reps,vol:e.vol,sets:Array.from({length:e.sets||3},()=>({weight:lp&&lp.w?lp.w:'',reps:'',done:false}))}; });
   active={id:uid(),date:Date.now(),planId:plan.id,planName:plan.name,currentIdx:0,exercises:ex}; save(); view='workout'; render(); }
 
 function finishWorkout(){
@@ -1337,7 +1382,7 @@ function confirmTwice(key,btn,label,run){ if(armed[key]){ clearTimeout(armed[key
 if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ if((profile.theme||'system')==='system') applyTheme(); }); }
 
 document.addEventListener('click',ev=>{
-  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-moveex],[data-openex],[data-delweight],[data-skin]');
+  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-moveex],[data-openex],[data-delweight],[data-skin]');
   if(!t) return;
   if(t.dataset.delweight){ const ts=+t.dataset.delweight;
     confirmTwice('dw'+ts,t,'Löschen?',()=>{ profile.weights=(profile.weights||[]).filter(x=>x.date!==ts); save(); render(); }); return; }
@@ -1354,7 +1399,11 @@ document.addEventListener('click',ev=>{
       [a[i],a[j]]=[a[j],a[i]]; save(); }
     render(); return; }
   if(t.dataset.planday){ syncPlanInputs(); const p=plans.find(x=>x.id===editPlanId);
-    if(p){ const v=+t.dataset.planday; p.day = (p.day===v) ? null : v; save(); } render(); return; }
+    if(p){ const v=+t.dataset.planday;
+      if(plans.some(x=>x.id!==p.id && x.day===v)) return;   // belegter Tag, auch wenn der Knopf durchrutscht
+      p.day = (p.day===v) ? null : v; save(); } render(); return; }
+  if(t.dataset.exvol){ syncPlanInputs(); const [i,v]=t.dataset.exvol.split(':'); const p=plans.find(x=>x.id===editPlanId);
+    if(p&&p.exercises[+i]){ p.exercises[+i].vol=v; save(); } render(); return; }
   if(t.dataset.setbase){ profile.theme=t.dataset.setbase; save(); applyTheme(); render(); return; }
   if(t.dataset.admin){ const [cmd,arg]=t.dataset.admin.split(':'); const cur=levelFromXP(profile.xp).level;
     if(cmd==='xp') profile.xp=Math.max(0,profile.xp+(+arg));
@@ -1366,7 +1415,7 @@ document.addEventListener('click',ev=>{
     else if(cmd==='clearhist') sessions=[];
     save(); applyTheme(); render(); return; }
   if(t.dataset.libadd){ syncPlanInputs(); const [nm,ic,rp]=t.dataset.libadd.split('|'); const p=plans.find(x=>x.id===editPlanId);
-    if(p){ p.exercises.push({id:uid(),name:nm,icon:ic,sets:3,reps:+rp||10}); save(); } closeModal(); render(); return; }
+    if(p){ p.exercises.push({id:uid(),name:nm,icon:ic,sets:volSets(),reps:+rp||10,vol:profile.vol}); save(); } closeModal(); render(); return; }
   if(t.dataset.theme){ const lvl=levelFromXP(profile.xp).level; if(unlockedThemes(lvl).has(t.dataset.theme)){ profile.theme=t.dataset.theme; save(); applyTheme(); render(); } return; }
   if(t.dataset.nav){ view=t.dataset.nav; render(); return; }
   if(t.dataset.rest){ const r=t.dataset.rest; if(r==='skip'){ stopRest(); rest.remaining=0; paintTimer(); } else adjust(+r); return; }
@@ -1375,7 +1424,7 @@ document.addEventListener('click',ev=>{
   if(t.dataset.opensess){ detailSessionId=t.dataset.opensess; view='session'; render(); return; }
   if(t.dataset.focusex){ active.currentIdx=+t.dataset.focusex; save(); render(); return; }
   if(t.dataset.check){ const [ei,si]=t.dataset.check.split(':').map(Number); const s=active.exercises[ei].sets[si]; s.done=!s.done;
-    if(s.done) s.reps=repRange()[0];   // abgehakt = Zielbereich erreicht; fürs Volumen zählt die untere Zahl
+    if(s.done) s.reps=exRange(active.exercises[ei])[0];   // abgehakt = Zielbereich erreicht; fürs Volumen zählt die untere Zahl der Übung
     save();
     if(s.done){ startRest(settings.rest); if(navigator.vibrate) navigator.vibrate(40); } render(); return; }
   if(t.dataset.addset!=null){ const e=active.exercises[+t.dataset.addset], last=e.sets[e.sets.length-1]||{}; e.sets.push({weight:last.weight||'',reps:last.reps||'',done:false}); save(); render(); return; }
@@ -1405,8 +1454,9 @@ document.addEventListener('click',ev=>{
     profile.favs=obDraft.favs.slice(); profile.onboarded=true;
     const w=+String(obDraft.w||'').replace(',','.'); if(w>0) addWeight(w);   // Startgewicht, falls angegeben
     plans=buildPlans(); active=null; save(); view='home'; render(); toast('Plan steht — viel Erfolg!'); }
-  else if(a==='newplan'){ const p={id:uid(),name:'Neues Training',day:null,exercises:[{id:uid(),name:'',sets:volSets(),reps:10}]}; plans.push(p); save(); editPlanId=p.id; view='plan'; render(); }
-  else if(a==='addex'){ plans.find(x=>x.id===editPlanId).exercises.push({id:uid(),name:'',sets:3,reps:10}); save(); render(); }
+  else if(a==='newplan'){ const p={id:uid(),name:'Neues Training',day:null,exercises:[{id:uid(),name:'',sets:volSets(),reps:10,vol:profile.vol}]}; plans.push(p); save(); editPlanId=p.id; view='plan'; render(); }
+  // sets war hier fest auf 3, waehrend der Assistent 4 gibt — jetzt beides aus volSets()
+  else if(a==='addex'){ plans.find(x=>x.id===editPlanId).exercises.push({id:uid(),name:'',sets:volSets(),reps:10,vol:profile.vol}); save(); render(); }
   else if(a==='library'){ openLibrary(); }
   else if(a==='addweight'){ const el=document.getElementById('wInput'); const v=el?el.value.replace(',','.'):'';
     if(addWeight(v)){ render(); toast('Eingetragen'); } else toast('Bitte ein Gewicht in kg eingeben'); }
