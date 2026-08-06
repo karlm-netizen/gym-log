@@ -1593,11 +1593,13 @@ async function schaetzeFoto(file){
         // Ohne diesen Header lehnt die API Aufrufe direkt aus dem Browser ab.
         'anthropic-dangerous-direct-browser-access':'true' },
       body: JSON.stringify({
-        model:'claude-opus-5',
+        // Haiku statt Opus (Karls Ansage, 06.08.): ein Fuenftel des Preises, und die
+        // Unschaerfe steckt hier im Bild, nicht im Denken. Zurueck geht es mit einer Zeile.
+        model:'claude-haiku-4-5',
         max_tokens:1024,
-        // Wenig Aufwand reicht fuer „was liegt auf dem Teller"; das Format erzwingen wir,
-        // damit unten nicht an Fliesstext herumgeschnitten werden muss.
-        output_config:{ effort:'low', format:{ type:'json_schema', schema:{
+        // ⚠️ KEIN effort hier: den Regler gibt es erst ab Opus/Sonnet — bei Haiku wird der
+        // Aufruf damit abgelehnt. Das erzwungene Format kann Haiku dagegen.
+        output_config:{ format:{ type:'json_schema', schema:{
           type:'object',
           properties:{
             name:{type:'string', description:'Kurzer deutscher Name des Gerichts'},
@@ -1678,8 +1680,8 @@ function renderSettings(){
         ${aiKey()?`<button class="btn danger" data-act="delkey">Entfernen</button>`:''}</div>
       <div class="tiny muted" style="margin-top:6px">Nötig, damit ein Foto geschätzt werden kann. Der Schlüssel
         bleibt <b style="color:var(--txt)">nur auf diesem Gerät</b> — er wird nicht mit deinem Konto
-        synchronisiert und steckt nicht im heruntergeladenen Backup. Jedes Foto kostet dich ein paar Cent
-        über dein eigenes Konto bei Anthropic.</div>
+        synchronisiert und steckt nicht im heruntergeladenen Backup. Ein Foto kostet
+        <b style="color:var(--txt)">unter einem halben Cent</b> über dein eigenes Konto bei Anthropic.</div>
     </div>`;
   h+=`<div class="card" data-nav="privacy" style="cursor:pointer">
       <div class="row between"><div class="row" style="gap:10px">

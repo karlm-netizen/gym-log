@@ -21,6 +21,11 @@ darunter.
   3. **Foto (KI).** Ein Bild vom Teller wird an Claude geschickt und geschätzt: Name, Portion,
      kcal und Makros. Das Ergebnis ist eine **Schätzung** und wird als solche gekennzeichnet, wenn
      das Bild schlecht zu erkennen war.
+     Dafür läuft **Haiku** statt Opus (Karls Ansage) — ein Fünftel des Preises, **unter einem halben
+     Cent pro Foto**. Die Unschärfe steckt hier im Bild, nicht im Denken.
+     ⚠️ Dabei musste der `effort`-Regler raus: den gibt es erst ab Opus/Sonnet, bei Haiku wird der
+     Aufruf damit abgelehnt. Eine Prüfung fängt den Aufruf jetzt ab und sieht nach, dass Modell,
+     Format, Bild und Header stimmen — ohne echtes Geld auszugeben.
      ⚠️ **Dafür braucht es einen eigenen API-Schlüssel** (Einstellungen › Essen per Foto). Er liegt
      **nur auf dem Gerät** — nicht im Quelltext (das Repo ist öffentlich), nicht in der Cloud, nicht
      im heruntergeladenen Backup. Jedes Foto kostet ein paar Cent über das eigene Konto.
