@@ -255,9 +255,9 @@
 
 <nav id="nav">
   <button data-nav="home" class="on">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Start</button>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6.5 7.5v9M17.5 7.5v9M3.5 10v4M20.5 10v4M6.5 12h11"/></svg>Trainieren</button>
   <button data-nav="body">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="4"/><path d="M8.5 11a3.5 3.5 0 0 1 7 0"/><path d="M12 11l2.2-2.4"/></svg>Körper</button>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2.7c3.4 3.3 5.3 5.8 5.3 9a5.3 5.3 0 0 1-10.6 0c0-1.9.7-3.3 1.9-4.7.2 1.3.8 2.1 1.7 2.5.6-2.7-.6-4.9 1.7-6.8z"/></svg>Kalorien</button>
   <button data-nav="settings">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Einstellungen</button>
 </nav>
@@ -620,7 +620,11 @@ const DAYGROUPS={ push:['push'], pushB:['push'], pull:['pull'], pullB:['pull'],
   lower:['legs'], lowerA:['legs'], lowerB:['legs'],
   chest:['push'], back:['pull'], shoulders:['push'], arms:['push','pull'] };
 function groupsOf(key){ return DAYGROUPS[key] || ['push','pull','legs']; }
-function volSets(){ return profile.vol==='low'?3:4; }
+// Karl am 06.08.: bei viel Volumen nicht 4 Saetze, sondern 3 — „das reicht immer".
+// Damit ist die Satzzahl ueberall 3; die Volumen-Wahl aendert nur noch den Wiederholungs-
+// Bereich (6–10 / 8–12) und wie viele Uebungen der Assistent pro Tag nimmt (5 / 6).
+// Bestehende Plaene behalten ihre gespeicherte Satzzahl — das hier gilt fuer neue Uebungen.
+function volSets(){ return 3; }
 // Ziel-Wiederholungen sind ein Bereich statt einer festen Zahl — kommt aus der Volumen-Wahl
 function repRange(){ return profile.vol==='low' ? [6,10] : [8,12]; }
 function volReps(){ return repRange()[0]; }
@@ -723,6 +727,7 @@ function render(){
   if(!session){ document.body.classList.add('gate'); document.body.classList.remove('setup'); renderAuthGate(); return; }
   document.body.classList.remove('gate');
   document.body.classList.toggle('setup', view==='onboard');   // Assistent: untere Leiste ausblenden
+  if(view!=='session') sessEdit=false;   // Bearbeiten-Modus gilt nur, solange man die Einheit ansieht
   setNav();
   ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, body:renderBody, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin}[view]||renderHome)();
   syncSessionClock();
@@ -1002,7 +1007,7 @@ function renderHome(){
 const ICON_TEILEN='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
 function renderProgs(){
   const akt=activeProg();
-  let h=`<button class="link" data-nav="home">‹ Start</button>
+  let h=`<button class="link" data-nav="home">‹ Trainieren</button>
     <div class="row between" style="margin:6px 4px 8px"><h2>Alle Trainingspläne</h2></div>`;
   programs.forEach(pr=>{
     const ist=pr.id===akt.id, tage=(pr.plans||[]).filter(x=>x.day!=null).length;
@@ -1186,15 +1191,51 @@ function renderExDetail(){
   app.innerHTML=h;
 }
 
+// ---------- Eine Einheit im Verlauf ----------
+// Seit dem 06.08. laesst sich eine abgeschlossene Einheit nachtraeglich geradebiegen (Karls
+// Ansage). Vorher gab es nur „loeschen" — ein Tippfehler bei kg (100 statt 10) verzog Rekorde,
+// Volumen und Kurven dauerhaft, und der einzige Ausweg war, die ganze Einheit wegzuwerfen.
+let sessEdit=false;
+// XP nachfuehren. Moeglich nur, wenn beim Beenden festgehalten wurde, wie viel es dafuer gab —
+// Einheiten von vor dem 06.08. haben kein s.xp, dort bleibt der Punktestand unangetastet
+// (lieber ein alter Wert stehen als ein geratener abgezogen).
+function sessXP(en){ return doneSets(en)*10 + 50 + Math.floor(volume(en)/1000)*20; }
+function sessRecalc(s){
+  if(typeof s.xp==='number'){ const neu=sessXP(s.entries);
+    profile.xp=Math.max(0, profile.xp + (neu - s.xp)); s.xp=neu; }
+  save();
+}
 function renderSession(){
   const s=sessions.find(x=>x.id===detailSessionId); if(!s){ view='history'; return render(); }
   const dauer=fmtDauer(s.dur);
   let h=`<button class="link" data-act="backhist">‹ Verlauf</button>
-    <div class="row between" style="margin:6px 4px 4px"><h2>${esc(s.planName)}</h2><span class="pill">${volume(s.entries)} kg Vol.</span></div>
-    <div class="tiny muted" style="margin:0 4px 10px">${fmtDate(s.date)} · ${fmtTime(s.date)}${dauer?` · <b style="color:var(--txt)">${dauer}</b>`:''}</div>`;
-  s.entries.forEach(e=>{ const d=e.sets.filter(x=>x.done); if(!d.length) return;
-    h+=`<div class="card"><div class="row" style="gap:10px">${iconTile(e.name,e.icon,40)}<b>${esc(e.name)}</b></div><div style="margin-top:8px">`;
-    d.forEach((st,i)=>{ h+=`<div class="sess"><span class="muted">Satz ${i+1}</span><b>${st.weight||0} kg × ${st.reps||0}</b></div>`; }); h+=`</div></div>`; });
+    <div class="row between" style="margin:6px 4px 4px"><h2>${esc(s.planName)}</h2>
+      <button class="btn sm ghost link" data-act="sessedit">${sessEdit?'Fertig':'Bearbeiten'}</button></div>
+    <div class="tiny muted" style="margin:0 4px 10px">${fmtDate(s.date)} · ${fmtTime(s.date)}${dauer?` · <b style="color:var(--txt)">${dauer}</b>`:''} · <span data-sessvol>${volume(s.entries)}</span> kg Vol.</div>`;
+  if(sessEdit) h+=`<div class="tiny muted" style="margin:0 4px 12px">kg und Wdh lassen sich ändern, ✕ wirft einen Satz raus.
+    Volumen, Rekorde, Kurven und XP rechnen sich danach neu.</div>`;
+  let leer=true;
+  s.entries.forEach((e,ei)=>{ const d=e.sets.filter(x=>x.done); if(!d.length && !sessEdit) return;
+    leer=false;
+    h+=`<div class="card"><div class="row between"><div class="row" style="gap:10px">${iconTile(e.name,e.icon,40)}<b>${esc(e.name)}</b></div>
+      ${sessEdit?`<button class="del-x" data-sdelex="${ei}" aria-label="Übung aus der Einheit entfernen">✕</button>`:''}</div>
+      <div style="margin-top:8px">`;
+    if(sessEdit) h+=`<div class="set-head" style="grid-template-columns:1fr 66px 66px 32px">
+      <span style="text-align:left"></span><span>kg</span><span>Wdh</span><span></span></div>`;
+    let nr=0;
+    e.sets.forEach((st,si)=>{ if(!st.done) return; if(!st.warm) nr++;
+      // Aufwaermsaetze zaehlen nirgends mit — sie hier als „Satz 1" auszugeben, war irrefuehrend.
+      const label=st.warm?'Aufwärmen':'Satz '+nr;
+      if(sessEdit){ h+=`<div class="set ${st.warm?'warm':''}" style="grid-template-columns:1fr 66px 66px 32px;padding:5px 2px">
+        <span class="muted tiny" style="text-align:left">${label}</span>
+        <input type="number" inputmode="decimal" step="0.5" min="0" value="${st.weight??''}" data-se="${ei}:${si}" data-sf="weight" aria-label="Gewicht in kg">
+        <input type="number" inputmode="numeric" step="1" min="0" value="${st.reps??''}" data-se="${ei}:${si}" data-sf="reps" aria-label="Wiederholungen">
+        <button class="del-x" style="padding:4px 2px" data-sdel="${ei}:${si}" aria-label="Satz löschen">✕</button></div>`; }
+      else h+=`<div class="sess"><span class="muted">${label}</span><b>${st.weight||0} kg × ${st.reps||0}</b></div>`;
+    });
+    if(sessEdit) h+=`<button class="link" data-sadd="${ei}" style="margin-top:6px">+ Satz</button>`;
+    h+=`</div></div>`; });
+  if(leer) h+=`<div class="empty">In dieser Einheit steht nichts mehr.<br>Du kannst sie unten löschen.</div>`;
   h+=`<button class="btn danger" data-act="delsess" style="margin-top:12px">Einheit löschen</button>`;
   app.innerHTML=h;
 }
@@ -1293,11 +1334,10 @@ function renderSettings(){
   // gebuendelt bei „Konto loeschen" — vorher stand der Benutzer-Kasten allein an der Spitze.
   // „Trainingsplan einrichten" ist am 05.08. hier weggefallen — das Anlegen sitzt jetzt bei
   // „Alle Trainingspläne", zusammen mit Wechseln, Teilen und Löschen (Karls Ansage).
-  let h = `<div class="card" data-nav="progs" style="cursor:pointer">
-      <div class="row between"><div class="row" style="gap:10px">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M8 14h3M8 17.5h6"/></svg>
-        <div><b>Alle Trainingspläne</b><div class="tiny muted">${programs.length} ${programs.length===1?'Plan':'Pläne'} · anlegen, wechseln, teilen</div></div></div><span class="muted">›</span></div></div>`;
-  h+=`<div class="card" data-nav="history" style="cursor:pointer">
+  // 06.08.: „Alle Trainingspläne" ist auch hier weg (Karls Ansage). Der Weg dorthin steht auf
+  // „Trainieren" — Trainingssachen gehoeren dorthin, nicht in die Einstellungen. Falls es
+  // zurueck soll: dieselbe Karte wie in renderHome, data-nav="progs".
+  let h=`<div class="card" data-nav="history" style="cursor:pointer">
       <div class="row between"><div class="row" style="gap:10px">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v5h5"/><path d="M12 8v4l3 2"/></svg>
         <b>Verlauf</b></div><span class="muted">›</span></div></div>`;
@@ -1670,10 +1710,12 @@ function finishWorkout(){
   const entries=active.exercises.map(e=>({name:e.name||'Übung',icon:e.icon,sets:e.sets.filter(s=>s.done)})).filter(e=>e.sets.length);
   if(entries.length===0){ active=null; save(); toast('Verworfen (nichts erledigt)'); view='home'; render(); return; }
   const beforeL=levelFromXP(profile.xp).level, beforeRank=rankForLevel(beforeL).name;
-  const gained=doneSets(entries)*10 + 50 + Math.floor(volume(entries)/1000)*20;
+  const gained=sessXP(entries);
   profile.xp+=gained;
   // dur = wie lange die Einheit gedauert hat. Einheiten vor dem 05.08. haben kein dur.
-  sessions.push({id:active.id,date:active.date,dur:Date.now()-active.date,planName:active.planName,entries});
+  // xp = was es dafuer gab. Wird gebraucht, um den Punktestand nachzufuehren, wenn die
+  // Einheit spaeter im Verlauf korrigiert wird (seit 06.08.).
+  sessions.push({id:active.id,date:active.date,dur:Date.now()-active.date,planName:active.planName,xp:gained,entries});
   active=null; endRest();
   const afterL=levelFromXP(profile.xp).level, afterRank=rankForLevel(afterL);
   save(); view='home';
@@ -1693,8 +1735,21 @@ function confirmTwice(key,btn,label,run){ if(armed[key]){ clearTimeout(armed[key
 if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ if((profile.theme||'system')==='system') applyTheme(); }); }
 
 document.addEventListener('click',ev=>{
-  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-planwarm],[data-libnew],[data-useprog],[data-editprog],[data-delprog],[data-shareprog],[data-moveex],[data-openex],[data-delweight],[data-skin]');
+  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-planwarm],[data-libnew],[data-useprog],[data-editprog],[data-delprog],[data-shareprog],[data-moveex],[data-openex],[data-delweight],[data-skin],[data-sdel],[data-sdelex],[data-sadd]');
   if(!t) return;
+  // ---- Eine abgeschlossene Einheit korrigieren (Verlauf › Bearbeiten) ----
+  if(t.dataset.sdel){ const [ei,si]=t.dataset.sdel.split(':').map(Number);
+    const s=sessions.find(x=>x.id===detailSessionId); if(!s) return;
+    s.entries[ei].sets.splice(si,1);
+    // Uebung ohne Saetze traegt nichts mehr bei und wuerde als leere Karte stehenbleiben.
+    if(!s.entries[ei].sets.filter(x=>x.done).length) s.entries.splice(ei,1);
+    sessRecalc(s); render(); return; }
+  if(t.dataset.sdelex){ const ei=+t.dataset.sdelex, s=sessions.find(x=>x.id===detailSessionId); if(!s) return;
+    confirmTwice('sdx'+ei,t,'Weg?',()=>{ s.entries.splice(ei,1); sessRecalc(s); render(); }); return; }
+  if(t.dataset.sadd){ const ei=+t.dataset.sadd, s=sessions.find(x=>x.id===detailSessionId); if(!s) return;
+    const e=s.entries[ei], last=e.sets[e.sets.length-1]||{};
+    e.sets.push({weight:last.weight||'',reps:last.reps||'',done:true});
+    sessRecalc(s); render(); return; }
   if(t.dataset.delweight){ const ts=+t.dataset.delweight;
     confirmTwice('dw'+ts,t,'Löschen?',()=>{ profile.weights=(profile.weights||[]).filter(x=>x.date!==ts); save(); render(); }); return; }
   if(t.dataset.skin){ const min=+t.dataset.skin, lvl=levelFromXP(profile.xp).level;
@@ -1812,6 +1867,9 @@ document.addEventListener('click',ev=>{
     pr.plans=pr.plans.filter(x=>x.id!==editPlanId); bindPlans(); save(); view='plans'; render(); }); }
   else if(a==='finish'){ finishWorkout(); }
   else if(a==='cancelworkout'){ confirmTwice('cw',t,'Training abbrechen?',()=>{ active=null; save(); endRest(); view='home'; render(); }); }
+  else if(a==='sessedit'){ const s=sessions.find(x=>x.id===detailSessionId);
+    if(s&&sessEdit) sessRecalc(s);        // was noch im Feld stand, ist ueber 'change' schon drin
+    sessEdit=!sessEdit; render(); }
   else if(a==='backhist'){ view='history'; render(); }
   else if(a==='delsess'){ confirmTwice('ds',t,'Einheit löschen?',()=>{ sessions=sessions.filter(x=>x.id!==detailSessionId); save(); view='history'; render(); }); }
   else if(a==='closemodal'){ closeModal(); }
@@ -1821,6 +1879,12 @@ document.addEventListener('input',ev=>{ const t=ev.target;
   if(t.id==='obName'&&obDraft){ obDraft.name=t.value; return; }   // ohne Neuzeichnen mitschreiben
   if(t.id==='libSearch'){ renderLibList(t.value); return; }
   if(t.dataset.f&&active){ active.exercises[+t.dataset.ex].sets[+t.dataset.set][t.dataset.f]=t.value; DB.set('active',active); return; }
+  // Korrektur im Verlauf: beim Tippen nur wegschreiben, nicht neu zeichnen — sonst faellt der
+  // Fokus aus dem Feld. Volumen, Rekorde und XP werden beim Verlassen des Feldes nachgezogen.
+  if(t.dataset.se&&view==='session'){ const [ei,si]=t.dataset.se.split(':').map(Number);
+    const s=sessions.find(x=>x.id===detailSessionId);
+    if(s&&s.entries[ei]&&s.entries[ei].sets[si]){ s.entries[ei].sets[si][t.dataset.sf]=t.value; DB.set('sessions',sessions); }
+    return; }
   if(t.id==='progName'){ const pr=editProg(); if(pr){ pr.name=t.value.trim()||'Plan'; DB.set('programs',programs); } }
   if(t.id==='planName'){ const p=editPlans().find(x=>x.id===editPlanId); if(p){ p.name=t.value; DB.set('programs',programs); } }
   if(t.id==='restInput'){ settings.rest=Math.max(10,+t.value||90); DB.set('settings',settings); }
@@ -1829,7 +1893,15 @@ function syncPlanInputs(){ const p=editPlans().find(x=>x.id===editPlanId); if(!p
   const n=document.getElementById('planName'); if(n) p.name=n.value.trim()||'Training';
   document.querySelectorAll('.ex-name').forEach(el=>p.exercises[+el.dataset.i].name=el.value);
   document.querySelectorAll('.ex-sets').forEach(el=>p.exercises[+el.dataset.i].sets=Math.max(1,+el.value||1)); }
-document.addEventListener('change',ev=>{ if(view==='plan') syncPlanInputs(); });
+document.addEventListener('change',ev=>{ if(view==='plan') syncPlanInputs();
+  // Feld verlassen = Zahl steht fest: Volumen/Rekorde/XP nachziehen.
+  // ⚠️ Hier bewusst KEIN render(): ein Neuzeichnen genau im Moment des Fokusverlusts frisst den
+  // Klick, der ihn ausgeloest hat (mousedown auf ✕ → blur → neues DOM → mouseup ins Leere → kein
+  // click). Stattdessen nur die eine Zahl im Kopf nachtragen.
+  if(view==='session'&&ev.target.dataset&&ev.target.dataset.se){
+    const s=sessions.find(x=>x.id===detailSessionId); if(!s) return;
+    sessRecalc(s);
+    const el=document.querySelector('[data-sessvol]'); if(el) el.textContent=volume(s.entries); } });
 
 // ---------- Start ----------
 applyTheme();

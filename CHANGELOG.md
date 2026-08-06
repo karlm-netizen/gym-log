@@ -2,6 +2,32 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-08-06
+
+### Umbenennung, Satzzahl und Einheiten korrigieren
+
+- **„Start" heißt jetzt „Trainieren", „Körper" heißt „Kalorien"** — mit passenden Zeichen in der
+  Leiste: eine Hantel statt des Hauses, eine Flamme statt der Waage.
+- **„Alle Trainingspläne" ist aus den Einstellungen raus.** Der Weg dorthin steht auf „Trainieren",
+  wo die Trainingssachen hingehören; in den Einstellungen stand dieselbe Karte ein zweites Mal.
+- **Drei Sätze statt vier bei viel Volumen** (Karls Ansage: „das reicht immer"). Damit ist die
+  Voreinstellung überall 3. Die Volumen-Wahl ändert weiterhin den Wiederholungs-Bereich (6–10 bzw.
+  8–12) und wie viele Übungen der Assistent pro Tag nimmt. **Bestehende Trainings behalten ihre
+  gespeicherte Satzzahl** — geändert wird nur, womit neue Übungen anfangen.
+- **Eine abgeschlossene Einheit lässt sich im Verlauf korrigieren.** Bisher gab es dort nur
+  „Einheit löschen" — ein Tippfehler bei kg (100 statt 10) verzog Rekorde, Volumen und Kurven
+  dauerhaft, und der einzige Ausweg war, die ganze Einheit wegzuwerfen. Jetzt oben rechts
+  **„Bearbeiten"**: kg und Wdh ändern, einzelne Sätze löschen, Sätze nachlegen, ganze Übungen aus
+  der Einheit werfen (zwei Tipps, wie beim Löschen sonst auch).
+  - **Volumen, Rekorde, Kurven und XP rechnen sich neu.** Damit der Punktestand stimmen kann,
+    merkt sich eine Einheit ab jetzt, wie viel XP es für sie gab. Einheiten von **vor** dem 06.08.
+    haben das nicht — dort bleibt der Punktestand unangetastet, statt einen Wert zu raten.
+  - Aufwärmsätze heißen in der Einheit jetzt **„Aufwärmen"** statt „Satz 1". Sie zählen nirgends
+    mit, und die alte Beschriftung behauptete das Gegenteil.
+  - ⚠️ Beim Verlassen eines Eingabefeldes wird **nicht** neu gezeichnet. Ein Neuzeichnen genau in
+    dem Moment frisst den Klick, der es ausgelöst hat (mousedown auf ✕ → blur → neues DOM →
+    mouseup ins Leere). Nachgetragen wird nur die Zahl in der Kopfzeile.
+
 ## 2026-08-05
 
 ### Mehrere Trainingspläne, PC-Version und Kleinigkeiten (nachts)
