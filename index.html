@@ -44,7 +44,11 @@
   .btn.danger{color:var(--danger)}
   .iconbtn{width:40px;height:40px;flex:0 0 40px; display:grid; place-items:center;
     background:var(--card2); border:1px solid var(--line); border-radius:12px; color:var(--muted)}
-  .fab-row{display:flex; gap:10px}
+  /* Knopfreihe. Ohne flex-basis + wrap passen drei Knoepfe (Auswaehlen · Bearbeiten · Loeschen)
+     bei 320 px nicht nebeneinander: Flex-Elemente schrumpfen von sich aus nicht unter ihre
+     Textbreite, also ragte die Reihe aus dem Bild. Jetzt rutscht der letzte notfalls nach unten. */
+  .fab-row{display:flex; gap:10px; flex-wrap:wrap}
+  .fab-row > .btn{flex:1 1 96px; width:auto; min-width:0}
   /* rank card */
   .rankcard{position:relative; overflow:hidden}
   .rc-body{position:relative; z-index:2}
@@ -117,6 +121,16 @@
   .field label{display:block; font-size:12px; color:var(--muted); margin-bottom:5px}
   .field input{width:100%; background:var(--card2); border:1px solid var(--line); border-radius:12px;
     color:var(--txt); padding:13px; font-size:16px}
+  /* Kalorien: Makro-Zeilen neben dem Ring, und ein Balken fuers Warten auf Barcode/KI */
+  .makro{display:flex; justify-content:space-between; align-items:baseline; gap:8px;
+    padding:5px 0; border-bottom:1px solid var(--line); font-size:13px; color:var(--muted)}
+  .makro:last-child{border-bottom:none}
+  .makro b{color:var(--txt); font-size:15px}
+  .ladebalken{height:6px; border-radius:99px; background:var(--card2); overflow:hidden; margin-top:12px}
+  .ladebalken > i{display:block; height:100%; width:40%; border-radius:99px; background:var(--accent);
+    animation:laden 1.1s ease-in-out infinite}
+  @keyframes laden{0%{transform:translateX(-100%)}100%{transform:translateX(280%)}}
+  @media (prefers-reduced-motion: reduce){ .ladebalken > i{animation:none; width:100%} }
   .sess{display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid var(--line)}
   .sess:last-child{border-bottom:none}
   .link{color:var(--accent); background:none; font-weight:600; font-size:14px; padding:4px}
@@ -264,6 +278,8 @@
 
 <div id="toast" class="toast"></div>
 <div id="modal" class="modal"></div>
+<!-- Fuer „Essen per Foto": capture=environment oeffnet am Handy direkt die Kamera. -->
+<input id="fotoInput" type="file" accept="image/*" capture="environment" style="display:none">
 
 <script>
 "use strict";
@@ -534,6 +550,7 @@ function normalizeProfile(){
   if(typeof profile.xp!=='number') profile.xp=0;
   if(!Array.isArray(profile.weights)) profile.weights=[];   // [{date, kg}] — Körpergewicht über die Zeit
   if(profile.rankSkin===undefined) profile.rankSkin=null;   // ausgerüsteter Rang (null = der echte)
+  kcalInit();                                               // Tagesziel, eigene Lebensmittel, Mahlzeiten
 }
 normalizeProfile();
 
@@ -562,7 +579,7 @@ const SUPA_KEY='sb_publishable_7UvOL7KzzgJK6om8OwUsSg_usOMz92l';
 // Git-Historie stünde. Karls Entscheidung am 03.08.2026.
 const PRIVACY_OWNER='Karl Fangmeyer (privat betriebene App)';
 const PRIVACY_CONTACT='karlm.fangmeyer@gmail.com';
-const PRIVACY_STAND='5. August 2026';   // bei jeder inhaltlichen Aenderung mit hochziehen
+const PRIVACY_STAND='6. August 2026';   // bei jeder inhaltlichen Aenderung mit hochziehen
 function save(){ DB.set('programs',programs); DB.set('sessions',sessions); DB.set('active',active); DB.set('settings',settings); DB.set('profile',profile); scheduleSync(); }
 
 let view='home', editPlanId=null, editProgId=null, detailSessionId=null, detailExName=null;
@@ -721,15 +738,18 @@ function applyTheme(){
 // ---------- Rendering ----------
 // Die Rang-Ansicht hat keinen eigenen Platz mehr in der Leiste — man kommt nur über die
 // Rang-Karte auf der Startseite dorthin, deshalb bleibt dort „Start" markiert.
-function setNav(){ const map=(view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='admin'||view==='privacy')?'settings':(view==='body')?'body':'home';
+function setNav(){ const map=(view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='admin'||view==='privacy')?'settings':(view==='body'||view==='food')?'body':'home';
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on', b.dataset.nav===map)); }
 function render(){
   if(!session){ document.body.classList.add('gate'); document.body.classList.remove('setup'); renderAuthGate(); return; }
   document.body.classList.remove('gate');
   document.body.classList.toggle('setup', view==='onboard');   // Assistent: untere Leiste ausblenden
   if(view!=='session') sessEdit=false;   // Bearbeiten-Modus gilt nur, solange man die Einheit ansieht
+  // Beim Verlassen der Essen-Ansicht den halbfertigen Eintrag wegräumen — aber nicht,
+  // während Barcode oder KI noch laufen (die setzen view selbst auf 'food').
+  if(view!=='food'&&!foodBusy){ foodStep='list'; foodDraft=null; foodFehler=''; }
   setNav();
-  ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, body:renderBody, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin}[view]||renderHome)();
+  ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, body:renderBody, food:renderFood, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin}[view]||renderHome)();
   syncSessionClock();
   // Geteilter Plan aus dem Link: erst anbieten, wenn jemand angemeldet ist und nicht gerade
   // im Assistenten steckt — sonst laege das Fenster ueber der Pflicht-Einrichtung.
@@ -1275,24 +1295,91 @@ function renderRang(){
   app.innerHTML=h;
 }
 
-// ---------- Körper ----------
-// Eigener Tab unten. Hält aktuell das Körpergewicht; hier kommt später mehr dazu (Ernährung).
-function weightList(){ return (profile.weights||[]).slice().sort((a,b)=>a.date-b.date); }
-function lastWeight(){ const w=weightList(); return w.length?w[w.length-1]:null; }
-function sameDay(a,b){ return new Date(a).toDateString()===new Date(b).toDateString(); }
-// Ein Eintrag pro Tag — nochmal wiegen am selben Tag überschreibt den alten Wert.
-function addWeight(kg){
-  kg=Math.round((+kg)*10)/10;
-  if(!(kg>0)||kg>500) return false;
-  const now=Date.now(), i=(profile.weights||[]).findIndex(x=>sameDay(x.date,now));
-  if(i>=0) profile.weights[i]={date:now,kg}; else profile.weights.push({date:now,kg});
-  save(); return true;
+// ---------- Kalorien ----------
+// Der Tab hiess bis zum 06.08. „Körper" und hielt nur das Gewicht. Jetzt sitzt hier der
+// Ernaehrungs-Teil (Karls Ansage): Tagesziel, was heute gegessen wurde, und drei Wege,
+// etwas einzutragen — eigene Liste, Barcode, Foto. Das Gewicht bleibt darunter stehen.
+//
+// Datenmodell (alles in profile.kcal, wandert damit ueber Sync und Backup mit):
+//   goal   Tagesziel in kcal (null = noch nicht gesetzt)
+//   foods  eigene Lebensmittel [{id,name,marke,kcal,p,c,f}] — Werte immer je 100 g
+//   meals  Eintraege [{id,date,name,menge,kcal,p,c,f,quelle}] — Werte schon ausgerechnet,
+//          damit ein spaeter geaendertes Lebensmittel die Vergangenheit nicht umschreibt.
+function kcalInit(){
+  if(!profile.kcal || typeof profile.kcal!=='object') profile.kcal={};
+  const k=profile.kcal;
+  if(!(k.goal>0)) k.goal=k.goal===0?0:null;
+  if(!Array.isArray(k.foods)) k.foods=[];
+  if(!Array.isArray(k.meals)) k.meals=[];
+  return k;
+}
+function mealsToday(){ const n=Date.now(); return kcalInit().meals.filter(m=>sameDay(m.date,n)); }
+function sumMeals(list){ const s={kcal:0,p:0,c:0,f:0};
+  list.forEach(m=>{ s.kcal+=+m.kcal||0; s.p+=+m.p||0; s.c+=+m.c||0; s.f+=+m.f||0; });
+  Object.keys(s).forEach(x=>s[x]=Math.round(s[x])); return s; }
+// Ring fuer „heute gegessen". Reines SVG, kein Bild — passt sich jedem Design an.
+function kcalRing(ist,ziel){
+  const r=52, u=2*Math.PI*r, teil=ziel>0?Math.min(1.4,ist/ziel):0, drueber=teil>1;
+  return `<svg viewBox="0 0 130 130" width="130" height="130" style="flex:0 0 auto">
+    <circle cx="65" cy="65" r="${r}" fill="none" stroke="var(--card2)" stroke-width="13"/>
+    <circle cx="65" cy="65" r="${r}" fill="none" stroke="${drueber?'var(--danger)':'var(--ok)'}" stroke-width="13"
+      stroke-linecap="round" stroke-dasharray="${u}" stroke-dashoffset="${u*(1-Math.min(1,teil))}"
+      transform="rotate(-90 65 65)"/>
+    <text x="65" y="61" text-anchor="middle" fill="var(--txt)" font-size="25" font-weight="800">${ist}</text>
+    <text x="65" y="80" text-anchor="middle" fill="var(--muted)" font-size="12">${ziel>0?'von '+ziel:'kcal'}</text></svg>`;
+}
+// ---------- Lebensmittel waehlen / anlegen ----------
+// Alle drei Wege (eigene Liste, Barcode, Foto) enden an derselben Stelle: ein foodDraft
+// steht fest, und es fehlt nur noch die Menge. Deshalb eine Ansicht mit drei Schritten
+// statt drei getrennter Abläufe.
+let foodStep='list', foodDraft=null, foodBusy='', foodFehler='';
+// basis 'g100' = die Werte gelten je 100 g (eigene Liste, Barcode)
+// basis 'portion' = die Werte gelten fuer genau diese eine Portion (Foto)
+function leerDraft(){ return {name:'',marke:'',kcal:'',p:'',c:'',f:'',basis:'g100',menge:100,quelle:'eigen'}; }
+function draftWerte(d,menge){
+  const faktor = d.basis==='portion' ? (+menge||1) : (+menge||0)/100;
+  return { kcal:Math.round((+d.kcal||0)*faktor), p:Math.round((+d.p||0)*faktor),
+           c:Math.round((+d.c||0)*faktor), f:Math.round((+d.f||0)*faktor) };
+}
+function addMeal(d,menge){
+  const w=draftWerte(d,menge), k=kcalInit();
+  k.meals.push({id:uid(),date:Date.now(),name:d.name||'Essen',
+    menge:(+menge||0)+(d.basis==='portion'?'×':' g'), quelle:d.quelle||'eigen', ...w});
+  save(); return w;
 }
 function renderBody(){
+  const k=kcalInit(), heute=mealsToday(), s=sumMeals(heute);
+  let h=`<div class="row between" style="margin:2px 4px 6px"><h2>Heute</h2>
+      <button class="btn sm ghost link" data-act="kcalgoal">${k.goal>0?k.goal+' kcal Ziel':'Ziel setzen'}</button></div>
+    <div class="card"><div class="row" style="gap:16px">
+      ${kcalRing(s.kcal, k.goal||0)}
+      <div style="flex:1;min-width:0">
+        ${k.goal>0?`<div class="tiny muted" style="margin-bottom:8px">${s.kcal<=k.goal
+            ? `noch <b style="color:var(--txt)">${k.goal-s.kcal} kcal</b> übrig`
+            : `<b style="color:var(--danger)">${s.kcal-k.goal} kcal</b> darüber`}</div>`
+          :`<div class="tiny muted" style="margin-bottom:8px">Setz oben ein Tagesziel, dann füllt sich der Ring.</div>`}
+        <div class="makro"><span>Eiweiß</span><b>${s.p} g</b></div>
+        <div class="makro"><span>Kohlenhydrate</span><b>${s.c} g</b></div>
+        <div class="makro"><span>Fett</span><b>${s.f} g</b></div>
+      </div></div></div>
+    <div class="fab-row" style="margin-top:10px">
+      <button class="btn primary" data-act="food:start">+ Essen eintragen</button></div>`;
+
+  h+=`<div class="row between" style="margin:20px 4px 6px"><h2>Gegessen</h2>
+      <span class="tiny muted">${heute.length} ${heute.length===1?'Eintrag':'Einträge'}</span></div>`;
+  if(!heute.length) h+=`<div class="empty">Heute noch nichts eingetragen.</div>`;
+  else { h+=`<div class="card">`;
+    [...heute].reverse().forEach(m=>{ h+=`<div class="sess"><div style="min-width:0">
+      <b>${esc(m.name)}</b><div class="tiny muted">${esc(String(m.menge))} · ${fmtTime(m.date)}${m.quelle==='foto'?' · Foto':m.quelle==='barcode'?' · Barcode':''}</div></div>
+      <span class="row" style="gap:10px;flex:0 0 auto"><b>${m.kcal} kcal</b>
+      <button class="link" style="padding:0 2px;color:var(--muted)" data-delmeal="${m.id}">✕</button></span></div>`; });
+    h+=`</div>`; }
+
+  // ---------- Gewicht (war frueher der ganze Tab) ----------
   const w=weightList(), cur=lastWeight();
-  let h=`<div class="card">
-      <div class="row between" style="margin-bottom:10px"><h2 style="margin:0">Gewicht</h2>
-        ${cur?`<span class="pill">zuletzt ${fmtDate(cur.date)}</span>`:''}</div>
+  h+=`<div class="row between" style="margin:22px 4px 6px"><h2>Gewicht</h2>
+      ${cur?`<span class="pill">zuletzt ${fmtDate(cur.date)}</span>`:''}</div>
+    <div class="card">
       <div class="row" style="gap:8px;align-items:flex-end">
         <div class="field" style="flex:1;margin:0"><label>Heute wiegen (kg)</label>
           <input id="wInput" type="number" inputmode="decimal" step="0.1" min="20" max="500"
@@ -1303,7 +1390,7 @@ function renderBody(){
         dann sind die Zahlen vergleichbar. Ein Eintrag pro Tag; nochmal wiegen überschreibt den heutigen Wert.</div>
     </div>`;
 
-  if(w.length===0){ h+=`<div class="empty" style="margin-top:14px">Noch nichts eingetragen.<br>Trag dein Gewicht ein, dann entsteht hier deine Kurve.</div>`;
+  if(w.length===0){ h+=`<div class="empty">Noch nichts eingetragen.<br>Trag dein Gewicht ein, dann entsteht hier deine Kurve.</div>`;
     app.innerHTML=h; return; }
 
   const first=w[0], diff=cur.kg-first.kg;
@@ -1326,6 +1413,230 @@ function renderBody(){
       <button class="link" style="padding:0 2px;color:var(--muted)" data-delweight="${x.date}">✕</button></span></div>`; });
   h+=`</div>`;
   app.innerHTML=h;
+}
+
+// ---------- Essen eintragen: Liste / neu / Menge ----------
+function renderFood(){
+  const k=kcalInit();
+  let h=`<button class="link" data-nav="body">‹ Kalorien</button>`;
+  if(foodBusy){ h+=`<div class="card" style="text-align:center"><div class="tiny muted">${esc(foodBusy)}</div>
+      <div class="ladebalken"><i></i></div></div>`; app.innerHTML=h; return; }
+  if(foodFehler) h+=`<div class="card" style="border-color:var(--danger)"><b style="color:var(--danger)">Hat nicht geklappt</b>
+      <div class="tiny muted" style="margin-top:6px;line-height:1.6">${esc(foodFehler)}</div></div>`;
+
+  if(foodStep==='menge'){
+    const d=foodDraft||leerDraft(), menge=d.menge, w=draftWerte(d,menge);
+    h+=`<div class="row between" style="margin:6px 4px 8px"><h2>${esc(d.name)||'Essen'}</h2></div>
+      ${d.marke?`<div class="tiny muted" style="margin:-4px 4px 10px">${esc(d.marke)}</div>`:''}
+      <div class="card">
+        <div class="field" style="margin:0"><label>${d.basis==='portion'?'Portionen':'Menge in Gramm'}</label>
+          <input id="mengeInput" type="number" inputmode="decimal" step="${d.basis==='portion'?'0.5':'10'}" min="0" value="${menge}"></div>
+        <div class="tiny muted" style="margin-top:8px">${d.basis==='portion'
+          ? 'Die Werte gelten für die erkannte Portion.'
+          : `Je 100 g: ${+d.kcal||0} kcal · ${+d.p||0} g Eiweiß · ${+d.c||0} g KH · ${+d.f||0} g Fett`}</div>
+        <div class="grid3" style="margin-top:14px">
+          <div class="stat"><b data-vk>${w.kcal}</b><span>kcal</span></div>
+          <div class="stat"><b data-vp>${w.p}</b><span>g Eiweiß</span></div>
+          <div class="stat"><b data-vc>${w.c}</b><span>g KH</span></div></div>
+        ${d.unsicher?`<div class="tiny muted" style="margin-top:10px;color:var(--danger)">⚠️ Die KI war sich unsicher — sieh die Zahlen nochmal an.</div>`:''}
+        <button class="btn primary" style="margin-top:14px" data-act="food:save">Eintragen</button>
+        ${d.quelle!=='eigen'&&d.basis==='g100'?`<button class="btn ghost sm" style="margin-top:8px" data-act="food:merken">Auch in meine Liste aufnehmen</button>`:''}
+      </div>
+      <button class="btn ghost" style="margin-top:12px" data-act="food:back">Zurück</button>`;
+    app.innerHTML=h; return;
+  }
+
+  if(foodStep==='new'){
+    const d=foodDraft||leerDraft();
+    h+=`<div class="row between" style="margin:6px 4px 8px"><h2>Neues Lebensmittel</h2></div>
+      <div class="card">
+        <div class="tiny muted" style="margin-bottom:10px">Alle Werte <b style="color:var(--txt)">je 100 g</b> —
+          so steht es auf fast jeder Packung.</div>
+        <div class="field"><label>Name</label><input id="nfName" value="${esc(d.name)}" placeholder="z. B. Magerquark"></div>
+        <div class="field"><label>Kalorien (kcal je 100 g)</label><input id="nfKcal" type="number" inputmode="decimal" min="0" value="${d.kcal}"></div>
+        <div class="row" style="gap:8px">
+          <div class="field" style="flex:1"><label>Eiweiß (g)</label><input id="nfP" type="number" inputmode="decimal" min="0" value="${d.p}"></div>
+          <div class="field" style="flex:1"><label>KH (g)</label><input id="nfC" type="number" inputmode="decimal" min="0" value="${d.c}"></div>
+          <div class="field" style="flex:1"><label>Fett (g)</label><input id="nfF" type="number" inputmode="decimal" min="0" value="${d.f}"></div>
+        </div>
+        <button class="btn primary" style="margin-top:8px" data-act="food:newsave">Speichern und eintragen</button>
+      </div>
+      <button class="btn ghost" style="margin-top:12px" data-act="food:back">Zurück</button>`;
+    app.innerHTML=h; return;
+  }
+
+  // Schritt 1: die drei Wege + eigene Liste
+  h+=`<div class="row between" style="margin:6px 4px 8px"><h2>Essen eintragen</h2></div>
+    <div class="fab-row">
+      <button class="btn" data-act="food:barcode">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:5px"><path d="M3 5v14M7 5v14M11 5v10M15 5v14M18 5v10M21 5v14"/></svg>Barcode</button>
+      <button class="btn" data-act="food:foto">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:5px"><path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h1.7l1.3-2h6l1.3 2h1.7A2.5 2.5 0 0 1 20 8.5v8A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5z"/><circle cx="12" cy="12.5" r="3.2"/></svg>Foto</button>
+    </div>
+    <div class="tiny muted" style="text-align:center;margin-top:8px">Barcode holt die Nährwerte aus der offenen
+      Lebensmittel-Datenbank. „Foto" schätzt sie per KI — dafür braucht es einmal einen eigenen Schlüssel.</div>
+    <div class="row between" style="margin:22px 4px 6px"><h2>Meine Lebensmittel</h2>
+      <span class="tiny muted">${k.foods.length}</span></div>
+    <input id="foodSearch" placeholder="Suchen oder neues eintippen…" autocomplete="off"
+      style="width:100%;background:var(--card2);border:1px solid var(--line);border-radius:12px;color:var(--txt);padding:12px;font-size:16px">
+    <div id="foodList" style="margin-top:6px"></div>`;
+  app.innerHTML=h;
+  renderFoodList('');
+}
+function renderFoodList(q){
+  const el=document.getElementById('foodList'); if(!el) return;
+  const roh=(q||'').trim(), s=roh.toLowerCase(), k=kcalInit();
+  const treffer=s?k.foods.filter(f=>(f.name+' '+(f.marke||'')).toLowerCase().includes(s)):k.foods;
+  // ⚠️ Bewusst ein div, kein button: der Loesch-Knopf sitzt darin, und ein Knopf im Knopf
+  // ist ungueltiges HTML — der Browser reisst ihn aus der Zeile heraus.
+  let h=treffer.map(f=>`<div class="lib-row" data-pickfood="${f.id}" style="cursor:pointer">
+      <div style="flex:1;min-width:0"><div>${esc(f.name)}</div>
+        <div class="tiny muted">${f.kcal} kcal je 100 g${f.marke?' · '+esc(f.marke):''}</div></div>
+      <button class="del-x" data-delfood="${f.id}" aria-label="Lebensmittel löschen">✕</button></div>`).join('');
+  if(!treffer.length) h+=`<div class="empty" style="padding:18px">${k.foods.length
+      ? 'Nichts gefunden.' : 'Noch keine eigenen Lebensmittel.'}</div>`;
+  h+=`<button class="btn ghost" style="margin-top:10px" data-act="food:new">+ Neues Lebensmittel${roh?` „${esc(roh)}"`:''}</button>`;
+  el.innerHTML=h;
+}
+
+// ---------- Barcode ----------
+// Zwei Wege: wo der Browser Barcodes selbst lesen kann (Chrome/Android), geht die Kamera auf.
+// Sonst tippt man die Nummer ein — auf iPhones gibt es BarcodeDetector bis heute nicht.
+function barcodeGehtLive(){ return typeof window.BarcodeDetector!=='undefined' && navigator.mediaDevices; }
+let scanStream=null;
+function stopScan(){ if(scanStream){ scanStream.getTracks().forEach(t=>t.stop()); scanStream=null; } }
+async function openScan(){
+  if(!barcodeGehtLive()){
+    const nr=prompt('Nummer unter dem Barcode eintippen (die 8–13 Ziffern):');
+    if(nr) holeBarcode(nr.replace(/\D/g,''));
+    return;
+  }
+  const m=document.getElementById('modal');
+  m.innerHTML=`<div class="modal-box" style="max-width:380px;padding:14px">
+    <div class="row between" style="margin-bottom:8px"><b>Barcode scannen</b>
+      <button class="del-x" data-act="closescan" style="margin:0">✕</button></div>
+    <video id="scanVid" playsinline muted style="width:100%;border-radius:12px;background:#000"></video>
+    <div class="tiny muted" style="margin-top:8px">Halt den Strichcode ins Bild.</div></div>`;
+  m.classList.add('show');
+  try{
+    scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    const v=document.getElementById('scanVid'); if(!v){ stopScan(); return; }
+    v.srcObject=scanStream; await v.play();
+    const det=new window.BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e']});
+    const tick=async()=>{
+      if(!scanStream) return;                       // abgebrochen
+      try{ const codes=await det.detect(v);
+        if(codes&&codes.length){ const nr=codes[0].rawValue; stopScan(); closeModal(); holeBarcode(nr); return; }
+      }catch(e){}
+      setTimeout(tick,400);
+    };
+    tick();
+  }catch(e){ stopScan(); closeModal();
+    const nr=prompt('Kamera geht nicht. Nummer unter dem Barcode eintippen:');
+    if(nr) holeBarcode(nr.replace(/\D/g,''));
+  }
+}
+// Open Food Facts: offene Datenbank, kein Schluessel noetig, kennt deutsche Produkte gut.
+async function holeBarcode(nr){
+  if(!nr || nr.length<6){ foodFehler='Das war keine gültige Barcode-Nummer.'; render(); return; }
+  foodBusy='Suche '+nr+' in der Lebensmittel-Datenbank …'; foodFehler=''; view='food'; render();
+  try{
+    const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(nr)}.json?fields=product_name,product_name_de,brands,nutriments`);
+    const d=await r.json();
+    if(!d || d.status===0 || !d.product) throw new Error('Das Produkt steht nicht in der Datenbank.');
+    const p=d.product, n=p.nutriments||{};
+    const kcal = n['energy-kcal_100g'] != null ? n['energy-kcal_100g']
+               : (n['energy_100g']!=null ? n['energy_100g']/4.184 : null);
+    if(kcal==null) throw new Error('Zu dem Produkt sind keine Nährwerte hinterlegt.');
+    foodDraft={ name:(p.product_name_de||p.product_name||'Produkt '+nr).slice(0,60),
+      marke:(p.brands||'').split(',')[0].trim(),
+      kcal:Math.round(kcal), p:Math.round(n.proteins_100g||0), c:Math.round(n.carbohydrates_100g||0),
+      f:Math.round(n.fat_100g||0), basis:'g100', menge:100, quelle:'barcode' };
+    foodBusy=''; foodStep='menge'; render();
+  }catch(e){ foodBusy=''; foodStep='list';
+    foodFehler=(e&&e.message)||'Kein Netz oder Datenbank nicht erreichbar.'; render(); }
+}
+
+// ---------- Foto schätzen lassen (KI) ----------
+// ⚠️ Der Schlüssel liegt NUR auf dem Geraet (localStorage 'gymlog:aikey'). Er steht
+// bewusst nicht im Quelltext — dieses Repo ist oeffentlich — und wandert auch NICHT
+// in appDataBlob(), also weder in die Cloud noch ins heruntergeladene Backup.
+function aiKey(){ return DB.get('aikey','')||''; }
+function fragKey(){
+  const k=prompt('Einmalig: dein API-Schlüssel von console.anthropic.com.\n\nEr bleibt nur auf diesem Gerät und wird nicht mit deinem Konto synchronisiert.', aiKey());
+  if(k===null) return false;
+  DB.set('aikey', k.trim()); return !!k.trim();
+}
+// Vor dem Senden verkleinern: ein Handyfoto in voller Aufloesung kostet ein Vielfaches
+// an Bild-Tokens, ohne dass der Teller dadurch besser zu erkennen waere.
+function fotoKlein(file, max){
+  return new Promise((ok,fail)=>{
+    const img=new Image(), url=URL.createObjectURL(file);
+    img.onload=()=>{ const s=Math.min(1, max/Math.max(img.width,img.height));
+      const c=document.createElement('canvas');
+      c.width=Math.round(img.width*s)||1; c.height=Math.round(img.height*s)||1;
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      URL.revokeObjectURL(url);
+      ok(c.toDataURL('image/jpeg',0.8).split(',')[1]); };
+    img.onerror=()=>{ URL.revokeObjectURL(url); fail(new Error('Das Bild ließ sich nicht lesen.')); };
+    img.src=url;
+  });
+}
+async function schaetzeFoto(file){
+  if(!aiKey() && !fragKey()){ foodFehler='Ohne Schlüssel kann das Foto nicht geschätzt werden.'; render(); return; }
+  foodBusy='Das Bild wird angesehen … das dauert ein paar Sekunden.'; foodFehler=''; view='food'; render();
+  try{
+    const b64=await fotoKlein(file,1024);
+    const r=await fetch('https://api.anthropic.com/v1/messages',{ method:'POST',
+      headers:{ 'content-type':'application/json', 'x-api-key':aiKey(),
+        'anthropic-version':'2023-06-01',
+        // Ohne diesen Header lehnt die API Aufrufe direkt aus dem Browser ab.
+        'anthropic-dangerous-direct-browser-access':'true' },
+      body: JSON.stringify({
+        model:'claude-opus-5',
+        max_tokens:1024,
+        // Wenig Aufwand reicht fuer „was liegt auf dem Teller"; das Format erzwingen wir,
+        // damit unten nicht an Fliesstext herumgeschnitten werden muss.
+        output_config:{ effort:'low', format:{ type:'json_schema', schema:{
+          type:'object',
+          properties:{
+            name:{type:'string', description:'Kurzer deutscher Name des Gerichts'},
+            menge:{type:'string', description:'Geschätzte Portionsgröße, z.B. "ca. 350 g"'},
+            kcal:{type:'number'}, eiweiss:{type:'number'}, kohlenhydrate:{type:'number'}, fett:{type:'number'},
+            sicher:{type:'boolean', description:'false, wenn das Essen schlecht zu erkennen ist'}
+          },
+          required:['name','menge','kcal','eiweiss','kohlenhydrate','fett','sicher'],
+          additionalProperties:false } } },
+        messages:[{ role:'user', content:[
+          { type:'image', source:{ type:'base64', media_type:'image/jpeg', data:b64 } },
+          { type:'text', text:'Schätze für das Essen auf diesem Bild die Nährwerte der abgebildeten Portion (nicht je 100 g). Antworte auf Deutsch. Wenn kein Essen zu sehen ist, setze sicher auf false und alle Zahlen auf 0.' } ] }]
+      }) });
+    if(r.status===401||r.status===403) throw new Error('Der Schlüssel wurde nicht angenommen. Trag ihn in den Einstellungen neu ein.');
+    if(!r.ok){ let t=''; try{ t=(await r.json()).error.message; }catch(e){}
+      throw new Error('Die KI antwortet nicht ('+r.status+')'+(t?': '+t:'.')); }
+    const d=await r.json();
+    if(d.stop_reason==='refusal') throw new Error('Die KI hat die Antwort abgelehnt. Versuch ein anderes Bild.');
+    const txt=(d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    const g=JSON.parse(txt);
+    if(!g.sicher && !(+g.kcal>0)) throw new Error('Auf dem Bild war kein Essen zu erkennen.');
+    foodDraft={ name:String(g.name||'Essen').slice(0,60), marke:String(g.menge||''),
+      kcal:Math.round(+g.kcal||0), p:Math.round(+g.eiweiss||0), c:Math.round(+g.kohlenhydrate||0),
+      f:Math.round(+g.fett||0), basis:'portion', menge:1, quelle:'foto', unsicher:!g.sicher };
+    foodBusy=''; foodStep='menge'; render();
+  }catch(e){ foodBusy=''; foodStep='list';
+    foodFehler=(e&&e.message)||'Unbekannter Fehler.'; render(); }
+}
+
+function weightList(){ return (profile.weights||[]).slice().sort((a,b)=>a.date-b.date); }
+function lastWeight(){ const w=weightList(); return w.length?w[w.length-1]:null; }
+function sameDay(a,b){ return new Date(a).toDateString()===new Date(b).toDateString(); }
+// Ein Eintrag pro Tag — nochmal wiegen am selben Tag überschreibt den alten Wert.
+function addWeight(kg){
+  kg=Math.round((+kg)*10)/10;
+  if(!(kg>0)||kg>500) return false;
+  const now=Date.now(), i=(profile.weights||[]).findIndex(x=>sameDay(x.date,now));
+  if(i>=0) profile.weights[i]={date:now,kg}; else profile.weights.push({date:now,kg});
+  save(); return true;
 }
 
 function renderSettings(){
@@ -1354,6 +1665,21 @@ function renderSettings(){
       <label class="tiny muted" style="display:block;margin:16px 0 6px">Zurücksetzen</label>
       <button class="btn danger" data-act="resetall">Alles zurücksetzen</button>
       <div class="tiny muted" style="margin-top:6px">Löscht alle Trainings, Einheiten und den Fortschritt (zurück zum Start). Lade dir vorher deine Daten herunter, wenn du sie behalten willst — der Knopf steht unter Datenschutz.</div>
+    </div>`;
+  // KI-Schluessel fuers Essens-Foto. Steht hier, damit man ihn tauschen oder loeschen kann,
+  // ohne den Foto-Weg noch einmal durchlaufen zu muessen.
+  h+=`<div class="card">
+      <label class="tiny muted" style="display:block;margin-bottom:6px">Essen per Foto (KI)</label>
+      <div class="row between" style="margin-bottom:10px">
+        <b>${aiKey()?'Schlüssel hinterlegt':'Kein Schlüssel'}</b>
+        <span class="pill">${aiKey()?'…'+esc(aiKey().slice(-4)):'aus'}</span></div>
+      <div class="fab-row">
+        <button class="btn" data-act="setkey">${aiKey()?'Ändern':'Eintragen'}</button>
+        ${aiKey()?`<button class="btn danger" data-act="delkey">Entfernen</button>`:''}</div>
+      <div class="tiny muted" style="margin-top:6px">Nötig, damit ein Foto geschätzt werden kann. Der Schlüssel
+        bleibt <b style="color:var(--txt)">nur auf diesem Gerät</b> — er wird nicht mit deinem Konto
+        synchronisiert und steckt nicht im heruntergeladenen Backup. Jedes Foto kostet dich ein paar Cent
+        über dein eigenes Konto bei Anthropic.</div>
     </div>`;
   h+=`<div class="card" data-nav="privacy" style="cursor:pointer">
       <div class="row between"><div class="row" style="gap:10px">
@@ -1394,6 +1720,7 @@ function renderPrivacy(){
         <li>Passwort — nur verschlüsselt, niemand kann es lesen</li>
         <li>deine Trainings, geloggten Einheiten, Sätze und Gewichte</li>
         <li>dein Körpergewicht, wenn du es einträgst</li>
+        <li>was du gegessen hast, wenn du es einträgst (Name, Menge, Nährwerte)</li>
         <li>XP, Level und deine Einstellungen</li>
       </ul>
 
@@ -1408,12 +1735,29 @@ function renderPrivacy(){
         <b style="color:var(--txt)">Supabase</b>, damit du sie auf mehreren Geräten hast.
         Supabase arbeitet dabei nur im Auftrag und nach Weisung (Auftragsverarbeitung, Art. 28 DSGVO).
         Die Server dieses Projekts stehen in der <b style="color:var(--txt)">EU</b> —
-        <b style="color:var(--txt)">deine Daten verlassen die EU nicht.</b>
+        <b style="color:var(--txt)">deine gespeicherten Daten verlassen die EU nicht.</b>
+        Die einzige Ausnahme ist ein Essens-Foto, das du selbst zum Schätzen abschickst (siehe unten);
+        das wird nirgends von uns gespeichert, geht auf dem Weg aber in die USA.
         Die App braucht ein Konto; einen Weg, sie ganz ohne Anmeldung zu benutzen, gibt es nicht.</p>
+
+      <b>Wenn du Essen einträgst</b>
+      <p class="muted" style="margin:4px 0 8px">Zwei der drei Wege reden mit einem fremden Dienst.
+        Beide benutzt die App <b style="color:var(--txt)">nur, wenn du den Knopf drückst</b> — von allein
+        geht nichts hinaus:</p>
+      <ul class="muted" style="margin:0 0 14px;padding-left:18px">
+        <li><b style="color:var(--txt)">Barcode</b> — die eingescannte Nummer geht an
+          <b style="color:var(--txt)">Open Food Facts</b> (open-food-facts.org, gemeinnützig, Frankreich),
+          um die Nährwerte zu holen. Übertragen wird nur die Nummer, nichts über dich.</li>
+        <li><b style="color:var(--txt)">Foto</b> — das Bild geht an <b style="color:var(--txt)">Anthropic</b>
+          (anthropic.com, USA), damit die Nährwerte geschätzt werden. Damit verlassen diese Bilder die EU.
+          Der dafür nötige Schlüssel bleibt auf deinem Gerät und wird nicht mitsynchronisiert.
+          <b style="color:var(--txt)">Nimm keine Bilder auf, auf denen Personen zu erkennen sind.</b></li>
+      </ul>
 
       <b>Wofür sie benutzt werden</b>
       <p class="muted" style="margin:4px 0 14px">Ausschließlich dafür, dir deine eigenen Trainings anzuzeigen.
-        <b style="color:var(--txt)">Keine Werbung, kein Tracking, keine Analyse-Dienste, keine Weitergabe an Dritte.</b>
+        <b style="color:var(--txt)">Keine Werbung, kein Tracking, keine Analyse-Dienste.</b>
+        An Dritte geht nichts — mit Ausnahme der zwei Fälle oben, die du jedes Mal selbst auslöst.
         Es werden auch keine Cookies zu Werbezwecken gesetzt. XP, Level und Rang rechnet die App allein
         aus deinen Einheiten aus — das bleibt in der App und hat für dich keinerlei Folgen nach außen.</p>
 
@@ -1735,7 +2079,7 @@ function confirmTwice(key,btn,label,run){ if(armed[key]){ clearTimeout(armed[key
 if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ if((profile.theme||'system')==='system') applyTheme(); }); }
 
 document.addEventListener('click',ev=>{
-  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-planwarm],[data-libnew],[data-useprog],[data-editprog],[data-delprog],[data-shareprog],[data-moveex],[data-openex],[data-delweight],[data-skin],[data-sdel],[data-sdelex],[data-sadd]');
+  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-planwarm],[data-libnew],[data-useprog],[data-editprog],[data-delprog],[data-shareprog],[data-moveex],[data-openex],[data-delweight],[data-skin],[data-sdel],[data-sdelex],[data-sadd],[data-delmeal],[data-delfood],[data-pickfood]');
   if(!t) return;
   // ---- Eine abgeschlossene Einheit korrigieren (Verlauf › Bearbeiten) ----
   if(t.dataset.sdel){ const [ei,si]=t.dataset.sdel.split(':').map(Number);
@@ -1752,6 +2096,13 @@ document.addEventListener('click',ev=>{
     sessRecalc(s); render(); return; }
   if(t.dataset.delweight){ const ts=+t.dataset.delweight;
     confirmTwice('dw'+ts,t,'Löschen?',()=>{ profile.weights=(profile.weights||[]).filter(x=>x.date!==ts); save(); render(); }); return; }
+  // ---- Kalorien ----
+  if(t.dataset.delmeal){ const id=t.dataset.delmeal, k=kcalInit();
+    k.meals=k.meals.filter(x=>x.id!==id); save(); render(); return; }
+  if(t.dataset.delfood){ ev.stopPropagation(); const id=t.dataset.delfood, k=kcalInit();
+    confirmTwice('df'+id,t,'Weg?',()=>{ k.foods=k.foods.filter(x=>x.id!==id); save(); render(); }); return; }
+  if(t.dataset.pickfood){ const f=kcalInit().foods.find(x=>x.id===t.dataset.pickfood); if(!f) return;
+    foodDraft={...f, basis:'g100', menge:100, quelle:'eigen'}; foodStep='menge'; foodFehler=''; render(); return; }
   if(t.dataset.skin){ const min=+t.dataset.skin, lvl=levelFromXP(profile.xp).level;
     const r=RANKS.find(x=>x.min===min); if(!r||lvl<r.min) return;      // gesperrte Ränge bleiben gesperrt
     profile.rankSkin = (profile.rankSkin===min) ? null : min;          // nochmal tippen = wieder der echte Rang
@@ -1847,6 +2198,40 @@ document.addEventListener('click',ev=>{
   else if(a==='library'){ openLibrary(); }
   else if(a==='addweight'){ const el=document.getElementById('wInput'); const v=el?el.value.replace(',','.'):'';
     if(addWeight(v)){ render(); toast('Eingetragen'); } else toast('Bitte ein Gewicht in kg eingeben'); }
+  // ---- Kalorien: Essen eintragen ----
+  else if(a==='kcalgoal'){ const k=kcalInit();
+    const v=prompt('Wie viele Kalorien willst du pro Tag essen?\n\n(Grober Anhalt: Körpergewicht in kg × 30. Wer abnehmen will, zieht 300–500 ab.)', k.goal||'');
+    if(v!==null){ const n=Math.round(+String(v).replace(',','.'));
+      k.goal = n>0 ? n : null; save(); render(); } }
+  else if(a==='setkey'){ if(fragKey()) toast('Schlüssel gespeichert'); render(); }
+  else if(a==='delkey'){ confirmTwice('dk',t,'Entfernen?',()=>{ DB.set('aikey',''); render(); toast('Schlüssel entfernt'); }); }
+  else if(a==='food:start'){ foodStep='list'; foodDraft=null; foodFehler=''; view='food'; render(); }
+  else if(a==='food:back'){ foodStep='list'; foodDraft=null; foodFehler=''; render(); }
+  else if(a==='food:new'){ const s=document.getElementById('foodSearch');
+    foodDraft=leerDraft(); foodDraft.name=s?s.value.trim():''; foodStep='new'; render(); }
+  else if(a==='food:barcode'){ foodFehler=''; openScan(); }
+  else if(a==='closescan'){ stopScan(); closeModal(); }
+  else if(a==='food:foto'){ foodFehler=''; const fi=document.getElementById('fotoInput');
+    if(fi){ fi.value=''; fi.click(); } }
+  else if(a==='food:newsave'){
+    const g=id=>{ const el=document.getElementById(id); return el?el.value.replace(',','.'):''; };
+    const nm=(document.getElementById('nfName')||{}).value||'';
+    if(!nm.trim()){ toast('Bitte einen Namen eintragen'); return; }
+    const f={id:uid(), name:nm.trim().slice(0,60), marke:'',
+      kcal:Math.round(+g('nfKcal')||0), p:Math.round(+g('nfP')||0),
+      c:Math.round(+g('nfC')||0), f:Math.round(+g('nfF')||0)};
+    kcalInit().foods.push(f); save();
+    foodDraft={...f, basis:'g100', menge:100, quelle:'eigen'}; foodStep='menge'; render();
+    toast(`„${f.name}" gespeichert`); }
+  else if(a==='food:merken'){ const d=foodDraft; if(!d) return;
+    kcalInit().foods.push({id:uid(), name:d.name, marke:d.marke||'',
+      kcal:+d.kcal||0, p:+d.p||0, c:+d.c||0, f:+d.f||0});
+    d.quelle='eigen'; save(); render(); toast('In deine Liste aufgenommen'); }
+  else if(a==='food:save'){ const d=foodDraft; if(!d) return;
+    const el=document.getElementById('mengeInput'); const menge=el?+el.value.replace(',','.'):d.menge;
+    if(!(menge>0)){ toast('Bitte eine Menge eintragen'); return; }
+    const w=addMeal(d,menge);
+    foodStep='list'; foodDraft=null; view='body'; render(); toast(`+${w.kcal} kcal eingetragen`); }
   else if(a==='newprog'){ const pr=neuerPlan('Neuer Plan',[]); programs.push(pr);
     editProgId=pr.id; save(); view='plans'; render(); }
   else if(a==='importyes'){ importierePlan(); }
@@ -1878,6 +2263,13 @@ document.addEventListener('click',ev=>{
 document.addEventListener('input',ev=>{ const t=ev.target;
   if(t.id==='obName'&&obDraft){ obDraft.name=t.value; return; }   // ohne Neuzeichnen mitschreiben
   if(t.id==='libSearch'){ renderLibList(t.value); return; }
+  if(t.id==='foodSearch'){ renderFoodList(t.value); return; }
+  // Mengen-Vorschau: nur die drei Zahlen nachziehen, nicht neu zeichnen — sonst
+  // faellt der Fokus beim Tippen aus dem Feld (gleiche Falle wie im Verlauf).
+  if(t.id==='mengeInput'&&foodDraft){ const m=+t.value.replace(',','.');
+    foodDraft.menge=t.value; const w=draftWerte(foodDraft,m);
+    const set=(sel,v)=>{ const el=document.querySelector(sel); if(el) el.textContent=v; };
+    set('[data-vk]',w.kcal); set('[data-vp]',w.p); set('[data-vc]',w.c); return; }
   if(t.dataset.f&&active){ active.exercises[+t.dataset.ex].sets[+t.dataset.set][t.dataset.f]=t.value; DB.set('active',active); return; }
   // Korrektur im Verlauf: beim Tippen nur wegschreiben, nicht neu zeichnen — sonst faellt der
   // Fokus aus dem Feld. Volumen, Rekorde und XP werden beim Verlassen des Feldes nachgezogen.
@@ -1902,6 +2294,10 @@ document.addEventListener('change',ev=>{ if(view==='plan') syncPlanInputs();
     const s=sessions.find(x=>x.id===detailSessionId); if(!s) return;
     sessRecalc(s);
     const el=document.querySelector('[data-sessvol]'); if(el) el.textContent=volume(s.entries); } });
+
+// Foto gewaehlt (Kamera oder Galerie) → an die KI schicken.
+(function(){ const fi=document.getElementById('fotoInput'); if(!fi) return;
+  fi.addEventListener('change',()=>{ const f=fi.files&&fi.files[0]; if(f) schaetzeFoto(f); }); })();
 
 // ---------- Start ----------
 applyTheme();
