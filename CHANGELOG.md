@@ -2,6 +2,33 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-08-21
+
+### Der Barcode geht jetzt über die Kamera — auch auf dem iPhone
+
+Beim Antippen von „Barcode" kam bisher auf dem iPhone ein Eingabefeld: *Nummer unter dem Barcode
+eintippen*. Das war kein Fehler, sondern eine eingebaute Notlösung — **Safari kennt
+`BarcodeDetector` nicht**, und die App hatte für diesen Fall nur das Tippen übrig. Aufgefallen
+beim ersten echten Durchlauf des Kalorien-Teils.
+
+Jetzt geht die Kamera auf, in drei Stufen:
+
+1. **`BarcodeDetector`** (Chrome/Android) — unverändert, schnell, lädt nichts nach.
+2. **ZXing im Browser** (`zxing.min.js`, 330 KB, liegt im Repo statt bei einem CDN) — für Safari
+   und alles andere ohne `BarcodeDetector`. **Wird erst geladen, wenn wirklich gescannt wird**,
+   nicht beim Start der App. Erkannt werden nur EAN-8/13 und UPC-A/E; das macht das Lesen schneller.
+3. **Nummer eintippen** — nur noch, wenn gar keine Kamera da ist oder sie verweigert wird. Dazu
+   steht im Scan-Fenster jetzt ein Knopf *„Nummer stattdessen eintippen"*, damit der Weg
+   erreichbar bleibt, ohne dass erst etwas scheitern muss.
+
+⚠️ **Die Bibliothek liegt bewusst im Repo, nicht bei einem CDN.** Die Datenschutz-Seite zählt jeden
+Weg nach außen einzeln auf; ein CDN wäre ein neuer gewesen, für den niemand den Knopf gedrückt hat.
+Was hinausgeht, bleibt unverändert: **nur die Barcode-Nummer, an Open Food Facts.**
+
+- Cache-Version `gymlog-v15` → `gymlog-v16`.
+- `zxing.min.js` steht **nicht** im Vorab-Cache: wer nie scannt, lädt es nie — und ein Barcode ohne
+  Netz nützt ohnehin nichts, weil die Nährwerte nachgeschlagen werden müssen.
+
 ## 2026-08-06
 
 ### Kalorien zählen — der Anfang vom Ernährungs-Teil

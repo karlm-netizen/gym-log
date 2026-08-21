@@ -1500,41 +1500,80 @@ function renderFoodList(q){
 }
 
 // ---------- Barcode ----------
-// Zwei Wege: wo der Browser Barcodes selbst lesen kann (Chrome/Android), geht die Kamera auf.
-// Sonst tippt man die Nummer ein — auf iPhones gibt es BarcodeDetector bis heute nicht.
-function barcodeGehtLive(){ return typeof window.BarcodeDetector!=='undefined' && navigator.mediaDevices; }
-let scanStream=null;
-function stopScan(){ if(scanStream){ scanStream.getTracks().forEach(t=>t.stop()); scanStream=null; } }
+// Drei Wege, in dieser Reihenfolge:
+//  1. BarcodeDetector im Browser (Chrome/Android) - schnell, nichts nachzuladen.
+//  2. ZXing im Browser (./zxing.min.js) - fuer Safari/iPhone, das BarcodeDetector bis heute
+//     nicht kennt. Wird erst geladen, wenn wirklich gescannt wird.
+//  3. Nummer eintippen - nur noch, wenn gar keine Kamera da ist oder sie verweigert wird.
+function kameraGeht(){ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia); }
+let scanStream=null, scanReader=null, zxingLaedt=null;
+function stopScan(){
+  if(scanReader){ try{ scanReader.reset(); }catch(e){} scanReader=null; }
+  if(scanStream){ scanStream.getTracks().forEach(t=>t.stop()); scanStream=null; } }
+function nummerTippen(text){
+  const nr=prompt(text||'Nummer unter dem Barcode eintippen (die 8-13 Ziffern):');
+  if(nr) holeBarcode(nr.replace(/\D/g,'')); }
+// 330 KB gehoeren nicht in den Start der App - deshalb erst hier, und nur einmal.
+function ladeZXing(){
+  if(window.ZXing) return Promise.resolve(true);
+  if(zxingLaedt) return zxingLaedt;
+  zxingLaedt=new Promise(res=>{ const s=document.createElement('script');
+    s.src='./zxing.min.js';
+    s.onload=()=>res(typeof window.ZXing!=='undefined');
+    s.onerror=()=>{ zxingLaedt=null; res(false); };
+    document.head.appendChild(s); });
+  return zxingLaedt; }
+function scanHinweis(t){ const h=document.getElementById('scanHint'); if(h) h.textContent=t; }
 async function openScan(){
-  if(!barcodeGehtLive()){
-    const nr=prompt('Nummer unter dem Barcode eintippen (die 8–13 Ziffern):');
-    if(nr) holeBarcode(nr.replace(/\D/g,''));
-    return;
-  }
+  if(!kameraGeht()){ nummerTippen('Dieses Gerät gibt keine Kamera her. Nummer unter dem Barcode eintippen:'); return; }
   const m=document.getElementById('modal');
   m.innerHTML=`<div class="modal-box" style="max-width:380px;padding:14px">
     <div class="row between" style="margin-bottom:8px"><b>Barcode scannen</b>
       <button class="del-x" data-act="closescan" style="margin:0">✕</button></div>
-    <video id="scanVid" playsinline muted style="width:100%;border-radius:12px;background:#000"></video>
-    <div class="tiny muted" style="margin-top:8px">Halt den Strichcode ins Bild.</div></div>`;
+    <video id="scanVid" playsinline muted autoplay style="width:100%;border-radius:12px;background:#000"></video>
+    <div class="tiny muted" id="scanHint" style="margin-top:8px">Halt den Strichcode ins Bild.</div>
+    <button class="btn ghost sm" data-act="scantippen" style="margin-top:10px;width:100%">Nummer stattdessen eintippen</button>
+  </div>`;
   m.classList.add('show');
-  try{
-    scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
-    const v=document.getElementById('scanVid'); if(!v){ stopScan(); return; }
-    v.srcObject=scanStream; await v.play();
-    const det=new window.BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e']});
-    const tick=async()=>{
-      if(!scanStream) return;                       // abgebrochen
-      try{ const codes=await det.detect(v);
-        if(codes&&codes.length){ const nr=codes[0].rawValue; stopScan(); closeModal(); holeBarcode(nr); return; }
-      }catch(e){}
-      setTimeout(tick,400);
-    };
-    tick();
-  }catch(e){ stopScan(); closeModal();
-    const nr=prompt('Kamera geht nicht. Nummer unter dem Barcode eintippen:');
-    if(nr) holeBarcode(nr.replace(/\D/g,''));
+  const treffer=nr=>{ stopScan(); closeModal(); holeBarcode(nr); };
+
+  // Weg 1
+  if(typeof window.BarcodeDetector!=='undefined'){
+    try{
+      scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});
+      const v=document.getElementById('scanVid');
+      if(!v){ stopScan(); return; }
+      v.srcObject=scanStream; await v.play();
+      const det=new window.BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e']});
+      const tick=async()=>{
+        if(!scanStream) return;                       // abgebrochen
+        try{ const codes=await det.detect(v);
+          if(codes&&codes.length){ treffer(codes[0].rawValue); return; }
+        }catch(e){}
+        setTimeout(tick,400); };
+      tick(); return;
+    }catch(e){ stopScan();
+      // Kamera verweigert? Dann hilft auch Weg 2 nicht.
+      if(e && (e.name==='NotAllowedError'||e.name==='NotFoundError'||e.name==='SecurityError')){
+        closeModal(); nummerTippen('Kamera geht nicht. Nummer unter dem Barcode eintippen:'); return; }
+    }
   }
+
+  // Weg 2 - ZXing macht die Kamera selbst auf und raeumt sie mit reset() wieder weg.
+  scanHinweis('Barcode-Leser wird geladen …');
+  const da=await ladeZXing();
+  if(!document.getElementById('scanVid')) return;     // zwischendurch zugemacht
+  if(!da){ closeModal(); nummerTippen('Der Barcode-Leser lässt sich nicht laden (kein Netz?). Nummer eintippen:'); return; }
+  scanHinweis('Halt den Strichcode ins Bild.');
+  try{
+    const hints=new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,
+      [ZXing.BarcodeFormat.EAN_13,ZXing.BarcodeFormat.EAN_8,ZXing.BarcodeFormat.UPC_A,ZXing.BarcodeFormat.UPC_E]);
+    scanReader=new ZXing.BrowserMultiFormatReader(hints,250);
+    scanReader.decodeFromConstraints({video:{facingMode:{ideal:'environment'}}},'scanVid',(res,err)=>{
+      if(res&&scanReader) treffer(res.getText()); });
+  }catch(e){ stopScan(); closeModal();
+    nummerTippen('Kamera geht nicht. Nummer unter dem Barcode eintippen:'); }
 }
 // Open Food Facts: offene Datenbank, kein Schluessel noetig, kennt deutsche Produkte gut.
 async function holeBarcode(nr){
@@ -2213,6 +2252,7 @@ document.addEventListener('click',ev=>{
     foodDraft=leerDraft(); foodDraft.name=s?s.value.trim():''; foodStep='new'; render(); }
   else if(a==='food:barcode'){ foodFehler=''; openScan(); }
   else if(a==='closescan'){ stopScan(); closeModal(); }
+  else if(a==='scantippen'){ stopScan(); closeModal(); nummerTippen(); }
   else if(a==='food:foto'){ foodFehler=''; const fi=document.getElementById('fotoInput');
     if(fi){ fi.value=''; fi.click(); } }
   else if(a==='food:newsave'){
