@@ -1601,8 +1601,19 @@ async function holeBarcode(nr){
 // bewusst nicht im Quelltext — dieses Repo ist oeffentlich — und wandert auch NICHT
 // in appDataBlob(), also weder in die Cloud noch ins heruntergeladene Backup.
 function aiKey(){ return DB.get('aikey','')||''; }
+// Bis zum 21.08.2026 lief das Foto ueber Anthropic. Ein alter Schluessel (sk-ant-...) taugt
+// bei Google nicht und wuerde nur ein unverstaendliches 400 ausloesen - deshalb hier abfangen
+// und danach fragen, statt den Nutzer gegen eine Wand laufen zu lassen.
+function altSchluessel(){ return /^sk-ant-/.test(aiKey()); }
 function fragKey(){
-  const k=prompt('Einmalig: dein API-Schlüssel von console.anthropic.com.\n\nEr bleibt nur auf diesem Gerät und wird nicht mit deinem Konto synchronisiert.', aiKey());
+  const alt=altSchluessel();
+  const k=prompt(
+    (alt ? 'Das Foto läuft jetzt über Google statt über Anthropic — dein alter Schlüssel passt nicht mehr.\n\n'
+         : 'Einmalig: dein API-Schlüssel für die Foto-Schätzung.\n\n')
+    + 'Du holst ihn dir kostenlos auf aistudio.google.com/apikey — ein Google-Konto reicht, '
+    + 'eine Kreditkarte brauchst du nicht.\n\n'
+    + 'Er bleibt nur auf diesem Gerät und wird nicht mit deinem Konto synchronisiert.',
+    alt ? '' : aiKey());
   if(k===null) return false;
   DB.set('aikey', k.trim()); return !!k.trim();
 }
@@ -1622,23 +1633,20 @@ function fotoKlein(file, max){
   });
 }
 async function schaetzeFoto(file){
-  if(!aiKey() && !fragKey()){ foodFehler='Ohne Schlüssel kann das Foto nicht geschätzt werden.'; render(); return; }
+  if((!aiKey() || altSchluessel()) && !fragKey()){ foodFehler='Ohne Schlüssel kann das Foto nicht geschätzt werden.'; render(); return; }
   foodBusy='Das Bild wird angesehen … das dauert ein paar Sekunden.'; foodFehler=''; view='food'; render();
   try{
     const b64=await fotoKlein(file,1024);
-    const r=await fetch('https://api.anthropic.com/v1/messages',{ method:'POST',
-      headers:{ 'content-type':'application/json', 'x-api-key':aiKey(),
-        'anthropic-version':'2023-06-01',
-        // Ohne diesen Header lehnt die API Aufrufe direkt aus dem Browser ab.
-        'anthropic-dangerous-direct-browser-access':'true' },
+    // Google statt Anthropic (Karls Entscheidung, 21.08.2026): der Schluessel kostet dort
+    // nur ein Google-Konto, kein Rechnungskonto. Interactions-API, nicht das aeltere
+    // generateContent. Der Aufruf aus dem Browser ist erlaubt - nachgemessen am 21.08.2026:
+    // die Vorabfrage antwortet mit Access-Control-Allow-Origin fuer genau diese Seite und
+    // erlaubt 'x-goog-api-key'. Ein Sonderheader wie bei Anthropic ist nicht noetig.
+    const r=await fetch('https://generativelanguage.googleapis.com/v1beta/interactions',{ method:'POST',
+      headers:{ 'content-type':'application/json', 'x-goog-api-key':aiKey() },
       body: JSON.stringify({
-        // Haiku statt Opus (Karls Ansage, 06.08.): ein Fuenftel des Preises, und die
-        // Unschaerfe steckt hier im Bild, nicht im Denken. Zurueck geht es mit einer Zeile.
-        model:'claude-haiku-4-5',
-        max_tokens:1024,
-        // ⚠️ KEIN effort hier: den Regler gibt es erst ab Opus/Sonnet — bei Haiku wird der
-        // Aufruf damit abgelehnt. Das erzwungene Format kann Haiku dagegen.
-        output_config:{ format:{ type:'json_schema', schema:{
+        model:'gemini-3.7-flash',
+        response_format:{ type:'json_schema', json_schema:{ name:'Naehrwerte', schema:{
           type:'object',
           properties:{
             name:{type:'string', description:'Kurzer deutscher Name des Gerichts'},
@@ -1646,18 +1654,21 @@ async function schaetzeFoto(file){
             kcal:{type:'number'}, eiweiss:{type:'number'}, kohlenhydrate:{type:'number'}, fett:{type:'number'},
             sicher:{type:'boolean', description:'false, wenn das Essen schlecht zu erkennen ist'}
           },
-          required:['name','menge','kcal','eiweiss','kohlenhydrate','fett','sicher'],
-          additionalProperties:false } } },
-        messages:[{ role:'user', content:[
-          { type:'image', source:{ type:'base64', media_type:'image/jpeg', data:b64 } },
-          { type:'text', text:'Schätze für das Essen auf diesem Bild die Nährwerte der abgebildeten Portion (nicht je 100 g). Antworte auf Deutsch. Wenn kein Essen zu sehen ist, setze sicher auf false und alle Zahlen auf 0.' } ] }]
+          required:['name','menge','kcal','eiweiss','kohlenhydrate','fett','sicher'] } } },
+        input:[
+          { type:'text', text:'Schätze für das Essen auf diesem Bild die Nährwerte der abgebildeten Portion (nicht je 100 g). Antworte auf Deutsch. Wenn kein Essen zu sehen ist, setze sicher auf false und alle Zahlen auf 0.' },
+          { type:'image', mime_type:'image/jpeg', data:b64 } ]
       }) });
     if(r.status===401||r.status===403) throw new Error('Der Schlüssel wurde nicht angenommen. Trag ihn in den Einstellungen neu ein.');
+    if(r.status===429) throw new Error('Das kostenlose Kontingent bei Google ist gerade aufgebraucht. Versuch es später noch einmal.');
     if(!r.ok){ let t=''; try{ t=(await r.json()).error.message; }catch(e){}
+      if(/api[ _-]?key/i.test(t)) throw new Error('Der Schlüssel wurde nicht angenommen. Trag ihn in den Einstellungen neu ein.');
       throw new Error('Die KI antwortet nicht ('+r.status+')'+(t?': '+t:'.')); }
     const d=await r.json();
-    if(d.stop_reason==='refusal') throw new Error('Die KI hat die Antwort abgelehnt. Versuch ein anderes Bild.');
-    const txt=(d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    // ⚠️ Nicht steps[0] nehmen: vor der Antwort koennen Denk-Schritte stehen.
+    const txt=(d.steps||[]).filter(s=>s&&s.type==='model_output')
+      .map(s=>(s.content||[]).filter(c=>c&&c.type==='text').map(c=>c.text||'').join('')).join('');
+    if(!txt) throw new Error('Die KI hat nichts zurückgegeben. Versuch ein anderes Bild.');
     const g=JSON.parse(txt);
     if(!g.sicher && !(+g.kcal>0)) throw new Error('Auf dem Bild war kein Essen zu erkennen.');
     foodDraft={ name:String(g.name||'Essen').slice(0,60), marke:String(g.menge||''),
@@ -1719,8 +1730,10 @@ function renderSettings(){
         ${aiKey()?`<button class="btn danger" data-act="delkey">Entfernen</button>`:''}</div>
       <div class="tiny muted" style="margin-top:6px">Nötig, damit ein Foto geschätzt werden kann. Der Schlüssel
         bleibt <b style="color:var(--txt)">nur auf diesem Gerät</b> — er wird nicht mit deinem Konto
-        synchronisiert und steckt nicht im heruntergeladenen Backup. Ein Foto kostet
-        <b style="color:var(--txt)">unter einem halben Cent</b> über dein eigenes Konto bei Anthropic.</div>
+        synchronisiert und steckt nicht im heruntergeladenen Backup. Du holst ihn dir kostenlos auf
+        <b style="color:var(--txt)">aistudio.google.com/apikey</b> — ein Google-Konto reicht,
+        <b style="color:var(--txt)">eine Kreditkarte brauchst du nicht.</b> Im kostenlosen Kontingent
+        zahlst du für ein Foto nichts.</div>
     </div>`;
   h+=`<div class="card" data-nav="privacy" style="cursor:pointer">
       <div class="row between"><div class="row" style="gap:10px">
@@ -1789,8 +1802,8 @@ function renderPrivacy(){
         <li><b style="color:var(--txt)">Barcode</b> — die eingescannte Nummer geht an
           <b style="color:var(--txt)">Open Food Facts</b> (open-food-facts.org, gemeinnützig, Frankreich),
           um die Nährwerte zu holen. Übertragen wird nur die Nummer, nichts über dich.</li>
-        <li><b style="color:var(--txt)">Foto</b> — das Bild geht an <b style="color:var(--txt)">Anthropic</b>
-          (anthropic.com, USA), damit die Nährwerte geschätzt werden. Damit verlassen diese Bilder die EU.
+        <li><b style="color:var(--txt)">Foto</b> — das Bild geht an <b style="color:var(--txt)">Google</b>
+          (Google LLC, USA), damit die Nährwerte geschätzt werden. Damit verlassen diese Bilder die EU.
           Der dafür nötige Schlüssel bleibt auf deinem Gerät und wird nicht mitsynchronisiert.
           <b style="color:var(--txt)">Nimm keine Bilder auf, auf denen Personen zu erkennen sind.</b></li>
       </ul>

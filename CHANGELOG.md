@@ -4,6 +4,36 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-21
 
+### Essen per Foto läuft jetzt über Google statt über Anthropic
+
+**Karls Entscheidung.** Der Engpass war nie das Modell, sondern der Schlüssel: für Anthropic
+braucht es ein Konto **mit Kreditkarte und Guthaben**. Für Google reicht ein **Google-Konto** —
+die Gratis-Stufe verlangt kein Rechnungskonto (an der Quelle nachgesehen, nicht angenommen).
+Damit ist die Foto-Schätzung für Freunde erreichbar, ohne dass jemand eine Kreditkarte hinterlegt.
+
+- **Modell:** `gemini-3.7-flash` über die **Interactions-API**
+  (`generativelanguage.googleapis.com/v1beta/interactions`), nicht das ältere `generateContent`.
+- **Das erzwungene JSON-Format bleibt** — dieselben sieben Felder wie vorher, nur als
+  `response_format`/`json_schema` statt als `output_config`. An der Anzeige ändert sich nichts.
+- ⚠️ **Die Antwort wird anders ausgelesen.** Google liefert eine `steps`-Liste, in der **vor**
+  der Antwort Denk-Schritte stehen können. Der Code sucht deshalb den Schritt `model_output`,
+  statt `steps[0]` zu nehmen.
+- **Ein alter `sk-ant-…`-Schlüssel wird erkannt** und beim ersten Foto gegen einen neuen
+  getauscht — mit einem Satz, der sagt warum. Ohne das käme nur ein unverständliches 400.
+- **Ein Fehler weniger geraten:** Google meldet einen falschen Schlüssel als **400**, nicht als
+  401. Gemessen, nicht vermutet — die App fängt beides ab und sagt in beiden Fällen dasselbe.
+- 🟢 **Der Aufruf aus dem Browser ist erlaubt.** Nachgemessen: die CORS-Vorabfrage antwortet mit
+  `Access-Control-Allow-Origin` für genau diese Seite und lässt `x-goog-api-key` zu. Der
+  Sonderheader, den Anthropic dafür verlangte, entfällt.
+
+⚠️ **Die Datenschutz-Seite ist mitgeändert:** beim Foto steht jetzt **Google LLC, USA** statt
+Anthropic. Dass die Bilder die EU verlassen, gilt unverändert — nur der Empfänger ist ein anderer.
+
+🔴 **Was hier NICHT geprüft ist: ein echtes Foto mit einem echten Schlüssel.** Getestet wurde die
+Form der Anfrage (Google beanstandet nur den Schlüssel, kein Feld) und dass die App fehlerfrei
+lädt. Ob die Schätzung gut ist, zeigt erst der erste Teller.
+
+
 ### Der Barcode geht jetzt über die Kamera — auch auf dem iPhone
 
 Beim Antippen von „Barcode" kam bisher auf dem iPhone ein Eingabefeld: *Nummer unter dem Barcode
