@@ -2,6 +2,54 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-08-22
+
+### 🔧 Gym-Log hat einen Prüfrahmen — 154 Prüfungen, vorher null
+
+`pruefungen.py`, gleicher Aufbau wie in angel-log: die echte `index.html` wird in Chrome
+headless geladen, die Prüfungen unten angehängt, das Ergebnis aus dem DOM gelesen. Aufruf:
+`python pruefungen.py`.
+
+**Warum das nötig war:** Angel-Log hatte 700 Prüfungen, Gym-Log **null**. Die sechs Fehler vom
+05.08.2026 sind ausnahmslos erst beim Benutzen aufgefallen. Die Prüfungen sind deshalb entlang
+genau dieser Fehler gebaut — Pausen-Uhr, Gewichtsdatum, Übungsbild, Trainingstag — und nicht
+entlang dessen, was sich leicht prüfen lässt.
+
+⚠️ **Der erste Lauf hat sofort zwei echte Fehler gefunden.** Beide unten, beide behoben.
+
+### 🐛 Klimmzüge und Überzüge bekamen das falsche Übungsbild
+
+**Umlaut-Falle:** „Klimmzüge" enthält nicht die Zeichenfolge „klimmzug", „Überzüge" nicht
+„überzug". `guessMove()` fiel deshalb durch bis zur neutralen Hantel.
+
+💡 **Warum es nie auffiel:** bei den hinterlegten Übungen greift `EXMOVE` zuerst. Getroffen hat
+es nur **selbst angelegte** Übungen mit diesen Namen. Jetzt `klimmz[uü]g` bzw. `überz[uü]g`.
+
+### 🐛 Aufwärmgewicht konnte schwerer sein als der Arbeitssatz
+
+Das Aufwärmgewicht sind 70 % des Arbeitsgewichts, **auf 2,5 kg gerundet** — und dieses Runden
+geht auch nach oben. Bei **2 kg** Arbeitsgewicht kamen so **2,5 kg** Aufwärmgewicht heraus.
+
+Betrifft leichte Übungen wie Seitheben, also genau die, die man mit 2–3 kg anfängt. Ergibt sich
+kein Wert unter dem Arbeitsgewicht, bleibt das Feld jetzt leer, statt etwas Falsches
+vorzuschlagen.
+
+### 🔑 Schlüssel eintragen: echter Dialog statt `prompt()`
+
+**Karls Ansage:** *„Wenn du auf schlüssel eintragen klickst muss es eine möglichkeit geben die
+seite direkt aufzurufen und falls es nicht klappt ein hilfe button wo es erklärt wird."*
+
+- **„Schlüssel-Seite öffnen"** als richtiger Knopf — vorher stand die Adresse nur als Text in
+  einem `prompt()` und war nicht anklickbar.
+- **Hilfe-Knopf**, der drei Ursachen der Reihe nach durchgeht: nicht angemeldet, Geburtsdatum am
+  Google-Konto nicht hinterlegt (Google verlangt 18+ **und** die Bestätigung), VPN im falschen
+  Land. Dazu der Hinweis, dass ein Schlüssel mit `AIza` anfängt und ein alter `sk-ant-…` nicht
+  mehr funktioniert.
+- 💡 **Der Anlass war echt:** Google hat Karl am 22.08.2026 auf „Available regions" geworfen,
+  obwohl Deutschland dort auf der Liste steht.
+- ⚠️ `fragKey()` gibt jetzt ein **Promise** zurück. Beide Aufrufer sind mitgezogen — ohne
+  `await` wäre das Foto sonst ohne Schlüssel losgeschickt worden.
+
 ## 2026-08-21
 
 ### Essen per Foto läuft jetzt über Google statt über Anthropic

@@ -461,8 +461,12 @@ const EXMOVE={
 };
 // Für selbst angelegte Übungen: aus dem Namen raten
 function guessMove(name){ const n=(name||'').toLowerCase();
-  if(/klimmzug|pull-?up/.test(n)) return 'pullup';
-  if(/latzug|pulldown|überzug|pullover/.test(n)) return 'pulldown';
+  // ⚠️ Umlaut-Falle: „Klimmzüge" enthaelt NICHT „klimmzug", und „Überzüge" nicht „überzug".
+  // Bis zum 22.08.2026 landeten beide bei der neutralen Hantel, sobald jemand sie als eigene
+  // Uebung anlegte. Bei den hinterlegten Uebungen fiel es nie auf, weil dort EXMOVE zuerst
+  // greift. Gefunden hat es der Pruefrahmen beim allerersten Lauf.
+  if(/klimmz[uü]g|pull-?up/.test(n)) return 'pullup';
+  if(/latzug|pulldown|überz[uü]g|pullover/.test(n)) return 'pulldown';
   if(/rudern|row|face pull/.test(n)) return 'row';
   if(/liegestütz|push-?up|burpee/.test(n)) return 'pushup';
   if(/dips?\b/.test(n)) return 'dip';
@@ -1605,17 +1609,51 @@ function aiKey(){ return DB.get('aikey','')||''; }
 // bei Google nicht und wuerde nur ein unverstaendliches 400 ausloesen - deshalb hier abfangen
 // und danach fragen, statt den Nutzer gegen eine Wand laufen zu lassen.
 function altSchluessel(){ return /^sk-ant-/.test(aiKey()); }
+const KEY_URL='https://aistudio.google.com/apikey';
+// ⚠️ Vorher stand hier ein prompt(). Das kann nur Text — die Adresse war nicht anklickbar,
+// und wenn Google einen abwies, stand man ohne Erklaerung da. Genau das ist Karl am
+// 22.08.2026 passiert: Google warf ihn auf "Available regions", obwohl Deutschland auf der
+// Liste steht. Deshalb jetzt ein eigener Dialog mit Direktlink und Hilfe.
+// Gibt ein Promise<boolean> zurueck — true, wenn danach ein Schluessel gespeichert ist.
 function fragKey(){
   const alt=altSchluessel();
-  const k=prompt(
-    (alt ? 'Das Foto läuft jetzt über Google statt über Anthropic — dein alter Schlüssel passt nicht mehr.\n\n'
-         : 'Einmalig: dein API-Schlüssel für die Foto-Schätzung.\n\n')
-    + 'Du holst ihn dir kostenlos auf aistudio.google.com/apikey — ein Google-Konto reicht, '
-    + 'eine Kreditkarte brauchst du nicht.\n\n'
-    + 'Er bleibt nur auf diesem Gerät und wird nicht mit deinem Konto synchronisiert.',
-    alt ? '' : aiKey());
-  if(k===null) return false;
-  DB.set('aikey', k.trim()); return !!k.trim();
+  const m=document.getElementById('modal');
+  return new Promise(fertig=>{
+    m.innerHTML=`<div class="modal-box" style="max-width:420px;text-align:left;max-height:86vh;overflow:auto;padding:16px">
+      <div class="row between" style="margin-bottom:10px"><b>Schlüssel für die Foto-Schätzung</b>
+        <button class="del-x" id="keyX" style="margin:0">✕</button></div>
+      ${alt ? `<p style="color:var(--danger);margin:0 0 10px">Das Foto läuft jetzt über Google statt über Anthropic — dein alter Schlüssel passt nicht mehr.</p>` : ''}
+      <p style="color:var(--muted);margin:0 0 12px;font-size:14px">Kostenlos, ein Google-Konto reicht, <b>keine Kreditkarte</b>. Der Schlüssel bleibt nur auf diesem Gerät und wird nicht mit deinem Konto abgeglichen.</p>
+      <a class="btn primary" href="${KEY_URL}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-bottom:10px">Schlüssel-Seite öffnen</a>
+      <input id="keyInput" placeholder="AIza…" autocomplete="off" autocapitalize="off" spellcheck="false"
+        value="${alt?'':esc(aiKey())}"
+        style="width:100%;background:var(--card2);border:1px solid var(--line);border-radius:12px;color:var(--txt);padding:12px;font-size:16px">
+      <button class="btn" id="keyHelp" style="width:100%;margin-top:10px">Es klappt nicht — Hilfe</button>
+      <div id="keyHelpBox" hidden style="margin-top:10px;font-size:14px;color:var(--muted);line-height:1.5">
+        <b style="color:var(--txt)">Google zeigt „Available regions" statt der Seite?</b>
+        <p style="margin:6px 0">Dann liegt es fast nie am Land. Der Reihe nach:</p>
+        <p style="margin:6px 0"><b style="color:var(--txt)">1. Angemeldet?</b> Ohne Google-Anmeldung landet jeder auf dieser Seite. Erst auf <a href="https://aistudio.google.com/" target="_blank" rel="noopener">aistudio.google.com</a> anmelden.</p>
+        <p style="margin:6px 0"><b style="color:var(--txt)">2. Alter am Konto bestätigt?</b> Google verlangt 18+ <i>und</i> ein hinterlegtes Geburtsdatum. Fehlt es, wirst du abgewiesen, obwohl du alt genug bist. Nachtragen unter <a href="https://myaccount.google.com/personal-info" target="_blank" rel="noopener">Persönliche Daten</a>.</p>
+        <p style="margin:6px 0"><b style="color:var(--txt)">3. Land</b> — Deutschland und Österreich stehen auf der Liste. Ein eingeschaltetes VPN kann dich aber in ein Land legen, das nicht draufsteht. Dann VPN aus.</p>
+        <p style="margin:6px 0">Der Schlüssel selbst fängt mit <b style="color:var(--txt)">AIza</b> an. Ein alter Anthropic-Schlüssel (<b style="color:var(--txt)">sk-ant-…</b>) funktioniert hier nicht mehr.</p>
+        <p style="margin:6px 0">Alles andere in der App läuft ohne Schlüssel weiter — nur die Foto-Schätzung nicht.</p>
+      </div>
+      <button class="btn primary" id="keySave" style="width:100%;margin-top:14px">Speichern</button>
+    </div>`;
+    m.classList.add('show');
+    const feld=document.getElementById('keyInput');
+    const schliessen=(wert)=>{ m.classList.remove('show'); fertig(wert); };
+    document.getElementById('keyHelp').onclick=()=>{
+      const box=document.getElementById('keyHelpBox');
+      box.hidden=!box.hidden;
+      document.getElementById('keyHelp').textContent = box.hidden ? 'Es klappt nicht — Hilfe' : 'Hilfe zuklappen';
+    };
+    document.getElementById('keyX').onclick=()=>schliessen(false);
+    document.getElementById('keySave').onclick=()=>{
+      const k=feld.value.trim(); DB.set('aikey', k); schliessen(!!k); };
+    feld.addEventListener('keydown', ev=>{ if(ev.key==='Enter') document.getElementById('keySave').click(); });
+    setTimeout(()=>feld.focus(), 50);
+  });
 }
 // Vor dem Senden verkleinern: ein Handyfoto in voller Aufloesung kostet ein Vielfaches
 // an Bild-Tokens, ohne dass der Teller dadurch besser zu erkennen waere.
@@ -1633,7 +1671,9 @@ function fotoKlein(file, max){
   });
 }
 async function schaetzeFoto(file){
-  if((!aiKey() || altSchluessel()) && !fragKey()){ foodFehler='Ohne Schlüssel kann das Foto nicht geschätzt werden.'; render(); return; }
+  // fragKey() ist seit dem 22.08.2026 ein Dialog und damit asynchron — ohne await
+  // liefe es sofort mit einem Promise (immer wahr) weiter und schickte das Foto ohne Schluessel.
+  if((!aiKey() || altSchluessel()) && !(await fragKey())){ foodFehler='Ohne Schlüssel kann das Foto nicht geschätzt werden.'; render(); return; }
   foodBusy='Das Bild wird angesehen … das dauert ein paar Sekunden.'; foodFehler=''; view='food'; render();
   try{
     const b64=await fotoKlein(file,1024);
@@ -2090,7 +2130,11 @@ async function doAuth(mode){ const v=id=>{ const el=document.getElementById(id);
 // ---------- Training ----------
 // Aufwaermgewicht: rund 70 % des Arbeitsgewichts, auf 2,5 kg gerundet, damit es an der Stange
 // auch auflegbar ist. Ohne Vorgeschichte bleibt das Feld leer.
-function warmKg(w){ if(!(w>0)) return ''; const v=Math.round(w*0.7/2.5)*2.5; return v>0?v:''; }
+// ⚠️ Das Runden auf 2,5 kg kann NACH OBEN gehen: bei 2 kg Arbeitsgewicht kamen 2,5 kg
+// Aufwaermgewicht heraus — schwerer als der Arbeitssatz. Betrifft leichte Uebungen wie
+// Seitheben. Ergibt sich kein Wert unter dem Arbeitsgewicht, bleibt das Feld lieber leer,
+// als etwas Falsches vorzuschlagen. (Pruefrahmen, 22.08.2026.)
+function warmKg(w){ if(!(w>0)) return ''; const v=Math.round(w*0.7/2.5)*2.5; return (v>0&&v<w)?v:''; }
 // Plaene ohne eigenes warmup (alle vor dem 05.08.) folgen der Wahl aus dem Assistenten.
 function planWarm(p){ return p && p.warmup!=null ? !!p.warmup : !!profile.warmup; }
 function startWorkout(plan){
@@ -2257,7 +2301,7 @@ document.addEventListener('click',ev=>{
     const v=prompt('Wie viele Kalorien willst du pro Tag essen?\n\n(Grober Anhalt: Körpergewicht in kg × 30. Wer abnehmen will, zieht 300–500 ab.)', k.goal||'');
     if(v!==null){ const n=Math.round(+String(v).replace(',','.'));
       k.goal = n>0 ? n : null; save(); render(); } }
-  else if(a==='setkey'){ if(fragKey()) toast('Schlüssel gespeichert'); render(); }
+  else if(a==='setkey'){ fragKey().then(ok=>{ if(ok) toast('Schlüssel gespeichert'); render(); }); }
   else if(a==='delkey'){ confirmTwice('dk',t,'Entfernen?',()=>{ DB.set('aikey',''); render(); toast('Schlüssel entfernt'); }); }
   else if(a==='food:start'){ foodStep='list'; foodDraft=null; foodFehler=''; view='food'; render(); }
   else if(a==='food:back'){ foodStep='list'; foodDraft=null; foodFehler=''; render(); }
