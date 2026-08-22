@@ -151,6 +151,9 @@
   .bubble:before{content:''; position:absolute; left:-7px; top:26px; width:12px; height:12px; background:var(--card);
     border-left:1px solid var(--line); border-bottom:1px solid var(--line); transform:rotate(45deg)}
   /* Kleine Fassung: Brock sitzt direkt in der Heute-Karte, deshalb Blase auf Kartenhintergrund */
+  /* Sprechblase unter Brock+Ring: ohne Zipfel, weil daneben niemand mehr steht. */
+  .kcal-bubble{margin-top:12px; text-align:center}
+  .kcal-bubble:before{display:none}
   .mascot.mini{gap:9px; margin:12px 0 0}
   .mascot.mini .bubble{background:var(--card2); padding:9px 12px; font-size:13px; border-radius:13px}
   .mascot.mini .bubble:before{background:var(--card2); top:17px; left:-6px; width:10px; height:10px}
@@ -1662,21 +1665,152 @@ function addMeal(d,menge){
     menge:(+menge||0)+(d.basis==='portion'?'×':' g'), quelle:d.quelle||'eigen', ...w});
   save(); return w;
 }
+// ---------- Ernaehrungs-Assistent (beim allerersten Oeffnen) ----------
+// Karls Ansage vom 22.08.2026: „wenn man darauf klickt wird beim aller ersten mal auch eine
+// einstellung/tutorial gemacht. dh wielange will man drannbleiben und was ist das ziel etc."
+//
+// ⚠️ Warum ein eigener Assistent und nicht die Knoepfe im Tab: der Trainings-Teil fuehrt seit
+// jeher durch die Einrichtung, der Ernaehrungs-Teil fing als leerer Ring an. Wer ihn zum ersten
+// Mal aufmacht, sieht sonst eine Null und weiss nicht, woran er sie messen soll.
+//
+// ⚠️ Der Zeitraum ist NICHT Deko. Er macht aus einem Vorhaben eine Ansage mit Datum
+// (`kcalZielDatum`) und erlaubt eine Prognose (`kcalPrognose`) — beides gibt es ohne ihn nicht.
+const KOB_LAST = 4;
+const KOB_SAY = [
+  'Kalorien! Mein zweites Lieblingsthema. Drei Fragen, dann steht das.',
+  'Erstmal: wo soll die Reise hin?',
+  'Ohne dein Gewicht rate ich nur. Und Raten kann jeder.',
+  'Wie lange bleibst du dran? Sag was Ehrliches, nicht was Schönes.',
+  'Steht. Ab jetzt rechne ich mit.'
+];
+const KOB_WOCHEN = [4, 8, 12, 16];
+let kobStep = 0, kobDraft = null;
+
+// Der Assistent laeuft genau einmal. Danach steht `setup` und alles ist im Tab aenderbar.
+// ⚠️ Wer laengst ein Tagesziel gesetzt hat, wird NICHT nachtraeglich in den Assistenten
+// geschickt — das waere eine Bevormundung fuer alle Bestandskonten. Fuer die gibt es den
+// Knopf „Vorhaben ändern" im Tab.
+function kcalBraucht(){ const k = kcalInit(); return kobErzwingen || (!k.setup && !(k.goal > 0)); }
+// ⚠️ `kobErzwingen` ist noetig fuer „Vorhaben ändern": wer schon ein Ziel hat, faellt sonst
+// durch die Pruefung oben und der Assistent kaeme gar nicht erst hoch.
+let kobErzwingen = false;
+// ⚠️ Aufbau und Zeichnen sind getrennt: renderBody ruft kobInit() OHNE render(), sonst
+// riefe render() wieder renderBody und die Sache dreht sich im Kreis.
+function kobInit(){
+  const k = kcalInit(), w = lastWeight();
+  kobStep = 0;
+  kobDraft = { art: k.art || null, wochen: (k.wochen > 0 || k.wochen === 0) ? k.wochen : 12, kg: w ? w.kg : '' };
+}
+function startKcalOb(){ kobErzwingen = true; kobInit(); view = 'body'; render(); }
+// Zieldatum aus Startzeitpunkt und Zeitraum. `wochen:0` heisst „offen" — dann gibt es keins.
+function kcalZielDatum(){ const k = kcalInit();
+  return (k.wochen > 0 && k.start) ? k.start + k.wochen * 7 * 864e5 : null; }
+// In welcher Woche des Vorhabens stehen wir? 1-basiert, damit „Woche 1 von 12" stimmt.
+function kcalWoche(){ const k = kcalInit();
+  return k.start ? Math.floor((Date.now() - k.start) / (7 * 864e5)) + 1 : null; }
+// Was am Ende herauskaeme, wenn es so laeuft wie vorgenommen.
+// ⚠️ Bewusst aus dem VORHABEN gerechnet, nicht aus dem bisherigen Verlauf — es ist die Ansage,
+// nicht die Vorhersage. Was wirklich passiert, sagt der Regelkreis.
+function kcalPrognose(){
+  const k = kcalInit(), z = ZIELE[k.art];
+  if(!z || !(k.wochen > 0) || !(k.startKg > 0)) return null;
+  return { kg: k.startKg + z.proWoche * k.wochen, wochen: k.wochen, von: k.startKg };
+}
+
+function renderKcalOb(){
+  const d = kobDraft;
+  let h = '<div class="ob-dots">' + [0,1,2,3,4].map(i => '<i class="' + (i <= kobStep ? 'on' : '') + '"></i>').join('') + '</div>';
+  h += mascot(KOB_SAY[kobStep], (kobStep === 0 || kobStep === KOB_LAST) ? 'happy' : '',
+              kobStep === 0 ? 96 : 72, equippedRank());
+
+  if(kobStep === 0){ h += `<div class="card">
+    <h2 style="margin-top:0">Essen mitschreiben</h2>
+    <p class="muted" style="font-size:13.5px;line-height:1.65">Der Teil hier rechnet dir aus,
+      wie viel du am Tag essen solltest — und sagt dir hinterher, ob es aufgeht. Dafür brauche
+      ich drei Angaben.</p>
+    <div class="tiny muted" style="line-height:1.9;margin-bottom:4px">
+      1. Was du vorhast<br>2. Was du wiegst<br>3. Wie lange du dranbleiben willst</div>
+    <button class="btn primary" style="margin-top:12px" data-act="kob:next">Los</button>
+    <button class="link" data-act="kob:skip" style="width:100%;text-align:center;margin-top:12px">Überspringen — ich stell das selbst ein</button></div>`; }
+
+  else if(kobStep === 1){ h += `<div class="card">
+    <h2 style="margin-top:0">Was hast du vor?</h2>
+    <p class="muted tiny" style="margin-bottom:14px">Danach richtet sich dein Tagesziel.</p>
+    ${Object.entries(ZIELE).map(([id, z]) => `<button class="ob-opt ${d.art === id ? 'on' : ''}" data-act="kob:art:${id}">
+      <b>${z.name}</b><span>${z.satz}${z.versatz ? ` · ${z.versatz > 0 ? '+' : '−'}${Math.abs(z.versatz)} kcal am Tag` : ' · Erhaltungsbedarf'}</span></button>`).join('')}
+    ${kobNav(!d.art)}</div>`; }
+
+  else if(kobStep === 2){ h += `<div class="card">
+    <h2 style="margin-top:0">Was wiegst du?</h2>
+    <p class="muted tiny" style="margin-bottom:14px">Am besten morgens, nüchtern. Der Wert landet
+      gleich in deiner Gewichtskurve.</p>
+    <div class="field" style="margin:0"><label>Gewicht (kg)</label>
+      <input id="kobKg" type="number" inputmode="decimal" step="0.1" min="20" max="500"
+             value="${d.kg || ''}" placeholder="z. B. 78,5"></div>
+    ${kobNav(false)}</div>`; }
+
+  else if(kobStep === 3){ h += `<div class="card">
+    <h2 style="margin-top:0">Wie lange bleibst du dran?</h2>
+    <p class="muted tiny" style="margin-bottom:14px">Ein Zeitraum macht aus einem Vorsatz eine
+      Ansage mit Datum. Verlängern kannst du jederzeit.</p>
+    <div class="ob-grid">${KOB_WOCHEN.map(n => `<button class="chip big ${d.wochen === n ? 'on' : ''}" data-act="kob:w:${n}">${n} Wo</button>`).join('')}</div>
+    <button class="ob-opt ${d.wochen === 0 ? 'on' : ''}" style="margin-top:12px" data-act="kob:w:0">
+      <b>Ohne festes Ende</b><span>Läuft einfach mit. Dann gibt es kein Zieldatum und keine Prognose.</span></button>
+    ${d.wochen > 0 ? `<div class="tiny muted" style="margin-top:12px">Das wären
+      <b style="color:var(--txt)">${fmtDate(Date.now() + d.wochen * 7 * 864e5)}</b>.</div>` : ''}
+    ${kobNav(false)}</div>`; }
+
+  else { const z = ZIELE[d.art], kg = +String(d.kg).replace(',', '.') || 0;
+    const ziel = kg > 0 ? Math.round((kg * 30 + (z ? z.versatz : 0)) / 50) * 50 : null;
+    const ende = (kg > 0 && z && d.wochen > 0) ? kg + z.proWoche * d.wochen : null;
+    h += `<div class="card">
+    <h2 style="margin-top:0">Passt das so?</h2>
+    <div class="sess"><span class="muted">Vorhaben</span><b>${z ? z.name : '—'}</b></div>
+    <div class="sess"><span class="muted">Gewicht</span><b>${kg > 0 ? fmtKg(kg) + ' kg' : '—'}</b></div>
+    <div class="sess"><span class="muted">Zeitraum</span><b>${d.wochen > 0 ? d.wochen + ' Wochen' : 'ohne Ende'}</b></div>
+    <div class="sess"><span class="muted">Tagesziel</span><b>${ziel ? ziel + ' kcal' : '—'}</b></div>
+    ${ende !== null ? `<div class="tiny muted" style="margin-top:12px">Wenn es so läuft, stehst du am
+      <b style="color:var(--txt)">${fmtDate(Date.now() + d.wochen * 7 * 864e5)}</b> bei rund
+      <b style="color:var(--txt)">${fmtKg(ende)} kg</b>.</div>` : ''}
+    ${!ziel ? `<div class="tiny" style="color:var(--danger);margin-top:12px">Ohne Gewicht kann ich kein
+      Tagesziel ausrechnen — geh einen Schritt zurück.</div>` : ''}
+    <button class="btn primary" style="margin-top:14px" data-act="kob:finish" ${ziel ? '' : 'disabled'}>Fertig</button>
+    <button class="link" data-act="kob:back" style="width:100%;text-align:center;margin-top:10px">Zurück</button></div>`; }
+
+  app.innerHTML = h;
+}
+function kobNav(sperre){
+  return `<div class="row" style="gap:8px;margin-top:16px">
+    <button class="btn" style="flex:1" data-act="kob:back">Zurück</button>
+    <button class="btn primary" style="flex:2" data-act="kob:next" ${sperre ? 'disabled' : ''}>Weiter</button></div>`;
+}
+// ⚠️ Der Weiter-Knopf muss den Gewichtswert MITNEHMEN, bevor neu gezeichnet wird — sonst ist
+// die Eingabe beim Schrittwechsel weg, weil das Feld neu gebaut wird.
+function kobMerkeKg(){ const el = document.getElementById('kobKg');
+  if(el && el.value !== '') kobDraft.kg = el.value; }
+
 function renderBody(){
+  // Beim allerersten Oeffnen zuerst durch die Einrichtung (Karls Ansage vom 22.08.2026).
+  if(kcalBraucht()){ if(!kobDraft) kobInit(); return renderKcalOb(); }
   const k=kcalInit(), heute=mealsToday(), s=sumMeals(heute);
   const eZiel=eiweissZiel(), vorschlag=kcalVorschlag(), schnitt=kcalSchnitt(7);
 
   // NEU: Brock ist jetzt auch hier. Er stand bisher nur auf der Startseite und
   // redete ausschliesslich ueber das Training — der halbe App-Charakter fehlte
   // in diesem Bereich komplett.
-  let h=`<div class="card" style="margin-bottom:10px">
-      ${mascot(brockEssenSay(s.kcal, k.goal||0), 'normal', 64, equippedRank())}</div>`;
-
-  h+=`<div class="row between" style="margin:2px 4px 6px"><h2>Heute</h2>
+  // Karls Ansage vom 22.08.2026: „brock kann gerne links neben den kalorin kreis."
+  // ⚠️ Sprechblase UNTER das Paar statt daneben: Figur (72) + Ring (130) + Text nebeneinander
+  // waeren auf einem Telefon drei Spalten in ~340 px — der Text bricht dann nach jedem Wort um.
+  const woche = kcalWoche(), prog = kcalPrognose();
+  let h=`<div class="row between" style="margin:2px 4px 6px"><h2>Heute</h2>
       <button class="btn sm ghost link" data-act="kcalgoal">${k.goal>0?k.goal+' kcal Ziel':'Ziel setzen'}</button></div>
-    <div class="card"><div class="row" style="gap:16px">
-      ${kcalRing(s.kcal, k.goal||0)}
-      <div style="flex:1;min-width:0">
+    <div class="card">
+      <div class="row" style="gap:12px;align-items:center;justify-content:center">
+        ${monster(76,'',equippedRank())}
+        ${kcalRing(s.kcal, k.goal||0)}
+      </div>
+      <div class="bubble kcal-bubble">${brockEssenSay(s.kcal, k.goal||0)}</div>
+      <div style="margin-top:12px">
         ${k.goal>0?`<div class="tiny muted" style="margin-bottom:8px">${s.kcal<=k.goal
             ? `noch <b style="color:var(--txt)">${k.goal-s.kcal} kcal</b> übrig`
             : `<b style="color:var(--danger)">${s.kcal-k.goal} kcal</b> darüber`}</div>`
@@ -1692,7 +1826,31 @@ function renderBody(){
                 : `<div class="tiny muted">Trag dein Gewicht ein, dann rechne ich dir das Eiweißziel aus.</div>`}
         <div class="makro" style="margin-top:8px"><span>Kohlenhydrate</span><b>${s.c} g</b></div>
         <div class="makro"><span>Fett</span><b>${s.f} g</b></div>
-      </div></div></div>`;
+      </div></div>`;
+
+  // NEU: der Zeitraum aus dem Assistenten wird sichtbar. Ohne ihn ist „12 Wochen" nur eine
+  // Zahl in der Ablage — mit ihm steht in der App, in welcher Woche man ist und worauf es
+  // hinauslaeuft. ⚠️ Die Prognose kommt aus dem VORHABEN, nicht aus dem Verlauf; was
+  // tatsaechlich passiert, sagt eine Karte weiter unten der Regelkreis.
+  if(woche && k.wochen > 0){
+    const rest = k.wochen - woche + 1, durch = Math.min(1, woche / k.wochen);
+    h+=`<div class="card" style="margin-top:10px">
+      <div class="row between"><span class="tiny muted">${ZIELE[k.art] ? ZIELE[k.art].name : 'Vorhaben'}</span>
+        <b>Woche ${Math.min(woche, k.wochen)} von ${k.wochen}</b></div>
+      ${zielBalken(Math.min(woche, k.wochen), k.wochen, 'var(--ok)')}
+      <div class="tiny muted" style="margin-top:8px">${rest > 0
+        ? `Noch <b style="color:var(--txt)">${rest} ${rest === 1 ? 'Woche' : 'Wochen'}</b> bis
+           ${/* ⚠️ KEIN Punkt hinter fmtDate — das Format endet selbst auf einen ("Fr., 30.10."),
+                sonst steht dort "30.10..". */''}
+           <b style="color:var(--txt)">${fmtDate(kcalZielDatum())}</b>${prog
+             ? ` Vorgenommen: <b style="color:var(--txt)">${fmtKg(prog.kg)} kg</b>.` : ''}`
+        : `Die ${k.wochen} Wochen sind um.${prog ? ` Vorgenommen waren <b style="color:var(--txt)">${fmtKg(prog.kg)} kg</b>.` : ''}`}</div>
+      <button class="btn sm ghost link" style="margin-top:8px" data-act="kob:neu">Vorhaben ändern</button></div>`;
+  } else if(zielArt()){
+    h+=`<div class="row between" style="margin:10px 4px 0">
+      <span class="tiny muted">Vorhaben: ${ZIELE[zielArt()].name}, ohne festes Ende</span>
+      <button class="btn sm ghost link" data-act="kob:neu">Ändern</button></div>`;
+  }
 
   // NEU: Was willst du überhaupt? Das stand bisher NIRGENDS in der App — und ohne
   // diese eine Angabe ist jede Kalorienzahl geraten.
@@ -2749,6 +2907,27 @@ document.addEventListener('click',ev=>{
   const a=t.dataset.act;
   if(a==='resume'){ view='workout'; render(); }
   else if(a==='discard'){ confirmTwice('disc',t,'Wirklich verwerfen?',()=>{ active=null; save(); endRest(); render(); }); }
+  // ---- Ernaehrungs-Assistent ----
+  else if(a==='kob:neu'){ startKcalOb(); }
+  else if(a==='kob:next'){ if(kobStep===2) kobMerkeKg();
+    kobStep=Math.min(KOB_LAST,kobStep+1); renderKcalOb(); }
+  else if(a==='kob:back'){ if(kobStep===2) kobMerkeKg();
+    if(kobStep>0){ kobStep--; renderKcalOb(); } }
+  // ⚠️ Ueberspringen setzt `setup`, sonst kaeme der Assistent beim naechsten Oeffnen wieder —
+  // und „ich stell das selbst ein" waere eine Luege.
+  else if(a==='kob:skip'){ kcalInit().setup=true; save(); kobDraft=null; kobErzwingen=false; render();
+    toast('Kannst du jederzeit nachholen'); }
+  else if(a&&a.startsWith('kob:art:')){ kobDraft.art=a.slice(8); renderKcalOb(); }
+  else if(a&&a.startsWith('kob:w:')){ kobDraft.wochen=+a.slice(6); renderKcalOb(); }
+  else if(a==='kob:finish'){
+    const k=kcalInit(), d=kobDraft, kg=+String(d.kg).replace(',','.')||0;
+    if(!(kg>0)){ toast('Ohne Gewicht geht es nicht'); return; }
+    // Das Gewicht wandert in die normale Kurve — nicht in eine zweite Ablage daneben.
+    addWeight(kg);
+    k.art=d.art; k.wochen=d.wochen; k.start=Date.now(); k.startKg=kg;
+    k.goal=Math.round((kg*30+(ZIELE[d.art]?ZIELE[d.art].versatz:0))/50)*50;
+    k.setup=true; save(); kobDraft=null; kobErzwingen=false; render();
+    toast(k.goal+' kcal am Tag — los geht’s'); }
   else if(a==='ob:start'){ startOnboard(); }
   // Selbst anlegen: nichts wird gebaut und nichts ersetzt — nur der Assistent gilt als erledigt,
   // damit die untere Leiste zurückkommt. Das Volumen bleibt auf dem Standard 'high' (8–12 Wdh),

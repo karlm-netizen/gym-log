@@ -4,6 +4,53 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-22
 
+### ✨ Ernährungs-Assistent beim ersten Öffnen
+
+**Karls Ansage vom 22.08.2026:** *„Ich will das wenn man darauf klickt wird beim aller ersten
+mal auch eine einstellung/tutorial gemacht. dh wielange will man drannbleiben und was ist das
+ziel etc."*
+
+Der Trainings-Teil führt seit jeher durch die Einrichtung, der Ernährungs-Teil fing als leerer
+Ring an. Jetzt fünf Schritte: **Vorhaben → Gewicht → Zeitraum → Zusammenfassung.**
+
+- **Der Zeitraum ist neu und kein Beiwerk.** 4, 8, 12, 16 Wochen oder ohne festes Ende. Daraus
+  entstehen ein Zieldatum und eine Prognose (*„Wenn es so läuft, stehst du am 14.11. bei rund
+  74,0 kg"*) — beides gab es vorher nicht.
+- **In der Ansicht steht danach „Woche 3 von 12"** mit Balken. ⚠️ Nach Ablauf bleibt die
+  Anzeige stehen, statt auf „Woche 15 von 12" weiterzulaufen.
+- ⚠️ **Die Prognose kommt aus dem Vorhaben, nicht aus dem Verlauf** — sie ist die Ansage. Was
+  tatsächlich passiert, sagt eine Karte weiter unten der Regelkreis. Zwei verschiedene Fragen,
+  zwei getrennte Karten.
+- **Das Gewicht aus dem Assistenten landet in der normalen Gewichtskurve**, nicht in einer
+  zweiten Ablage daneben.
+- ⚠️ **Bestandskonten werden nicht überfallen:** wer schon ein Tagesziel gesetzt hat, bekommt
+  den Assistenten nicht nachträglich vorgesetzt. Für die gibt es **„Vorhaben ändern"**.
+- **„Überspringen"** merkt sich das — sonst käme der Assistent beim nächsten Öffnen wieder und
+  *„ich stell das selbst ein"* wäre eine Lüge.
+
+### 💄 Brock steht jetzt links neben dem Kalorien-Ring
+
+**Karls Ansage:** *„brock kann gerne links neben den kalorin kreis."*
+
+Er saß in einer eigenen Karte darüber. Jetzt Figur und Ring nebeneinander, die Sprechblase
+darunter. ⚠️ **Nicht** alle drei nebeneinander: Figur (72) + Ring (130) + Text wären auf einem
+Telefon drei Spalten in ~340 px — der Text bräche dann nach jedem Wort um.
+
+### 🐛 „Fr., 30.10.." — doppelter Punkt hinter dem Zieldatum
+
+`fmtDate()` endet selbst auf einen Punkt. Der Satzpunkt dahinter ergab zwei.
+💡 **Beim ersten Vorschaubild aufgefallen, nicht im Code-Lesen** — eine Prüfung hält es fest.
+
+### ✅ 324 Prüfungen (vorher 305)
+
+19 neue für den Assistenten. Zwei davon waren erst falsch und mussten korrigiert werden, nicht
+die App: Schritt 1 sperrt „Weiter" absichtlich, solange kein Vorhaben gewählt ist — und ein
+`type="number"`-Feld nimmt kein Komma an, der Wert wäre danach leer, ohne dass die App etwas
+falsch macht.
+
+Zwei bestehende Prüfungen mussten mitgezogen werden: die eine suchte die alte `.mascot`-Hülle,
+die andere lief ohne `setup` und wurde jetzt zu Recht vom Assistenten abgefangen.
+
 ### ✨ Der Ernährungs-Teil weiß jetzt, was du wiegst
 
 **Der rote Faden hinter allem Folgenden:** die App führt eine Gewichtskurve *und* ein

@@ -1174,7 +1174,9 @@ window.addEventListener('error', e => {
     profile.weights = [{date:n, kg:80}];
     profile.kcal = {goal:2000, foods:[], meals:[{id:'a', date:n, name:'Quark', menge:'250 g', kcal:170, p:30, c:8, f:1}]};
     const h = bauen();
-    return (h.includes('mascot') && h.includes('bubble')) || 'kein Brock';
+    // Seit dem 22.08.2026 steht Brock LINKS NEBEN dem Ring statt in einer eigenen Karte
+    // darueber — also ohne .mascot-Huelle. Geprueft wird die Figur plus die Sprechblase.
+    return (h.includes('class="mon"') && h.includes('kcal-bubble')) || 'kein Brock';
   });
   t('Eiweissziel steht in der Ansicht', () => bauen().includes('von 144 g') || 'Ziel fehlt (Ruhetag: 80 kg x 1,8)');
   t('Am Trainingstag steht das hoehere Ziel da', () => {
@@ -1194,13 +1196,165 @@ window.addEventListener('error', e => {
   t('Ohne Ziel kommt der Vorschlag-Knopf', () => {
     const n = Date.now();
     profile.weights = [{date:n, kg:80}];
-    profile.kcal = {goal:null, foods:[], meals:[]};
+    // ⚠️ `setup:true` ist noetig: ohne das faengt seit dem 22.08.2026 der Ernaehrungs-
+    // Assistent ab (kcalBraucht), und der Vorschlag-Knopf kommt gar nicht erst dran.
+    // Gemeint ist hier der Fall „eingerichtet, aber Ziel wieder geloescht".
+    profile.kcal = {goal:null, setup:true, foods:[], meals:[]};
     return bauen().includes('kcalgoalauto') || 'kein Vorschlag';
   });
   t('Mit Ziel kommt kein Vorschlag-Knopf', () => {
     profile.kcal = {goal:2200, foods:[], meals:[]};
     return !bauen().includes('kcalgoalauto') || 'Vorschlag trotz Ziel';
   });
+
+  // ================================================ Ernaehrungs-Assistent (22.08.2026)
+  // Karls Ansage: "wenn man darauf klickt wird beim aller ersten mal auch eine
+  // einstellung/tutorial gemacht. dh wielange will man drannbleiben und was ist das ziel etc."
+  const KOB_SICHER = JSON.stringify(profile.kcal || {});
+  const kobBauen = () => { const v=view; view='body'; renderBody(); const h=app.innerHTML; view=v; return h; };
+  const kobFrisch = () => { kobErzwingen=false; kobDraft=null;
+    profile.kcal = {foods:[], meals:[]}; profile.weights = []; };
+
+  t('Beim ersten Mal kommt der Assistent', () => {
+    kobFrisch();
+    return kobBauen().includes('Essen mitschreiben') || 'kein Assistent';
+  });
+  // ⚠️ Das Gegenstueck ist wichtiger als der Fall oben: ein Bestandskonto darf NICHT
+  // nachtraeglich in eine Einrichtung gezwungen werden, die es nie gebraucht hat.
+  t('Wer schon ein Ziel hat, wird nicht ueberfallen', () => {
+    kobFrisch(); profile.kcal.goal = 2200;
+    return !kobBauen().includes('Essen mitschreiben') || 'Assistent trotz Ziel';
+  });
+  t('Ueberspringen merkt sich das', () => {
+    kobFrisch(); kobBauen();
+    document.querySelector('[data-act="kob:skip"]').click();
+    return (kcalInit().setup === true && !kobBauen().includes('Essen mitschreiben'))
+           || 'Assistent kommt wieder';
+  });
+  t('Der Assistent hat fuenf Schritte', () => {
+    kobFrisch(); kobBauen();
+    let n = 0;
+    for(let i = 0; i < 9; i++){
+      // ⚠️ Schritt 1 sperrt Weiter, solange kein Vorhaben gewaehlt ist - das ist gewollt,
+      // also muss die Pruefung waehlen statt sich am eigenen Riegel aufzuhaengen.
+      const wahl = document.querySelector('[data-act="kob:art:halten"]');
+      if(wahl) wahl.click();
+      const w = document.querySelector('[data-act="kob:next"]');
+      if(!w || w.disabled) break; w.click(); n++; }
+    return (kobStep === 4 && n === 4) || ('Schritt ' + kobStep + ', ' + n + ' Klicks');
+  });
+  t('Ohne Vorhaben geht es nicht weiter', () => {
+    kobFrisch(); kobBauen();
+    document.querySelector('[data-act="kob:next"]').click();   // Schritt 1
+    return document.querySelector('[data-act="kob:next"]').disabled || 'Weiter ist offen';
+  });
+  t('Das gewaehlte Vorhaben bleibt stehen', () => {
+    kobFrisch(); kobBauen();
+    document.querySelector('[data-act="kob:next"]').click();
+    document.querySelector('[data-act="kob:art:abnehmen"]').click();
+    return eq(kobDraft.art, 'abnehmen') && !document.querySelector('[data-act="kob:next"]').disabled;
+  });
+  // ⚠️ Der Klassiker: das Feld wird beim Schrittwechsel neu gebaut. Wer den Wert nicht
+  // vorher wegschreibt, verliert die Eingabe zwischen Schritt 2 und 3.
+  t('Das eingetippte Gewicht ueberlebt den Schrittwechsel', () => {
+    kobFrisch(); kobBauen();
+    document.querySelector('[data-act="kob:next"]').click();
+    document.querySelector('[data-act="kob:art:halten"]').click();
+    document.querySelector('[data-act="kob:next"]').click();   // Schritt 2, Gewicht
+    // ⚠️ '82.5' mit Punkt, nicht mit Komma: das Feld ist type="number", und ein Komma
+    // wirft der Browser sofort weg - der Wert waere danach leer, ohne dass die App
+    // etwas falsch macht. Die Umrechnung von Komma auf Punkt passiert erst beim Fertig.
+    document.getElementById('kobKg').value = '82.5';
+    document.querySelector('[data-act="kob:next"]').click();   // Schritt 3
+    document.querySelector('[data-act="kob:back"]').click();   // zurueck auf 2
+    return eq(document.getElementById('kobKg').value, '82.5');
+  });
+  t('Zeitraum laesst sich waehlen, auch offen', () => {
+    kobFrisch(); kobBauen();
+    kobStep = 3; renderKcalOb();
+    document.querySelector('[data-act="kob:w:0"]').click();
+    const offen = kobDraft.wochen === 0;
+    document.querySelector('[data-act="kob:w:8"]').click();
+    return (offen && kobDraft.wochen === 8) || 'Zeitraum haengt';
+  });
+  const kobDurch = (art, wochen, kg) => {
+    kobFrisch(); kobBauen();
+    kobDraft.art = art; kobDraft.wochen = wochen; kobDraft.kg = kg;
+    kobStep = 4; renderKcalOb();
+    document.querySelector('[data-act="kob:finish"]').click();
+  };
+  t('Fertig legt Vorhaben, Zeitraum und Ziel ab', () => {
+    kobDurch('abnehmen', 12, 80);
+    const k = kcalInit();
+    // 80 kg x 30 = 2400, abnehmen -400 => 2000
+    return (k.art === 'abnehmen' && k.wochen === 12 && k.goal === 2000
+            && k.startKg === 80 && k.setup === true) || JSON.stringify(k);
+  });
+  // ⚠️ Das Gewicht aus dem Assistenten gehoert in die normale Kurve, nicht in eine
+  // zweite Ablage daneben - sonst stehen zwei Wahrheiten in der App.
+  t('Das Gewicht landet in der Gewichtskurve', () => {
+    kobDurch('halten', 8, 77.5);
+    const w = lastWeight();
+    return (w && w.kg === 77.5) || 'nicht in der Kurve';
+  });
+  t('Ohne Gewicht bleibt Fertig gesperrt', () => {
+    kobFrisch(); kobBauen();
+    kobDraft.art = 'halten'; kobDraft.wochen = 8; kobDraft.kg = '';
+    kobStep = 4; renderKcalOb();
+    return document.querySelector('[data-act="kob:finish"]').disabled || 'Fertig ist offen';
+  });
+  t('Woche und Zieldatum stimmen', () => {
+    kobDurch('abnehmen', 12, 80);
+    const k = kcalInit();
+    k.start = Date.now() - 15 * 864e5;          // gut zwei Wochen her
+    const w = kcalWoche(), d = kcalZielDatum();
+    return (w === 3 && Math.round((d - k.start) / 864e5) === 84) || ('Woche ' + w);
+  });
+  t('Ohne festes Ende gibt es kein Zieldatum', () => {
+    kobDurch('halten', 0, 80);
+    return (kcalZielDatum() === null && kcalPrognose() === null) || 'Datum trotz offen';
+  });
+  // ⚠️ Die Prognose kommt aus dem VORHABEN, nicht aus dem Verlauf: 80 kg, abnehmen
+  // (-0,5 kg/Woche), 12 Wochen => 74 kg.
+  t('Die Prognose rechnet aus dem Vorhaben', () => {
+    kobDurch('abnehmen', 12, 80);
+    const p = kcalPrognose();
+    return (p && Math.abs(p.kg - 74) < 0.01) || (p ? p.kg : 'keine Prognose');
+  });
+  t('Woche von Zeitraum steht in der Ansicht', () => {
+    kobDurch('abnehmen', 12, 80);
+    return kobBauen().includes('Woche 1 von 12') || 'Fortschritt fehlt';
+  });
+  // ⚠️ Nach Ablauf darf die Anzeige nicht ueber den Zeitraum hinauslaufen ("Woche 15 von 12").
+  t('Nach Ablauf bleibt die Anzeige stehen', () => {
+    kobDurch('abnehmen', 4, 80);
+    kcalInit().start = Date.now() - 70 * 864e5;
+    const h = kobBauen();
+    return (h.includes('Woche 4 von 4') && h.includes('sind um')) || 'laeuft ueber';
+  });
+  // ⚠️ fmtDate endet selbst auf einen Punkt ("Fr., 30.10."). Wer dahinter einen Satzpunkt
+  // setzt, bekommt "30.10.." — beim ersten Vorschaubild sofort aufgefallen.
+  t('Kein doppelter Punkt hinter dem Zieldatum', () => {
+    kobDurch('abnehmen', 12, 80);
+    const h = kobBauen();
+    return !/\d\.\.(?!\.)/.test(h.replace(/<[^>]*>/g, '')) || 'doppelter Punkt';
+  });
+  t('Vorhaben aendern startet ihn erneut', () => {
+    kobDurch('abnehmen', 12, 80);
+    kobBauen();
+    document.querySelector('[data-act="kob:neu"]').click();
+    return kobBauen().includes('Essen mitschreiben') || 'kommt nicht wieder';
+  });
+  // ⚠️ Karls Ansage: "brock kann gerne links neben den kalorin kreis."
+  t('Brock steht links vom Ring', () => {
+    kobDurch('halten', 8, 80);
+    const h = kobBauen();
+    return (h.indexOf('class="mon"') < h.indexOf('<svg viewBox="0 0 130 130"')
+            && h.indexOf('class="mon"') >= 0) || 'Brock steht nicht links';
+  });
+  kobErzwingen = false; kobDraft = null;
+  profile.kcal = JSON.parse(KOB_SICHER);
+
   t('Ohne Gewicht kein Vorschlag-Knopf', () => {
     profile.weights = []; profile.kcal = {goal:null, foods:[], meals:[]};
     return !bauen().includes('kcalgoalauto') || 'Vorschlag ohne Gewicht';
