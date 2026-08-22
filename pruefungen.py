@@ -533,13 +533,23 @@ window.addEventListener('error', e => {
     dialogZu();
     return (auf && zu) || ('auf=' + auf + ' zu=' + zu);
   });
-  t('Hilfe nennt alle drei Ursachen', () => {
+  t('Hilfe nennt alle vier Ursachen', () => {
+    // ⚠️ Die vierte (mehrere Konten) kam am 22.08.2026 dazu, nachdem Anmeldung, Alter und
+    // Land bei Karl alle in Ordnung waren und er trotzdem abgewiesen wurde.
     dialogAuf();
     const txt = document.getElementById('keyHelpBox').textContent.toLowerCase();
     dialogZu();
-    const fehlt = [['angemeldet','Anmeldung'], ['geburtsdatum','Alter'], ['vpn','VPN']]
+    const fehlt = [['angemeldet','Anmeldung'], ['geburtsdatum','Alter'],
+                   ['privates fenster','mehrere Konten'], ['vpn','VPN']]
       .filter(([w]) => !txt.includes(w)).map(([, n]) => n);
     return fehlt.length ? 'fehlt: ' + fehlt.join(', ') : true;
+  });
+  t('Die Ursachen sind durchnummeriert', () => {
+    dialogAuf();
+    const txt = document.getElementById('keyHelpBox').textContent;
+    dialogZu();
+    const fehlt = ['1.','2.','3.','4.'].filter(n => !txt.includes(n));
+    return fehlt.length ? 'fehlt: ' + fehlt.join(' ') : true;
   });
   t('Hilfe warnt vor dem alten Anthropic-Schluessel', () => {
     dialogAuf();

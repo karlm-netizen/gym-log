@@ -41,10 +41,14 @@ seite direkt aufzurufen und falls es nicht klappt ein hilfe button wo es erklär
 
 - **„Schlüssel-Seite öffnen"** als richtiger Knopf — vorher stand die Adresse nur als Text in
   einem `prompt()` und war nicht anklickbar.
-- **Hilfe-Knopf**, der drei Ursachen der Reihe nach durchgeht: nicht angemeldet, Geburtsdatum am
-  Google-Konto nicht hinterlegt (Google verlangt 18+ **und** die Bestätigung), VPN im falschen
-  Land. Dazu der Hinweis, dass ein Schlüssel mit `AIza` anfängt und ein alter `sk-ant-…` nicht
-  mehr funktioniert.
+- **Hilfe-Knopf**, der **vier** Ursachen der Reihe nach durchgeht: nicht angemeldet,
+  Geburtsdatum am Google-Konto nicht hinterlegt (Google verlangt 18+ **und** die Bestätigung),
+  mehrere Google-Konten gleichzeitig, VPN im falschen Land. Dazu der Hinweis, dass ein Schlüssel
+  mit `AIza` anfängt und ein alter `sk-ant-…` nicht mehr funktioniert.
+- ⚠️ **Die vierte Ursache kam nachträglich dazu** — bei Karl waren Anmeldung, Alter und Land
+  alle in Ordnung, und Google wies ihn trotzdem ab. Die Hilfe hatte also nach einer Stunde schon
+  eine bekannte Lücke; ein Schul- oder Arbeitskonto in derselben Sitzung ist die wahrscheinlichste
+  verbleibende Erklärung.
 - 💡 **Der Anlass war echt:** Google hat Karl am 22.08.2026 auf „Available regions" geworfen,
   obwohl Deutschland dort auf der Liste steht.
 - ⚠️ `fragKey()` gibt jetzt ein **Promise** zurück. Beide Aufrufer sind mitgezogen — ohne
