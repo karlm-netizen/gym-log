@@ -1477,6 +1477,103 @@ window.addEventListener('error', e => {
   DB.set('aikey', KEY_VORHER);
 
 
+
+  // ================================================ Schritte (22.08.2026)
+  // Karls Ansage: "soll mit der health app verbunden werden können um schritte zutracken
+  // und die einrechnet." Health direkt geht nicht (HealthKit ist nativen Apps vorbehalten),
+  // der Weg laeuft ueber die Kurzbefehle-App und `?schritte=`.
+  const SCH_SICHER = JSON.stringify(profile.kcal || {});
+  const einstellungenBauen = () => {
+    const s0 = session, v = view;
+    session = session || {username:'Pruef', access_token:'x', user:{id:'p1', email:'pruef@example.org'}};
+    view = 'settings'; renderSettings();
+    session = s0; view = v;
+  };
+  const schFrisch = (an) => {
+    profile.kcal = {goal:2000, art:'abnehmen', setup:true, schritte:!!an, steps:[], foods:[], meals:[]};
+    profile.weights = [{date:Date.now(), kg:80}];
+  };
+
+  t('Ohne Schritt-Modus bleibt das Ziel fest', () => {
+    schFrisch(false); setzeSchritte(12000);
+    return eq(zielHeute(), 2000);
+  });
+  t('Mit Schritt-Modus kommen die Schritte obendrauf', () => {
+    schFrisch(true); setzeSchritte(10000);
+    // 10.000 x 80 kg x 0,0004 = 320
+    return (zielHeute() === 2320 && kcalAusSchritten(10000) === 320) || ('Ziel ' + zielHeute());
+  });
+  // ⚠️ DIE Falle: der Kurzbefehl schickt den TAGESSTAND, nicht die Schritte seit dem letzten
+  // Aufruf. Wer addiert, hat nach drei Automatik-Laeufen das Dreifache stehen.
+  t('Ein zweiter Eintrag ueberschreibt, statt zu addieren', () => {
+    schFrisch(true);
+    setzeSchritte(4000); setzeSchritte(9000); setzeSchritte(9000);
+    return (schritteHeute() === 9000 && schrittListe().length === 1) || (schritteHeute() + ' / ' + schrittListe().length);
+  });
+  t('Gestern und heute stehen getrennt', () => {
+    schFrisch(true);
+    setzeSchritte(7000, Date.now() - 864e5);
+    setzeSchritte(3000);
+    return (schritteHeute() === 3000 && schritteAmTag(Date.now() - 864e5) === 7000
+            && schrittListe().length === 2) || 'Tage vermischt';
+  });
+  t('Unsinnige Werte werden abgewiesen', () => {
+    schFrisch(true); setzeSchritte(5000);
+    const a = setzeSchritte(-5), b = setzeSchritte(999999), c = setzeSchritte('abc');
+    return (!a && !b && !c && schritteHeute() === 5000) || 'etwas ist durchgerutscht';
+  });
+  // ⚠️ Ohne Gewicht laesst sich der Verbrauch nicht rechnen. Dann lieber 0 als eine
+  // erfundene Zahl - die App wuerde sonst zum Mehressen einladen.
+  t('Ohne Gewicht gibt es keine kcal aus Schritten', () => {
+    schFrisch(true); profile.weights = []; setzeSchritte(10000);
+    return (kcalAusSchritten(10000) === 0 && zielHeute() === 2000) || 'rechnet trotzdem';
+  });
+  t('Null Schritte aendern nichts', () => {
+    schFrisch(true); setzeSchritte(0);
+    return (zielHeute() === 2000 && kcalAusSchritten(0) === 0) || 'Null wirkt';
+  });
+  // ⚠️ Der Grundumsatz-Faktor ist der ganze Punkt: kg x 30 enthaelt Alltagsbewegung schon,
+  // kg x 26 nicht. Ohne den Wechsel wuerde dieselbe Bewegung zweimal gezaehlt.
+  t('Der Grundumsatz-Faktor haengt am Modus', () => {
+    schFrisch(false); const ohne = erhaltFaktor(), zOhne = kcalVorschlagFuer('halten');
+    schFrisch(true);  const mit  = erhaltFaktor(), zMit  = kcalVorschlagFuer('halten');
+    // 80 x 30 = 2400, 80 x 26 = 2080
+    return (ohne === 30 && mit === 26 && zOhne === 2400 && zMit === 2100)
+           || (zOhne + ' / ' + zMit);
+  });
+  t('Einschalten rechnet das Grundziel neu', () => {
+    schFrisch(false);
+    // ⚠️ renderSettings() direkt statt render(): ohne Anmeldung steigt render() sofort in
+    // die Anmeldemaske aus, und die Knoepfe stuenden gar nicht im Dokument. Die Ansicht
+    // zeigt den Benutzernamen, deshalb muss eine Sitzung vorgetaeuscht werden.
+    einstellungenBauen();
+    document.querySelector('[data-act="schritt:an"]').click();
+    const k = kcalInit();
+    // 80 x 26 = 2080, abnehmen -400 = 1680, auf 50 gerundet
+    return (schrittModus() && k.goal === 1700) || (schrittModus() + ' / ' + k.goal);
+  });
+  t('Ausschalten rechnet zurueck', () => {
+    einstellungenBauen();
+    document.querySelector('[data-act="schritt:aus"]').click();
+    // 80 x 30 = 2400, abnehmen -400 = 2000
+    return (!schrittModus() && kcalInit().goal === 2000) || kcalInit().goal;
+  });
+  t('Die Adresse fuer den Kurzbefehl endet richtig', () => {
+    return /\?schritte=$/.test(schrittLinkBasis()) || schrittLinkBasis();
+  });
+  t('Die Schritt-Zeile steht nur im Modus in der Ansicht', () => {
+    schFrisch(true); setzeSchritte(8432);
+    const v = view; view = 'body'; renderBody(); const mit = app.innerHTML;
+    schFrisch(false); renderBody(); const ohne = app.innerHTML; view = v;
+    return (mit.includes('8.432') && !ohne.includes('8.432')) || 'Zeile stimmt nicht';
+  });
+  t('Der Ring zeigt das Ziel MIT Schritten', () => {
+    schFrisch(true); setzeSchritte(10000);
+    const v = view; view = 'body'; renderBody(); const h = app.innerHTML; view = v;
+    return (h.includes('von 2320') && !h.includes('von 2000')) || 'Ring zeigt das Grundziel';
+  });
+  profile.kcal = JSON.parse(SCH_SICHER);
+
   // ================================================ Ladebildschirm (22.08.2026)
   // Karls Ansage: "Ich brauche einen lade screen mit brock drauf."
   //

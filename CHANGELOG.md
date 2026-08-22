@@ -4,6 +4,46 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-22
 
+### ✨ Schritte aus der Health-App — über Kurzbefehle
+
+**Karls Ansage vom 22.08.2026:** *„soll mit der health app verbunden werden können um schritte
+zutracken und die einrechnet."*
+
+⚠️ **Gym-Log kann Apple Health nicht selbst lesen.** HealthKit ist Apps aus dem App Store
+vorbehalten; Safari stellt keine Schnittstelle bereit, und einen Web-Standard für Schrittzähler
+gibt es überhaupt nicht. Der Weg läuft deshalb über die **Kurzbefehle-App**: die darf Health
+lesen und ruft Gym-Log mit `?schritte=8432` auf. Die vierschrittige Anleitung samt kopierbarer
+Adresse steht direkt in den Einstellungen — nicht in einer Hilfe, die niemand aufmacht.
+
+**Die Verrechnung — Karls Entscheidung:** Grundumsatz runter auf **Körpergewicht × 26**, dafür
+zählt jeder Schritt.
+
+⚠️ **Warum das nötig war:** der übliche Faktor **× 30 enthält Alltagsbewegung bereits**. Wer die
+Schritte obendrauf rechnet, zählt dieselbe Bewegung zweimal und darf zu viel essen — bei 80 kg
+und 10.000 Schritten rund 300 kcal zu Unrecht. Das Tagesziel wird dadurch an ruhigen Tagen
+**kleiner als vorher**, an aktiven größer. Ein- und Ausschalten rechnet das Grundziel jedes Mal
+neu; ohne das stünde das alte, zu hohe Ziel da *und* die Schritte kämen dazu.
+
+- **kcal je Schritt:** Gehen kostet rund 0,5 kcal je kg und km, ein km sind rund 1250 Schritte
+  → **0,0004 kcal je Schritt und kg**. Eine Faustregel, keine Physik — deshalb wird gerundet und
+  nirgends mit Nachkommastellen ausgewiesen.
+- ⚠️ **Ein Eintrag pro Tag, überschreiben statt addieren.** Der Kurzbefehl schickt den
+  **Tagesstand**, nicht die Schritte seit dem letzten Mal. Wer hier addiert, hat nach drei
+  Automatik-Läufen das Dreifache stehen.
+- ⚠️ **Die Adresse wird nach dem Lesen bereinigt.** Sonst stünde die Zahl in der Adresszeile und
+  jedes Neuladen — auch ein versehentliches am nächsten Tag — schriebe sie erneut ein.
+- ⚠️ **Ohne eingetragenes Gewicht gibt es 0 kcal aus Schritten**, keine geratene Zahl. Die App
+  würde sonst zum Mehressen einladen.
+- ⚠️ **Ein Link bei ausgeschaltetem Modus schreibt nichts**, sondern sagt, wo man ihn anschaltet.
+- **Der Wochenschnitt vergleicht mit dem Durchschnitt der Tagesziele**, nicht mit dem Grundziel —
+  im Schritt-Modus hat jeder Tag ein eigenes.
+- Die Adresse baut sich aus dem Standort statt fest verdrahtet zu sein: die App läuft auf GitHub
+  Pages, kann aber auch woanders liegen.
+
+**13 neue Prüfungen, 346 gesamt.** Dazu ein echter Durchlauf im Browser mit `?schritte=8432`,
+`?schritte=8432&x=1`, `?schritte=abc` und `?schritte=999999` — Zahl übernommen, fremde Parameter
+erhalten, Unsinn abgewiesen.
+
 ### ✨ Ladebildschirm mit Brock
 
 **Karls Ansage vom 22.08.2026:** *„Ich brauche einen lade screen mit brock drauf."*
