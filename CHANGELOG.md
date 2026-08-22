@@ -4,6 +4,23 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-22
 
+### 🐛 Neues Konto: drei Trainings ohne Wochentag — „Ruhetag" für immer
+
+`seedPlans()` legt für ein frisches Konto Push/Pull/Beine an — **ohne `day`**. Damit fand
+`planForToday()` nie etwas, und die Startseite meldete **jeden einzelnen Tag**
+*„Ruhetag · Noch keine Trainingstage festgelegt"*, obwohl drei fertige Trainings in der App
+lagen.
+
+Betroffen war, wer im Assistenten **„Selbst anlegen"** wählt — der Weg baut selbst keine Pläne
+und lässt den Startbestand stehen. Wer den Assistenten durchklickt, bekommt seine Tage über
+`buildPlans()` und hat den Fehler nie gesehen.
+
+Jetzt **Mo / Mi / Fr**, der klassische 3er-Rhythmus. Im Editor jederzeit verschiebbar —
+entscheidend ist, dass sie überhaupt einen Tag haben.
+
+💡 **Gefunden beim systematischen Abklopfen des Trainings-Teils**, nicht durch eine Meldung.
+Fünf neue Prüfungen halten es fest (160 gesamt).
+
 ### 🔧 Gym-Log hat einen Prüfrahmen — 154 Prüfungen, vorher null
 
 `pruefungen.py`, gleicher Aufbau wie in angel-log: die echte `index.html` wird in Chrome

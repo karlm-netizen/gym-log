@@ -499,6 +499,32 @@ window.addEventListener('error', e => {
     return !tb.classList.contains('show') || 'Leiste steht noch';
   });
 
+  // ================================================================ Startbestand eines neuen Kontos
+  // 🔴 Hier steckte ein echter Fehler (gefunden am 22.08.2026): die drei Trainings
+  // kamen OHNE Wochentag. Wer im Assistenten „Selbst anlegen" waehlt, bekam damit
+  // drei Trainings, die keinem Tag gehoeren — planForToday() traf nie etwas, und die
+  // Startseite meldete JEDEN Tag „Ruhetag", obwohl drei fertige Trainings dalagen.
+  const PLANS_VOR = plans;
+  t('Startbestand: jedes Training hat einen Wochentag', () => {
+    const ohne = seedPlans().filter(p => !(p.day >= 0 && p.day <= 6)).map(p => p.name);
+    return ohne.length ? ohne.join(', ') + ' ohne Tag' : true;
+  });
+  t('Startbestand: kein Tag doppelt vergeben', () => {
+    const tage = seedPlans().map(p => p.day);
+    return new Set(tage).size === tage.length || tage.join(',');
+  });
+  t('Startbestand: es gibt drei Trainings', () => eq(seedPlans().length, 3));
+  t('Startbestand: jedes Training hat Uebungen', () => {
+    const leer = seedPlans().filter(p => !p.exercises || !p.exercises.length).map(p => p.name);
+    return leer.length ? leer.join(', ') : true;
+  });
+  t('Startbestand findet heute oder demnaechst ein Training', () => {
+    plans = seedPlans();
+    const r = (!!planForToday() || !!nextTrainingDay());
+    plans = PLANS_VOR;
+    return r || 'weder heute noch demnaechst etwas';
+  });
+
   // ================================================================ Schluessel-Dialog
   // Neu am 22.08.2026, nachdem Google Karl auf "Available regions" geworfen hat und der
   // alte prompt() weder einen anklickbaren Link noch eine Erklaerung bieten konnte.

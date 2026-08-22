@@ -524,10 +524,16 @@ function openLibrary(){
 }
 
 // ---------- Daten ----------
-function seedPlans(){ const mk=(n,ex)=>({id:uid(),name:n,exercises:ex.map(([a,s,r])=>({id:uid(),name:a,sets:s,reps:r}))});
-  return [ mk('Push',[['Bankdrücken',4,8],['Schulterdrücken',3,10],['Trizeps-Drücken',3,12]]),
-           mk('Pull',[['Klimmzüge',4,8],['Rudern',4,10],['Bizeps-Curls',3,12]]),
-           mk('Beine',[['Kniebeuge',4,8],['Beinpresse',3,12],['Wadenheben',4,15]]) ]; }
+// 🔴 Behoben am 22.08.2026: die drei Trainings kamen OHNE Wochentag.
+// Wer im Assistenten „Selbst anlegen" waehlt, bekam damit drei Trainings, die keinem
+// Tag gehoeren — `planForToday()` traf nie etwas, und die Startseite meldete JEDEN
+// Tag „Ruhetag · Noch keine Trainingstage festgelegt", obwohl drei fertige Trainings
+// in der App lagen. Jetzt Mo/Mi/Fr, der klassische 3er-Rhythmus; im Editor
+// verschiebbar. Hauptsache, sie haben ueberhaupt einen Tag.
+function seedPlans(){ const mk=(n,d,ex)=>({id:uid(),name:n,day:d,exercises:ex.map(([a,s,r])=>({id:uid(),name:a,sets:s,reps:r}))});
+  return [ mk('Push',0,[['Bankdrücken',4,8],['Schulterdrücken',3,10],['Trizeps-Drücken',3,12]]),
+           mk('Pull',2,[['Klimmzüge',4,8],['Rudern',4,10],['Bizeps-Curls',3,12]]),
+           mk('Beine',4,[['Kniebeuge',4,8],['Beinpresse',3,12],['Wadenheben',4,15]]) ]; }
 // ---------- Trainingsplaene ----------
 // Seit dem 05.08. gibt es eine Ebene mehr: mehrere *Trainingsplaene*, von denen einer der aktuelle
 // ist. Ein Trainingsplan enthaelt die einzelnen Trainings (Push, Pull, Beine …).
