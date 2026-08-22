@@ -1476,6 +1476,70 @@ window.addEventListener('error', e => {
   });
   DB.set('aikey', KEY_VORHER);
 
+
+  // ================================================ Ladebildschirm (22.08.2026)
+  // Karls Ansage: "Ich brauche einen lade screen mit brock drauf."
+  //
+  // ⚠️ Die wichtigste Pruefung ist die erste. Der Schirm liegt UEBER der ganzen App -
+  // bleibt er stehen, ist die App gesperrt, nicht nur haesslich. Genau das ist in
+  // angel-log schon einmal passiert.
+  t('Der Ladebildschirm ist nach dem Start weg', () => {
+    const el = document.getElementById('splash');
+    return (el && el.classList.contains('weg')) || (el ? 'liegt noch drueber' : 'gar nicht da');
+  });
+  t('Der Ladebildschirm bleibt im Dokument', () => {
+    // Nicht entfernt, nur ausgeblendet - sonst gaebe es beim naechsten render nichts
+    // mehr zum Wegnehmen, und die harte Grenze im Kopf liefe ins Leere.
+    return !!document.getElementById('splash') || 'wurde entfernt';
+  });
+  t('Brock steht auf dem Ladebildschirm', () => {
+    const img = document.querySelector('#splash img');
+    return (img && /brock/.test(img.getAttribute('src'))) || 'kein Brock';
+  });
+  t('Der Schirm liegt ueber allem', () => {
+    const z = +getComputedStyle(document.getElementById('splash')).zIndex;
+    return z >= 9000 || ('z-index ' + z);
+  });
+  // ⚠️ Der Notausstieg muss im KOPF stehen, nicht in der Startroutine: er soll auch dann
+  // greifen, wenn das Skript weiter unten gar nicht erst durchlaeuft.
+  t('Die harte Zeitgrenze existiert', () => {
+    return (typeof SPLASH_HOECHSTENS === 'number' && SPLASH_HOECHSTENS > 0
+            && SPLASH_HOECHSTENS <= 10000) || 'keine oder unbrauchbare Grenze';
+  });
+  t('splashWeg laesst sich zweimal aufrufen', () => {
+    splashWeg(); splashWeg();
+    return document.getElementById('splash').classList.contains('weg') || 'Zustand kippt';
+  });
+  // ⚠️ Das Abbild ist das, was den Farbblitz beim naechsten Start verhindert. Ohne die
+  // vier Farben faellt der Schirm auf die Vorgaben aus :root zurueck - bei einer hellen
+  // Palette also auf Dunkelgrau, genau das Aufblitzen, das er verhindern soll.
+  t('applyTheme legt das Abbild fuer den naechsten Start ab', () => {
+    applyTheme();
+    const f = DB.get('splash', null);
+    if(!f) return 'kein Abbild';
+    const fehlt = ['bg','txt','muted','line','img'].filter(k => !f[k]);
+    return fehlt.length ? ('fehlt: ' + fehlt.join(', ')) : true;
+  });
+  t('Das Abbild zeigt den getragenen Rang', () => {
+    const xpVorher = profile.xp;
+    profile.xp = xpForLevel(45);          // Gigachad
+    applyTheme();
+    const hoch = DB.get('splash', {}).img;
+    profile.xp = 0;
+    applyTheme();
+    const tief = DB.get('splash', {}).img;
+    profile.xp = xpVorher; applyTheme();
+    return (hoch !== tief && /brock-9/.test(hoch)) || (hoch + ' / ' + tief);
+  });
+  // ⚠️ Ein kaputter Eintrag darf den Start nicht kosten - das Kopf-Skript liest ihn, bevor
+  // irgendetwas anderes laeuft, und hat keinen Fehlerfang ausser seinem eigenen try.
+  t('Ein kaputtes Abbild wirft den Start nicht um', () => {
+    localStorage.setItem('gymlog:splash', '{kaputt');
+    const r = DB.get('splash', 'ersatz');
+    applyTheme();
+    return eq(r, 'ersatz');
+  });
+
   // ================================================================ Aufraeumen
   sessions = SICHER.sessions; profile = SICHER.profile; settings = SICHER.settings;
 

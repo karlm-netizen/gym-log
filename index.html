@@ -11,6 +11,43 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Gym-Log">
+<!-- ⚠️ Laeuft absichtlich HIER oben, vor dem ersten Bild. Wer eine der freigespielten Paletten
+     traegt, saehe beim Start sonst kurz Dunkelgrau aufblitzen: die Palette wird erst unten in
+     applyTheme() gesetzt. Ein Ladebildschirm in der falschen Farbe waere genau das Aufblitzen,
+     das er verhindern soll. Gelesen wird nur ein Abbild aus vier Farben und einem Bildnamen
+     (geschrieben in applyTheme) — die Paletten selbst gibt es hier oben noch gar nicht.
+     Fehlt der Eintrag (erster Besuch), bleibt es bei den Vorgaben aus :root und brock.png. -->
+<script>
+(function(){
+  try {
+    var f = JSON.parse(localStorage.getItem('gymlog:splash') || 'null');
+    if (!f) return;
+    var s = document.documentElement.style;
+    if (f.bg)    s.setProperty('--bg', f.bg);
+    if (f.txt)   s.setProperty('--txt', f.txt);
+    if (f.muted) s.setProperty('--muted', f.muted);
+    if (f.line)  s.setProperty('--line', f.line);
+    if (f.card)  s.setProperty('--card', f.card);
+    if (f.ok)    s.setProperty('--ok', f.ok);
+    var m = document.querySelector('meta[name="theme-color"]');
+    if (m && f.bg) m.content = f.bg;
+    // Brock in seinem getragenen Rang — der Ladebildschirm zeigt den eigenen Stand,
+    // nicht immer den Anfaenger-Brock.
+    window.__splashImg = f.img || 'brock.png';
+  } catch (e) {}
+})();
+
+// ⚠️ Die harte Obergrenze. Der Ladebildschirm liegt UEBER der ganzen App — bliebe er stehen,
+// waere die App gesperrt, und zwar unbedienbar, nicht nur haesslich. Der Wecker steht
+// absichtlich HIER und nicht in init(): so greift er auch dann, wenn init() nie erreicht wird
+// (Skriptfehler weiter unten, abgebrochener Download, kaputter Datenbestand).
+// Uebernommen aus angel-log — dort ist genau das schon einmal passiert.
+var SPLASH_HOECHSTENS = 5000;
+setTimeout(function(){
+  var s = document.getElementById('splash');
+  if (s) s.classList.add('weg');
+}, SPLASH_HOECHSTENS);
+</script>
 <style>
   :root{
     --bg:#0f1115; --card:#181b22; --card2:#222630; --line:#2b303b;
@@ -18,6 +55,31 @@
     --danger:#ff5d5d; --r:16px; --sp:16px;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  /* ---------- Ladebildschirm ----------
+     Karls Ansage vom 22.08.2026: „Ich brauche einen lade screen mit brock drauf."
+     ⚠️ Er liegt ueber allem. Alles hier drin muss ohne JavaScript funktionieren, weil er
+     genau dann sichtbar ist, wenn das Skript noch nicht gelaufen ist. */
+  #splash{position:fixed; inset:0; z-index:9000; background:var(--bg);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+    padding:calc(env(safe-area-inset-top) + 24px) 24px calc(env(safe-area-inset-bottom) + 24px)}
+  #splash{transition:opacity .3s ease, visibility 0s .3s}
+  #splash.weg{opacity:0; visibility:hidden; pointer-events:none}
+  #splash img{width:132px; height:132px; object-fit:contain; display:block;
+    animation:splashHeb 1.6s ease-in-out infinite}
+  #splash .name{font-size:26px; font-weight:800; letter-spacing:.3px; color:var(--txt)}
+  #splash .balken{width:132px; height:4px; border-radius:99px; background:var(--line);
+    overflow:hidden; position:relative}
+  #splash .balken:after{content:''; position:absolute; inset:0; width:40%; border-radius:99px;
+    background:var(--ok); animation:splashLauf 1.15s ease-in-out infinite}
+  @keyframes splashHeb{0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)}}
+  @keyframes splashLauf{0%{left:-40%} 100%{left:100%}}
+  /* ⚠️ Wer „Bewegung reduzieren" gesetzt hat, bekommt einen ruhigen Schirm statt eines
+     huepfenden Monsters. Der Balken bleibt sichtbar, damit man sieht, dass etwas laeuft. */
+  @media (prefers-reduced-motion:reduce){
+    #splash img{animation:none}
+    #splash .balken:after{animation:none; width:100%; left:0; opacity:.5}
+  }
+
   html,body{margin:0; background:var(--bg); color:var(--txt);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     -webkit-font-smoothing:antialiased; transition:background .25s}
@@ -266,6 +328,14 @@
 </style>
 </head>
 <body>
+<!-- Ladebildschirm. Steht bewusst VOR #app im Quelltext: er soll da sein, bevor
+     irgendetwas anderes gezeichnet wird. Das Bild wird unten in init() auf den
+     getragenen Rang gesetzt; bis dahin steht der Standard-Brock drin. -->
+<div id="splash">
+  <img id="splashMon" src="brock.png" width="132" height="132" alt="" aria-hidden="true">
+  <div class="name">Gym-Log</div>
+  <div class="balken"></div>
+</div>
 <main id="app" class="wrap"></main>
 
 <div id="timerbar"></div>
@@ -746,7 +816,18 @@ function applyTheme(){
   const th=THEMES[eff]||THEMES.dark, root=document.documentElement;
   Object.entries(th.vars).forEach(([k,v])=>root.style.setProperty(k,v));
   document.querySelector('meta[name=theme-color]').setAttribute('content', th.vars['--bg']);
+  // ⚠️ Abbild fuer den Ladebildschirm des NAECHSTEN Starts. Das Kopf-Skript ganz oben laeuft,
+  // bevor es THEMES oder RANKS gibt — es kann sich die Palette nicht selbst herleiten, nur
+  // vier fertige Farben und einen Bildnamen lesen. Deshalb wird hier abgelegt, was dort
+  // gebraucht wird. Rein kosmetisch: fehlt es, sieht der Schirm nur schlichter aus.
+  try { DB.set('splash', {bg:th.vars['--bg'], txt:th.vars['--txt'], muted:th.vars['--muted'],
+    line:th.vars['--line'], card:th.vars['--card'], ok:th.vars['--ok'],
+    img: brockSrc(equippedRank())}); } catch(e){}
 }
+// Den Ladebildschirm wegnehmen. ⚠️ Nur EIN Weg dorthin, und der laeuft nach dem ersten
+// render() — nicht nach dem Abgleich: der kann ohne Netz ewig dauern, und die App ist
+// vorher vollstaendig bedienbar. Die harte Grenze im Kopf bleibt als Notausstieg.
+function splashWeg(){ const el=document.getElementById('splash'); if(el) el.classList.add('weg'); }
 
 // ---------- Rendering ----------
 // Die Rang-Ansicht hat keinen eigenen Platz mehr in der Leiste — man kommt nur über die
@@ -3078,7 +3159,12 @@ applyTheme();
 leseImportAusLink();      // geteilter Plan im Link? Hash gleich entfernen, Angebot kommt nach dem Login
 if(active) view='workout';
 else if(session && !profile.onboarded) startOnboard();   // neues Konto → erst der Assistent
+// Brock auf dem Ladebildschirm auf den getragenen Rang setzen — beim allerersten Besuch
+// steht dort noch der Standard-Brock aus dem Quelltext.
+(function(){ const el=document.getElementById('splashMon');
+  if(el && window.__splashImg) el.src = window.__splashImg; })();
 render();                 // ohne Anmeldung erscheint hier das Login-Fenster
+splashWeg();              // die Ansicht steht — der Schirm hat seine Aufgabe erfuellt
 cloudSyncStart();         // im Hintergrund; ohne Netz startet die App trotzdem normal
 window.addEventListener('online',()=>{ if(session&&dirty) cloudPush(); });
 

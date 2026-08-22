@@ -4,6 +4,31 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-22
 
+### ✨ Ladebildschirm mit Brock
+
+**Karls Ansage vom 22.08.2026:** *„Ich brauche einen lade screen mit brock drauf."*
+
+Brock in seinem **getragenen Rang** — der Schirm zeigt deinen Stand, nicht immer den
+Anfänger-Brock. Dazu der Name und ein laufender Balken. Wer „Bewegung reduzieren" gesetzt hat,
+bekommt einen ruhigen Schirm statt eines hüpfenden Monsters.
+
+⚠️ **Die harte Zeitgrenze steht im Kopf der Datei, nicht in der Startroutine.** Der Schirm liegt
+über der ganzen App — bliebe er stehen, wäre sie gesperrt, und zwar unbedienbar, nicht nur
+hässlich. Der Wecker greift deshalb auch dann, wenn das Skript weiter unten gar nicht erst
+durchläuft (Syntaxfehler, abgebrochener Download, kaputter Datenbestand). Genau das ist in
+Angel-Log schon einmal passiert.
+
+⚠️ **Weggenommen wird nach dem ersten `render()`, nicht nach dem Abgleich.** Der kann ohne Netz
+ewig dauern, und die App ist vorher vollständig bedienbar.
+
+💡 **Gegen den Farbblitz:** ein Abbild aus vier Farben und dem Bildnamen liegt im Gerät. Das
+Kopf-Skript läuft, bevor es Paletten oder Ränge gibt — es kann sich nichts herleiten, nur
+fertige Werte lesen. Ohne das säßen Träger einer hellen Palette eine Zehntelsekunde vor einem
+dunkelgrauen Schirm. Ein kaputter Eintrag kostet nichts: dann sieht der Schirm nur schlichter aus.
+
+**Neun Prüfungen** halten es fest — die wichtigste ist, dass der Schirm nach dem Start
+tatsächlich wieder weg ist. **333 gesamt.**
+
 ### ✨ Ernährungs-Assistent beim ersten Öffnen
 
 **Karls Ansage vom 22.08.2026:** *„Ich will das wenn man darauf klickt wird beim aller ersten
