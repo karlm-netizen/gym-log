@@ -4,6 +4,88 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-22
 
+### ✨ Der Ernährungs-Teil weiß jetzt, was du wiegst
+
+**Der rote Faden hinter allem Folgenden:** die App führt eine Gewichtskurve *und* ein
+Essensprotokoll — und hat beide nie miteinander reden lassen. Der Kalorien-Teil kannte das
+Körpergewicht nicht, obwohl es zwei Bildschirme weiter lag.
+
+- **Brock kommentiert den Tag.** Er stand bisher nur auf der Startseite und redete
+  ausschließlich über Training. Jetzt sieben Zustände: nichts eingetragen, kein Ziel gesetzt,
+  gut unterwegs, Punktlandung, drüber, weit drüber, Ruhetag. Sprüche bleiben über den Tag
+  stabil, wie beim Training.
+- **Eiweiß bekommt ein echtes Ziel:** 1,8 g je kg Körpergewicht, mit Balken in derselben
+  Bildsprache wie der Ring. ⚠️ **Ohne eingetragenes Gewicht steht dort ein Hinweis, keine
+  geratene Zahl.**
+- **An Trainingstagen 2,0 g statt 1,8 g.** `istTrainingstag()` fragt den Plan *und* ob heute
+  schon trainiert wurde — ein spontanes Training zählt also mit.
+- **Das Kalorienziel schlägt sich selbst vor.** Die Faustregel kg × 30 stand bisher als
+  **Text im Eingabefenster**, den der Nutzer selbst anwenden sollte. Jetzt rechnet die App und
+  bietet einen Knopf.
+- **Wochenschnitt statt nur „heute".** Ein einzelner Tag sagt fast nichts.
+  ⚠️ **Gerechnet wird nur über Tage MIT Eintrag.** Tage ohne Eintrag als 0 kcal zu zählen
+  würde aus „nicht protokolliert" ein „nichts gegessen" machen — der häufigste Rechenfehler
+  in solchen Apps.
+- **„Nochmal"** — die sechs zuletzt gegessenen Sachen, jede nur einmal, direkt antippbar.
+  💡 Essensprotokolle sterben nicht an Faulheit, sondern daran, dass man dasselbe Frühstück
+  jeden Tag neu zusammensucht.
+
+### ✨ Regelkreis: die Waage korrigiert das Kalorienziel
+
+> *„In 14 Tagen 0,7 kg runter bei Ø 2.100 kcal. Für 0,5 kg pro Woche wären es eher 1.950."*
+
+Beide Kurven lagen längst in der App. Es braucht keinen Server, keine KI, nur Arithmetik über
+zwei vorhandene Reihen — **und kein bezahltes Abo kann es besser.**
+
+Dazu neu: **abnehmen / halten / zunehmen** als ausdrückliche Angabe (`zielArt`). Danach richtet
+sich der Zielversatz (−400 / 0 / +300 kcal) und die erwartete Änderung je Woche.
+
+⚠️ **Der Regelkreis hält den Mund, wenn die Grundlage fehlt** — unter zwei Wiegungen, unter
+sieben Tagen Spanne oder ohne gesetztes Ziel sagt er nichts, statt aus zwei Punkten einen Trend
+zu erfinden. Das neue Ziel wird nie unter 1.200 kcal vorgeschlagen.
+
+### ✨ Serie, Rekord-Meldung, Jahresraster
+
+- **Wochenserie** — Wochen am Stück mit mindestens einem Training.
+  ⚠️ Die **laufende** Woche zählt nur mit, wenn schon trainiert wurde; sonst würde die Serie
+  jeden Montag um 0 Uhr scheinbar reißen.
+- **Rekord sofort sichtbar:** ein neuer Bestwert meldet sich beim Abhaken des Satzes, nicht
+  erst in der Auswertung.
+- **Jahresraster** — 53×7 Felder über das Trainingsjahr.
+  💡 Die Schwellen kommen aus **den eigenen Quantilen**, nicht aus festen Zahlen: ein
+  Anfänger-Jahr und ein Fortgeschrittenen-Jahr sehen dadurch beide nach etwas aus.
+
+### 🐛 Barcode: Sackgasse und verlorene Nummer
+
+Stand ein Produkt nicht in Open Food Facts, kam eine Fehlermeldung — und sonst nichts.
+Jetzt führt der Weg direkt ins Selbst-Anlegen, **und die gescannte Nummer wird mitgespeichert**
+(`food:merken` und `food:newsave` haben sie vorher fallen lassen). Beim nächsten Scan findet
+`eigenesZuBarcode()` die Packung in der **eigenen** Liste, ohne Netz.
+
+💡 Zur Größenordnung: 422.265 Produkte mit Deutschland-Kennzeichnung, davon **246.807 mit
+vollständigen Nährwerten**. Der Fall tritt also regelmäßig ein.
+
+### ✅ 305 Prüfungen statt 160
+
+Der Trainings-Teil wurde systematisch abgeklopft. **Zweimal lag die Prüfung falsch, nicht die
+App** — beide Male habe ich die Prüfung korrigiert und den Grund hineingeschrieben:
+`nextTrainingDay()` darf auf heute zeigen (wer nur montags trainiert …), und `planWarm(null)`
+gibt richtigerweise die Profil-Einstellung zurück, nicht `false`.
+
+⚠️ **Festgehaltene Lücke:** Einheiten von vor dem 06.08.2026 haben kein `xp`-Feld. Wird so
+eine im Verlauf geändert, lässt `sessRecalc()` den Punktestand stehen. Eine Prüfung hält das
+fest, damit es nicht als Fehler durchgeht, wenn es später jemandem auffällt.
+
+### 🚫 Bewusst **nicht** gebaut: XP fürs Essen
+
+Naheliegend — und es würde das System kaputtmachen. **XP misst zurzeit Training.** Wer
+Protokollieren belohnt, bläht Level und Rang mit etwas auf, das keine Anstrengung ist, und
+Brocks Rang hört auf, über das Training etwas auszusagen. Die Serie läuft deshalb **ohne XP**.
+
+⚠️ Ebenfalls draußen geblieben: der **Schlüssel im Konto-Abgleich**. Halb gebaut, aber vier
+Texte — darunter die Datenschutzerklärung — sagen weiter, er bleibe auf dem Gerät. Entweder
+ganz oder gar nicht; steht offen.
+
 ### 🐛 Neues Konto: drei Trainings ohne Wochentag — „Ruhetag" für immer
 
 `seedPlans()` legt für ein frisches Konto Push/Pull/Beine an — **ohne `day`**. Damit fand

@@ -526,10 +526,10 @@ function openLibrary(){
 // ---------- Daten ----------
 // 🔴 Behoben am 22.08.2026: die drei Trainings kamen OHNE Wochentag.
 // Wer im Assistenten „Selbst anlegen" waehlt, bekam damit drei Trainings, die keinem
-// Tag gehoeren — `planForToday()` traf nie etwas, und die Startseite meldete JEDEN
-// Tag „Ruhetag · Noch keine Trainingstage festgelegt", obwohl drei fertige Trainings
-// in der App lagen. Jetzt Mo/Mi/Fr, der klassische 3er-Rhythmus; im Editor
-// verschiebbar. Hauptsache, sie haben ueberhaupt einen Tag.
+// Tag gehoeren — planForToday() traf nie etwas, und die Startseite meldete
+// JEDEN Tag „Ruhetag · Noch keine Trainingstage festgelegt", obwohl drei fertige
+// Trainings in der App lagen. Jetzt Mo/Mi/Fr, der klassische 3er-Rhythmus.
+// (Karl kann sie im Editor jederzeit verschieben — Hauptsache, sie haben ueberhaupt einen Tag.)
 function seedPlans(){ const mk=(n,d,ex)=>({id:uid(),name:n,day:d,exercises:ex.map(([a,s,r])=>({id:uid(),name:a,sets:s,reps:r}))});
   return [ mk('Push',0,[['Bankdrücken',4,8],['Schulterdrücken',3,10],['Trizeps-Drücken',3,12]]),
            mk('Pull',2,[['Klimmzüge',4,8],['Rudern',4,10],['Bizeps-Curls',3,12]]),
@@ -869,6 +869,103 @@ const BROCK_SAY={
             'Weiter, der Satz macht sich nicht von allein.',
             'Dranbleiben. Ich guck zu.' ]
 };
+/* NEU (22.08.2026): die Serie — wie viele Wochen am Stueck wurde trainiert?
+
+   💡 Warum Wochen und nicht Tage: eine Tagesserie reisst bei jedem Ruhetag, und
+   Ruhetage GEHOEREN zum Plan. Eine Wochenserie misst das, worauf es ankommt —
+   dranbleiben, nicht taeglich schuften.
+
+   ⚠️ Karls Restlisten-Punkt 4 („XP soll Dranbleiben staerker belohnen") ist
+   ZURUECKGESTELLT. Das hier fasst XP bewusst NICHT an: es zeigt die Serie nur an.
+   Der XP-Umbau bleibt seine Entscheidung.                                        */
+function wochenStart(ts){
+  const d=new Date(ts); d.setHours(0,0,0,0);
+  d.setDate(d.getDate()-((d.getDay()+6)%7));   // zurueck auf Montag
+  return d.getTime();
+}
+function wochenSerie(){
+  if(!sessions.length) return 0;
+  const wochen=new Set(sessions.map(s=>wochenStart(s.date)));
+  let n=0, d=new Date(wochenStart(Date.now()));
+  // ⚠️ Die laufende Woche zaehlt nur mit, wenn darin schon trainiert wurde. Sonst
+  // waere die Serie jeden Montagmorgen gerissen, obwohl noch nichts versaeumt ist.
+  if(!wochen.has(d.getTime())) d.setDate(d.getDate()-7);
+  while(wochen.has(d.getTime())){ n++; d.setDate(d.getDate()-7); }
+  return n;
+}
+/* NEU (22.08.2026): das Trainingsjahr als Raster.
+
+   💡 Die Idee: die Serie sagt „5 Wochen am Stück" — eine Zahl. Das Raster ZEIGT es.
+   Ein Jahr, 53 Spalten zu je sieben Tagen, jeder Trainingstag ein heller Fleck.
+   Man sieht Urlaube, Durchhänger und gute Phasen auf einen Blick, ohne eine
+   einzige Zahl zu lesen.
+
+   ⚠️ Die Helligkeit haengt am VOLUMEN des Tages, nicht nur an „trainiert ja/nein" —
+   sonst sehen ein Zehn-Minuten-Durchlauf und eine schwere Einheit gleich aus.     */
+function jahresRaster(){
+  if(!sessions.length) return '';
+  // Volumen je Tag einsammeln
+  const proTag=new Map();
+  sessions.forEach(s=>{
+    const d=new Date(s.date); d.setHours(0,0,0,0);
+    const k=d.getTime();
+    proTag.set(k,(proTag.get(k)||0)+volume(s.entries||[]));
+  });
+  const werte=[...proTag.values()].filter(v=>v>0).sort((a,b)=>a-b);
+  // Schwellen ueber die eigenen Einheiten, nicht ueber feste Zahlen — 3000 kg sind
+  // fuer den einen viel und fuer den anderen wenig.
+  const q=p=>werte.length?werte[Math.min(werte.length-1,Math.floor(werte.length*p))]:0;
+  const s1=q(0.33), s2=q(0.66);
+  const stufe=v=>!v?0:v<=s1?1:v<=s2?2:3;
+  // ⚠️ NICHT --accent: das ist im dunklen Design fast weiss, und ein Raster aus
+  // weissen Kaestchen liest sich wie ein Fehler, nicht wie Fortschritt. --ok ist
+  // das Gruen, das der Kalorienring schon benutzt — dieselbe Bedeutung, dieselbe Farbe.
+  const farben=['var(--card2)','color-mix(in srgb, var(--ok) 28%, var(--card2))',
+                'color-mix(in srgb, var(--ok) 58%, var(--card2))','var(--ok)'];
+
+  // 53 Wochen zurueck, immer bei Montag beginnend
+  const heute=new Date(); heute.setHours(0,0,0,0);
+  const ende=new Date(wochenStart(heute.getTime()));
+  const start=new Date(ende); start.setDate(start.getDate()-52*7);
+
+  let spalten='', monate='', letzterMonat=-1;
+  const MON=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  for(let w=0; w<=52; w++){
+    const wochenTag=new Date(start); wochenTag.setDate(wochenTag.getDate()+w*7);
+    // Monatsbeschriftung nur beim Wechsel, sonst wird es Brei
+    const m=wochenTag.getMonth();
+    monate+=`<div style="width:11px;font-size:9px;color:var(--muted);white-space:nowrap">${
+      m!==letzterMonat && wochenTag.getDate()<=7 ? MON[m] : ''}</div>`;
+    if(m!==letzterMonat && wochenTag.getDate()<=7) letzterMonat=m;
+
+    let zellen='';
+    for(let d=0; d<7; d++){
+      const tag=new Date(wochenTag); tag.setDate(tag.getDate()+d);
+      const zukunft=tag.getTime()>heute.getTime();
+      const v=proTag.get(tag.getTime())||0;
+      zellen+=`<div title="${tag.toLocaleDateString('de-DE')}${v?' · '+v+' kg':''}"
+        style="width:11px;height:11px;border-radius:3px;background:${
+          zukunft?'transparent':farben[stufe(v)]};${zukunft?'':'box-shadow:inset 0 0 0 1px rgba(255,255,255,.03)'}"></div>`;
+    }
+    spalten+=`<div style="display:grid;grid-template-rows:repeat(7,11px);gap:3px">${zellen}</div>`;
+  }
+
+  const tage=[...proTag.keys()].filter(k=>proTag.get(k)>0).length;
+  return `<div class="row between" style="margin:22px 4px 6px"><h2>Dein Jahr</h2>
+      <span class="tiny muted">${tage} ${tage===1?'Tag':'Tage'} trainiert</span></div>
+    <div class="card" style="padding:12px 10px">
+      <div style="overflow-x:auto">
+        <div style="display:inline-block;min-width:100%">
+          <div style="display:grid;grid-auto-flow:column;gap:3px;margin-bottom:3px">${monate}</div>
+          <div style="display:grid;grid-auto-flow:column;gap:3px">${spalten}</div>
+        </div>
+      </div>
+      <div class="row" style="gap:6px;align-items:center;margin-top:10px;justify-content:flex-end">
+        <span class="tiny muted">wenig</span>
+        ${farben.map(f=>`<div style="width:11px;height:11px;border-radius:3px;background:${f}"></div>`).join('')}
+        <span class="tiny muted">viel</span></div>
+    </div>`;
+}
 function sessionsOn(ts){ return sessions.filter(s=>sameDay(s.date,ts)); }
 function trainedToday(){ return sessionsOn(Date.now()).length>0; }
 function missedYesterday(){ const y=Date.now()-864e5, d=(new Date(y).getDay()+6)%7;
@@ -1004,6 +1101,24 @@ function renderHome(){
   // Karls Ansage raus — die Zahlen stehen im Verlauf, hier waren sie nur Beiwerk.
   h+=`<div class="row between" style="margin:2px 4px 6px"><h2>Fortschritt</h2></div>`;
   h+=rankCardHTML();
+
+  // NEU: die Serie. Sie stand nirgends in der App — dabei ist Dranbleiben das,
+  // worum es geht. ⚠️ Bewusst OHNE XP-Kopplung: Karls Restlisten-Punkt 4 ist
+  // zurückgestellt, und das ist seine Entscheidung, nicht meine.
+  const serie=wochenSerie();
+  if(serie>0){
+    h+=`<div class="card" style="margin-top:10px">
+      <div class="row between">
+        <span><b style="font-size:22px">${serie}</b>
+          <span class="muted"> ${serie===1?'Woche':'Wochen'} am Stück</span></span>
+        <span class="pill">${'▪'.repeat(Math.min(serie,8))}${serie>8?' +'+(serie-8):''}</span></div>
+      <div class="tiny muted" style="margin-top:6px">${
+        trainedToday() || sessionsOn(Date.now()).length
+          ? 'Diese Woche steht schon.'
+          : sessions.some(s=>wochenStart(s.date)===wochenStart(Date.now()))
+            ? 'Diese Woche steht schon.'
+            : 'Diese Woche fehlt noch — <b style="color:var(--txt)">ein Training hält die Serie</b>.'}</div></div>`;
+  }
   h+='</div><div>';
 
   // 2 · Heute. Ein laufendes Training steht seit dem 05.08. NICHT mehr ganz oben, sondern
@@ -1158,7 +1273,11 @@ function renderWorkout(){
 function renderHistory(){
   const back=`<button class="link" data-nav="settings">‹ Einstellungen</button>`;
   if(sessions.length===0){ app.innerHTML=back+`<div class="empty">Noch keine Einheiten.<br>Starte dein erstes Training.</div>`; return; }
-  let h=back+`<div class="row between" style="margin:6px 4px 4px"><h2>Einheiten</h2></div>`;
+  // NEU: das Jahresraster steht GANZ OBEN. Es beantwortet die Frage, mit der man
+  // den Verlauf überhaupt aufmacht („bin ich drangeblieben?"), bevor man eine
+  // einzige Zeile liest.
+  let h=back+jahresRaster()
+    +`<div class="row between" style="margin:22px 4px 4px"><h2>Einheiten</h2></div>`;
   [...sessions].reverse().forEach(s=>{ const d=fmtDauer(s.dur); h+=`<div class="card" data-opensess="${s.id}"><div class="row between">
     <div><div class="plan-chip"><span class="dot"></span><b>${esc(s.planName)}</b></div>
       <div class="muted tiny" style="margin-top:4px">${fmtDate(s.date)} · ${doneSets(s.entries)} Sätze${d?` · ${d}`:''}</div></div>
@@ -1327,6 +1446,192 @@ function mealsToday(){ const n=Date.now(); return kcalInit().meals.filter(m=>sam
 function sumMeals(list){ const s={kcal:0,p:0,c:0,f:0};
   list.forEach(m=>{ s.kcal+=+m.kcal||0; s.p+=+m.p||0; s.c+=+m.c||0; s.f+=+m.f||0; });
   Object.keys(s).forEach(x=>s[x]=Math.round(s[x])); return s; }
+
+/* ============================================================================
+   NEU (lokale Variante, 22.08.2026) — der Ernaehrungsteil kennt das Gewicht
+
+   Der Kern der Idee: die App weiss beides. Sie fuehrt eine Gewichtskurve UND ein
+   Essensprotokoll, hat die beiden aber nie miteinander reden lassen. Alles hier
+   unten leitet aus dem Gewicht ab, was der Nutzer sonst selbst ausrechnen muesste.
+   ========================================================================== */
+
+// Ist heute ein Trainingstag? Die App weiss das laengst (Plan oder bereits trainiert),
+// hat es im Ernaehrungsteil aber nie benutzt — die beiden Haelften der App kannten
+// einander nicht.
+function istTrainingstag(){ return !!planForToday() || trainedToday(); }
+
+// Eiweissziel aus dem Koerpergewicht. 1,8 g je kg ist der gaengige Richtwert beim
+// Krafttraining (Bereich 1,6-2,2). ⚠️ Ohne eingetragenes Gewicht gibt es KEIN Ziel —
+// geraten wird nicht, dann steht dort ein Hinweis statt einer Zahl.
+// 💡 An Trainingstagen 2,0 g statt 1,8 g je kg — an dem Tag, an dem der Reiz gesetzt
+// wird, ist der Baustoff am wichtigsten.
+function eiweissZiel(){
+  const w=lastWeight(); if(!w) return null;
+  return Math.round(w.kg*(istTrainingstag()?2.0:1.8));
+}
+
+// Kalorien-Vorschlag aus dem Koerpergewicht. Anhalt kg x 30, auf 50 gerundet —
+// dieselbe Faustregel, die bisher nur als Text im Eingabefenster stand. Sie dort
+// hinzuschreiben und den Nutzer rechnen zu lassen, war der halbe Weg.
+function kcalVorschlag(){ const w=lastWeight(); return w ? Math.round(w.kg*30/50)*50 : null; }
+
+function mealsOn(ts){ return kcalInit().meals.filter(m=>sameDay(m.date,ts)); }
+
+// Schnitt der letzten `tage` Tage — aber NUR ueber Tage, an denen etwas eingetragen
+// wurde. ⚠️ Wichtig: Tage ohne Eintrag als 0 kcal zu zaehlen wuerde den Schnitt
+// beliebig nach unten druecken und aus "nicht protokolliert" ein "nichts gegessen"
+// machen. Das ist der haeufigste Rechenfehler in solchen Apps.
+function kcalSchnitt(tage){
+  const n=Date.now(); let summe=0, mitEintrag=0;
+  for(let i=0;i<tage;i++){
+    const liste=mealsOn(n-i*864e5);
+    if(liste.length){ summe+=sumMeals(liste).kcal; mitEintrag++; }
+  }
+  return mitEintrag ? {schnitt:Math.round(summe/mitEintrag), tage:mitEintrag} : null;
+}
+
+// Die zuletzt gegessenen Sachen, jede nur einmal — fuers Wiedereintragen mit einem Tipp.
+// Der groesste Grund, warum Essensprotokolle nach einer Woche sterben, ist nicht
+// Faulheit, sondern dass man dasselbe Fruehstueck jeden Tag neu zusammensucht.
+function zuletztGegessen(anzahl){
+  const gesehen=new Set(), out=[];
+  const alle=kcalInit().meals.slice().sort((a,b)=>b.date-a.date);
+  for(const m of alle){
+    const key=(m.name||'')+'|'+m.menge;
+    if(gesehen.has(key)) continue;
+    gesehen.add(key); out.push(m);
+    if(out.length>=anzahl) break;
+  }
+  return out;
+}
+
+// Brock im Ernaehrungsteil. Bisher kam er dort ueberhaupt nicht vor — er stand nur
+// auf der Startseite und redete ausschliesslich ueber das Training.
+const BROCK_ESSEN={
+  'kein-ziel':[ 'Ohne Ziel ist der Ring nur ein Kreis. Sag mir, worauf du hinwillst.',
+                'Setz oben ein Tagesziel — dann kann ich dir auch was dazu sagen.' ],
+  leer:[ 'Noch nichts eingetragen. Der Tag ist jung, der Ring ist leer.',
+         'Ich seh hier nichts. Hast du heute Luft gegessen?',
+         'Leer. Trag was ein, ich guck es mir an.' ],
+  wenig:[ 'Das war bis jetzt wenig. Da geht noch was.',
+          'Erst ein Bruchteil. Muskeln bauen sich nicht aus Absicht.' ],
+  unterwegs:[ 'Gut unterwegs. Weiter so.',
+              'Läuft. Der Ring füllt sich ordentlich.',
+              'Solide Zwischenbilanz.' ],
+  punkt:[ 'Punktlandung. Genau das war der Plan.',
+          'Ziel getroffen. Das war sauber.',
+          'Auf den Punkt. Ich bin beeindruckt und zeig es nicht.' ],
+  drueber:[ 'Ein bisschen drüber. Passiert, morgen wieder.',
+            'Leicht über dem Ziel — kein Drama, nur eine Zahl.' ],
+  'weit-drueber':[ 'Deutlich drüber heute. Ich sag nichts, ich notiere nur.',
+                   'Das war ein üppiger Tag. Auch die gehören dazu.' ]
+};
+function brockEssenSay(kcal, ziel){
+  let key;
+  if(!(ziel>0)) key='kein-ziel';
+  else if(!kcal) key='leer';
+  else { const t=kcal/ziel;
+    key = t<0.5 ? 'wenig' : t<0.95 ? 'unterwegs' : t<=1.05 ? 'punkt'
+        : t<=1.25 ? 'drueber' : 'weit-drueber'; }
+  const list=BROCK_ESSEN[key];
+  // Ueber den Tag stabil, wie beim Training — der Spruch springt nicht bei jedem Antippen.
+  return list[Math.floor(Date.now()/864e5)%list.length];
+}
+
+/* ----------------------------------------------------------------------------
+   Der Regelkreis: Gewichtskurve <-> Kalorien
+
+   ⚠️ Das ist die eigentliche Luecke der App gewesen. Sie fuehrt beide Reihen seit
+   Wochen und hat sie nie miteinander reden lassen. Es braucht dafuer weder Server
+   noch KI — nur Arithmetik ueber zwei Zahlenreihen, die schon da sind.
+   -------------------------------------------------------------------------- */
+
+// Was will der Nutzer ueberhaupt? Stand bisher NIRGENDS in der App - und ohne das
+// ist jede Kalorienzahl geraten.
+const ZIELE = {
+  abnehmen: {name:'Abnehmen', proWoche:-0.5, versatz:-400, satz:'0,5 kg pro Woche runter'},
+  halten:   {name:'Halten',   proWoche:0,    versatz:0,    satz:'Gewicht halten'},
+  zunehmen: {name:'Aufbauen', proWoche:0.25, versatz:300,  satz:'0,25 kg pro Woche rauf'}
+};
+function zielArt(){ const k=kcalInit(); return ZIELE[k.art] ? k.art : null; }
+
+// Kalorienziel aus Gewicht UND Vorhaben. Ohne Vorhaben bleibt es beim reinen Erhalt.
+function kcalVorschlagFuer(art){
+  const w=lastWeight(); if(!w) return null;
+  const erhalt=w.kg*30, z=ZIELE[art];
+  return Math.round((erhalt + (z?z.versatz:0))/50)*50;
+}
+
+// Gewichtsentwicklung in kg pro Woche, ueber die letzten `tage` Tage.
+// ⚠️ Mindestens zwei Wiegungen ueber mindestens 7 Tage - alles darunter ist
+// Rauschen. Tagesschwankungen von 1 kg sind normal; wer daraus eine Woche
+// hochrechnet, bekommt Unsinn heraus und richtet sein Essen danach.
+function gewichtsTrend(tage){
+  const grenze=Date.now()-tage*864e5;
+  const w=weightList().filter(x=>x.date>=grenze);
+  if(w.length<2) return null;
+  const erst=w[0], letzt=w[w.length-1];
+  const spanne=(letzt.date-erst.date)/864e5;
+  if(spanne<7) return null;
+  return { proWoche:(letzt.kg-erst.kg)/spanne*7, tage:Math.round(spanne), messungen:w.length,
+           von:erst.kg, bis:letzt.kg };
+}
+
+// Die eigentliche Rueckmeldung: passt das, was auf der Waage passiert, zu dem,
+// was gegessen wird und was gewollt ist? Wenn nicht - um wie viel daneben?
+//
+// Rechnung: rund 7000 kcal entsprechen einem Kilo Koerpermasse. Eine Abweichung
+// von 1 kg/Woche sind also ~1000 kcal/Tag.
+// ⚠️ Das ist eine Faustregel, keine Physik. Deshalb wird unten gerundet und ein
+// Streifen von +/- 0,15 kg/Woche als "passt" behandelt, statt Nachkommastellen
+// als Wahrheit zu verkaufen.
+function regelkreis(){
+  const art=zielArt(); if(!art) return {stand:'kein-ziel'};
+  const trend=gewichtsTrend(21);
+  if(!trend) return {stand:'zu-wenig-gewicht'};
+  const schnitt=kcalSchnitt(14);
+  if(!schnitt || schnitt.tage<4) return {stand:'zu-wenig-essen', tage:schnitt?schnitt.tage:0};
+
+  const soll=ZIELE[art].proWoche, ist=trend.proWoche, abweichung=ist-soll;
+  if(Math.abs(abweichung)<=0.15)
+    return {stand:'passt', art, trend, schnitt, ist, soll};
+
+  // kcal/Tag, um die es danebenliegt. Auf 50 gerundet - feiner ist Schein-Genauigkeit.
+  const korrektur=Math.round(abweichung*1000/50)*50;
+  return {stand:'daneben', art, trend, schnitt, ist, soll, korrektur,
+          neuesZiel: Math.max(1200, Math.round((schnitt.schnitt-korrektur)/50)*50)};
+}
+
+// Was fehlt heute noch an Eiweiss - und was aus der EIGENEN Liste wuerde es decken?
+// Die App misst bisher nur; sie sagt nie, was jetzt zu tun waere.
+function eiweissTipp(bisher, ziel){
+  const fehlt=ziel-bisher; if(fehlt<=0) return null;
+  const k=kcalInit();
+  // Nur eigene Lebensmittel (Werte je 100 g), sortiert nach Eiweiss je 100 kcal -
+  // gesucht ist nicht das eiweissreichste, sondern das guenstigste.
+  const kandidaten=k.foods.filter(f=>+f.p>0 && +f.kcal>0)
+    .sort((a,b)=>(b.p/b.kcal)-(a.p/a.kcal));
+  if(!kandidaten.length) return {fehlt, essen:null};
+  const f=kandidaten[0];
+  let gramm=Math.round(fehlt/(+f.p)*100/10)*10;
+  // ⚠️ Deckel bei 300 g. Ohne ihn kommt bei einer grossen Luecke "800 g Magerquark"
+  // heraus - rechnerisch richtig, praktisch albern, und ein Vorschlag, den niemand
+  // befolgt, ist schlechter als keiner. Ueber dem Deckel sagt der Tipp ehrlich, dass
+  // er die Luecke nur teilweise schliesst.
+  const deckt = gramm>300 ? false : true;
+  if(!deckt) gramm=300;
+  const eiweiss=Math.round(+f.p*gramm/100);
+  return {fehlt, essen:f, gramm, eiweiss, deckt, kcal:Math.round(+f.kcal*gramm/100)};
+}
+
+// Ein Balken in derselben Bildsprache wie der Ring. Ueber 100 % faerbt er sich,
+// statt einfach stehenzubleiben — sonst sieht "genau erreicht" aus wie "weit drueber".
+function zielBalken(ist, ziel, farbe){
+  const teil = ziel>0 ? Math.min(1, ist/ziel) : 0;
+  const drueber = ziel>0 && ist>ziel;
+  return `<div style="height:8px;background:var(--card2);border-radius:99px;overflow:hidden">
+    <i style="display:block;height:100%;width:${Math.round(teil*100)}%;background:${drueber?'var(--danger)':farbe}"></i></div>`;
+}
 // Ring fuer „heute gegessen". Reines SVG, kein Bild — passt sich jedem Design an.
 function kcalRing(ist,ziel){
   const r=52, u=2*Math.PI*r, teil=ziel>0?Math.min(1.4,ist/ziel):0, drueber=teil>1;
@@ -1359,7 +1664,15 @@ function addMeal(d,menge){
 }
 function renderBody(){
   const k=kcalInit(), heute=mealsToday(), s=sumMeals(heute);
-  let h=`<div class="row between" style="margin:2px 4px 6px"><h2>Heute</h2>
+  const eZiel=eiweissZiel(), vorschlag=kcalVorschlag(), schnitt=kcalSchnitt(7);
+
+  // NEU: Brock ist jetzt auch hier. Er stand bisher nur auf der Startseite und
+  // redete ausschliesslich ueber das Training — der halbe App-Charakter fehlte
+  // in diesem Bereich komplett.
+  let h=`<div class="card" style="margin-bottom:10px">
+      ${mascot(brockEssenSay(s.kcal, k.goal||0), 'normal', 64, equippedRank())}</div>`;
+
+  h+=`<div class="row between" style="margin:2px 4px 6px"><h2>Heute</h2>
       <button class="btn sm ghost link" data-act="kcalgoal">${k.goal>0?k.goal+' kcal Ziel':'Ziel setzen'}</button></div>
     <div class="card"><div class="row" style="gap:16px">
       ${kcalRing(s.kcal, k.goal||0)}
@@ -1368,12 +1681,119 @@ function renderBody(){
             ? `noch <b style="color:var(--txt)">${k.goal-s.kcal} kcal</b> übrig`
             : `<b style="color:var(--danger)">${s.kcal-k.goal} kcal</b> darüber`}</div>`
           :`<div class="tiny muted" style="margin-bottom:8px">Setz oben ein Tagesziel, dann füllt sich der Ring.</div>`}
-        <div class="makro"><span>Eiweiß</span><b>${s.p} g</b></div>
-        <div class="makro"><span>Kohlenhydrate</span><b>${s.c} g</b></div>
+
+        ${/* NEU: Eiweiss bekommt ein echtes Ziel statt nur einer Zahl. Es ist der
+              Wert, der beim Krafttraining wirklich zaehlt — und die App kann ihn
+              ausrechnen, weil sie das Koerpergewicht kennt. */''}
+        <div class="makro" style="border-bottom:none;padding-bottom:2px">
+          <span>Eiweiß${istTrainingstag()?' <span class="muted" style="font-size:11px">· Trainingstag</span>':''}</span>
+          <b>${s.p} g${eZiel?` <span class="muted" style="font-weight:400">von ${eZiel} g</span>`:''}</b></div>
+        ${eZiel ? zielBalken(s.p, eZiel, 'var(--accent)')
+                : `<div class="tiny muted">Trag dein Gewicht ein, dann rechne ich dir das Eiweißziel aus.</div>`}
+        <div class="makro" style="margin-top:8px"><span>Kohlenhydrate</span><b>${s.c} g</b></div>
         <div class="makro"><span>Fett</span><b>${s.f} g</b></div>
-      </div></div></div>
-    <div class="fab-row" style="margin-top:10px">
+      </div></div></div>`;
+
+  // NEU: Was willst du überhaupt? Das stand bisher NIRGENDS in der App — und ohne
+  // diese eine Angabe ist jede Kalorienzahl geraten.
+  if(!zielArt()){
+    h+=`<div class="card" style="margin-top:10px">
+      <div style="margin-bottom:4px"><b>Was hast du vor?</b></div>
+      <div class="tiny muted" style="margin-bottom:10px">Danach richtet sich dein Kalorienziel —
+        und ich kann dir sagen, ob es aufgeht.</div>
+      <div class="fab-row">
+        ${Object.entries(ZIELE).map(([id,z])=>
+          `<button class="btn" data-zielart="${id}">${z.name}</button>`).join('')}
+      </div>
+      ${vorschlag?`<div class="tiny muted" style="margin-top:8px">Bei ${fmtKg(lastWeight().kg)} kg
+        rechne ich dir daraus das Tagesziel aus.</div>`
+        :`<div class="tiny muted" style="margin-top:8px">⚠️ Dafür brauche ich dein Gewicht —
+          trag es weiter unten ein.</div>`}</div>`;
+  }
+
+  // NEU: Zielvorschlag statt Kopfrechnen. Die Faustregel stand bisher nur als Text
+  // im Eingabefenster — der Nutzer sollte sie selbst anwenden.
+  if(!(k.goal>0) && vorschlag){
+    const fuer=kcalVorschlagFuer(zielArt());
+    h+=`<div class="card" style="margin-top:10px">
+      <div class="tiny muted" style="margin-bottom:8px">Aus deinem Gewicht von
+        <b style="color:var(--txt)">${fmtKg(lastWeight().kg)} kg</b>${zielArt()
+          ? ` und dem Vorhaben <b style="color:var(--txt)">${ZIELE[zielArt()].name}</b>`
+          : ''} ergibt sich <b style="color:var(--txt)">${fuer} kcal</b> am Tag.</div>
+      <button class="btn" data-act="kcalgoalauto">${fuer} kcal als Ziel übernehmen</button></div>`;
+  }
+
+  // NEU: der Regelkreis. Passt das, was auf der Waage passiert, zu dem was gegessen
+  // wird und was gewollt ist? Das ist die eine Sache, die kein bezahltes Abo besser
+  // kann — die Daten liegen längst da.
+  const rk=regelkreis();
+  if(rk.stand!=='kein-ziel'){
+    let inhalt;
+    if(rk.stand==='zu-wenig-gewicht')
+      inhalt=`<div class="tiny muted">Für die Rückmeldung brauche ich <b style="color:var(--txt)">zwei
+        Wiegungen über mindestens eine Woche</b>. Tagesschwankungen von einem Kilo sind normal —
+        daraus eine Woche hochzurechnen gäbe Unsinn.</div>`;
+    else if(rk.stand==='zu-wenig-essen')
+      inhalt=`<div class="tiny muted">Die Gewichtskurve steht, aber es fehlen Essenstage:
+        <b style="color:var(--txt)">${rk.tage} von mindestens 4</b> in den letzten zwei Wochen.</div>`;
+    else if(rk.stand==='passt')
+      inhalt=`<div class="row between"><span><b style="color:var(--ok)">Es geht auf.</b></span>
+        <span class="tiny muted">${rk.trend.tage} Tage</span></div>
+      <div class="tiny muted" style="margin-top:6px">
+        ${fmtKg(rk.trend.von)} → ${fmtKg(rk.trend.bis)} kg, also
+        <b style="color:var(--txt)">${rk.ist>0?'+':''}${fmtKg(rk.ist)} kg pro Woche</b>
+        bei Ø ${rk.schnitt.schnitt} kcal. Vorhaben: ${ZIELE[rk.art].satz}. <b style="color:var(--txt)">Nichts ändern.</b></div>`;
+    else
+      inhalt=`<div class="row between"><span><b>${rk.korrektur>0?'Zu langsam':'Zu schnell'}</b></span>
+        <span class="tiny muted">${rk.trend.tage} Tage</span></div>
+      <div class="tiny muted" style="margin-top:6px">
+        ${fmtKg(rk.trend.von)} → ${fmtKg(rk.trend.bis)} kg, also
+        <b style="color:var(--txt)">${rk.ist>0?'+':''}${fmtKg(rk.ist)} kg pro Woche</b>
+        bei Ø ${rk.schnitt.schnitt} kcal. Gewollt war ${ZIELE[rk.art].satz}.</div>
+      <div style="margin-top:8px">➡️ <b>${rk.neuesZiel} kcal</b> am Tag würden besser passen
+        <span class="muted">(${rk.korrektur>0?'−':'+'}${Math.abs(rk.korrektur)})</span></div>
+      <button class="btn" style="margin-top:8px" data-act="kcalziel-uebernehmen">Auf ${rk.neuesZiel} kcal umstellen</button>`;
+    h+=`<div class="card" style="margin-top:10px">
+      <div class="tiny muted" style="margin-bottom:6px">Waage und Essen im Abgleich</div>${inhalt}</div>`;
+  }
+
+  // NEU: die App misst nicht mehr nur, sie schlägt auch etwas vor.
+  const tipp = eZiel ? eiweissTipp(s.p, eZiel) : null;
+  if(tipp && tipp.essen){
+    h+=`<div class="card" style="margin-top:10px"><div class="tiny muted">
+      Dir fehlen noch <b style="color:var(--txt)">${tipp.fehlt} g Eiweiß</b>.
+      <b style="color:var(--txt)">${tipp.gramm} g ${esc(tipp.essen.name)}</b> ${tipp.deckt
+        ? `wären genau das`
+        : `bringen <b style="color:var(--txt)">${tipp.eiweiss} g</b> davon`}, bei ${tipp.kcal} kcal.</div></div>`;
+  }
+
+  // NEU: der Wochenschnitt. Ein einzelner Tag sagt fast nichts — was zaehlt, ist die
+  // Linie ueber die Woche. ⚠️ Gerechnet wird nur ueber Tage MIT Eintrag.
+  if(schnitt){
+    h+=`<div class="card" style="margin-top:10px">
+      <div class="row between"><span class="tiny muted">Schnitt der letzten 7 Tage</span>
+        <b>${schnitt.schnitt} kcal</b></div>
+      <div class="tiny muted" style="margin-top:4px">über ${schnitt.tage} ${schnitt.tage===1?'Tag':'Tage'} mit Eintrag${
+        k.goal>0 ? ` · Ziel ${k.goal} kcal, also <b style="color:var(--txt)">${
+          schnitt.schnitt>k.goal?'+':''}${schnitt.schnitt-k.goal}</b>` : ''}</div></div>`;
+  }
+
+  h+=`<div class="fab-row" style="margin-top:10px">
       <button class="btn primary" data-act="food:start">+ Essen eintragen</button></div>`;
+
+  // NEU: Ein-Tipp-Wiederholung. Der haeufigste Grund, warum Essensprotokolle nach
+  // einer Woche einschlafen, ist nicht Faulheit — es ist, dass man dasselbe
+  // Fruehstueck jeden Tag neu zusammensucht.
+  const letzte=zuletztGegessen(6);
+  if(letzte.length){
+    h+=`<div class="row between" style="margin:20px 4px 6px"><h2>Nochmal</h2>
+        <span class="tiny muted">ein Tipp genügt</span></div><div class="card">`;
+    letzte.forEach(m=>{ h+=`<div class="lib-row" data-again="${m.id}" style="cursor:pointer">
+      <div style="flex:1;min-width:0"><div>${esc(m.name)}</div>
+        <div class="tiny muted">${esc(String(m.menge))} · ${m.kcal} kcal · ${m.p} g Eiweiß</div></div>
+      <span class="muted" style="font-size:20px;padding:0 4px">+</span></div>`; });
+    h+=`</div>`;
+  }
 
   h+=`<div class="row between" style="margin:20px 4px 6px"><h2>Gegessen</h2>
       <span class="tiny muted">${heute.length} ${heute.length===1?'Eintrag':'Einträge'}</span></div>`;
@@ -1586,8 +2006,24 @@ async function openScan(){
     nummerTippen('Kamera geht nicht. Nummer unter dem Barcode eintippen:'); }
 }
 // Open Food Facts: offene Datenbank, kein Schluessel noetig, kennt deutsche Produkte gut.
+// Erst die eigene Liste, dann das Netz. Ein einmal selbst angelegtes Produkt wird
+// damit beim naechsten Scan SOFORT gefunden — auch ohne Netz, also auch im Keller-Gym.
+function eigenesZuBarcode(nr){
+  return kcalInit().foods.find(f=>f.barcode && String(f.barcode)===String(nr)) || null;
+}
+
 async function holeBarcode(nr){
   if(!nr || nr.length<6){ foodFehler='Das war keine gültige Barcode-Nummer.'; render(); return; }
+
+  // NEU: eigener Treffer schlaegt die Datenbank. Kein Netz, keine Wartezeit.
+  const eigen=eigenesZuBarcode(nr);
+  if(eigen){
+    foodDraft={...eigen, basis:'g100', menge:100, quelle:'barcode'};
+    foodBusy=''; foodFehler=''; foodStep='menge'; view='food'; render();
+    toast('Aus deiner Liste');
+    return;
+  }
+
   foodBusy='Suche '+nr+' in der Lebensmittel-Datenbank …'; foodFehler=''; view='food'; render();
   try{
     const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(nr)}.json?fields=product_name,product_name_de,brands,nutriments`);
@@ -1600,10 +2036,26 @@ async function holeBarcode(nr){
     foodDraft={ name:(p.product_name_de||p.product_name||'Produkt '+nr).slice(0,60),
       marke:(p.brands||'').split(',')[0].trim(),
       kcal:Math.round(kcal), p:Math.round(n.proteins_100g||0), c:Math.round(n.carbohydrates_100g||0),
-      f:Math.round(n.fat_100g||0), basis:'g100', menge:100, quelle:'barcode' };
+      f:Math.round(n.fat_100g||0), basis:'g100', menge:100, quelle:'barcode', barcode:String(nr) };
     foodBusy=''; foodStep='menge'; render();
-  }catch(e){ foodBusy=''; foodStep='list';
-    foodFehler=(e&&e.message)||'Kein Netz oder Datenbank nicht erreichbar.'; render(); }
+  }catch(e){
+    foodBusy='';
+    const nichtDrin=/nicht in der Datenbank|keine Nährwerte/.test((e&&e.message)||'');
+    if(nichtDrin){
+      // NEU: keine Sackgasse mehr. Bisher kam eine Fehlermeldung und der Weg war zu
+      // Ende. Jetzt geht das Anlegen-Formular auf, MIT dem Barcode im Gepaeck — beim
+      // Speichern wird er mitgemerkt, und derselbe Scan trifft danach sofort.
+      // 💡 Der Fall ist nicht selten: von 422.265 Produkten mit Deutschland-Kennung
+      // haben nur 246.807 vollstaendige Naehrwerte (nachgemessen am 22.08.2026).
+      foodDraft=leerDraft(); foodDraft.barcode=String(nr); foodDraft.quelle='barcode';
+      foodStep='new';
+      foodFehler='Diese Packung steht nicht in der Datenbank. Trag die Werte einmal von der '
+               + 'Verpackung ab — beim nächsten Scan ist sie sofort da.';
+    } else {
+      foodStep='list';
+      foodFehler=(e&&e.message)||'Kein Netz oder Datenbank nicht erreichbar.';
+    }
+    render(); }
 }
 
 // ---------- Foto schätzen lassen (KI) ----------
@@ -2184,7 +2636,7 @@ function confirmTwice(key,btn,label,run){ if(armed[key]){ clearTimeout(armed[key
 if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ if((profile.theme||'system')==='system') applyTheme(); }); }
 
 document.addEventListener('click',ev=>{
-  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-planwarm],[data-libnew],[data-useprog],[data-editprog],[data-delprog],[data-shareprog],[data-moveex],[data-openex],[data-delweight],[data-skin],[data-sdel],[data-sdelex],[data-sadd],[data-delmeal],[data-delfood],[data-pickfood]');
+  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-planwarm],[data-libnew],[data-useprog],[data-editprog],[data-delprog],[data-shareprog],[data-moveex],[data-openex],[data-delweight],[data-skin],[data-sdel],[data-sdelex],[data-sadd],[data-delmeal],[data-delfood],[data-pickfood],[data-again],[data-zielart]');
   if(!t) return;
   // ---- Eine abgeschlossene Einheit korrigieren (Verlauf › Bearbeiten) ----
   if(t.dataset.sdel){ const [ei,si]=t.dataset.sdel.split(':').map(Number);
@@ -2204,6 +2656,17 @@ document.addEventListener('click',ev=>{
   // ---- Kalorien ----
   if(t.dataset.delmeal){ const id=t.dataset.delmeal, k=kcalInit();
     k.meals=k.meals.filter(x=>x.id!==id); save(); render(); return; }
+  // NEU: dasselbe nochmal essen. Kopiert den alten Eintrag mit heutigem Datum —
+  // ⚠️ bewusst eine Kopie mit neuer id, kein Verschieben: der alte Tag bleibt stehen.
+  if(t.dataset.again){ const alt=kcalInit().meals.find(x=>x.id===t.dataset.again); if(!alt) return;
+    kcalInit().meals.push({...alt, id:uid(), date:Date.now()});
+    save(); render(); toast(alt.name+' nochmal eingetragen'); return; }
+  // NEU: Vorhaben waehlen. Setzt gleich ein passendes Kalorienziel, damit der
+  // Nutzer nicht zweimal etwas entscheiden muss.
+  if(t.dataset.zielart){ const art=t.dataset.zielart; if(!ZIELE[art]) return;
+    const k=kcalInit(); k.art=art;
+    const v=kcalVorschlagFuer(art); if(v && !(k.goal>0)) k.goal=v;
+    save(); render(); toast(ZIELE[art].name+(v?' · '+v+' kcal':'')); return; }
   if(t.dataset.delfood){ ev.stopPropagation(); const id=t.dataset.delfood, k=kcalInit();
     confirmTwice('df'+id,t,'Weg?',()=>{ k.foods=k.foods.filter(x=>x.id!==id); save(); render(); }); return; }
   if(t.dataset.pickfood){ const f=kcalInit().foods.find(x=>x.id===t.dataset.pickfood); if(!f) return;
@@ -2265,6 +2728,19 @@ document.addEventListener('click',ev=>{
     // Wdh werden seit dem 05.08. wieder selbst eingetippt. Nur wenn das Feld leer bleibt,
     // zählt fürs Volumen ersatzweise die untere Zahl des Zielbereichs.
     if(s.done && !(+s.reps>0)) s.reps=exRange(active.exercises[ei])[0];
+    // NEU: einen Rekord in dem Moment feiern, in dem er passiert. Bisher standen
+    // Rekorde nur als stille Liste im Verlauf — man erfuhr erst Tage spaeter davon,
+    // dass man einen aufgestellt hat. Das ist der billigste Motivationsmoment, den
+    // die App zu vergeben hat, und sie hat ihn liegen lassen.
+    // ⚠️ prFor() rechnet nur ueber ABGESCHLOSSENE Einheiten, das laufende Training
+    // ist nicht darin — sonst schlaege der eigene Satz von eben den Rekord und es
+    // gaebe nie wieder eine Meldung.
+    if(s.done && !s.warm){
+      const name=active.exercises[ei].name, alt=prFor(name);
+      if(+s.weight>0 && (!alt || +s.weight>alt.w))
+        toast(alt ? `Neuer Rekord: ${fmtKg(+s.weight)} kg (vorher ${fmtKg(alt.w)})`
+                  : `Erster Eintrag für ${name} — ab jetzt zählt jeder Rekord`);
+    }
     save();
     if(s.done){ startRest(settings.rest); if(navigator.vibrate) navigator.vibrate(40); } render(); return; }
   if(t.dataset.addset!=null){ const e=active.exercises[+t.dataset.addset], last=e.sets[e.sets.length-1]||{}; e.sets.push({weight:last.weight||'',reps:last.reps||'',done:false}); save(); render(); return; }
@@ -2308,6 +2784,13 @@ document.addEventListener('click',ev=>{
     const v=prompt('Wie viele Kalorien willst du pro Tag essen?\n\n(Grober Anhalt: Körpergewicht in kg × 30. Wer abnehmen will, zieht 300–500 ab.)', k.goal||'');
     if(v!==null){ const n=Math.round(+String(v).replace(',','.'));
       k.goal = n>0 ? n : null; save(); render(); } }
+  // NEU: den errechneten Vorschlag mit einem Tipp uebernehmen, statt ihn abzutippen.
+  else if(a==='kcalgoalauto'){ const v=kcalVorschlagFuer(zielArt()) || kcalVorschlag();
+    if(v){ kcalInit().goal=v; save(); render(); toast(v+' kcal als Tagesziel gesetzt'); } }
+  // NEU: das nachgerechnete Ziel aus dem Regelkreis uebernehmen.
+  else if(a==='kcalziel-uebernehmen'){ const rk=regelkreis();
+    if(rk.stand==='daneben'){ kcalInit().goal=rk.neuesZiel; save(); render();
+      toast('Ziel auf '+rk.neuesZiel+' kcal umgestellt'); } }
   else if(a==='setkey'){ fragKey().then(ok=>{ if(ok) toast('Schlüssel gespeichert'); render(); }); }
   else if(a==='delkey'){ confirmTwice('dk',t,'Entfernen?',()=>{ DB.set('aikey',''); render(); toast('Schlüssel entfernt'); }); }
   else if(a==='food:start'){ foodStep='list'; foodDraft=null; foodFehler=''; view='food'; render(); }
@@ -2325,14 +2808,20 @@ document.addEventListener('click',ev=>{
     if(!nm.trim()){ toast('Bitte einen Namen eintragen'); return; }
     const f={id:uid(), name:nm.trim().slice(0,60), marke:'',
       kcal:Math.round(+g('nfKcal')||0), p:Math.round(+g('nfP')||0),
-      c:Math.round(+g('nfC')||0), f:Math.round(+g('nfF')||0)};
+      c:Math.round(+g('nfC')||0), f:Math.round(+g('nfF')||0),
+      // NEU: den Barcode mitspeichern, falls dieser Entwurf aus einem Scan kam.
+      // ⚠️ Ohne das laeuft der naechste Scan derselben Packung wieder ins Netz und
+      // wieder in dieselbe Sackgasse — man legt dasselbe Produkt zweimal an.
+      barcode:(foodDraft && foodDraft.barcode) || ''};
     kcalInit().foods.push(f); save();
-    foodDraft={...f, basis:'g100', menge:100, quelle:'eigen'}; foodStep='menge'; render();
-    toast(`„${f.name}" gespeichert`); }
+    foodDraft={...f, basis:'g100', menge:100, quelle:f.barcode?'barcode':'eigen'}; foodStep='menge'; render();
+    toast(`„${f.name}" gespeichert${f.barcode?' — Barcode gemerkt':''}`); }
   else if(a==='food:merken'){ const d=foodDraft; if(!d) return;
     kcalInit().foods.push({id:uid(), name:d.name, marke:d.marke||'',
-      kcal:+d.kcal||0, p:+d.p||0, c:+d.c||0, f:+d.f||0});
-    d.quelle='eigen'; save(); render(); toast('In deine Liste aufgenommen'); }
+      kcal:+d.kcal||0, p:+d.p||0, c:+d.c||0, f:+d.f||0,
+      barcode:d.barcode||''});   // NEU: siehe oben
+    d.quelle='eigen'; save(); render();
+    toast('In deine Liste aufgenommen'+(d.barcode?' — Barcode gemerkt':'')); }
   else if(a==='food:save'){ const d=foodDraft; if(!d) return;
     const el=document.getElementById('mengeInput'); const menge=el?+el.value.replace(',','.'):d.menge;
     if(!(menge>0)){ toast('Bitte eine Menge eintragen'); return; }

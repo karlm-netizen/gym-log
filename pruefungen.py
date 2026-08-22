@@ -499,12 +499,284 @@ window.addEventListener('error', e => {
     return !tb.classList.contains('show') || 'Leiste steht noch';
   });
 
-  // ================================================================ Startbestand eines neuen Kontos
-  // 🔴 Hier steckte ein echter Fehler (gefunden am 22.08.2026): die drei Trainings
-  // kamen OHNE Wochentag. Wer im Assistenten „Selbst anlegen" waehlt, bekam damit
-  // drei Trainings, die keinem Tag gehoeren — planForToday() traf nie etwas, und die
-  // Startseite meldete JEDEN Tag „Ruhetag", obwohl drei fertige Trainings dalagen.
-  const PLANS_VOR = plans;
+  // ================================================================ NEU: Ernaehrung rechnet mit dem Gewicht
+  const KCAL_VORHER = JSON.stringify(profile.kcal || {});
+  const GEW_VORHER  = JSON.stringify(profile.weights || []);
+
+  // ⚠️ Das Eiweissziel haengt seit dem 22.08.2026 auch am Trainingstag. Damit die
+  // Pruefungen nicht vom Wochentag abhaengen, wird der Plan hier bewusst geleert.
+  const PLAENE_VORHER = plans;
+  const SESS_VORHER2 = sessions;
+  const ruhetag = () => { plans = []; sessions = []; };
+  const trainingstag = () => { plans = [{id:'p', name:'Push', day:todayIdx(), exercises:[]}]; sessions = []; };
+
+  t('Eiweissziel am Ruhetag: 1,8 g je kg', () => {
+    ruhetag(); profile.weights = [{date: Date.now(), kg: 80}];
+    return eq(eiweissZiel(), 144);
+  });
+  t('Eiweissziel am Trainingstag: 2,0 g je kg', () => {
+    trainingstag(); profile.weights = [{date: Date.now(), kg: 80}];
+    return eq(eiweissZiel(), 160);
+  });
+  t('Ein erledigtes Training zaehlt auch als Trainingstag', () => {
+    plans = []; sessions = [{date: Date.now(), entries: []}];
+    return eq(eiweissZiel(), 160);
+  });
+  t('Ohne Gewicht kein Eiweissziel', () => { ruhetag(); profile.weights = []; return eq(eiweissZiel(), null); });
+  t('Eiweissziel folgt dem Gewicht', () => {
+    ruhetag();
+    profile.weights = [{date: Date.now()-864e5, kg: 80}, {date: Date.now(), kg: 90}];
+    return eq(eiweissZiel(), 162);   // das JUENGSTE Gewicht zaehlt, nicht das erste
+  });
+  plans = PLAENE_VORHER; sessions = SESS_VORHER2;
+  t('Kalorien-Vorschlag: kg x 30, auf 50 gerundet', () => {
+    profile.weights = [{date: Date.now(), kg: 80}];
+    return eq(kcalVorschlag(), 2400);
+  });
+  t('Vorschlag rundet wirklich auf 50', () => {
+    profile.weights = [{date: Date.now(), kg: 77}];   // 2310 -> 2300
+    return eq(kcalVorschlag(), 2300);
+  });
+  t('Ohne Gewicht kein Vorschlag', () => { profile.weights = []; return eq(kcalVorschlag(), null); });
+
+  // ⚠️ Der wichtigste Fall am Schnitt: Tage ohne Eintrag duerfen NICHT als 0 zaehlen.
+  t('Schnitt zaehlt nur Tage mit Eintrag', () => {
+    const n = Date.now();
+    profile.kcal = {goal:2000, foods:[], meals:[
+      {id:'a', date:n,          name:'A', kcal:2000, p:0, c:0, f:0},
+      {id:'b', date:n-2*864e5,  name:'B', kcal:1000, p:0, c:0, f:0}
+    ]};
+    const r = kcalSchnitt(7);
+    // zwei Tage mit Eintrag, Schnitt 1500 - NICHT 3000/7
+    return (r && r.tage === 2 && r.schnitt === 1500) || JSON.stringify(r);
+  });
+  t('Ohne jeden Eintrag gibt es keinen Schnitt', () => {
+    profile.kcal = {goal:2000, foods:[], meals:[]};
+    return eq(kcalSchnitt(7), null);
+  });
+  t('Mehrere Mahlzeiten an einem Tag zaehlen als ein Tag', () => {
+    const n = Date.now();
+    profile.kcal = {goal:2000, foods:[], meals:[
+      {id:'a', date:n, name:'A', kcal:600, p:0, c:0, f:0},
+      {id:'b', date:n, name:'B', kcal:400, p:0, c:0, f:0}
+    ]};
+    const r = kcalSchnitt(7);
+    return (r.tage === 1 && r.schnitt === 1000) || JSON.stringify(r);
+  });
+
+  t('Zuletzt gegessen: jede Sache nur einmal', () => {
+    const n = Date.now();
+    profile.kcal = {goal:2000, foods:[], meals:[
+      {id:'1', date:n-3*864e5, name:'Haferflocken', menge:'80 g', kcal:300, p:10, c:50, f:5},
+      {id:'2', date:n-2*864e5, name:'Haferflocken', menge:'80 g', kcal:300, p:10, c:50, f:5},
+      {id:'3', date:n-864e5,   name:'Quark',        menge:'250 g', kcal:170, p:30, c:8, f:1}
+    ]};
+    const l = zuletztGegessen(6);
+    return (l.length === 2 && l[0].name === 'Quark') || l.map(x=>x.name).join(',');
+  });
+  t('Zuletzt gegessen: gleiche Sache, andere Menge zaehlt getrennt', () => {
+    const n = Date.now();
+    profile.kcal = {goal:2000, foods:[], meals:[
+      {id:'1', date:n-864e5, name:'Haferflocken', menge:'80 g',  kcal:300, p:10, c:50, f:5},
+      {id:'2', date:n,       name:'Haferflocken', menge:'120 g', kcal:450, p:15, c:75, f:7}
+    ]};
+    return eq(zuletztGegessen(6).length, 2);
+  });
+  t('Zuletzt gegessen: Anzahl wird eingehalten', () => {
+    const n = Date.now();
+    profile.kcal = {goal:2000, foods:[], meals:
+      [1,2,3,4,5,6,7,8].map(i => ({id:'x'+i, date:n-i*864e5, name:'Essen '+i, menge:'100 g', kcal:100, p:1, c:1, f:1}))};
+    return eq(zuletztGegessen(6).length, 6);
+  });
+  t('Ohne Mahlzeiten ist die Liste leer', () => {
+    profile.kcal = {goal:2000, foods:[], meals:[]};
+    return eq(zuletztGegessen(6).length, 0);
+  });
+
+  // ---- Brock im Ernaehrungsteil ----
+  t('Ohne Ziel sagt Brock etwas zum Ziel', () => brockEssenSay(1000, 0).length > 0 || 'leer');
+  t('Ohne Ziel kommt der Ziel-Spruch',  () => BROCK_ESSEN['kein-ziel'].includes(brockEssenSay(1000, 0)) || 'falscher Topf');
+  t('Nichts gegessen: leer-Spruch',     () => BROCK_ESSEN.leer.includes(brockEssenSay(0, 2000)) || 'falscher Topf');
+  t('Punktlandung bei genau dem Ziel',  () => BROCK_ESSEN.punkt.includes(brockEssenSay(2000, 2000)) || 'falscher Topf');
+  t('Knapp drunter ist noch Punktlandung', () => BROCK_ESSEN.punkt.includes(brockEssenSay(1900, 2000)) || 'falscher Topf');
+  t('Die Haelfte ist "wenig"',          () => BROCK_ESSEN.wenig.includes(brockEssenSay(900, 2000)) || 'falscher Topf');
+  t('Deutlich drueber wird erkannt',    () => BROCK_ESSEN['weit-drueber'].includes(brockEssenSay(3000, 2000)) || 'falscher Topf');
+  t('Brock sagt nie undefined', () => {
+    for (const [kcal, ziel] of [[0,0],[0,2000],[1,2000],[2000,2000],[9999,2000],[100,1]])
+      if (typeof brockEssenSay(kcal, ziel) !== 'string') return 'bei ' + kcal + '/' + ziel;
+    return true;
+  });
+  t('Jeder Spruch-Topf hat Sprueche', () => {
+    const leer = Object.entries(BROCK_ESSEN).filter(([, v]) => !v.length).map(([k]) => k);
+    return leer.length ? leer.join(', ') : true;
+  });
+
+  // ---- Zielbalken ----
+  t('Balken bei der Haelfte ist 50 %', () => zielBalken(50, 100, 'red').includes('width:50%') || 'falsche Breite');
+  t('Balken laeuft nicht ueber 100 %', () => zielBalken(300, 100, 'red').includes('width:100%') || 'ueberlaeuft');
+  t('Ueber dem Ziel faerbt sich der Balken', () => zielBalken(120, 100, 'green').includes('--danger') || 'nicht rot');
+  t('Genau am Ziel noch nicht rot', () => !zielBalken(100, 100, 'green').includes('--danger') || 'zu frueh rot');
+  t('Ohne Ziel bleibt der Balken leer', () => zielBalken(500, 0, 'green').includes('width:0%') || 'nicht leer');
+
+  // ================================================================ NEU: Regelkreis Waage <-> Essen
+  const T = 864e5;
+  // Baut `tage` Tage rueckwaerts je eine Mahlzeit mit `kcal`.
+  const essenUeber = (tage, kcal) => {
+    const n = Date.now(), meals = [];
+    for (let i = 0; i < tage; i++)
+      meals.push({id:'e'+i, date:n-i*T, name:'Essen', menge:'1', kcal, p:0, c:0, f:0});
+    return meals;
+  };
+
+  t('Vorschlag Halten: kg x 30', () => {
+    profile.weights = [{date:Date.now(), kg:80}];
+    return eq(kcalVorschlagFuer('halten'), 2400);
+  });
+  t('Vorschlag Abnehmen liegt 400 tiefer', () => eq(kcalVorschlagFuer('abnehmen'), 2000));
+  t('Vorschlag Aufbauen liegt 300 hoeher', () => eq(kcalVorschlagFuer('zunehmen'), 2700));
+  t('Unbekanntes Vorhaben faellt auf Erhalt zurueck', () => eq(kcalVorschlagFuer('quatsch'), 2400));
+  t('Ohne Gewicht kein Vorschlag', () => { profile.weights = []; return eq(kcalVorschlagFuer('halten'), null); });
+
+  t('Trend braucht zwei Wiegungen', () => {
+    profile.weights = [{date:Date.now(), kg:80}];
+    return eq(gewichtsTrend(21), null);
+  });
+  t('Trend braucht mindestens eine Woche Abstand', () => {
+    const n = Date.now();
+    profile.weights = [{date:n-3*T, kg:80}, {date:n, kg:79}];
+    return eq(gewichtsTrend(21), null);   // 3 Tage sind Rauschen, keine Woche
+  });
+  t('Trend rechnet auf die Woche hoch', () => {
+    const n = Date.now();
+    profile.weights = [{date:n-14*T, kg:80}, {date:n, kg:79}];
+    const tr = gewichtsTrend(21);
+    return (tr && Math.abs(tr.proWoche - (-0.5)) < 0.001) || JSON.stringify(tr);
+  });
+  t('Trend nimmt nur Wiegungen im Fenster', () => {
+    const n = Date.now();
+    profile.weights = [{date:n-60*T, kg:90}, {date:n-14*T, kg:80}, {date:n, kg:79}];
+    const tr = gewichtsTrend(21);
+    return (tr && Math.abs(tr.von - 80) < 0.001) || JSON.stringify(tr);
+  });
+
+  t('Ohne Vorhaben kein Regelkreis', () => {
+    profile.kcal = {goal:2000, foods:[], meals:[]};
+    return eq(regelkreis().stand, 'kein-ziel');
+  });
+  t('Ohne Wiegungen meldet er das', () => {
+    profile.kcal = {art:'abnehmen', goal:2000, foods:[], meals:[]};
+    profile.weights = [];
+    return eq(regelkreis().stand, 'zu-wenig-gewicht');
+  });
+  t('Mit Waage, ohne Essenstage meldet er das', () => {
+    const n = Date.now();
+    profile.weights = [{date:n-14*T, kg:80}, {date:n, kg:79}];
+    profile.kcal = {art:'abnehmen', goal:2000, foods:[], meals:essenUeber(2, 2000)};
+    return eq(regelkreis().stand, 'zu-wenig-essen');
+  });
+  t('Genau im Plan: es geht auf', () => {
+    const n = Date.now();
+    profile.weights = [{date:n-14*T, kg:80}, {date:n, kg:79}];   // -0,5 kg/Woche
+    profile.kcal = {art:'abnehmen', goal:2000, foods:[], meals:essenUeber(7, 2000)};
+    return eq(regelkreis().stand, 'passt');
+  });
+  t('Kleine Abweichung gilt noch als "passt"', () => {
+    const n = Date.now();
+    profile.weights = [{date:n-14*T, kg:80}, {date:n, kg:79.2}];  // -0,4 kg/Woche
+    profile.kcal = {art:'abnehmen', goal:2000, foods:[], meals:essenUeber(7, 2000)};
+    return eq(regelkreis().stand, 'passt');
+  });
+  t('Zu langsam wird erkannt und beziffert', () => {
+    const n = Date.now();
+    profile.weights = [{date:n-14*T, kg:80}, {date:n, kg:80}];    // 0 statt -0,5
+    profile.kcal = {art:'abnehmen', goal:2000, foods:[], meals:essenUeber(7, 2200)};
+    const r = regelkreis();
+    // Abweichung +0,5 kg/Woche -> 500 kcal/Tag zu viel -> neues Ziel 2200-500
+    return (r.stand === 'daneben' && r.korrektur === 500 && r.neuesZiel === 1700) || JSON.stringify(r);
+  });
+  t('Zu schnell wird ebenfalls erkannt', () => {
+    const n = Date.now();
+    // 80 -> 77 kg in 14 Tagen sind -1,5 kg/Woche, gewollt waren -0,5.
+    // Abweichung -1,0 kg/Woche -> 1000 kcal/Tag zu wenig -> 1800 + 1000 = 2800.
+    profile.weights = [{date:n-14*T, kg:80}, {date:n, kg:77}];
+    profile.kcal = {art:'abnehmen', goal:2000, foods:[], meals:essenUeber(7, 1800)};
+    const r = regelkreis();
+    return (r.stand === 'daneben' && r.korrektur === -1000 && r.neuesZiel === 2800) || JSON.stringify(r);
+  });
+  // ⚠️ Ohne Untergrenze koennte die Rechnung ein absurd niedriges Ziel ausspucken.
+  t('Das neue Ziel faellt nie unter 1200 kcal', () => {
+    const n = Date.now();
+    profile.weights = [{date:n-14*T, kg:80}, {date:n, kg:82}];    // stark zugenommen
+    profile.kcal = {art:'abnehmen', goal:1500, foods:[], meals:essenUeber(7, 1400)};
+    const r = regelkreis();
+    return (r.stand !== 'daneben' || r.neuesZiel >= 1200) || 'Ziel ' + r.neuesZiel;
+  });
+  t('Halten: Gewicht bleibt -> passt', () => {
+    const n = Date.now();
+    profile.weights = [{date:n-14*T, kg:80}, {date:n, kg:80}];
+    profile.kcal = {art:'halten', goal:2400, foods:[], meals:essenUeber(7, 2400)};
+    return eq(regelkreis().stand, 'passt');
+  });
+  t('Aufbauen: Gewicht faellt -> daneben, nach oben', () => {
+    const n = Date.now();
+    profile.weights = [{date:n-14*T, kg:80}, {date:n, kg:79}];
+    profile.kcal = {art:'zunehmen', goal:2700, foods:[], meals:essenUeber(7, 2600)};
+    const r = regelkreis();
+    return (r.stand === 'daneben' && r.neuesZiel > 2600) || JSON.stringify(r);
+  });
+
+  // ---- Eiweiss-Tipp ----
+  t('Ziel erreicht: kein Tipp', () => eq(eiweissTipp(150, 140), null));
+  t('Ohne eigene Lebensmittel nur die Luecke', () => {
+    profile.kcal = {art:'halten', goal:2000, foods:[], meals:[]};
+    const r = eiweissTipp(60, 140);
+    return (r && r.fehlt === 80 && r.essen === null) || JSON.stringify(r);
+  });
+  t('Waehlt das guenstigste Eiweiss je kcal, nicht das eiweissreichste', () => {
+    profile.kcal = {art:'halten', goal:2000, meals:[], foods:[
+      {id:'f1', name:'Nüsse',      kcal:600, p:20, c:10, f:50},   // 3,3 g je 100 kcal
+      {id:'f2', name:'Magerquark', kcal:68,  p:12, c:4,  f:0}     // 17,6 g je 100 kcal
+    ]};
+    const r = eiweissTipp(100, 140);
+    return (r && r.essen.name === 'Magerquark') || JSON.stringify(r);
+  });
+  t('Menge und kcal des Tipps stimmen', () => {
+    profile.kcal = {art:'halten', goal:2000, meals:[], foods:[
+      {id:'f2', name:'Magerquark', kcal:68, p:12, c:4, f:0}]};
+    const r = eiweissTipp(110, 140);   // fehlen 30 g -> 30/12*100 = 250 g, unter dem Deckel
+    return (r.gramm === 250 && r.deckt === true && r.kcal === Math.round(68*250/100)) || JSON.stringify(r);
+  });
+  // ⚠️ Ohne Deckel kaeme bei einer grossen Luecke "800 g Magerquark" heraus —
+  // rechnerisch richtig, praktisch albern. Ein Vorschlag, den niemand befolgt,
+  // ist schlechter als keiner.
+  t('Grosse Luecke: Vorschlag wird bei 300 g gedeckelt', () => {
+    profile.kcal = {art:'halten', goal:2000, meals:[], foods:[
+      {id:'f2', name:'Magerquark', kcal:68, p:12, c:4, f:0}]};
+    const r = eiweissTipp(40, 140);    // fehlen 100 g -> waeren 830 g
+    return (r.gramm === 300 && r.deckt === false) || JSON.stringify(r);
+  });
+  t('Gedeckelter Vorschlag sagt, wie viel er wirklich bringt', () => {
+    profile.kcal = {art:'halten', goal:2000, meals:[], foods:[
+      {id:'f2', name:'Magerquark', kcal:68, p:12, c:4, f:0}]};
+    const r = eiweissTipp(40, 140);
+    return (r.eiweiss === 36 && r.eiweiss < r.fehlt) || JSON.stringify(r);
+  });
+  t('Lebensmittel ohne Eiweiss kommen nicht als Tipp', () => {
+    profile.kcal = {art:'halten', goal:2000, meals:[], foods:[
+      {id:'f3', name:'Limonade', kcal:180, p:0, c:45, f:0}]};
+    return eq(eiweissTipp(0, 140).essen, null);
+  });
+
+  // ================================================================ NEU: Trainings-Teil auf Herz und Nieren
+  const PROG_VORHER = JSON.stringify(programs);
+  const PLANS_VORHER = JSON.stringify(plans);
+  const XP_VORHER = profile.xp;
+
+  // ---- Startbestand fuer ein neues Konto ----
+  // 🔴 Hier steckte ein echter Fehler: die drei Trainings kamen OHNE Wochentag.
+  // Wer im Assistenten „Selbst anlegen" waehlt, bekam damit drei Trainings, die
+  // keinem Tag gehoeren — und die App sagte ihm JEDEN Tag „Ruhetag", obwohl
+  // Trainings da waren. planForToday() und nextTrainingDay() trafen nie etwas.
   t('Startbestand: jedes Training hat einen Wochentag', () => {
     const ohne = seedPlans().filter(p => !(p.day >= 0 && p.day <= 6)).map(p => p.name);
     return ohne.length ? ohne.join(', ') + ' ohne Tag' : true;
@@ -520,10 +792,437 @@ window.addEventListener('error', e => {
   });
   t('Startbestand findet heute oder demnaechst ein Training', () => {
     plans = seedPlans();
-    const r = (!!planForToday() || !!nextTrainingDay());
-    plans = PLANS_VOR;
-    return r || 'weder heute noch demnaechst etwas';
+    return (!!planForToday() || !!nextTrainingDay()) || 'weder heute noch demnaechst etwas';
   });
+
+  // ---- Der Assistent baut die Plaene ----
+  t('Assistent: so viele Trainings wie gewaehlte Tage', () => {
+    profile.days = [0,2,4]; profile.vol = 'high'; profile.favs = [];
+    return eq(buildPlans().length, 3);
+  });
+  t('Assistent: die gewaehlten Tage stehen drin', () => {
+    profile.days = [0,2,4];
+    return eq(buildPlans().map(p => p.day).join(','), '0,2,4');
+  });
+  t('Assistent: Tage werden sortiert', () => {
+    profile.days = [4,0,2];
+    return eq(buildPlans().map(p => p.day).join(','), '0,2,4');
+  });
+  t('Assistent: viel Volumen gibt 6 Uebungen', () => {
+    profile.days = [0,2,4]; profile.vol = 'high';
+    return eq(buildPlans()[0].exercises.length, 6);
+  });
+  t('Assistent: wenig Volumen gibt 5 Uebungen', () => {
+    profile.vol = 'low';
+    return eq(buildPlans()[0].exercises.length, 5);
+  });
+  t('Assistent: keine Uebung doppelt im selben Training', () => {
+    profile.vol = 'high'; profile.days = [0,1,2,3,4,5];
+    for (const p of buildPlans()){
+      const n = p.exercises.map(e => e.name);
+      if (new Set(n).size !== n.length) return p.name + ' hat Dubletten';
+    }
+    return true;
+  });
+  t('Assistent: jede erzeugte Uebung hat einen Namen', () => {
+    profile.days = [0,2,4];
+    const ohne = [].concat(...buildPlans().map(p => p.exercises)).filter(e => !e.name);
+    return ohne.length ? ohne.length + ' ohne Namen' : true;
+  });
+  t('Ohne gewaehlte Tage baut der Assistent nichts', () => { profile.days = []; return eq(buildPlans().length, 0); });
+
+  // ---- Lieblingsuebungen kommen zuerst ----
+  t('Lieblingsuebung steht vorn', () => {
+    profile.vol = 'high'; profile.favs = ['Dips (Brust)'];
+    return eq(pickExercises('push')[0], 'Dips (Brust)');
+  });
+  t('Lieblingsuebung aus einer fremden Gruppe wird ignoriert', () => {
+    profile.favs = ['Kniebeuge'];                       // Beine, aber Tag ist push
+    return (pickExercises('push')[0] !== 'Kniebeuge') || 'Beinuebung am Push-Tag';
+  });
+  t('Auswahl bleibt bei der Obergrenze', () => {
+    profile.favs = ['Dips (Brust)','Seitheben','Bankdrücken']; profile.vol = 'high';
+    return eq(pickExercises('push').length, 6);
+  });
+  t('Auswahl enthaelt nichts doppelt', () => {
+    profile.favs = ['Bankdrücken'];                     // steht auch im Vorrat
+    const l = pickExercises('push');
+    return new Set(l).size === l.length || l.join(',');
+  });
+  t('Jeder Split-Tag liefert ueberhaupt Uebungen', () => {
+    profile.favs = [];
+    for (const key of Object.keys(DAYPOOL))
+      if (!pickExercises(key).length) return key + ' liefert nichts';
+    return true;
+  });
+
+  // ---- XP einer Einheit ----
+  t('XP: Grundbetrag von 50 auch ohne Volumen', () => eq(sessXP([{sets:[{done:true, weight:0, reps:10}]}]), 60));
+  t('XP: je abgehaktem Satz 10', () => eq(sessXP([{sets:[{done:true},{done:true},{done:true}]}]), 80));
+  t('XP: je 1000 kg Volumen 20 dazu', () =>
+    eq(sessXP([{sets:[{done:true, weight:100, reps:10}]}]), 10 + 50 + 20));
+  t('XP: Aufwaermsaetze bringen nichts', () => {
+    const ohne = sessXP([{sets:[{done:true, weight:60, reps:10}]}]);
+    const mit  = sessXP([{sets:[{warm:true, done:true, weight:60, reps:10},{done:true, weight:60, reps:10}]}]);
+    return eq(ohne, mit);
+  });
+  t('XP: nicht abgehakte Saetze bringen nichts', () =>
+    eq(sessXP([{sets:[{done:false, weight:100, reps:10}]}]), 50));
+
+  // ---- XP nachfuehren, wenn eine alte Einheit geaendert wird ----
+  t('Nachrechnen hebt die XP, wenn mehr drin steht', () => {
+    profile.xp = 1000;
+    const s = {id:'x', date:Date.now(), xp:60, entries:[{name:'A', sets:[{done:true, weight:0, reps:10},{done:true}]}]};
+    sessRecalc(s);
+    return (s.xp === 70 && profile.xp === 1010) || (s.xp + '/' + profile.xp);
+  });
+  t('Nachrechnen senkt die XP, wenn weniger drin steht', () => {
+    profile.xp = 1000;
+    const s = {id:'x', date:Date.now(), xp:200, entries:[{name:'A', sets:[{done:true}]}]};
+    sessRecalc(s);
+    return (s.xp === 60 && profile.xp === 860) || (s.xp + '/' + profile.xp);
+  });
+  t('XP fallen beim Nachrechnen nie unter 0', () => {
+    profile.xp = 10;
+    const s = {id:'x', date:Date.now(), xp:5000, entries:[{name:'A', sets:[{done:true}]}]};
+    sessRecalc(s);
+    return (profile.xp >= 0) || ('ist ' + profile.xp);
+  });
+  // ⚠️ Bekannte Luecke, hier festgehalten statt uebersehen: Einheiten von VOR dem
+  // 06.08.2026 haben kein xp-Feld. Wird so eine im Verlauf geaendert, bleibt der
+  // Punktestand stehen — er kann dann nicht mehr stimmen.
+  t('Alte Einheit ohne xp-Feld laesst den Punktestand unangetastet', () => {
+    profile.xp = 1000;
+    const s = {id:'alt', date:Date.now(), entries:[{name:'A', sets:[{done:true}]}]};
+    sessRecalc(s);
+    return eq(profile.xp, 1000);
+  });
+
+  // ---- Trainingstage und Wochentage ----
+  // ⚠️ Hier lag ICH zuerst falsch, nicht der Code: ich hatte erwartet, dass
+  // nextTrainingDay() niemals auf heute zeigt. Trainiert jemand nur montags, ist der
+  // naechste Trainingstag aber sehr wohl wieder ein Montag. Und die Funktion wird
+  // ohnehin NUR aufgerufen, wenn heute nichts ansteht (renderHome, else-Zweig) —
+  // der vermeintliche Fehlerfall kann gar nicht auftreten.
+  t('Nur ein Wochentag im Plan: naechster Termin ist in einer Woche', () => {
+    plans = [{id:'a', name:'Nur heute', day:todayIdx(), exercises:[]}];
+    const n = nextTrainingDay();
+    return (n && n.d === todayIdx() && n.p.name === 'Nur heute') || JSON.stringify(n);
+  });
+  t('Naechster Trainingstag wird gefunden', () => {
+    plans = [{id:'a', name:'Morgen', day:(todayIdx()+1)%7, exercises:[]}];
+    const n = nextTrainingDay();
+    return (n && n.d === (todayIdx()+1)%7) || JSON.stringify(n);
+  });
+  t('Ohne Plaene kein naechster Trainingstag', () => { plans = []; return eq(nextTrainingDay(), null); });
+  t('Verpasst: gestern war Trainingstag und nichts passiert', () => {
+    plans = [{id:'a', name:'Gestern', day:(todayIdx()+6)%7, exercises:[]}];
+    sessions = [];
+    return missedYesterday() === true || 'nicht erkannt';
+  });
+  t('Nicht verpasst, wenn gestern trainiert wurde', () => {
+    plans = [{id:'a', name:'Gestern', day:(todayIdx()+6)%7, exercises:[]}];
+    sessions = [{date: Date.now()-864e5, entries:[]}];
+    return missedYesterday() === false || 'faelschlich verpasst';
+  });
+  t('Ohne Plan fuer gestern nichts verpasst', () => {
+    plans = []; sessions = [];
+    return missedYesterday() === false || 'verpasst ohne Plan';
+  });
+
+  // ---- Plan teilen und wieder einlesen ----
+  t('Geteilter Plan kommt vollstaendig zurueck', () => {
+    const prog = {id:'p', name:'Sommerplan', plans:[
+      {id:'t1', name:'Push', day:0, warmup:true,  exercises:[{id:'e1', name:'Bankdrücken', sets:4, vol:'low'}]},
+      {id:'t2', name:'Pull', day:2, warmup:false, exercises:[{id:'e2', name:'Klimmzüge',   sets:3, vol:'high'}]}
+    ]};
+    const d = JSON.parse(b64dec(planCode(prog)));
+    return (d.name === 'Sommerplan' && d.p.length === 2 && d.p[0].d === 0 && d.p[1].d === 2
+            && d.p[0].w === 1 && d.p[1].w === 0
+            && d.p[0].e[0][0] === 'Bankdrücken' && d.p[0].e[0][1] === 4 && d.p[0].e[0][2] === 'l')
+           || JSON.stringify(d);
+  });
+  // ⚠️ Montag ist Tag 0. Eine Pruefung auf "wahr/falsch" statt auf "ist null" wuerde
+  // den Montag verschlucken — der klassische Nullwert-Fehler.
+  t('Montag (Tag 0) ueberlebt das Teilen', () => {
+    const prog = {id:'p', name:'X', plans:[
+      {id:'t', name:'Mo', day:0, exercises:[{id:'e', name:'A', sets:3}]}]};
+    return eq(JSON.parse(b64dec(planCode(prog))).p[0].d, 0);
+  });
+  t('Training ohne Tag bleibt ohne Tag', () => {
+    const prog = {id:'p', name:'X', plans:[
+      {id:'t', name:'Frei', day:null, exercises:[{id:'e', name:'A', sets:3}]}]};
+    return eq(JSON.parse(b64dec(planCode(prog))).p[0].d, null);
+  });
+
+  // ---- Abgleich-Datensatz hin und zurueck ----
+  t('Abgleich: Plaene und Einheiten kommen zurueck', () => {
+    programs = [{id:'p1', name:'Plan A', plans:[{id:'t', name:'Push', day:1, exercises:[]}]}];
+    bindPlans(); sessions = [{id:'s', date:Date.now(), entries:[]}]; profile.xp = 777;
+    const blob = JSON.parse(JSON.stringify(appDataBlob()));
+    programs = []; sessions = []; profile = {xp:0};
+    loadBlob(blob);
+    return (programs.length === 1 && programs[0].name === 'Plan A'
+            && sessions.length === 1 && profile.xp === 777) || 'Rundlauf verloren';
+  });
+  // ⚠️ Alte Sicherungen (vor dem 05.08.2026) kennen nur `plans`, keine `programs`.
+  t('Abgleich: alter Bestand ohne programs geht nicht verloren', () => {
+    programs = [];
+    loadBlob({plans:[{id:'t', name:'Altes Training', day:3, exercises:[]}], sessions:[], profile:{xp:5}});
+    return (programs.length === 1 && programs[0].plans[0].name === 'Altes Training')
+           || JSON.stringify(programs);
+  });
+  t('Abgleich vertraegt einen leeren Datensatz', () => {
+    const vorher = programs.length;
+    loadBlob(null); loadBlob({});
+    return eq(programs.length, vorher);
+  });
+
+  programs = JSON.parse(PROG_VORHER); plans = JSON.parse(PLANS_VORHER);
+  profile.xp = XP_VORHER; bindPlans();
+
+  // ---- Kurven ----
+  t('Kurve braucht mindestens zwei Punkte', () => eq(lineChart([80], 300, 110), ''));
+  t('Kurve mit zwei Punkten baut', () => lineChart([80,79], 300, 110).includes('<svg') || 'kein SVG');
+  // ⚠️ Der Klassiker: alle Werte gleich -> (max-min)=0 -> Division durch null -> NaN im SVG.
+  t('Lauter gleiche Werte ergeben keine NaN', () => {
+    const svg = lineChart([80,80,80], 300, 110);
+    return !/NaN/.test(svg) || 'NaN in der Kurve';
+  });
+  t('Negative Werte ergeben keine NaN', () => !/NaN/.test(lineChart([-5,0,5], 300, 110)) || 'NaN');
+  t('Viele Punkte bleiben im Rahmen', () => {
+    const vals = Array.from({length:200}, (_,i) => Math.sin(i)*50+80);
+    const svg = lineChart(vals, 300, 110);
+    const zahlen = (svg.match(/cx="([\d.]+)"/g)||[]).map(s => +s.slice(4,-1));
+    return zahlen.every(x => x >= 0 && x <= 300) || 'Punkt ausserhalb';
+  });
+
+  // ---- Verlauf je Uebung ----
+  t('Verlauf nimmt nur abgehakte Saetze', () => {
+    sessions = [{date:Date.now(), entries:[{name:'A', sets:[
+      {done:true, weight:60, reps:10},{done:false, weight:99, reps:10}]}]}];
+    const h = exHistory('A');
+    return (h.length === 1 && h[0].w === 60 && h[0].sets === 1) || JSON.stringify(h);
+  });
+  t('Einheit ohne abgehakte Saetze taucht nicht auf', () => {
+    sessions = [{date:Date.now(), entries:[{name:'A', sets:[{done:false, weight:60, reps:10}]}]}];
+    return eq(exHistory('A').length, 0);
+  });
+  t('Verlauf einer unbekannten Uebung ist leer', () => eq(exHistory('Gibtsnicht').length, 0));
+  t('Verlauf nimmt das schwerste Gewicht der Einheit', () => {
+    sessions = [{date:Date.now(), entries:[{name:'A', sets:[
+      {done:true, weight:60, reps:10},{done:true, weight:70, reps:8}]}]}];
+    return eq(exHistory('A')[0].w, 70);
+  });
+
+  // ---- Ausgeruesteter Rang ----
+  t('Ohne Auswahl gilt der echte Rang', () => {
+    profile.xp = 0; profile.rankSkin = null;
+    return eq(equippedRank().name, rankForLevel(1).name);
+  });
+  t('Ein erreichter Rang laesst sich tragen', () => {
+    profile.xp = xpForLevel(10); profile.rankSkin = 3;      // Noob (min 3)
+    return eq(equippedRank().name, 'Noob');
+  });
+  // ⚠️ Wichtig: ein noch nicht erreichter Rang darf NICHT tragbar sein — sonst
+  // liesse sich der Gigachad-Brock per Datensatz erschleichen.
+  t('Ein nicht erreichter Rang faellt auf den echten zurueck', () => {
+    profile.xp = 0; profile.rankSkin = 45;                  // Gigachad
+    return eq(equippedRank().name, rankForLevel(1).name);
+  });
+  t('Ein unbekannter Rang faellt auf den echten zurueck', () => {
+    profile.xp = xpForLevel(10); profile.rankSkin = 999;
+    return eq(equippedRank().name, rankForLevel(10).name);
+  });
+  profile.rankSkin = null;
+
+  // ---- Zielbereiche und Satzzahlen ----
+  t('Wenig Volumen: Ziel 6-10 Wdh', () => { profile.vol='low';  return eq(repRange().join('-'), '6-10'); });
+  t('Viel Volumen: Ziel 8-12 Wdh',  () => { profile.vol='high'; return eq(repRange().join('-'), '8-12'); });
+  t('Uebung schlaegt die globale Wahl', () => {
+    profile.vol = 'high';
+    return eq(exRange({vol:'low'}).join('-'), '6-10');
+  });
+  t('Beschriftung passt zum Bereich', () => eq(exLabel({vol:'low'}), '6–10'));
+  t('Satzzahl ist immer 3', () => eq(volSets(), 3));
+  t('Ohne Angabe gilt die globale Wahl', () => { profile.vol='low'; return eq(volOf(null), 'low'); });
+  t('Ohne alles gilt viel Volumen', () => {
+    const v = profile.vol; delete profile.vol;
+    const r = volOf(null); profile.vol = v;
+    return eq(r, 'high');
+  });
+
+  // ---- Aufwaermen am Plan ----
+  t('Plan mit warmup:true gewinnt', () => { profile.warmup=false; return eq(planWarm({warmup:true}), true); });
+  t('Plan mit warmup:false gewinnt', () => { profile.warmup=true; return eq(planWarm({warmup:false}), false); });
+  t('Ohne Angabe am Plan gilt das Profil', () => { profile.warmup=true; return eq(planWarm({}), true); });
+  // ⚠️ Auch hier lag ich zuerst falsch: ich hatte `false` erwartet. Ohne Plan ist die
+  // Profil-Einstellung aber die richtige Antwort auf „wird aufgewaermt?" — nicht „nein".
+  t('Ohne Plan gilt ebenfalls das Profil', () => {
+    profile.warmup = true;  const an  = planWarm(null);
+    profile.warmup = false; const aus = planWarm(null);
+    return (an === true && aus === false) || (an + '/' + aus);
+  });
+
+  // ---- Mahlzeit eintragen ----
+  t('Mahlzeit landet mit heutigem Datum in der Liste', () => {
+    profile.kcal = {goal:2000, foods:[], meals:[]};
+    addMeal({name:'Quark', basis:'g100', kcal:68, p:12, c:4, f:0, quelle:'eigen'}, 250);
+    const m = kcalInit().meals[0];
+    return (m && m.kcal === 170 && sameDay(m.date, Date.now())) || JSON.stringify(m);
+  });
+  t('Mahlzeit ohne Namen heisst "Essen"', () => {
+    profile.kcal = {goal:2000, foods:[], meals:[]};
+    addMeal({basis:'g100', kcal:100, p:0, c:0, f:0}, 100);
+    return eq(kcalInit().meals[0].name, 'Essen');
+  });
+  t('Die Mengenangabe wird lesbar mitgeschrieben', () => {
+    profile.kcal = {goal:2000, foods:[], meals:[]};
+    addMeal({name:'X', basis:'g100', kcal:100, p:0, c:0, f:0}, 250);
+    return eq(kcalInit().meals[0].menge, '250 g');
+  });
+  t('Portionen werden mit x geschrieben', () => {
+    profile.kcal = {goal:2000, foods:[], meals:[]};
+    addMeal({name:'X', basis:'portion', kcal:100, p:0, c:0, f:0}, 2);
+    return eq(kcalInit().meals[0].menge, '2×');
+  });
+
+  // ================================================================ NEU: Serie (Trainings-Teil)
+  const MO = ts => wochenStart(ts);
+  const vorWochen = n => { const d = new Date(MO(Date.now())); d.setDate(d.getDate() - 7*n); return d.getTime(); };
+
+  t('Ohne Einheiten keine Serie', () => { sessions = []; return eq(wochenSerie(), 0); });
+  t('Diese Woche trainiert: Serie 1', () => {
+    sessions = [{date: MO(Date.now()) + 2*864e5, entries: []}];
+    return eq(wochenSerie(), 1);
+  });
+  t('Drei Wochen am Stueck', () => {
+    sessions = [0,1,2].map(n => ({date: vorWochen(n) + 864e5, entries: []}));
+    return eq(wochenSerie(), 3);
+  });
+  // ⚠️ Der wichtigste Fall: am Montagmorgen darf die Serie nicht gerissen sein,
+  // nur weil in der neuen Woche noch nichts passiert ist.
+  t('Laufende Woche noch leer: alte Serie bleibt stehen', () => {
+    sessions = [1,2].map(n => ({date: vorWochen(n) + 864e5, entries: []}));
+    return eq(wochenSerie(), 2);
+  });
+  t('Eine Luecke beendet die Serie', () => {
+    sessions = [0,1,3,4].map(n => ({date: vorWochen(n) + 864e5, entries: []}));
+    return eq(wochenSerie(), 2);   // Woche 2 fehlt
+  });
+  t('Mehrere Einheiten in einer Woche zaehlen einmal', () => {
+    sessions = [1,3,5].map(d => ({date: MO(Date.now()) + d*864e5, entries: []}));
+    return eq(wochenSerie(), 1);
+  });
+  t('Nur eine alte Woche, lange her: keine Serie mehr', () => {
+    sessions = [{date: vorWochen(5) + 864e5, entries: []}];
+    return eq(wochenSerie(), 0);
+  });
+  t('Wochenstart ist immer ein Montag', () => {
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(wochenStart(Date.now() - i*864e5));
+      if (d.getDay() !== 1) return 'Tag ' + i + ' ergibt ' + d.getDay();
+    }
+    return true;
+  });
+  t('Wochenstart liegt nie in der Zukunft', () => {
+    for (let i = 0; i < 14; i++) {
+      const ts = Date.now() - i*864e5;
+      if (wochenStart(ts) > ts) return 'bei Tag ' + i;
+    }
+    return true;
+  });
+
+  // ================================================================ NEU: Barcode ist keine Sackgasse mehr
+  t('Eigenes Produkt wird ueber den Barcode gefunden', () => {
+    profile.kcal = {art:'halten', goal:2000, meals:[], foods:[
+      {id:'f1', name:'Hausmarke Müsli', kcal:380, p:12, c:60, f:8, barcode:'4001234567890'}]};
+    const f = eigenesZuBarcode('4001234567890');
+    return (f && f.name === 'Hausmarke Müsli') || 'nicht gefunden';
+  });
+  t('Unbekannter Barcode gibt nichts zurueck', () => eq(eigenesZuBarcode('9999999999999'), null));
+  t('Produkte ohne Barcode stoeren die Suche nicht', () => {
+    profile.kcal = {art:'halten', goal:2000, meals:[], foods:[
+      {id:'f1', name:'Ohne Code', kcal:100, p:5, c:10, f:1},
+      {id:'f2', name:'Mit Code',  kcal:200, p:9, c:20, f:2, barcode:'123456'}]};
+    const f = eigenesZuBarcode('123456');
+    return (f && f.name === 'Mit Code') || 'falscher Treffer';
+  });
+  t('Barcode als Zahl trifft auch auf Barcode als Text', () => {
+    profile.kcal = {art:'halten', goal:2000, meals:[], foods:[
+      {id:'f1', name:'X', kcal:100, p:5, c:10, f:1, barcode:4001234567890}]};
+    return !!eigenesZuBarcode('4001234567890') || 'Typ-Vergleich schlaegt fehl';
+  });
+  t('Leerer Barcode trifft nichts', () => {
+    profile.kcal = {art:'halten', goal:2000, meals:[], foods:[
+      {id:'f1', name:'X', kcal:100, p:5, c:10, f:1, barcode:''}]};
+    return eq(eigenesZuBarcode(''), null);
+  });
+
+  // ---- Die Ansicht muss auch wirklich bauen ----
+  // ⚠️ Die Pruefungen oben pruefen Rechnerei. Ein Tippfehler in der Vorlage faellt
+  // dort NICHT auf — er fliegt erst, wenn jemand den Reiter oeffnet.
+  // ⚠️ Ruhetag erzwingen. Das Eiweissziel haengt seit dem 22.08.2026 am Trainingstag —
+  // ohne das waere unten "von 144 g" eine Pruefung, die je nach WOCHENTAG durchfaellt.
+  // Eine Pruefung, die montags rot ist und dienstags gruen, ist schlimmer als keine.
+  plans = []; sessions = [];
+  const bauen = () => { const v=view; view='body'; renderBody(); const h=app.innerHTML; view=v; return h; };
+
+  t('Ernaehrungs-Ansicht baut ohne Absturz', () => bauen().length > 100 || 'zu wenig herausgekommen');
+  t('Brock steht in der Ernaehrungs-Ansicht', () => {
+    const n = Date.now();
+    profile.weights = [{date:n, kg:80}];
+    profile.kcal = {goal:2000, foods:[], meals:[{id:'a', date:n, name:'Quark', menge:'250 g', kcal:170, p:30, c:8, f:1}]};
+    const h = bauen();
+    return (h.includes('mascot') && h.includes('bubble')) || 'kein Brock';
+  });
+  t('Eiweissziel steht in der Ansicht', () => bauen().includes('von 144 g') || 'Ziel fehlt (Ruhetag: 80 kg x 1,8)');
+  t('Am Trainingstag steht das hoehere Ziel da', () => {
+    plans = [{id:'p', name:'Push', day:todayIdx(), exercises:[]}];
+    const h = bauen();
+    plans = [];
+    return (h.includes('von 160 g') && h.includes('Trainingstag')) || 'kein erhoehtes Ziel';
+  });
+  t('Der Eiweissbalken ist da', () => bauen().includes('border-radius:99px') || 'kein Balken');
+  t('Wochenschnitt steht in der Ansicht', () => bauen().includes('Schnitt der letzten 7 Tage') || 'fehlt');
+  t('Nochmal-Liste steht in der Ansicht', () => bauen().includes('data-again') || 'fehlt');
+  t('Ohne Gewicht: Hinweis statt Eiweissziel', () => {
+    profile.weights = [];
+    const h = bauen();
+    return (h.includes('Trag dein Gewicht ein') && !h.includes('von 144 g')) || 'falscher Hinweis';
+  });
+  t('Ohne Ziel kommt der Vorschlag-Knopf', () => {
+    const n = Date.now();
+    profile.weights = [{date:n, kg:80}];
+    profile.kcal = {goal:null, foods:[], meals:[]};
+    return bauen().includes('kcalgoalauto') || 'kein Vorschlag';
+  });
+  t('Mit Ziel kommt kein Vorschlag-Knopf', () => {
+    profile.kcal = {goal:2200, foods:[], meals:[]};
+    return !bauen().includes('kcalgoalauto') || 'Vorschlag trotz Ziel';
+  });
+  t('Ohne Gewicht kein Vorschlag-Knopf', () => {
+    profile.weights = []; profile.kcal = {goal:null, foods:[], meals:[]};
+    return !bauen().includes('kcalgoalauto') || 'Vorschlag ohne Gewicht';
+  });
+  t('Leerer Tag baut trotzdem', () => {
+    profile.weights = []; profile.kcal = {goal:null, foods:[], meals:[]};
+    return bauen().length > 100 || 'leere Ansicht';
+  });
+  t('Ohne Eintraege keine Nochmal-Liste', () => !bauen().includes('data-again') || 'Liste trotz nichts');
+  t('Namen in der Nochmal-Liste sind entschaerft', () => {
+    // ⚠️ Der Angriffsstring wird zusammengesetzt. Stuende '</scr'+'ipt>' hier am Stueck,
+    // wuerde der Browser den umgebenden script-Block an dieser Stelle schliessen — die
+    // Pruefdatei zerlegte sich selbst. Genau das ist beim ersten Lauf passiert.
+    const boese = '<scr' + 'ipt>böse</scr' + 'ipt>';
+    const n = Date.now();
+    profile.kcal = {goal:2000, foods:[], meals:[
+      {id:'x', date:n-864e5, name:boese, menge:'1', kcal:1, p:1, c:1, f:1}]};
+    const h = bauen();
+    return (h.includes('&lt;scr' + 'ipt&gt;') && !h.includes(boese)) || 'ungefiltert';
+  });
+
+  profile.kcal = JSON.parse(KCAL_VORHER); profile.weights = JSON.parse(GEW_VORHER);
 
   // ================================================================ Schluessel-Dialog
   // Neu am 22.08.2026, nachdem Google Karl auf "Available regions" geworfen hat und der
