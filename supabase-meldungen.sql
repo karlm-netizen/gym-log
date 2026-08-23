@@ -274,10 +274,17 @@ create trigger gym_meldungen_zustellen
 --
 --  Die Webhook-Adresse ist DIESELBE wie bei Angel-Log (#bug-reports-angel-log)
 --  — Karls Entscheidung vom 22.08.2026: gleicher Kanal, eigene Überschrift.
---  Nachschlagen lässt sie sich im selben Projekt mit:
---      select wert from public.angel_konfig where schluessel = 'discord_webhook';
---  ⚠️ Das geht nur, wenn Angel-Log in DIESEM Projekt liegt. Tut es das nicht,
---     die Adresse aus dem Discord-Kanal (Kanal → Bearbeiten → Integrationen) holen.
+--
+--  ⚠️ **Nachgemessen am 23.08.2026: die beiden Apps liegen in VERSCHIEDENEN
+--     Supabase-Projekten.** gym-log ist `uvtxkdasgllnfkvtnkrq`, angel-log ist
+--     `vxyvkyhbomdpdyqtbeza`. Ein `select ... from public.angel_konfig` geht hier
+--     deshalb ins Leere — die Tabelle existiert in diesem Projekt gar nicht.
+--
+--  Zwei Wege an die Adresse:
+--    a) Im Discord: Kanal #bug-reports-angel-log → Bearbeiten → Integrationen →
+--       Webhooks → URL kopieren. (Der kuerzeste Weg.)
+--    b) Im ANDEREN Supabase-Projekt (`vxyvkyhbomdpdyqtbeza`) im SQL-Editor:
+--         select wert from public.angel_konfig where schluessel = 'discord_webhook';
 --
 --  Beide Zeilen hier einfügen und ausführen:
 -- =====================================================================
