@@ -4,6 +4,29 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-23
 
+### 🔔 Push nachgezogen — der Melde-Kreis war noch offen
+
+⚠️ **Beim Testen aufgefallen:** das Bot-Protokoll meldete *„#1: keine Geräte angemeldet"*.
+Der Grund war nicht die fehlende Anmeldung, sondern dass **Gym-Log überhaupt keinen
+Push-Code hatte** — weder eine Anmeldung in der App noch einen `push`-Handler im Service
+Worker. `gym_push.py` und die Tabelle waren gebaut, aber es gab niemanden, an den zu senden
+gewesen wäre. „Alles wie bei Angel-Log" war damit noch nicht erfüllt.
+
+Jetzt übernommen, samt der bei [[angel-log]] teuer gelernten Feinheiten:
+- **Ohne Nutzlast** — der Meldetext ginge sonst durch die Server von Apple bzw. Google.
+- **`showNotification` ist Pflicht:** wer ein Push-Ereignis empfängt und nichts anzeigt,
+  wird nach ein paar Malen von der Zustellung ausgeschlossen.
+- **Der Titel IST die Nachricht** — iOS setzt den App-Namen ohnehin darüber; ihn zu
+  wiederholen ergab bei Angel-Log drei Zeilen, von denen zwei dasselbe sagten.
+- **Bei einem Fehlschlag wird die Anmeldung im Gerät wieder aufgelöst** — sonst stünde der
+  Schalter auf „an", während niemand weiß, wohin gesendet werden soll.
+- Der Schalter unterscheidet **drei** Zustände: geht hier nicht / abgelehnt / an oder aus.
+
+💡 **Derselbe VAPID-Schlüssel wie Angel-Log** — die Schlüssel gehören zum Absender, nicht
+zum Supabase-Projekt. Es sendet derselbe Bot.
+
+**Prüfungen: 383 → 387.** Fassung **v24**.
+
 ### 🐞 Problem melden — Formular, Postfach, Antworten aus Discord
 
 **Karls Entscheidung vom 22.08.:** *„alles wie bei Angel-Log"*. Jetzt fertig.

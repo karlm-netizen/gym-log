@@ -1133,6 +1133,20 @@ window.addEventListener('error', e => {
     return eq(meldungenLesen().length, 0) && eq(postfachUngelesen(), 0);
   });
 
+  // ================================================================ Push (23.08.2026)
+  t('Der VAPID-Schluessel ist gesetzt und hat die richtige Laenge', () =>
+    (typeof VAPID_PUB === 'string' && VAPID_PUB.length === 87) || `Laenge ${VAPID_PUB && VAPID_PUB.length}`);
+  // ⚠️ base64url: '-' und '_' statt '+' und '/', ohne Auffuellen. atob() kennt das nicht -
+  // ohne die Umrechnung wirft subscribe() einen nichtssagenden InvalidCharacterError.
+  t('base64url wird zu Bytes umgerechnet', () => {
+    const b = urlBase64ZuBytes(VAPID_PUB);
+    return (b instanceof Uint8Array && b.length === 65) || `${b && b.length} Bytes`;
+  });
+  t('Der Schluessel faengt mit 0x04 an (unkomprimierter Punkt)', () =>
+    eq(urlBase64ZuBytes(VAPID_PUB)[0], 4));
+  t('pushMoeglich() sagt hier ehrlich nein oder ja', () =>
+    typeof pushMoeglich() === 'boolean' || 'kein Wahrheitswert');
+
   // ================================================================ Uebungsliste (23.08.2026)
   t('Die Uebungsliste ist deutlich gewachsen', () =>
     EXLIB.length > 600 || `nur ${EXLIB.length}`);

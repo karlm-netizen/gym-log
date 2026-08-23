@@ -3031,11 +3031,108 @@ function addWeight(kg){
   save(); return true;
 }
 
+/* ---------- Push-Anmeldung (23.08.2026) ----------
+   ⚠️ Der oeffentliche VAPID-Schluessel darf im Quelltext stehen — dafuer ist er da.
+   Er ist derselbe wie bei angel-log, weil derselbe Bot sendet: die Schluessel gehoeren
+   zum ABSENDER, nicht zum Supabase-Projekt. Zwei Paare waeren zwei Dinge zu pflegen
+   ohne jeden Gewinn. Der PRIVATE Teil liegt allein in der .env des Bots.               */
+const VAPID_PUB = 'BLxEeSl5L86MrjuBwAOcJxk1dEdThUaAsqKSarUpI8EN58iYQUmL2SyFUrmXFnbs3tgCfACcqaVdUjL5FsP2xcg';
+
+/* Der Schluessel muss als Bytes uebergeben werden, nicht als Text. base64url hat statt
+   `+/` die Zeichen `-_` und laesst das Auffuellen weg — `atob` kennt beides nicht. */
+function urlBase64ZuBytes(x){
+  const voll = (x + '='.repeat((4 - x.length % 4) % 4)).replace(/-/g,'+').replace(/_/g,'/');
+  return Uint8Array.from(atob(voll), c => c.charCodeAt(0));
+}
+const pushMoeglich = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+
+async function pushAnmeldungHolen(){
+  if(!pushMoeglich()) return null;
+  try{ const reg = await navigator.serviceWorker.getRegistration();
+       return reg ? await reg.pushManager.getSubscription() : null; }
+  catch{ return null; }
+}
+async function pushEinschalten(){
+  if(!session){ toast('Dafür brauchst du ein Konto'); return; }
+  if(!pushMoeglich()){ toast('Dieses Gerät kann keine Mitteilungen'); return; }
+  /* ⚠️ Erst fragen, dann anmelden. subscribe() fragt zwar selbst, aber der Fehler
+     bei Ablehnung ist ein nichtssagender NotAllowedError — so lässt sich
+     "abgelehnt" von "geht hier nicht" unterscheiden und auch so sagen. */
+  let erlaubnis = Notification.permission;
+  if(erlaubnis === 'default') erlaubnis = await Notification.requestPermission();
+  if(erlaubnis !== 'granted'){
+    toast('Ohne Erlaubnis geht es nicht — in den Geräte-Einstellungen änderbar');
+    if(view==='meldung') renderMeldung();
+    return;
+  }
+  const reg = await navigator.serviceWorker.ready;
+  let sub;
+  try{
+    sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,                 // Pflicht; "stille" Pushs sind nicht erlaubt
+      applicationServerKey: urlBase64ZuBytes(VAPID_PUB)
+    });
+  }catch(e){ toast('Anmelden fehlgeschlagen: ' + (e.message||e.name||'')); return; }
+
+  const roh = sub.toJSON();
+  let ok = false;
+  try{
+    /* ⚠️ Ohne user_id. Die App kennt ihre eigene Benutzer-id nicht — im Gerät liegt
+       nur das Token. In der Tabelle steht dafür `default auth.uid()`; der Server setzt
+       sie aus der Sitzung. */
+    const r = await fetch(`${SUPA_URL}/rest/v1/gym_push`, { method:'POST',
+      headers:{...authHeaders(true), 'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify({ endpoint: sub.endpoint, p256dh: roh.keys.p256dh, auth: roh.keys.auth }) });
+    ok = r.ok;
+  }catch(e){ ok = false; }
+  if(!ok){
+    /* ⚠️ Beim Fehlschlag die Anmeldung im Gerät wieder auflösen. Sonst hielte sich
+       das Gerät für angemeldet, während niemand weiss, wohin gesendet werden soll —
+       der Schalter stünde auf "an" und es käme nie etwas. */
+    try{ await sub.unsubscribe(); }catch{}
+    toast('Konnte nicht gespeichert werden — später nochmal');
+    return;
+  }
+  toast('Mitteilungen sind an');
+  if(view==='meldung') renderMeldung();
+}
+async function pushAusschalten(){
+  const sub = await pushAnmeldungHolen();
+  if(!sub){ if(view==='meldung') renderMeldung(); return; }
+  const ep = sub.endpoint;
+  try{ await sub.unsubscribe(); }catch{}
+  try{
+    await fetch(`${SUPA_URL}/rest/v1/gym_push?endpoint=eq.${encodeURIComponent(ep)}`,
+      { method:'DELETE', headers: authHeaders(true) });
+  }catch(e){}
+  toast('Mitteilungen sind aus');
+  if(view==='meldung') renderMeldung();
+}
+
 /* ---------- Die Melde-Ansicht (23.08.2026) ----------
    Formular oben, Postfach darunter. Bewusst EINE Seite: wer etwas melden will,
    soll nicht erst suchen, und wer eine Antwort bekommen hat, sieht sie an
    derselben Stelle. */
 let meldTexte = '';            // haelt den Tippstand ueber ein Neuzeichnen hinweg
+/* Traegt den Push-Zustand nach, sobald er bekannt ist. Drei Faelle, die sich
+   unterscheiden muessen: geht hier gar nicht / abgelehnt / an oder aus. */
+async function pushStandZeichnen(){
+  const stand = document.getElementById('pushStand'), knopf = document.getElementById('pushKnopf');
+  if(!stand || !knopf) return;
+  if(!pushMoeglich()){
+    stand.textContent = 'Dieses Gerät kann keine Mitteilungen.';
+    knopf.innerHTML = ''; return;
+  }
+  if(Notification.permission === 'denied'){
+    stand.textContent = 'In den Geräte-Einstellungen abgelehnt — nur dort wieder einschaltbar.';
+    knopf.innerHTML = ''; return;
+  }
+  const an = !!(await pushAnmeldungHolen());
+  stand.textContent = an
+    ? 'An — du wirst benachrichtigt, sobald jemand antwortet.'
+    : 'Aus — Antworten siehst du nur, wenn du hier nachschaust.';
+  knopf.innerHTML = `<button class="btn sm ${an?'ghost':'primary'}" data-act="push:${an?'aus':'an'}">${an?'Ausschalten':'Einschalten'}</button>`;
+}
 function renderMeldung(){
   const wartend = meldungenLesen(), post = postfachLesen();
   const u = umfeldSammeln();
@@ -3061,6 +3158,15 @@ function renderMeldung(){
       <b style="color:var(--txt)">Deine Trainingsdaten gehen nicht mit.</b>
     </div></div>`;
 
+  /* Mitteilungen. ⚠️ Der Stand wird ASYNCHRON nachgetragen (pushStand), weil
+     getSubscription() ein Versprechen ist — beim Zeichnen ist er noch nicht bekannt.
+     Bis dahin steht "wird geprüft" da und kein geratener Zustand. */
+  h += `<div class="card" id="pushKarte">
+      <div class="row between" style="align-items:center;gap:10px">
+        <div style="min-width:0"><b>Mitteilung bei einer Antwort</b>
+          <div class="tiny muted" id="pushStand">wird geprüft …</div></div>
+        <div id="pushKnopf"></div></div></div>`;
+
   h += `<div class="row between" style="margin:20px 4px 6px"><h2>Deine Meldungen</h2>
       <span class="tiny muted">letzte 30 Tage</span></div>`;
   if(!post.length){
@@ -3084,6 +3190,7 @@ function renderMeldung(){
     h += `</div>`;
   }
   app.innerHTML = h;
+  pushStandZeichnen();
   // Nachladen, ohne die Ansicht zu blockieren — offline bleibt die Spiegelung stehen.
   postfachHolen().then(rows => { if(view==='meldung' && rows && rows.length !== post.length) renderMeldung(); });
 }
@@ -3351,7 +3458,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v23';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v24';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 const MELD_KEY = 'gymlog:meldungen';
 const POST_KEY = 'gymlog:postfach';
 
@@ -3897,6 +4004,8 @@ document.addEventListener('click',ev=>{
       toast('Ziel auf '+rk.neuesZiel+' kcal umgestellt'); } }
   else if(a==='setkey'){ fragKey().then(ok=>{ if(ok) toast('Schlüssel gespeichert'); render(); }); }
   else if(a==='delkey'){ confirmTwice('dk',t,'Entfernen?',()=>{ DB.set('aikey',''); render(); toast('Schlüssel entfernt'); }); }
+  else if(a==='push:an'){ pushEinschalten(); }
+  else if(a==='push:aus'){ pushAusschalten(); }
   else if(a==='meld:senden'){
     const el=document.getElementById('meldText'), txt=(el?el.value:'').trim();
     if(txt.length<5){ meldTexte = txt; toast('Bitte schreib kurz, was passiert ist.'); return; }
