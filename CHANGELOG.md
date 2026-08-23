@@ -4,6 +4,38 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-23
 
+### 🐞 Problem melden — Formular, Postfach, Antworten aus Discord
+
+**Karls Entscheidung vom 22.08.:** *„alles wie bei Angel-Log"*. Jetzt fertig.
+
+**In der App:** „Problem melden" in den Einstellungen — Formular oben, eigenes Postfach
+darunter. Antworten kommen mit roter Zahl am Eintrag zurück.
+
+⚠️ **Die Meldung wird zuerst im Gerät abgelegt, dann verschickt.** Im Studio ist der Empfang
+oft weg (Keller, Stahlbeton) — genau dort wird die App benutzt. „Abgeschickt" darf keine
+Behauptung sein, die am Netz hängt.
+
+⚠️ **Verschickt wird einzeln, nicht als Stapel.** Die Bremse (5 je 10 Minuten) wäre sonst
+eine Falle: eine abgewiesene Zeile nimmt in PostgreSQL die ganze Anweisung mit — auch die
+Meldungen daneben, die in Ordnung waren. Die lägen weiter im Gerät und würden **für immer**
+zusammen abgewiesen. Bei [[angel-log]] am 12.08. genau deshalb umgebaut.
+
+⚠️ **`lastSync` wurde nirgends geschrieben** — im Umfeld jeder Meldung hätte darum immer
+„nie" gestanden. Wird jetzt bei jedem gelungenen Abgleich gesetzt.
+
+**Im Bot:** `gym_antworten.py` und `gym_push.py`. `bot.py` bedient jetzt **beide Apps**.
+⚠️ Sie schreiben in **denselben Kanal**, unterschieden werden sie allein an der ersten Zeile
+(`🏋 Gym-Log — Meldung #7` gegen `🐞 Angel-Log — Meldung #7`) — die Nummernkreise
+laufen unabhängig, es gibt beide Nummern. Im Nachhol-Lauf ist der Schlüssel deshalb
+(App, Nummer) und nicht die Nummer allein.
+⚠️ **Verschiedene Supabase-Projekte:** eigene `GYM_SUPABASE_*`-Variablen. Nur die
+VAPID-Schlüssel werden geteilt — die gehören zum Absender, nicht zum Projekt.
+
+⚠️ **Im SQL fehlte die Tabelle `gym_push`** — ohne sie hätte es Antworten nur beim nächsten
+Öffnen gegeben. Als Abschnitt 4b nachgetragen; **muss noch ausgeführt werden.**
+
+**Prüfungen: 375 → 383.** Fassung auf **v23**.
+
 ### 🏋️ Die Übungsliste wächst von 80 auf 672
 
 **Karls Ansage:** *„wir müssen die Einheitenliste bearbeiten, da sie unvollständig ist — lass

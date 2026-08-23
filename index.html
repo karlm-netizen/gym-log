@@ -206,6 +206,17 @@ setTimeout(function(){
   .field input{width:100%; background:var(--card2); border:1px solid var(--line); border-radius:12px;
     color:var(--txt); padding:13px; font-size:16px}
   /* Kalorien: Makro-Zeilen neben dem Ring, und ein Balken fuers Warten auf Barcode/KI */
+  /* Melde-Postfach (23.08.2026) */
+  .meld{padding:12px 14px}
+  .meld + .meld{border-top:1px solid var(--line)}
+  /* Eine unglelesene Antwort bekommt eine Kante, keine Flaeche — dieselbe
+     Begruendung wie beim faelligen Mahlzeiten-Block. */
+  .meld.neu{box-shadow:inset 3px 0 0 var(--ok); cursor:pointer}
+  .meld-antwort{margin-top:8px; padding:8px 10px; border-radius:10px; background:var(--card2)}
+  .rotzahl{min-width:20px; height:20px; padding:0 6px; border-radius:99px; background:var(--danger);
+    color:#fff; font-size:12px; font-weight:700; display:inline-flex; align-items:center;
+    justify-content:center}
+
   /* Mahlzeiten-Bloecke (23.08.2026, nach Karls Vorlage) */
   .mz{padding:12px 14px}
   .mz.trenn{border-top:1px solid var(--line)}
@@ -1196,7 +1207,7 @@ function splashWeg(){
 // ---------- Rendering ----------
 // Die Rang-Ansicht hat keinen eigenen Platz mehr in der Leiste — man kommt nur über die
 // Rang-Karte auf der Startseite dorthin, deshalb bleibt dort „Start" markiert.
-function setNav(){ const map=(view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='admin'||view==='privacy')?'settings':(view==='body'||view==='food')?'body':'home';
+function setNav(){ const map=(view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='admin'||view==='privacy'||view==='meldung')?'settings':(view==='body'||view==='food')?'body':'home';
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on', b.dataset.nav===map)); }
 function render(){
   if(!session){ document.body.classList.add('gate'); document.body.classList.remove('setup'); renderAuthGate(); return; }
@@ -1207,7 +1218,7 @@ function render(){
   // während Barcode oder KI noch laufen (die setzen view selbst auf 'food').
   if(view!=='food'&&!foodBusy){ foodStep='list'; foodDraft=null; foodFehler=''; foodMz=''; }
   setNav();
-  ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, body:renderBody, food:renderFood, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin}[view]||renderHome)();
+  ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, body:renderBody, food:renderFood, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin, meldung:renderMeldung}[view]||renderHome)();
   syncSessionClock();
   // Geteilter Plan aus dem Link: erst anbieten, wenn jemand angemeldet ist und nicht gerade
   // im Assistenten steckt — sonst laege das Fenster ueber der Pflicht-Einrichtung.
@@ -3020,6 +3031,63 @@ function addWeight(kg){
   save(); return true;
 }
 
+/* ---------- Die Melde-Ansicht (23.08.2026) ----------
+   Formular oben, Postfach darunter. Bewusst EINE Seite: wer etwas melden will,
+   soll nicht erst suchen, und wer eine Antwort bekommen hat, sieht sie an
+   derselben Stelle. */
+let meldTexte = '';            // haelt den Tippstand ueber ein Neuzeichnen hinweg
+function renderMeldung(){
+  const wartend = meldungenLesen(), post = postfachLesen();
+  const u = umfeldSammeln();
+  let h = `<div class="row between" style="margin:2px 4px 10px">
+      <h2>Problem melden</h2>
+      <button class="btn sm ghost" data-nav="settings">Zurück</button></div>`;
+
+  h += `<div class="card">
+    <div class="field" style="margin:0">
+      <label>Was ist passiert?</label>
+      <textarea id="meldText" rows="5" placeholder="Was hast du gemacht, und was ist stattdessen passiert?"
+        style="width:100%;background:var(--card2);border:1px solid var(--line);border-radius:12px;
+               color:var(--txt);padding:12px;font-size:16px;font-family:inherit;resize:vertical">${esc(meldTexte)}</textarea>
+    </div>
+    <button class="btn primary" style="margin-top:12px" data-act="meld:senden">Abschicken</button>
+    ${wartend.length?`<div class="tiny muted" style="margin-top:10px">⏳ ${wartend.length}
+      ${wartend.length===1?'Meldung wartet':'Meldungen warten'} auf Verbindung — sie
+      ${wartend.length===1?'geht':'gehen'} automatisch raus, sobald du wieder online bist.</div>`:''}
+    <div class="tiny muted" style="margin-top:12px;line-height:1.7">
+      <b style="color:var(--txt)">Das geht mit:</b> Fassung ${u.fassung} · ${u.netz} ·
+      ${u.bildschirm} · ${u.einheiten} Einheiten · Gerät.
+      <br>Ohne diese Angaben steht dort nur „geht nicht" und niemand kann etwas damit anfangen.
+      <b style="color:var(--txt)">Deine Trainingsdaten gehen nicht mit.</b>
+    </div></div>`;
+
+  h += `<div class="row between" style="margin:20px 4px 6px"><h2>Deine Meldungen</h2>
+      <span class="tiny muted">letzte 30 Tage</span></div>`;
+  if(!post.length){
+    h += `<div class="empty">Noch nichts gemeldet.</div>`;
+  } else {
+    h += `<div class="card">`;
+    post.forEach(m => {
+      const neu_ = m.antwort && !m.gelesen_am;
+      h += `<div class="meld${neu_?' neu':''}" ${m.antwort?`data-meldread="${m.id}"`:''}>
+        <div class="row between" style="align-items:baseline;gap:8px">
+          <b>#${m.nummer||'–'}</b>
+          <span class="tiny muted">${fmtDate(new Date(m.erstellt).getTime())}</span></div>
+        <div class="tiny" style="margin:4px 0 0;white-space:pre-wrap">${esc(m.text||'')}</div>
+        ${m.antwort?`<div class="meld-antwort">
+            <div class="tiny" style="color:var(--ok);font-weight:700;margin-bottom:3px">
+              Antwort${neu_?' · neu':''}</div>
+            <div class="tiny" style="white-space:pre-wrap">${esc(m.antwort)}</div></div>`
+          :`<div class="tiny muted" style="margin-top:6px">Noch keine Antwort.</div>`}
+      </div>`;
+    });
+    h += `</div>`;
+  }
+  app.innerHTML = h;
+  // Nachladen, ohne die Ansicht zu blockieren — offline bleibt die Spiegelung stehen.
+  postfachHolen().then(rows => { if(view==='meldung' && rows && rows.length !== post.length) renderMeldung(); });
+}
+
 function renderSettings(){
   const usr='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>';
   // Reihenfolge nach Karls Ansage (05.08.): Trainingsplan ganz oben, alles Konto-artige unten
@@ -3113,6 +3181,12 @@ function renderSettings(){
       <div class="row between"><div class="row" style="gap:10px">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v6c0 4.4-3 8-7 9-4-1-7-4.6-7-9V6z"/><path d="M9.5 12l1.8 1.8 3.4-3.6"/></svg>
         <div><b>Datenschutz</b><div class="tiny muted">Welche Daten gespeichert werden und warum</div></div></div><span class="muted">›</span></div></div>`;
+  const offen = postfachUngelesen(), wartend = meldungenLesen().length;
+  h+=`<div class="card" data-nav="meldung" style="cursor:pointer">
+      <div class="row between"><div class="row" style="gap:10px">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+        <div><b>Problem melden</b><div class="tiny muted">${wartend?wartend+' wartet auf Verbindung':'Etwas kaputt? Sag Bescheid'}</div></div></div>
+        <span class="row" style="gap:8px">${offen?`<span class="rotzahl">${offen}</span>`:''}<span class="muted">›</span></span></div></div>`;
   h+=`<div class="card">
       <label class="tiny muted" style="display:block;margin-bottom:10px">Konto</label>
       <div class="row between" style="margin-bottom:14px">
@@ -3262,6 +3336,107 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
     <button class="t-btn" data-rest="-15">−15</button><button class="t-btn" data-rest="15">+15</button><button class="t-btn" data-rest="skip">✓</button></div>`; }
 
 // ---------- Toast + Modal ----------
+/* ============================================================================
+   Problem melden (23.08.2026) — Karls Entscheidung vom 22.08.: "alles wie bei
+   Angel-Log". Formular, Postfach, Antworten aus Discord zurueck in die App.
+
+   ⚠️ Die Meldung wird ZUERST im Geraet abgelegt und erst danach verschickt.
+   Im Fitnessstudio ist der Empfang oft weg (Keller, Stahlbeton) — genau dort
+   wird die App benutzt. "Abgeschickt" darf keine Behauptung sein, die am Netz
+   haengt.
+
+   ⚠️ Verschickt wird EINZELN, nicht als Stapel. Die Bremse in der Datenbank
+   (5 je 10 Minuten) wuerde sonst zur Falle: eine abgewiesene Zeile nimmt in
+   PostgreSQL die ganze Anweisung mit, also auch die Meldungen daneben, die in
+   Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
+   wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
+   genau deshalb umgebaut.                                                        */
+const APP_FASSUNG = 'v23';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const MELD_KEY = 'gymlog:meldungen';
+const POST_KEY = 'gymlog:postfach';
+
+function umfeldSammeln(){
+  const n = navigator;
+  return {
+    fassung: APP_FASSUNG,
+    netz: n.onLine ? 'online' : 'offline',
+    bildschirm: window.innerWidth + '×' + window.innerHeight,
+    einheiten: (sessions||[]).length,
+    letzterAbgleich: DB.get('lastSync', '') || 'nie',
+    geraet: (n.userAgent||'').slice(0, 180)
+  };
+}
+function meldungenLesen(){ try{ return JSON.parse(localStorage.getItem(MELD_KEY)||'[]'); }catch{ return []; } }
+function meldungenSchreiben(l){ try{ localStorage.setItem(MELD_KEY, JSON.stringify(l)); }catch{} }
+
+/* Legt die Meldung ins Geraet. Das Verschicken ist ein zweiter, eigener Schritt. */
+function meldungAnlegen(text){
+  const l = meldungenLesen();
+  l.push({ id: uid()+uid(), text: String(text).slice(0,4000), umfeld: umfeldSammeln(),
+           erstellt: new Date().toISOString() });
+  meldungenSchreiben(l);
+  return l.length;
+}
+async function meldungenNachreichen(){
+  if(!session || !(await ensureToken())) return 0;
+  const l = meldungenLesen();
+  if(!l.length) return 0;
+  let durch = 0;
+  for(const m of l){
+    let r;
+    try{
+      r = await fetch(`${SUPA_URL}/rest/v1/gym_meldungen`, { method:'POST',
+        headers:{...authHeaders(true), 'Prefer':'resolution=merge-duplicates,return=minimal'},
+        body: JSON.stringify({ id:m.id, text:m.text, umfeld:m.umfeld }) });
+    }catch(e){ break; }                       // kein Netz: alles bleibt liegen
+    if(r.ok){ durch++; continue; }
+    const txt = await r.text().catch(()=>'');
+    /* Die Bremse ist kein Fehler, sondern eine Auskunft: "spaeter nochmal".
+       Die Meldung bleibt liegen und geht beim naechsten Abgleich mit. */
+    if(txt.indexOf('GYM_BREMSE') !== -1) break;
+    meldungenSchreiben(l.slice(durch));       // erst nach dem OK aus der Schlange nehmen
+    throw new Error('Melden fehlgeschlagen ('+r.status+')');
+  }
+  meldungenSchreiben(l.slice(durch));
+  return durch;
+}
+
+/* ---------- Das Postfach ----------
+   ⚠️ Der Bestand wird lokal gespiegelt. Ohne das waere das Postfach im Studio
+   leer — genau dort, wo die App benutzt wird. Es ist eine Kopie zum Anschauen,
+   keine zweite Wahrheit: geschrieben wird nur, was vom Server kam.              */
+function postfachLesen(){ try{ return JSON.parse(localStorage.getItem(POST_KEY)||'[]'); }catch{ return []; } }
+function postfachSchreiben(l){ try{ localStorage.setItem(POST_KEY, JSON.stringify(l)); }catch{} }
+async function postfachHolen(){
+  if(!session || !(await ensureToken())) return postfachLesen();
+  try{
+    const seit = new Date(Date.now()-30*864e5).toISOString();
+    const r = await fetch(`${SUPA_URL}/rest/v1/gym_meldungen`
+      + `?select=id,nummer,text,antwort,antwort_am,gelesen_am,erstellt`
+      + `&erstellt=gte.${seit}&order=erstellt.desc`, { headers: authHeaders(true) });
+    if(!r.ok) return postfachLesen();
+    const rows = await r.json();
+    postfachSchreiben(rows);
+    return rows;
+  }catch(e){ return postfachLesen(); }
+}
+/* Wie viele unglelesene Antworten? Das ist die rote Zahl am Zahnrad. */
+function postfachUngelesen(){
+  return postfachLesen().filter(m => m.antwort && !m.gelesen_am).length;
+}
+async function antwortGelesen(id){
+  const l = postfachLesen();
+  const m = l.find(x => x.id === id);
+  if(m) { m.gelesen_am = new Date().toISOString(); postfachSchreiben(l); }
+  if(!session || !(await ensureToken())) return;
+  /* ⚠️ Ueber die Funktion, nicht per PATCH: eine abgeschickte Meldung soll sich
+     nicht nachtraeglich aendern lassen. gym_meldung_gelesen fasst nur gelesen_am an. */
+  try{
+    await fetch(`${SUPA_URL}/rest/v1/rpc/gym_meldung_gelesen`, { method:'POST',
+      headers: authHeaders(true), body: JSON.stringify({ mid: id }) });
+  }catch(e){}
+}
+
 let toastT; function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),1800); }
 function showModal(html){ const m=document.getElementById('modal'); m.innerHTML=`<div class="modal-box">${html}<button class="btn primary" data-act="closemodal" style="margin-top:16px">Weiter</button></div>`; m.classList.add('show'); }
 function closeModal(){ document.getElementById('modal').classList.remove('show'); }
@@ -3365,6 +3540,10 @@ let authMode='login', syncT, syncState='Cloud aktiv';
 let dirty=DB.get('dirty',false);   // lokale Änderungen, die noch nicht in der Cloud sind
 function setDirty(v){ dirty=v; DB.set('dirty',v); }
 function setSync(ok){ const s= ok?'Cloud aktiv':'Offline — wird nachgeholt';
+  // ⚠️ Den Zeitpunkt des letzten GELUNGENEN Abgleichs festhalten. Er steht im
+  // Umfeld jeder Fehlermeldung — ohne ihn stuende dort "nie", und die Frage
+  // "hatte das Geraet ueberhaupt Verbindung?" waere bei jeder Meldung offen.
+  if(ok) DB.set('lastSync', new Date().toISOString());
   if(s!==syncState){ syncState=s; if(view==='settings'&&session) renderSettings(); } }
 function authHeaders(withToken){ return {'apikey':SUPA_KEY,'Content-Type':'application/json',
   'Authorization':'Bearer '+((withToken&&session&&session.access_token)?session.access_token:SUPA_KEY)}; }
@@ -3511,7 +3690,7 @@ function confirmTwice(key,btn,label,run){ if(armed[key]){ clearTimeout(armed[key
 if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ if((profile.theme||'system')==='system') applyTheme(); }); }
 
 document.addEventListener('click',ev=>{
-  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-planwarm],[data-libnew],[data-useprog],[data-editprog],[data-delprog],[data-shareprog],[data-moveex],[data-openex],[data-delweight],[data-skin],[data-sdel],[data-sdelex],[data-sadd],[data-delmeal],[data-delfood],[data-pickfood],[data-again],[data-zielart]');
+  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-planwarm],[data-libnew],[data-useprog],[data-editprog],[data-delprog],[data-shareprog],[data-moveex],[data-openex],[data-delweight],[data-skin],[data-sdel],[data-sdelex],[data-sadd],[data-delmeal],[data-meldread],[data-delfood],[data-pickfood],[data-again],[data-zielart]');
   if(!t) return;
   // ---- Eine abgeschlossene Einheit korrigieren (Verlauf › Bearbeiten) ----
   if(t.dataset.sdel){ const [ei,si]=t.dataset.sdel.split(':').map(Number);
@@ -3529,6 +3708,7 @@ document.addEventListener('click',ev=>{
   if(t.dataset.delweight){ const ts=+t.dataset.delweight;
     confirmTwice('dw'+ts,t,'Löschen?',()=>{ profile.weights=(profile.weights||[]).filter(x=>x.date!==ts); save(); render(); }); return; }
   // ---- Kalorien ----
+  if(t.dataset.meldread){ antwortGelesen(t.dataset.meldread).then(()=>{ if(view==='meldung') renderMeldung(); }); return; }
   if(t.dataset.delmeal){ const id=t.dataset.delmeal, k=kcalInit();
     k.meals=k.meals.filter(x=>x.id!==id); save(); render(); return; }
   // NEU: dasselbe nochmal essen. Kopiert den alten Eintrag mit heutigem Datum —
@@ -3717,6 +3897,18 @@ document.addEventListener('click',ev=>{
       toast('Ziel auf '+rk.neuesZiel+' kcal umgestellt'); } }
   else if(a==='setkey'){ fragKey().then(ok=>{ if(ok) toast('Schlüssel gespeichert'); render(); }); }
   else if(a==='delkey'){ confirmTwice('dk',t,'Entfernen?',()=>{ DB.set('aikey',''); render(); toast('Schlüssel entfernt'); }); }
+  else if(a==='meld:senden'){
+    const el=document.getElementById('meldText'), txt=(el?el.value:'').trim();
+    if(txt.length<5){ meldTexte = txt; toast('Bitte schreib kurz, was passiert ist.'); return; }
+    meldungAnlegen(txt); meldTexte='';
+    // ⚠️ Erst ablegen, dann verschicken — und die Ansicht sofort neu zeichnen.
+    // "Abgeschickt" gilt ab dem Ablegen im Gerät, nicht ab dem Netz.
+    toast('Danke! Meldung ist raus.');
+    render();
+    meldungenNachreichen()
+      .then(n => { if(n) postfachHolen().then(()=>{ if(view==='meldung') renderMeldung(); }); })
+      .catch(e => toast(String(e.message||e)));
+  }
   else if(a==='food:start'||a.startsWith('food:start:')){
     foodMz = a.startsWith('food:start:') ? a.slice(11) : '';
     foodStep='list'; foodDraft=null; foodFehler=''; view='food'; render(); }

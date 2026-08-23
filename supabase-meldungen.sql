@@ -269,6 +269,47 @@ create trigger gym_meldungen_zustellen
   after insert on public.gym_meldungen
   for each row execute function public.gym_meldung_zustellen();
 
+-- ---------------------------------------------------------------------
+--  4b. Push: wohin darf benachrichtigt werden?
+--
+--  Ohne diese Tabelle gibt es Antworten nur beim nächsten Öffnen der App. Der
+--  Melder soll aber erfahren, dass geantwortet wurde, ohne nachsehen zu müssen.
+--
+--  ⚠️ Der Endpunkt ist die Adresse beim Push-Dienst (Apple, Google, Mozilla) und
+--  schon für sich eindeutig. Als Schlüssel ist er deshalb richtiger als eine
+--  erfundene id: meldet sich dasselbe Gerät erneut an, wird die alte Zeile
+--  ersetzt statt eine zweite angelegt.
+--
+--  ⚠️ Jeder sieht und ändert ausschließlich seine EIGENEN Anmeldungen. Eine
+--  fremde Push-Adresse zu kennen heißt, an dieses Gerät senden zu können.
+-- ---------------------------------------------------------------------
+create table if not exists public.gym_push (
+  endpoint text primary key,
+  -- `default auth.uid()`: die App kennt ihre eigene Benutzer-id gar nicht
+  -- (im Gerät liegt nur das Token) und soll sie nicht mitschicken müssen.
+  user_id  uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  p256dh   text not null,
+  auth     text not null,
+  erstellt timestamptz not null default now(),
+  zuletzt  timestamptz          -- wann zuletzt erfolgreich zugestellt, nur zum Nachsehen
+);
+
+alter table public.gym_push enable row level security;
+
+drop policy if exists "eigene gym-push lesen"    on public.gym_push;
+drop policy if exists "eigene gym-push anlegen"  on public.gym_push;
+drop policy if exists "eigene gym-push aendern"  on public.gym_push;
+drop policy if exists "eigene gym-push loeschen" on public.gym_push;
+
+create policy "eigene gym-push lesen"    on public.gym_push
+  for select using (auth.uid() = user_id);
+create policy "eigene gym-push anlegen"  on public.gym_push
+  for insert with check (auth.uid() = user_id);
+create policy "eigene gym-push aendern"  on public.gym_push
+  for update using (auth.uid() = user_id);
+create policy "eigene gym-push loeschen" on public.gym_push
+  for delete using (auth.uid() = user_id);
+
 -- =====================================================================
 --  5. ⚠️ NOCH ZU TUN — zwei Zeilen von Hand, sonst kommt nichts an
 --

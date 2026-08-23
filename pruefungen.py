@@ -1087,6 +1087,52 @@ window.addEventListener('error', e => {
     return eq(kcalInit().meals[0].menge, '2×');
   });
 
+  // ================================================================ Problem melden (23.08.2026)
+  t('Eine Meldung landet zuerst im Geraet', () => {
+    localStorage.removeItem(MELD_KEY);
+    meldungAnlegen('Der Timer bleibt stehen');
+    const l = meldungenLesen();
+    return (l.length === 1 && l[0].text === 'Der Timer bleibt stehen') || JSON.stringify(l);
+  });
+  // ⚠️ Die Felder muessen GENAU die sein, die der Trigger in supabase-meldungen.sql
+  // ausliest. Fehlt eines, steht in Discord ein "?" - und niemand merkt es, weil
+  // die Meldung ja ankommt.
+  t('Das Umfeld hat die Felder, die der Trigger liest', () => {
+    const u = umfeldSammeln();
+    const muss = ['fassung','netz','bildschirm','einheiten','letzterAbgleich','geraet'];
+    const fehlt = muss.filter(k => u[k] === undefined);
+    return fehlt.length === 0 || 'fehlt: ' + fehlt.join(', ');
+  });
+  t('Die Fassung steht nicht auf leer', () =>
+    (typeof APP_FASSUNG === 'string' && APP_FASSUNG.length > 0) || 'leer');
+  t('Sehr langer Text wird gekuerzt', () => {
+    localStorage.removeItem(MELD_KEY);
+    meldungAnlegen('x'.repeat(9000));
+    return eq(meldungenLesen()[0].text.length, 4000);
+  });
+  t('Zwei Meldungen bekommen verschiedene Kennungen', () => {
+    localStorage.removeItem(MELD_KEY);
+    meldungAnlegen('eins'); meldungAnlegen('zwei');
+    const l = meldungenLesen();
+    return (l[0].id !== l[1].id) || 'gleiche id: ' + l[0].id;
+  });
+  t('Ungelesene Antworten werden gezaehlt', () => {
+    localStorage.setItem(POST_KEY, JSON.stringify([
+      {id:'a', antwort:'passt', gelesen_am:null},
+      {id:'b', antwort:'auch', gelesen_am:'2026-08-23T10:00:00Z'},
+      {id:'c', antwort:null, gelesen_am:null}]));
+    return eq(postfachUngelesen(), 1);
+  });
+  t('Ohne Antwort keine rote Zahl', () => {
+    localStorage.setItem(POST_KEY, JSON.stringify([{id:'a', antwort:null, gelesen_am:null}]));
+    return eq(postfachUngelesen(), 0);
+  });
+  // Aufraeumen, damit die Reihenfolge der Pruefungen egal bleibt.
+  t('Melde-Speicher laesst sich leeren', () => {
+    localStorage.removeItem(MELD_KEY); localStorage.removeItem(POST_KEY);
+    return eq(meldungenLesen().length, 0) && eq(postfachUngelesen(), 0);
+  });
+
   // ================================================================ Uebungsliste (23.08.2026)
   t('Die Uebungsliste ist deutlich gewachsen', () =>
     EXLIB.length > 600 || `nur ${EXLIB.length}`);
