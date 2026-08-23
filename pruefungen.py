@@ -1087,6 +1087,40 @@ window.addEventListener('error', e => {
     return eq(kcalInit().meals[0].menge, '2×');
   });
 
+  // ================================================================ Uebungsliste (23.08.2026)
+  t('Die Uebungsliste ist deutlich gewachsen', () =>
+    EXLIB.length > 600 || `nur ${EXLIB.length}`);
+  // ⚠️ Karls 80 muessen ALLE noch da sein - wger fehlen 14 davon, ein Austausch
+  // haette sie verloren. Stichproben aus genau diesen 14.
+  t('Karls eigene Uebungen sind nicht verschwunden', () => {
+    const muss = ['SZ-Curls','Scott-Curls (Preacher)','Bulgarian Split Squat','Step-Ups',
+                  'Ab-Wheel Rollout','Sprints','Kabel-Fliegende','Dips (Brust)'];
+    const da = new Set(EXLIB.map(x=>x.name));
+    const fehlt = muss.filter(n=>!da.has(n));
+    return fehlt.length===0 || 'fehlt: '+fehlt.join(', ');
+  });
+  t('Karls Uebungen stehen weiterhin zuerst', () =>
+    eq(EXLIB[0].name, 'Bankdruecken'.replace('ue','ü')));
+  t('Keine doppelten Uebungsnamen', () => {
+    const zaehler = {};
+    EXLIB.forEach(x=>{ const k=x.name.toLowerCase().replace(/[^a-z0-9äöüß]/g,''); zaehler[k]=(zaehler[k]||0)+1; });
+    const doppelt = Object.entries(zaehler).filter(([,n])=>n>1).map(([k])=>k);
+    return doppelt.length===0 || `${doppelt.length}x doppelt, z.B. ${doppelt.slice(0,3).join(', ')}`;
+  });
+  t('Jede Uebung hat Name, Icon und Wiederholungen', () => {
+    const ok = ['press','pull','shoulder','dumbbell','legs','core','cardio'];
+    for (const x of EXLIB) {
+      if (!x.name || typeof x.name !== 'string') return 'Name fehlt';
+      if (!ok.includes(x.icon)) return `unbekanntes Icon "${x.icon}" bei ${x.name}`;
+      if (!(x.reps >= 1)) return `reps fehlt bei ${x.name}`;
+    }
+    return true;
+  });
+  t('Die Suche findet eine wger-Uebung', () => {
+    const q = 'bauchcrunch';
+    return EXLIB.some(x=>x.name.toLowerCase().includes(q)) || 'nicht gefunden';
+  });
+
   // ================================================================ Mahlzeiten (23.08.2026)
   t('Vier Mahlzeiten, Anteile ergeben 100 %', () => {
     const summe = MAHLZEITEN.reduce((a,m)=>a+m.anteil,0);

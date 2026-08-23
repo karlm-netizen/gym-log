@@ -4,6 +4,35 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-23
 
+### 🏋️ Die Übungsliste wächst von 80 auf 672
+
+**Karls Ansage:** *„wir müssen die Einheitenliste bearbeiten, da sie unvollständig ist — lass
+uns mal eine Website suchen, die alle hat."*
+
+**Gefunden: [wger.de](https://wger.de)** — offene Datenbank, freie API, kein Schlüssel nötig.
+💡 **Nachgemessen statt geglaubt:** beworben werden „845+", davon tragen aber nur **628**
+einen deutschen Namen — und das ist die Zahl, auf die es bei einer deutschen App ankommt.
+
+⚠️ **Ergänzt, nicht ersetzt — der Befund, der die Richtung bestimmt hat.** Ein Abgleich zeigte:
+von Karls 80 Übungen fehlen **14 bei wger**, darunter SZ-Curls, Scott-Curls, Bulgarian Split
+Squat, Step-Ups und Ab-Wheel Rollout. Ein Austausch hätte sie verloren. Karls Liste steht
+deshalb unverändert und **weiterhin zuerst**; die 592 neuen hängen dahinter.
+
+⚠️ **Dubletten über normalisierte Namen abgefangen** (34 Stück): wgers „Bankdrücken LH" ist
+Karls „Bankdrücken". Ohne das stünde dieselbe Übung zweimal in der Auswahl.
+
+⚠️ **Icon und Wiederholungen kommen aus der wger-Kategorie, nicht aus dem Namen.**
+`guessIcon()` würde bei über 500 unbekannten Namen raten, und jeder Fehlgriff ist ein falsches
+Bild neben einer Übung — genau der Fehler vom 22.08. („Klimmzüge").
+
+⚖️ **Lizenz CC-BY-SA**, die Namensnennung steht jetzt unten in der Übungsauswahl.
+
+⚠️ **Ein Fehler beim Erzeugen, den der Prüfrahmen gefangen hat:** zwei Namen mit Apostroph
+(„Butcher's Block Dehnung", „Devil's Press") waren nicht escaped und haben das **gesamte
+Skript** lahmgelegt — die App startete nicht mehr. Ohne Prüfrahmen wäre das live gegangen.
+
+**Prüfungen: 369 → 375.**
+
 ### 🍽️ Der Ernährungs-Teil bekommt vier Mahlzeiten
 
 **Karls Vorlage** aus Discord — Frühstück / Mittagessen / Abendessen / Snacks, jede mit
