@@ -2,6 +2,33 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-08-23
+
+### 🗄️ Bug-Report, Teil 1: das Datenbank-Gerüst (`supabase-meldungen.sql`)
+
+**Karls Entscheidung vom 22.08.2026:** *„alles wie bei Angel-Log“* — Formular, Postfach,
+Antworten aus Discord zurück in die App, Push. **Gleicher Kanal wie Angel-Log, eigene
+Überschrift** (`🏋 Gym-Log — Meldung #N` statt `🐞 Angel-Log — ...`), weil beide in
+denselben Kanal schreiben.
+
+⚠️ **Ein Unterschied zu Angel-Log, der auffiel:** Gym-Log hat **keine Profil-Tabelle und keine
+Benutzernamen** — es gibt nur `gymlog_data`. Als Kennung des Melders bleibt deshalb die
+**E-Mail aus `auth.users`**; die Zustell-Funktion ist nur dafür `security definer`.
+
+**Mit übernommen, weil bei Angel-Log teuer gelernt:**
+- **Bremse als Mengengrenze** (5 je 10 Min/Konto), nicht als 60-Sekunden-Abstand — sonst
+  verschwindet ein Nachzügler-Stapel ohne Netz **für immer**.
+- **`allowed_mentions.parse: []`** — in den Meldetext schreibt ein Fremder; ohne das pingt
+  jeder mit `@everyone` den ganzen Server.
+- **`Content-Type` ohne Zeichensatz** — sonst wirft pg_net, der Trigger fällt, und die Meldung
+  landet nicht einmal in der Tabelle.
+- **Gelesen-Vermerk als Funktion**, nicht als UPDATE-Policy — RLS kann Zeilen einschränken,
+  aber keine einzelnen Spalten.
+
+⚠️ **Noch nicht fertig:** App-Seite und die zwei Bot-Dateien (`gym_antworten.py`, `gym_push.py`)
+fehlen. Und in `gym_konfig` müssen Webhook + Ping-ID von Hand eingetragen werden — ohne sie
+kommt nichts an.
+
 ## 2026-08-22
 
 ### ✨ Schritte aus der Health-App — über Kurzbefehle
