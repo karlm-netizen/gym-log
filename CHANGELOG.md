@@ -4,6 +4,28 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-23
 
+### 🍽️ Der Ernährungs-Teil bekommt vier Mahlzeiten
+
+**Karls Vorlage** aus Discord — Frühstück / Mittagessen / Abendessen / Snacks, jede mit
+eigenem Ziel und eigenem Plus-Knopf. Vorher war der Tag **eine flache Liste**.
+
+💡 **Die Anteile stammen aus Karls Bild, nicht aus dem Lehrbuch:** dort stehen
+1.113 / 1.484 / 927 / 185 kcal bei 3.709 kcal Tagesziel — also **30 / 40 / 25 / 5 %**.
+Eine Prüfung rechnet genau diese vier Zahlen nach.
+
+⚠️ **Bestandsdaten landen nicht im Sammeltopf.** Alte Einträge haben kein `mz`-Feld. Sie
+pauschal auf „Snacks" zu werfen hätte jeden davon falsch einsortiert und die Blöcke von Tag
+eins an unbrauchbar gemacht — stattdessen wird die Mahlzeit **aus der Uhrzeit erschlossen**,
+die in jedem Eintrag steht.
+
+⚠️ **Das Ziel hängt am Tagesziel des Tages**, nicht am Grundziel — im Schritt-Modus ist es
+beweglich, und sonst zeigten die vier Blöcke zusammen etwas anderes an als der Ring darüber.
+
+Der **jetzt fällige Block** ist mit einer Kante hervorgehoben, nicht mit einer Füllung: eine
+gefüllte Zeile zwischen drei leeren sieht aus wie „ausgewählt", und ausgewählt ist hier nichts.
+
+**Prüfungen: 360 → 369.**
+
 ### 🔧 Nachbesserung am selben Tag: schwarze Ränder und ein zu kurzer Ladescreen
 
 **Karls Ansage:** *„selbes Problem wie bei der Angel-App, der Ladescreen ist zu kurz und man

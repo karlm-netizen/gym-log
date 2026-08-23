@@ -1087,6 +1087,57 @@ window.addEventListener('error', e => {
     return eq(kcalInit().meals[0].menge, '2×');
   });
 
+  // ================================================================ Mahlzeiten (23.08.2026)
+  t('Vier Mahlzeiten, Anteile ergeben 100 %', () => {
+    const summe = MAHLZEITEN.reduce((a,m)=>a+m.anteil,0);
+    return (MAHLZEITEN.length===4 && Math.abs(summe-1) < 1e-9) || `${MAHLZEITEN.length} Bloecke, Summe ${summe}`;
+  });
+  // ⚠️ Karls Vorlage: 1.113 / 1.484 / 927 / 185 bei 3.709 kcal. Genau die muessen rauskommen.
+  t('Ziele treffen Karls Vorlage (3709 kcal)', () => {
+    const g = [['f',1113],['m',1484],['a',927],['s',185]];
+    for (const [id, soll] of g) {
+      const ist = mahlzeitZiel(id, 3709);
+      if (Math.abs(ist - soll) > 1) return `${id}: ${ist} statt ${soll}`;
+    }
+    return true;
+  });
+  t('Ohne Tagesziel kein Mahlzeit-Ziel', () => eq(mahlzeitZiel('f', 0), 0));
+  t('Stunden landen in der richtigen Mahlzeit', () => {
+    const f = [[7,'f'],[10,'f'],[11,'m'],[13,'m'],[16,'a'],[19,'a'],[22,'s'],[2,'s']];
+    for (const [std, soll] of f) {
+      const ist = mahlzeitAusStunde(std);
+      if (ist !== soll) return `${std} Uhr -> ${ist} statt ${soll}`;
+    }
+    return true;
+  });
+  // ⚠️ Der wichtigste Fall: Bestandsdaten haben kein mz-Feld. Sie duerfen NICHT alle
+  // in einem Sammeltopf landen, sondern werden aus ihrer Uhrzeit erschlossen.
+  t('Alter Eintrag ohne mz kommt aus der Uhrzeit', () => {
+    const d = new Date(); d.setHours(8,30,0,0);
+    return eq(mahlzeitVon({date: d.getTime()}), 'f');
+  });
+  t('Gesetztes mz schlaegt die Uhrzeit', () => {
+    const d = new Date(); d.setHours(8,30,0,0);
+    return eq(mahlzeitVon({date: d.getTime(), mz:'a'}), 'a');
+  });
+  t('Unsinniges mz faellt auf die Uhrzeit zurueck', () => {
+    const d = new Date(); d.setHours(13,0,0,0);
+    return eq(mahlzeitVon({date: d.getTime(), mz:'xyz'}), 'm');
+  });
+  t('addMeal schreibt die gewaehlte Mahlzeit mit', () => {
+    profile.kcal = {goal:2000, foods:[], meals:[]};
+    foodMz = 'a';
+    addMeal({name:'Test', basis:'g100', kcal:100, p:0, c:0, f:0}, 100);
+    foodMz = '';
+    return eq(kcalInit().meals[0].mz, 'a');
+  });
+  t('Ohne Wahl entscheidet die Uhrzeit', () => {
+    profile.kcal = {goal:2000, foods:[], meals:[]};
+    foodMz = '';
+    addMeal({name:'Test', basis:'g100', kcal:100, p:0, c:0, f:0}, 100);
+    return eq(kcalInit().meals[0].mz, mahlzeitJetzt());
+  });
+
   // ================================================================ Ladebildschirm
   // ⚠️ Die zwei Uhren duerfen sich nicht ueberholen: laege die Mindestzeit ueber der
   // Hoechstzeit, raeumte die Hoechstzeit den Schirm weg, waehrend die Mindestzeit ihn

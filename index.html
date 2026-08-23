@@ -206,6 +206,23 @@ setTimeout(function(){
   .field input{width:100%; background:var(--card2); border:1px solid var(--line); border-radius:12px;
     color:var(--txt); padding:13px; font-size:16px}
   /* Kalorien: Makro-Zeilen neben dem Ring, und ein Balken fuers Warten auf Barcode/KI */
+  /* Mahlzeiten-Bloecke (23.08.2026, nach Karls Vorlage) */
+  .mz{padding:12px 14px}
+  .mz.trenn{border-top:1px solid var(--line)}
+  /* Der jetzt faellige Block bekommt eine Kante statt einer Flaeche - eine gefuellte
+     Zeile zwischen drei leeren sieht aus wie "ausgewaehlt", und ausgewaehlt ist hier
+     nichts. Es ist ein Hinweis, keine Auswahl. */
+  .mz.jetzt{box-shadow:inset 3px 0 0 var(--ok)}
+  .mz-icon{font-size:22px; width:34px; height:34px; border-radius:99px; background:var(--card2);
+    display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto}
+  .mz-plus{width:32px; height:32px; flex:0 0 auto; border-radius:99px; cursor:pointer;
+    border:1px solid var(--line); background:var(--card2); color:var(--txt);
+    font-size:20px; line-height:1; display:inline-flex; align-items:center; justify-content:center}
+  .mz-plus:active{transform:scale(.94)}
+  .mz-eintrag{display:flex; justify-content:space-between; align-items:center; gap:10px;
+    padding:6px 0 6px 44px; font-size:14px}
+  .mz-eintrag + .mz-eintrag{border-top:1px solid var(--line)}
+
   /* Die Ess-Serie (23.08.2026). Grau, solange sie bei 0 steht — siehe flammeHTML(). */
   .flamme{display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:99px;
     background:var(--card2); border:1px solid var(--line); font-size:13px; line-height:1;
@@ -887,7 +904,7 @@ function render(){
   if(view!=='session') sessEdit=false;   // Bearbeiten-Modus gilt nur, solange man die Einheit ansieht
   // Beim Verlassen der Essen-Ansicht den halbfertigen Eintrag wegräumen — aber nicht,
   // während Barcode oder KI noch laufen (die setzen view selbst auf 'food').
-  if(view!=='food'&&!foodBusy){ foodStep='list'; foodDraft=null; foodFehler=''; }
+  if(view!=='food'&&!foodBusy){ foodStep='list'; foodDraft=null; foodFehler=''; foodMz=''; }
   setNav();
   ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, body:renderBody, food:renderFood, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin}[view]||renderHome)();
   syncSessionClock();
@@ -1573,6 +1590,46 @@ function kcalInit(){
   return k;
 }
 function mealsToday(){ const n=Date.now(); return kcalInit().meals.filter(m=>sameDay(m.date,n)); }
+
+/* ============================================================================
+   Mahlzeiten (23.08.2026) — nach Karls Vorlage aus Discord.
+   Vorher war der Tag EINE flache Liste; jetzt vier Bloecke mit eigenem Ziel.
+
+   💡 Die Anteile stammen aus Karls Bild, nicht aus dem Lehrbuch: dort stehen
+   1.113 / 1.484 / 927 / 185 kcal bei 3.709 kcal Tagesziel — also 30 / 40 / 25 / 5 %.
+
+   ⚠️ BESTANDSDATEN haben kein `mz`-Feld. Sie werden NICHT auf "Snacks" geworfen,
+   sondern aus ihrer Uhrzeit erschlossen (`mahlzeitVon`). Ein pauschaler Sammeltopf
+   haette jeden alten Eintrag falsch einsortiert und die Bloecke von Tag eins an
+   unbrauchbar gemacht. Die Uhrzeit steht in jedem Eintrag — sie ist die beste
+   Auskunft, die es rueckwirkend gibt.                                              */
+const MAHLZEITEN = [
+  { id:'f', name:'Frühstück',   icon:'☕', anteil:0.30, von:4,  bis:11 },
+  { id:'m', name:'Mittagessen', icon:'🍝', anteil:0.40, von:11, bis:16 },
+  { id:'a', name:'Abendessen',  icon:'🥗', anteil:0.25, von:16, bis:22 },
+  { id:'s', name:'Snacks',      icon:'🍎', anteil:0.05, von:22, bis:4  },
+];
+/* Welche Mahlzeit gehoert zu dieser Stunde? Snacks umschliessen Mitternacht,
+   deshalb die Fallunterscheidung statt eines einfachen Vergleichs. */
+function mahlzeitAusStunde(std){
+  for(const mz of MAHLZEITEN){
+    if(mz.von < mz.bis){ if(std >= mz.von && std < mz.bis) return mz.id; }
+    else               { if(std >= mz.von || std < mz.bis) return mz.id; }
+  }
+  return 's';
+}
+function mahlzeitVon(m){
+  if(m && m.mz && MAHLZEITEN.some(x=>x.id===m.mz)) return m.mz;
+  return mahlzeitAusStunde(new Date(m && m.date ? m.date : Date.now()).getHours());
+}
+function mahlzeitJetzt(){ return mahlzeitAusStunde(new Date().getHours()); }
+/* Das Ziel eines Blocks. Haengt am TAGESziel des Tages (im Schritt-Modus beweglich),
+   nicht am Grundziel — sonst zeigten die vier Bloecke zusammen etwas anderes an als
+   der Ring darueber. */
+function mahlzeitZiel(mzId, tagesziel){
+  const mz = MAHLZEITEN.find(x=>x.id===mzId);
+  return (mz && tagesziel>0) ? Math.round(tagesziel*mz.anteil) : 0;
+}
 function sumMeals(list){ const s={kcal:0,p:0,c:0,f:0};
   list.forEach(m=>{ s.kcal+=+m.kcal||0; s.p+=+m.p||0; s.c+=+m.c||0; s.f+=+m.f||0; });
   Object.keys(s).forEach(x=>s[x]=Math.round(s[x])); return s; }
@@ -1891,7 +1948,9 @@ function kcalRing(ist,ziel){
 // Alle drei Wege (eigene Liste, Barcode, Foto) enden an derselben Stelle: ein foodDraft
 // steht fest, und es fehlt nur noch die Menge. Deshalb eine Ansicht mit drei Schritten
 // statt drei getrennter Abläufe.
-let foodStep='list', foodDraft=null, foodBusy='', foodFehler='';
+// `foodMz` haelt fest, in WELCHEN Mahlzeiten-Block eingetragen wird — gesetzt vom
+// Plus-Knopf des Blocks, geleert beim Verlassen. Leer heisst: nach Uhrzeit entscheiden.
+let foodStep='list', foodDraft=null, foodBusy='', foodFehler='', foodMz='';
 // basis 'g100' = die Werte gelten je 100 g (eigene Liste, Barcode)
 // basis 'portion' = die Werte gelten fuer genau diese eine Portion (Foto)
 function leerDraft(){ return {name:'',marke:'',kcal:'',p:'',c:'',f:'',basis:'g100',menge:100,quelle:'eigen'}; }
@@ -1902,7 +1961,9 @@ function draftWerte(d,menge){
 }
 function addMeal(d,menge){
   const w=draftWerte(d,menge), k=kcalInit();
-  k.meals.push({id:uid(),date:Date.now(),name:d.name||'Essen',
+  // ⚠️ `foodMz` ist die im Block angetippte Mahlzeit. Ist keine gewaehlt (etwa ueber
+  // den allgemeinen Knopf), entscheidet die Uhrzeit — nie ein fester Vorgabewert.
+  k.meals.push({id:uid(),date:Date.now(),name:d.name||'Essen', mz: foodMz || mahlzeitJetzt(),
     menge:(+menge||0)+(d.basis==='portion'?'×':' g'), quelle:d.quelle||'eigen', ...w});
   save(); return w;
 }
@@ -2236,15 +2297,42 @@ function renderBody(){
     h+=`</div>`;
   }
 
-  h+=`<div class="row between" style="margin:20px 4px 6px"><h2>Gegessen</h2>
-      <span class="tiny muted">${heute.length} ${heute.length===1?'Eintrag':'Einträge'}</span></div>`;
-  if(!heute.length) h+=`<div class="empty">Heute noch nichts eingetragen.</div>`;
-  else { h+=`<div class="card">`;
-    [...heute].reverse().forEach(m=>{ h+=`<div class="sess"><div style="min-width:0">
-      <b>${esc(m.name)}</b><div class="tiny muted">${esc(String(m.menge))} · ${fmtTime(m.date)}${m.quelle==='foto'?' · Foto':m.quelle==='barcode'?' · Barcode':''}</div></div>
-      <span class="row" style="gap:10px;flex:0 0 auto"><b>${m.kcal} kcal</b>
-      <button class="link" style="padding:0 2px;color:var(--muted)" data-delmeal="${m.id}">✕</button></span></div>`; });
-    h+=`</div>`; }
+  /* ---------- Ernährung: vier Mahlzeiten statt einer Liste (23.08.2026) ----------
+     Karls Vorlage. Jeder Block hat ein eigenes Ziel (Anteil am Tagesziel) und einen
+     eigenen Plus-Knopf, der die Mahlzeit gleich mitgibt.
+     ⚠️ Der jetzt fällige Block wird hervorgehoben — nachmittags ist „Abendessen"
+     der wahrscheinlichste Griff, und ihn zu suchen ist eine Bewegung zu viel. */
+  const jetztMz = mahlzeitJetzt();
+  h+=`<div class="row between" style="margin:20px 4px 6px"><h2>Ernährung</h2>
+      <span class="tiny muted">${heute.length} ${heute.length===1?'Eintrag':'Einträge'}</span></div>
+    <div class="card" style="padding:4px 0">`;
+  MAHLZEITEN.forEach((mz,i)=>{
+    const drin = heute.filter(m=>mahlzeitVon(m)===mz.id);
+    const sum  = drin.reduce((a,m)=>a+(+m.kcal||0),0);
+    const ziel = mahlzeitZiel(mz.id, zt);
+    h+=`<div class="mz${mz.id===jetztMz?' jetzt':''}${i?' trenn':''}">
+      <div class="row between" style="align-items:center;gap:10px">
+        <div class="row" style="gap:10px;align-items:center;min-width:0">
+          <span class="mz-icon" aria-hidden="true">${mz.icon}</span>
+          <div style="min-width:0">
+            <b>${mz.name}</b>
+            <div class="tiny muted">${Math.round(sum)}${ziel?` / ${ziel}`:''} kcal</div>
+          </div>
+        </div>
+        <button class="mz-plus" data-act="food:start:${mz.id}"
+          aria-label="Zu ${mz.name} eintragen">+</button>
+      </div>
+      ${ziel?zielBalken(sum, ziel, 'var(--ok)'):''}
+      ${drin.length?`<div style="margin-top:8px">`+[...drin].reverse().map(m=>
+        `<div class="mz-eintrag"><div style="min-width:0">
+           <span>${esc(m.name)}</span>
+           <div class="tiny muted">${esc(String(m.menge))} · ${fmtTime(m.date)}${m.quelle==='foto'?' · Foto':m.quelle==='barcode'?' · Barcode':''}</div></div>
+         <span class="row" style="gap:10px;flex:0 0 auto"><b>${m.kcal} kcal</b>
+         <button class="link" style="padding:0 2px;color:var(--muted)" data-delmeal="${m.id}">✕</button></span></div>`
+      ).join('')+`</div>`:''}
+    </div>`;
+  });
+  h+=`</div>`;
 
   // ---------- Gewicht (war frueher der ganze Tab) ----------
   const w=weightList(), cur=lastWeight();
@@ -3328,7 +3416,9 @@ document.addEventListener('click',ev=>{
       toast('Ziel auf '+rk.neuesZiel+' kcal umgestellt'); } }
   else if(a==='setkey'){ fragKey().then(ok=>{ if(ok) toast('Schlüssel gespeichert'); render(); }); }
   else if(a==='delkey'){ confirmTwice('dk',t,'Entfernen?',()=>{ DB.set('aikey',''); render(); toast('Schlüssel entfernt'); }); }
-  else if(a==='food:start'){ foodStep='list'; foodDraft=null; foodFehler=''; view='food'; render(); }
+  else if(a==='food:start'||a.startsWith('food:start:')){
+    foodMz = a.startsWith('food:start:') ? a.slice(11) : '';
+    foodStep='list'; foodDraft=null; foodFehler=''; view='food'; render(); }
   else if(a==='food:back'){ foodStep='list'; foodDraft=null; foodFehler=''; render(); }
   else if(a==='food:new'){ const s=document.getElementById('foodSearch');
     foodDraft=leerDraft(); foodDraft.name=s?s.value.trim():''; foodStep='new'; render(); }
