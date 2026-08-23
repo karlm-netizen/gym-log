@@ -1087,6 +1087,15 @@ window.addEventListener('error', e => {
     return eq(kcalInit().meals[0].menge, '2×');
   });
 
+  // ================================================================ Ladebildschirm
+  // ⚠️ Die zwei Uhren duerfen sich nicht ueberholen: laege die Mindestzeit ueber der
+  // Hoechstzeit, raeumte die Hoechstzeit den Schirm weg, waehrend die Mindestzeit ihn
+  // noch haelt. Bei angel-log steht dieselbe Pruefung aus demselben Grund.
+  t('Splash: Mindestzeit liegt unter der Hoechstzeit', () =>
+    (SPLASH_MINDESTENS < SPLASH_HOECHSTENS) || `${SPLASH_MINDESTENS} >= ${SPLASH_HOECHSTENS}`);
+  t('Splash: Mindestzeit ist lang genug zum Sehen', () =>
+    SPLASH_MINDESTENS >= 1000 || `nur ${SPLASH_MINDESTENS} ms`);
+
   // ================================================================ NEU: Ess-Serie (Flamme, 23.08.2026)
   const TAG = 864e5;
   const heute0 = () => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); };
@@ -1619,9 +1628,25 @@ window.addEventListener('error', e => {
   // ⚠️ Die wichtigste Pruefung ist die erste. Der Schirm liegt UEBER der ganzen App -
   // bleibt er stehen, ist die App gesperrt, nicht nur haesslich. Genau das ist in
   // angel-log schon einmal passiert.
-  t('Der Ladebildschirm ist nach dem Start weg', () => {
+  // ⚠️ Seit dem 23.08.2026 geht der Schirm nicht mehr sofort, sondern erst nach
+  // SPLASH_MINDESTENS (Karls „der ladescreen ist zu kurz"). Fuer die Pruefung wird die
+  // Uhr deshalb vorgestellt - geprueft wird "geht weg, wenn die Zeit um ist".
+  t('Der Ladebildschirm geht, wenn die Mindestzeit um ist', () => {
+    splashSeit = Date.now() - SPLASH_MINDESTENS - 100;
+    splashWeg();
     const el = document.getElementById('splash');
     return (el && el.classList.contains('weg')) || (el ? 'liegt noch drueber' : 'gar nicht da');
+  });
+  // Die Gegenprobe: laeuft die Mindestzeit noch, MUSS er stehen bleiben. Ohne diese
+  // Pruefung wuerde ein spaeteres "sofort weg" niemandem auffallen.
+  t('Der Ladebildschirm bleibt stehen, solange die Mindestzeit laeuft', () => {
+    const el = document.getElementById('splash');
+    el.classList.remove('weg');
+    splashSeit = Date.now();          // gerade erst geoeffnet
+    splashWeg();
+    const steht = !el.classList.contains('weg');
+    el.classList.add('weg');          // fuer die folgenden Pruefungen zurueckstellen
+    return steht || 'ist sofort verschwunden';
   });
   t('Der Ladebildschirm bleibt im Dokument', () => {
     // Nicht entfernt, nur ausgeblendet - sonst gaebe es beim naechsten render nichts
@@ -1643,6 +1668,7 @@ window.addEventListener('error', e => {
             && SPLASH_HOECHSTENS <= 10000) || 'keine oder unbrauchbare Grenze';
   });
   t('splashWeg laesst sich zweimal aufrufen', () => {
+    splashSeit = Date.now() - SPLASH_MINDESTENS - 100;   // Mindestzeit schon um
     splashWeg(); splashWeg();
     return document.getElementById('splash').classList.contains('weg') || 'Zustand kippt';
   });

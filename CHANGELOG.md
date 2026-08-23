@@ -4,6 +4,32 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-23
 
+### 🔧 Nachbesserung am selben Tag: schwarze Ränder und ein zu kurzer Ladescreen
+
+**Karls Ansage:** *„selbes Problem wie bei der Angel-App, der Ladescreen ist zu kurz und man
+[sieht] schwarze Ränder beim App Icon."*
+
+**1. Die schwarzen Ränder.** Mein erster Zuschnitt hatte den schwarzen Grund der Bildmontage
+mitgenommen — auf dem Homescreen wurde daraus ein dunkler Rahmen um das Icon.
+⚠️ **Ein Versuch, das per Flächenfüllung zu lösen, ist gescheitert und wurde zurückgenommen:**
+Brocks Hörner, die Hantel und der Schriftzug-Kasten hängen alle am selben dunklen Bereich wie
+der Rahmen — die Füllung fraß sie mit. Jetzt wird stattdessen **der türkise Körper gemessen**
+(x 48–504, y 417–891 im Original) und **hinter die dunkle Kontur gezoomt**. Ergebnis: randlos,
+Motiv vollständig.
+
+**2. Der Ladescreen.** Er hatte nur eine Obergrenze (5 s), aber **keine Mindestdauer** — die
+Oberfläche steht nach wenigen Millisekunden, also war er weg, bevor man ihn gesehen hatte.
+Jetzt **`SPLASH_MINDESTENS = 1800`**, gezählt **ab dem Öffnen der Seite**, nicht ab dem
+Fertigwerden — sonst käme die Wartezeit oben drauf und ein langsames Gerät würde doppelt
+bestraft. Genau die Lösung, die [[angel-log]] seit dem 08.08. hat.
+
+⚠️ **Zwei bestehende Prüfungen wurden dadurch rot** — sie erwarteten, dass der Schirm sofort
+weggeht. Genau dafür ist der Rahmen da. Sie bilden jetzt die neue Absicht ab, und eine
+**Gegenprobe** ist dazugekommen: läuft die Mindestzeit noch, muss er stehen bleiben. Ohne die
+würde ein späteres „sofort weg" niemandem auffallen.
+
+**Prüfungen: 357 → 360.**
+
 ### 🖼️ App-Icon und Ladebildschirm nach Karls Entwurf
 
 Karl hat den Entwurf am 23.08. in Discord abgelegt: Brock mit Hantel als Icon, dazu ein

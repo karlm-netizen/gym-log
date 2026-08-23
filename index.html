@@ -45,6 +45,19 @@
 // (Skriptfehler weiter unten, abgebrochener Download, kaputter Datenbestand).
 // Uebernommen aus angel-log — dort ist genau das schon einmal passiert.
 var SPLASH_HOECHSTENS = 5000;
+
+// ---- Wie lange der Schirm MINDESTENS steht (23.08.2026) ----
+// Karls Ansage: „der ladescreen ist zu kurz" — dasselbe wie am 08.08. bei angel-log.
+// Die Oberflaeche steht nach wenigen Millisekunden, also war der Schirm weg, bevor man
+// ihn gesehen hatte.
+//
+// ⚠️ Gezaehlt wird ab dem OEFFNEN der Seite, nicht ab dem Fertigwerden. Sonst kaeme
+// die Wartezeit oben drauf und ein langsames Geraet wuerde doppelt bestraft.
+//
+// ⚠️ Muss unter SPLASH_HOECHSTENS liegen, sonst laufen zwei Uhren gegeneinander:
+// die Obergrenze raeumte den Schirm weg, waehrend die Mindestzeit ihn noch haelt.
+var SPLASH_MINDESTENS = 1800;
+var splashSeit = Date.now();
 setTimeout(function(){
   var s = document.getElementById('splash');
   if (s) s.classList.add('weg');
@@ -854,7 +867,13 @@ function applyTheme(){
 // Den Ladebildschirm wegnehmen. ⚠️ Nur EIN Weg dorthin, und der laeuft nach dem ersten
 // render() — nicht nach dem Abgleich: der kann ohne Netz ewig dauern, und die App ist
 // vorher vollstaendig bedienbar. Die harte Grenze im Kopf bleibt als Notausstieg.
-function splashWeg(){ const el=document.getElementById('splash'); if(el) el.classList.add('weg'); }
+function splashWeg(){
+  const el=document.getElementById('splash'); if(!el) return;
+  // Rest der Mindestzeit abwarten. Ist sie schon um, geht er sofort.
+  const rest = SPLASH_MINDESTENS - (Date.now() - splashSeit);
+  if(rest > 0) setTimeout(()=>el.classList.add('weg'), rest);
+  else el.classList.add('weg');
+}
 
 // ---------- Rendering ----------
 // Die Rang-Ansicht hat keinen eigenen Platz mehr in der Leiste — man kommt nur über die
