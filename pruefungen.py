@@ -1087,6 +1087,45 @@ window.addEventListener('error', e => {
     return eq(kcalInit().meals[0].menge, '2×');
   });
 
+  // ================================================================ NEU: Ess-Serie (Flamme, 23.08.2026)
+  const TAG = 864e5;
+  const heute0 = () => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); };
+  // Mittags, damit ein Tageswechsel waehrend des Laufs nichts kippt.
+  const vorTagen = n => heute0() - n*TAG + 12*36e5;
+  const setzeTage = arr => { profile.kcal = {goal:2000, foods:[],
+    meals: arr.map(n => ({name:'X', date: vorTagen(n), kcal:100, p:0, c:0, f:0}))}; };
+
+  t('Ohne Eintraege keine Flamme', () => { setzeTage([]); return eq(essSerie(), 0); });
+  t('Heute eingetragen: Serie 1', () => { setzeTage([0]); return eq(essSerie(), 1); });
+  t('Drei Tage am Stueck', () => { setzeTage([0,1,2]); return eq(essSerie(), 3); });
+  // ⚠️ Der wichtigste Fall, dieselbe Falle wie bei der Wochenserie: morgens um 8 ist
+  // heute noch nichts eingetragen — die Serie von gestern darf dann NICHT auf 0 stehen.
+  t('Heute noch nichts: Serie von gestern bleibt stehen', () => {
+    setzeTage([1,2,3]); return eq(essSerie(), 3);
+  });
+  t('Eine Luecke beendet die Serie', () => {
+    setzeTage([0,1,3,4]); return eq(essSerie(), 2);   // Tag 2 fehlt
+  });
+  t('Mehrere Eintraege an einem Tag zaehlen einmal', () => {
+    profile.kcal = {goal:2000, foods:[], meals:[
+      {name:'A', date: vorTagen(0), kcal:100, p:0, c:0, f:0},
+      {name:'B', date: vorTagen(0), kcal:200, p:0, c:0, f:0},
+      {name:'C', date: vorTagen(1), kcal:300, p:0, c:0, f:0}]};
+    return eq(essSerie(), 2);
+  });
+  t('Lange her: keine Serie mehr', () => { setzeTage([5,6]); return eq(essSerie(), 0); });
+  // ⚠️ Zwei Tage Luecke, nicht einer: bei [1] waere die Serie 1 (gestern zaehlt noch).
+  t('Vorgestern zuletzt: Serie ist gerissen', () => { setzeTage([2,3]); return eq(essSerie(), 0); });
+
+  t('Rekord ohne Eintraege ist 0', () => { setzeTage([]); return eq(essSerieRekord(), 0); });
+  t('Rekord findet den laengsten Lauf', () => {
+    setzeTage([0, 5,6,7,8, 12]);           // laufend 1, aber vier am Stueck davor
+    return eq(essSerie(), 1) && eq(essSerieRekord(), 4);
+  });
+  t('Rekord zaehlt auch den laufenden Lauf', () => {
+    setzeTage([0,1,2]); return eq(essSerieRekord(), 3);
+  });
+
   // ================================================================ NEU: Serie (Trainings-Teil)
   const MO = ts => wochenStart(ts);
   const vorWochen = n => { const d = new Date(MO(Date.now())); d.setDate(d.getDate() - 7*n); return d.getTime(); };

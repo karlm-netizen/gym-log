@@ -4,6 +4,52 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-23
 
+### 🖼️ App-Icon und Ladebildschirm nach Karls Entwurf
+
+Karl hat den Entwurf am 23.08. in Discord abgelegt: Brock mit Hantel als Icon, dazu ein
+Ladebildschirm mit Wortmarke, Untertitel und Ladebalken.
+
+⚠️ **Ein Fehler, der dabei aufgefallen ist:** die Icons standen im Manifest auf
+`"purpose": "any maskable"`. **Maskable beschneidet rund** — Karls „gym-log"-Schriftzug sitzt
+aber unten am Rand und wäre auf Android abgeschnitten worden. Jetzt getrennt:
+- `icon-192/512.png` — Karls Entwurf 1:1, `purpose: any`
+- `icon-maskable-192/512.png` — Inhalt auf 80 %, drumherum der Türkiston aus dem Icon selbst
+  (`#1bb9bc`, aus dem Bild gemessen statt geraten)
+
+⚠️ **`icon.svg` ist raus** — es zeigte noch das alte Motiv. Solange es im `<link rel="icon">`
+stand, hätte der Browser-Tab ein anderes Bild gezeigt als der Homescreen.
+
+**Ladebildschirm** in Karls Reihenfolge: Wortmarke (`gym` weiß, `-log` grün) → „Dein Training.
+Dein Fortschritt." → Brock im getragenen Rang → „Wird geladen…" → Balken. Die zwei Farben
+stehen als HTML da, nicht als Bild — der Ladebildschirm ist genau dann sichtbar, wenn noch
+nichts geladen ist.
+
+`sw.js` auf **gymlog-v22**, sonst behalten die Handys die alten Symbole.
+
+### 🔥 Die Flamme: eine Serie fürs Mitschreiben
+
+**Karls Ansage:** *„Flammen beim kalorientracken streak"*.
+
+💡 **Sie zählt Tage, die Trainings-Serie zählt Wochen — das ist Absicht.** Beim Training
+gehören Ruhetage zum Plan, eine Tagesserie würde dort etwas bestrafen, das richtig ist. Beim
+Essen gibt es keinen Ruhetag: jeder Tag ist mitgeschrieben oder nicht.
+
+⚠️ **Der heutige Tag zählt nur mit, wenn schon etwas drinsteht** — sonst stünde die Serie
+jeden Morgen auf 0, obwohl nichts versäumt ist. Dieselbe Falle wie bei der Wochenserie.
+
+⚠️ **Bei 0 wird sie grau statt versteckt.** Eine Anzeige, die erst ab Tag 1 auftaucht, erklärt
+sich nie — man sähe sie zum ersten Mal, wenn man sie schon hat.
+
+Der Rekord wird **gerechnet, nicht gespeichert**: ein gespeicherter Wert wäre nach dem Löschen
+eines Eintrags falsch und nie wieder richtigzustellen. Er steht nur daneben, wenn er größer als
+die laufende Serie ist.
+
+⚠️ **Fasst XP nicht an** — die Entscheidung vom 22.08. gilt: kein XP fürs Essen, sonst
+entwertet es den Rang, der Training misst. Die Flamme ist eine Anzeige, keine Währung.
+
+**Prüfungen: 346 → 357.** Elf neue, darunter der Morgen-Fall und die Unterscheidung
+„gestern zuletzt" (Serie läuft) gegen „vorgestern zuletzt" (gerissen).
+
 ### 🗄️ Bug-Report, Teil 1: das Datenbank-Gerüst (`supabase-meldungen.sql`)
 
 **Karls Entscheidung vom 22.08.2026:** *„alles wie bei Angel-Log“* — Formular, Postfach,

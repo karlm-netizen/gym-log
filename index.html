@@ -6,8 +6,10 @@
 <meta name="theme-color" content="#0f1115">
 <title>Gym-Log</title>
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon-192.png">
+<!-- Icons: Karls Entwurf vom 23.08.2026. icon.svg zeigte das ALTE Motiv und ist
+     deshalb raus - sonst steht im Browser-Tab ein anderes Bild als auf dem Homescreen. -->
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Gym-Log">
@@ -66,7 +68,14 @@ setTimeout(function(){
   #splash.weg{opacity:0; visibility:hidden; pointer-events:none}
   #splash img{width:132px; height:132px; object-fit:contain; display:block;
     animation:splashHeb 1.6s ease-in-out infinite}
-  #splash .name{font-size:26px; font-weight:800; letter-spacing:.3px; color:var(--txt)}
+  /* Karls Entwurf vom 23.08.2026: Wortmarke oben, darunter der Satz, dann Brock.
+     ⚠️ Die zwei Farben stehen als HTML da (`gym<span>-log</span>`) und nicht als
+     Bild — der Ladebildschirm ist genau dann sichtbar, wenn noch nichts geladen ist. */
+  #splash .titel{font-size:40px; font-weight:800; letter-spacing:-.5px; color:var(--txt);
+    line-height:1}
+  #splash .titel span{color:var(--ok)}
+  #splash .unter{font-size:14px; color:var(--muted); margin-top:-8px}
+  #splash .laedt{font-size:13px; color:var(--ok); margin-bottom:-6px}
   #splash .balken{width:132px; height:4px; border-radius:99px; background:var(--line);
     overflow:hidden; position:relative}
   #splash .balken:after{content:''; position:absolute; inset:0; width:40%; border-radius:99px;
@@ -184,6 +193,22 @@ setTimeout(function(){
   .field input{width:100%; background:var(--card2); border:1px solid var(--line); border-radius:12px;
     color:var(--txt); padding:13px; font-size:16px}
   /* Kalorien: Makro-Zeilen neben dem Ring, und ein Balken fuers Warten auf Barcode/KI */
+  /* Die Ess-Serie (23.08.2026). Grau, solange sie bei 0 steht — siehe flammeHTML(). */
+  .flamme{display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:99px;
+    background:var(--card2); border:1px solid var(--line); font-size:13px; line-height:1;
+    color:var(--muted); white-space:nowrap}
+  .flamme span[aria-hidden]{font-size:14px; filter:grayscale(1); opacity:.55}
+  .flamme b{font-weight:700}
+  /* ⚠️ Zwei Zeilen mit Absicht: color-mix kann aelteres Safari nicht. Ohne die
+     erste Zeile faellt der Hintergrund dort ganz weg und die aktive Flamme saehe
+     aus wie die inaktive. Die zweite ueberschreibt sie, wo color-mix geht. */
+  .flamme.an{color:var(--txt); border-color:transparent; background:rgba(245,158,11,.16)}
+  @supports (background: color-mix(in srgb, red 10%, transparent)){
+    .flamme.an{background:color-mix(in srgb, #f59e0b 16%, transparent)}
+  }
+  .flamme.an span[aria-hidden]{filter:none; opacity:1}
+  .flamme .rek{font-size:11px; color:var(--muted); font-weight:600}
+  .flamme .rek:before{content:'2'; margin-right:4px; opacity:.6}
   .makro{display:flex; justify-content:space-between; align-items:baseline; gap:8px;
     padding:5px 0; border-bottom:1px solid var(--line); font-size:13px; color:var(--muted)}
   .makro:last-child{border-bottom:none}
@@ -332,8 +357,10 @@ setTimeout(function(){
      irgendetwas anderes gezeichnet wird. Das Bild wird unten in init() auf den
      getragenen Rang gesetzt; bis dahin steht der Standard-Brock drin. -->
 <div id="splash">
+  <div class="titel">gym<span>-log</span></div>
+  <div class="unter">Dein Training. Dein Fortschritt.</div>
   <img id="splashMon" src="brock.png" width="132" height="132" alt="" aria-hidden="true">
-  <div class="name">Gym-Log</div>
+  <div class="laedt">Wird geladen…</div>
   <div class="balken"></div>
 </div>
 <main id="app" class="wrap"></main>
@@ -1531,6 +1558,47 @@ function sumMeals(list){ const s={kcal:0,p:0,c:0,f:0};
   list.forEach(m=>{ s.kcal+=+m.kcal||0; s.p+=+m.p||0; s.c+=+m.c||0; s.f+=+m.f||0; });
   Object.keys(s).forEach(x=>s[x]=Math.round(s[x])); return s; }
 
+/* NEU (23.08.2026): die Ess-Serie — wie viele TAGE am Stueck wurde mitgeschrieben?
+   Karls Ansage: „Flammen beim kalorientracken streak".
+
+   💡 Warum Tage und nicht Wochen wie beim Training: das ist bewusst anders. Beim
+   Training zaehlt die Serie Wochen, weil Ruhetage zum Plan GEHOEREN — eine Tagesserie
+   wuerde dort jeden Ruhetag reissen und damit etwas bestrafen, das richtig ist.
+   Beim Essen gibt es keinen Ruhetag: gegessen wird jeden Tag, also ist jeder Tag
+   entweder mitgeschrieben oder nicht.
+
+   ⚠️ Der heutige Tag zaehlt nur mit, wenn schon etwas eingetragen ist — sonst
+   staende die Serie jeden Morgen auf 0, obwohl noch gar nichts versaeumt ist.
+   Dieselbe Falle wie bei wochenSerie(), dort schon einmal geloest.
+
+   ⚠️ Fasst XP NICHT an. Am 22.08. wurde bewusst entschieden, fuers Essen keine XP
+   zu geben — das wuerde den Rang entwerten, der zurzeit Training misst. Die Flamme
+   ist eine Anzeige, keine Waehrung.                                                */
+function tagStart(ts){ const d=new Date(ts); d.setHours(0,0,0,0); return d.getTime(); }
+function essSerie(){
+  const meals=kcalInit().meals||[];
+  if(!meals.length) return 0;
+  const tage=new Set(meals.map(m=>tagStart(m.date)));
+  let n=0, d=tagStart(Date.now());
+  if(!tage.has(d)) d-=864e5;          // heute noch nichts? Dann ab gestern zaehlen.
+  while(tage.has(d)){ n++; d-=864e5; }
+  return n;
+}
+/* Der laengste je erreichte Lauf — damit eine gerissene Serie nicht spurlos weg ist.
+   ⚠️ Wird aus den Daten GERECHNET, nicht gespeichert: ein gespeicherter Rekord waere
+   nach dem Loeschen eines Eintrags falsch und liesse sich nie wieder richtigstellen. */
+function essSerieRekord(){
+  const meals=kcalInit().meals||[];
+  if(!meals.length) return 0;
+  const tage=[...new Set(meals.map(m=>tagStart(m.date)))].sort((a,b)=>a-b);
+  let best=1, lauf=1;
+  for(let i=1;i<tage.length;i++){
+    lauf = (tage[i]-tage[i-1]===864e5) ? lauf+1 : 1;
+    if(lauf>best) best=lauf;
+  }
+  return best;
+}
+
 /* ============================================================================
    NEU (lokale Variante, 22.08.2026) — der Ernaehrungsteil kennt das Gewicht
 
@@ -1943,6 +2011,25 @@ function kobNav(sperre){
 function kobMerkeKg(){ const el = document.getElementById('kobKg');
   if(el && el.value !== '') kobDraft.kg = el.value; }
 
+/* Die Flamme (23.08.2026, Karls Ansage). Sie sitzt im Kopf des Ernaehrungs-Teils,
+   weil sie genau das misst, was dort passiert: mitschreiben, jeden Tag.
+
+   ⚠️ Bei 0 wird sie GRAU statt versteckt. Eine Anzeige, die erst ab Tag 1 auftaucht,
+   erklaert sich nie — man sieht sie zum ersten Mal, wenn man sie schon hat. Grau
+   heisst: es gibt sie, sie laeuft nur gerade nicht.
+
+   ⚠️ Der Rekord steht nur daneben, wenn er GROESSER als die laufende Serie ist.
+   „5 · Rekord 5" waere doppelt gemoppelt, und beim allerersten Lauf entsteht genau das. */
+function flammeHTML(serie, rekord){
+  const an = serie > 0;
+  const titel = an
+    ? `${serie} ${serie===1?'Tag':'Tage'} am Stück mitgeschrieben`
+      + (rekord>serie ? ` · dein Rekord: ${rekord}` : '')
+    : 'Noch keine Serie — trag heute etwas ein, dann fängt sie an.';
+  return `<span class="flamme${an?' an':''}" title="${titel}">
+    <span aria-hidden="true">🔥</span><b>${serie}</b>
+    ${rekord>serie?`<span class="rek">${rekord}</span>`:''}</span>`;
+}
 function renderBody(){
   // Beim allerersten Oeffnen zuerst durch die Einrichtung (Karls Ansage vom 22.08.2026).
   if(kcalBraucht()){ if(!kobDraft) kobInit(); return renderKcalOb(); }
@@ -1969,8 +2056,12 @@ function renderBody(){
     for(let i = 0; i < 7; i++) sum += zielAmTag(Date.now() - i*864e5);
     return Math.round(sum / 7);
   })();
+  const serie=essSerie(), rekord=essSerieRekord();
   let h=`<div class="row between" style="margin:2px 4px 6px"><h2>Heute</h2>
-      <button class="btn sm ghost link" data-act="kcalgoal">${zt>0?zt+' kcal Ziel':'Ziel setzen'}</button></div>
+      <div class="row" style="gap:8px;align-items:center">
+        ${flammeHTML(serie, rekord)}
+        <button class="btn sm ghost link" data-act="kcalgoal">${zt>0?zt+' kcal Ziel':'Ziel setzen'}</button>
+      </div></div>
     <div class="card">
       <div class="row" style="gap:12px;align-items:center;justify-content:center">
         ${monster(76,'',equippedRank())}
