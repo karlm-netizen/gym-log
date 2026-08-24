@@ -458,6 +458,134 @@ window.addEventListener('error', e => {
     return eq(dirty, true);
   }));
 
+  // ================================================================ Zusammenfuehren statt Ueberschreiben
+  /* Eingebaut am 24.08.2026. Vorher schickte der Abgleich immer den ganzen Datenblock und
+     beim Start galt "wer etwas Offenes hat, schiebt". Ein Geraet mit einer einzigen
+     ungesicherten Aenderung holte deshalb nie -- es ueberschrieb das andere. Diese
+     Pruefungen halten fest, dass die zwei Listen vereinigt und nicht ersetzt werden.
+     Hier kostet ein Fehler Daten, nicht Bequemlichkeit -- deshalb ausfuehrlich. */
+  const einheit = (id, date, xp) => ({id, date, xp, planName:'P', entries:[]});
+  const blob = (o) => Object.assign({programs:[], plans:[], sessions:[], settings:{rest:90},
+                                     profile:{xp:0, weights:[]}}, o);
+
+  t('Einheit, die nur in der Cloud steht, kommt dazu', () => {
+    const a = blob({sessions:[einheit('a', 100, 5)]});
+    const b = blob({sessions:[einheit('b', 200, 7)]});
+    return eq(blobsZusammen(a, b).blob.sessions.map(x=>x.id).join(','), 'a,b');
+  });
+  t('Einheit, die nur lokal steht, bleibt', () => {
+    const a = blob({sessions:[einheit('a', 100, 5)]});
+    return eq(blobsZusammen(a, blob({})).blob.sessions.map(x=>x.id).join(','), 'a');
+  });
+  t('Dieselbe Einheit kommt nicht doppelt', () => {
+    const a = blob({sessions:[einheit('a', 100, 5)]});
+    const b = blob({sessions:[einheit('a', 100, 5)]});
+    return eq(blobsZusammen(a, b).blob.sessions.length, 1);
+  });
+  t('Einheiten liegen aufsteigend nach Datum', () => {
+    const a = blob({sessions:[einheit('spaet', 900, 1)]});
+    const b = blob({sessions:[einheit('frueh', 100, 1)]});
+    return eq(blobsZusammen(a, b).blob.sessions.map(x=>x.id).join(','), 'frueh,spaet');
+  });
+  /* XP steht gespeichert im Profil, es wird nicht aus den Einheiten gerechnet. Kommt eine
+     Einheit dazu, muss ihr Punktestand mit -- sonst zeigt der Rang weniger an als der
+     Verlauf darunter hergibt. */
+  t('Uebernommene Einheit bringt ihre XP mit', () => {
+    const a = blob({sessions:[einheit('a', 100, 5)], profile:{xp:5, weights:[]}});
+    const b = blob({sessions:[einheit('b', 200, 7)]});
+    return eq(blobsZusammen(a, b).blob.profile.xp, 12);
+  });
+  t('Schon bekannte Einheit bringt keine XP nochmal', () => {
+    const a = blob({sessions:[einheit('a', 100, 5)], profile:{xp:5, weights:[]}});
+    const b = blob({sessions:[einheit('a', 100, 5)]});
+    return eq(blobsZusammen(a, b).blob.profile.xp, 5);
+  });
+  t('Alte Einheit ohne xp zaehlt 0', () => {
+    const a = blob({profile:{xp:10, weights:[]}});
+    const b = blob({sessions:[{id:'alt', date:50, planName:'P', entries:[]}]});
+    return eq(blobsZusammen(a, b).blob.profile.xp, 10);
+  });
+
+  // ---- Gewichtskurve: ein Eintrag je Tag, dieselbe Regel wie addWeight() ----
+  t('Gewicht von zwei Tagen bleibt vollstaendig', () => {
+    const heute = Date.now(), gestern = heute - 864e5;
+    const a = blob({profile:{xp:0, weights:[{date:gestern, kg:79}]}});
+    const b = blob({profile:{xp:0, weights:[{date:heute,   kg:80}]}});
+    return eq(blobsZusammen(a, b).blob.profile.weights.map(x=>x.kg).join(','), '79,80');
+  });
+  t('Gleicher Tag: der spaetere Wert gewinnt', () => {
+    const frueh = new Date(2026,7,24,7,0).getTime(), spaet = new Date(2026,7,24,21,0).getTime();
+    const a = blob({profile:{xp:0, weights:[{date:frueh, kg:80}]}});
+    const b = blob({profile:{xp:0, weights:[{date:spaet, kg:81}]}});
+    const w = blobsZusammen(a, b).blob.profile.weights;
+    return (w.length === 1 && w[0].kg === 81) || JSON.stringify(w);
+  });
+  t('Gewicht kommt sortiert zurueck', () => {
+    const n = Date.now();
+    const a = blob({profile:{xp:0, weights:[{date:n, kg:80}]}});
+    const b = blob({profile:{xp:0, weights:[{date:n-2*864e5, kg:78},{date:n-864e5, kg:79}]}});
+    return eq(blobsZusammen(a, b).blob.profile.weights.map(x=>x.kg).join(','), '78,79,80');
+  });
+  t('Unsinnige Gewichtswerte fliegen raus', () => {
+    const a = blob({profile:{xp:0, weights:[]}});
+    const b = blob({profile:{xp:0, weights:[{date:Date.now(), kg:0}]}});
+    return eq(blobsZusammen(a, b).blob.profile.weights.length, 0);
+  });
+
+  // ---- Was bewusst NICHT zusammengefuehrt wird ----
+  t('Plaene kommen von der Basis, nicht vom anderen Stand', () => {
+    const a = blob({programs:[{id:'p1', name:'meiner'}]});
+    const b = blob({programs:[{id:'p2', name:'fremder'}]});
+    const pr = blobsZusammen(a, b).blob.programs;
+    return (pr.length === 1 && pr[0].name === 'meiner') || JSON.stringify(pr);
+  });
+  t('Einstellungen kommen von der Basis', () => {
+    const a = blob({settings:{rest:60}});
+    const b = blob({settings:{rest:120}});
+    return eq(blobsZusammen(a, b).blob.settings.rest, 60);
+  });
+
+  /* Der Zaehler entscheidet, ob nach dem Zusammenfuehren geschoben wird. Zaehlt er zu
+     niedrig, bleibt der andere Stand ohne die neuen Eintraege stehen. */
+  t('uebernommen zaehlt neue Einheiten', () => {
+    const a = blob({}), b = blob({sessions:[einheit('a',100,1), einheit('b',200,1)]});
+    return eq(blobsZusammen(a, b).uebernommen, 2);
+  });
+  t('uebernommen ist 0, wenn nichts dazukommt', () => {
+    const a = blob({sessions:[einheit('a',100,1)]});
+    const b = blob({sessions:[einheit('a',100,1)]});
+    return eq(blobsZusammen(a, b).uebernommen, 0);
+  });
+  t('uebernommen zaehlt auch neue Gewichtstage', () => {
+    const n = Date.now();
+    const a = blob({profile:{xp:0, weights:[{date:n, kg:80}]}});
+    const b = blob({profile:{xp:0, weights:[{date:n-864e5, kg:79}]}});
+    return eq(blobsZusammen(a, b).uebernommen, 1);
+  });
+
+  // ---- Robustheit: ein leerer oder halber Gegenstand darf den Abgleich nicht sprengen ----
+  t('Nichts als Gegenstand bricht nicht', () => {
+    const a = blob({sessions:[einheit('a',100,3)], profile:{xp:3, weights:[]}});
+    const r = blobsZusammen(a, null);
+    return (r.blob.sessions.length === 1 && r.uebernommen === 0) || JSON.stringify(r);
+  });
+  t('Leere Basis nimmt alles auf', () => {
+    const b = blob({sessions:[einheit('a',100,4)], profile:{xp:4, weights:[]}});
+    const r = blobsZusammen({}, b);
+    return (r.blob.sessions.length === 1 && r.blob.profile.xp === 4) || JSON.stringify(r.blob);
+  });
+  t('Gegenstand ohne Profil bricht nicht', () => {
+    const a = blob({profile:{xp:2, weights:[{date:Date.now(), kg:80}]}});
+    return eq(blobsZusammen(a, {sessions:[]}).blob.profile.weights.length, 1);
+  });
+  /* Wuerde die Basis mitveraendert, waere der zweite Aufruf in cloudSyncStart verfaelscht --
+     dort wird derselbe lokale Stand zweimal als Basis benutzt. */
+  t('Die Basis bleibt unveraendert', () => {
+    const a = blob({sessions:[einheit('a',100,5)], profile:{xp:5, weights:[]}});
+    blobsZusammen(a, blob({sessions:[einheit('b',200,7)]}));
+    return (a.sessions.length === 1 && a.profile.xp === 5) || 'Basis wurde angefasst';
+  });
+
   // ================================================================ Selber Tag
   t('Morgens und abends ist derselbe Tag', () =>
     sameDay(new Date(2026,7,22,7,30).getTime(), new Date(2026,7,22,23,50).getTime()) || 'nein');

@@ -4,6 +4,38 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-24
 
+### 🔀 Der Abgleich führt jetzt zusammen, statt zu überschreiben
+
+**Beim Beheben des Gewichts-Fehlers daneben gefunden** — und es war die größere Hälfte.
+
+Der Abgleich schickte immer den **ganzen** Datenblock, und beim Start galt:
+`if(dirty) schieben, sonst holen`. Ein Gerät mit einer **einzigen** ungesicherten Änderung
+holte damit **nie** — es schob seinen Stand über den anderen. Zwei Geräte konnten sich so
+gegenseitig Trainings und Gewichtseinträge löschen, ohne dass irgendwo etwas gemeldet wurde.
+
+**Was jetzt passiert:** beim Start wird **immer erst geholt**, dann zusammengeführt, dann
+bei Bedarf geschoben.
+
+- **Trainings** werden über ihre Kennung vereinigt — was auf einem Gerät fehlt, kommt dazu.
+- **Die Gewichtskurve** wird tageweise vereinigt. Steht für denselben Tag auf beiden Seiten
+  ein Wert, gewinnt der spätere — dieselbe Regel, die `addWeight()` schon immer hatte.
+- ⚠️ **XP kommt mit.** Der Punktestand steht gespeichert im Profil, er wird nicht aus den
+  Einheiten gerechnet. Übernommene Einheiten bringen ihren Wert deshalb mit, sonst zeigte
+  der Rang weniger an, als der Verlauf darunter hergibt.
+- **Beim Zurückkommen in die App** wird nachgesehen, ob am anderen Gerät etwas dazukam
+  (höchstens alle 30 s). Ohne das sähe ein PC, der den ganzen Tag offen steht, die
+  Einheiten vom Handy nie.
+
+💡 **Bewusst NICHT zusammengeführt: Pläne und Einstellungen.** Dort gilt weiter „wer zuletzt
+sendet, gewinnt". Die ändert man bewusst an einem Gerät — und ein überschriebener Plan ist in
+zwei Minuten neu getippt, drei verlorene Trainingseinheiten nicht.
+
+**Prüfungen: 395 → 415.** Fassung **v26**.
+
+✅ **Gegengeprobt:** stellt man das alte Überschreiben wieder her, fallen **neun** der neuen
+Prüfungen um. Eine Prüfung, die auch ohne den Einbau grün ist, prüft nichts.
+
+
 ### ⚖️ Gewichtseinträge kamen nicht in der Cloud an
 
 **Karls Meldung:** *„die eintragungen beim gewicht werden nicht gesyned"*.

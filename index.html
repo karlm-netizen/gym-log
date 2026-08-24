@@ -3458,7 +3458,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v25';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v26';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 const MELD_KEY = 'gymlog:meldungen';
 const POST_KEY = 'gymlog:postfach';
 
@@ -3675,6 +3675,53 @@ function loadBlob(d){ if(!d) return;
   if(Array.isArray(d.sessions)) sessions=d.sessions;
   if(d.profile) profile=d.profile; if(d.settings) settings=d.settings; normalizeProfile(); bindPlans();
   DB.set('programs',programs); DB.set('sessions',sessions); DB.set('profile',profile); DB.set('settings',settings); applyTheme(); }
+/* ---------- Zusammenfuehren statt Ueberschreiben (24.08.2026) ----------
+   Der Abgleich schickte bisher immer den GANZEN Datenblock, und beim Start galt
+   "wer etwas Ungesichertes hat, schiebt; alle anderen holen". Ein Geraet mit einer
+   einzigen offenen Aenderung holte deshalb NIE -- es schob seinen Stand darueber.
+   Zwei Geraete konnten sich so gegenseitig Trainings und Gewichtseintraege loeschen.
+
+   ⚠️ Zusammengefuehrt werden genau die zwei Listen, die nebenbei an beiden Geraeten
+   entstehen: Trainings und Gewichtskurve. Plaene und Einstellungen bleiben bewusst beim
+   alten Verhalten -- die aendert man bewusst an einem Geraet, und ein ueberschriebener
+   Plan ist in zwei Minuten neu getippt; drei verlorene Trainingseinheiten nicht.        */
+// Vereinigt zwei Listen ueber einen Schluessel. Was die Basis schon kennt, bleibt wie es ist.
+function vereinige(basis, dazu, schluessel){
+  const liste=(Array.isArray(basis)?basis:[]).slice();
+  const kenne=new Set(liste.map(schluessel));
+  const neu=[];
+  (Array.isArray(dazu)?dazu:[]).forEach(x=>{ const k=schluessel(x);
+    if(!kenne.has(k)){ kenne.add(k); liste.push(x); neu.push(x); } });
+  return {liste, neu};
+}
+// Ein Gewichtseintrag je Tag -- dieselbe Regel wie addWeight(). Steht auf beiden Seiten
+// einer fuer denselben Tag, gewinnt der spaetere: man hat sich nochmal gewogen.
+function gewichteZusammen(a, b){
+  const tag=x=>new Date(x.date).toDateString(), m=new Map();
+  [].concat(Array.isArray(a)?a:[], Array.isArray(b)?b:[]).forEach(x=>{
+    if(!x||!(x.kg>0)) return; const k=tag(x), alt=m.get(k);
+    if(!alt||x.date>alt.date) m.set(k,x); });
+  return Array.from(m.values()).sort((x,y)=>x.date-y.date);
+}
+// `basis` gewinnt bei allem, was keine Liste ist (Plaene, Einstellungen, Theme).
+// Zurueck kommt der neue Stand und wie viele Eintraege aus `dazu` uebernommen wurden.
+function blobsZusammen(basis, dazu){
+  const b=JSON.parse(JSON.stringify(basis||{})), d=dazu||{};
+  const s=vereinige(b.sessions, d.sessions, x=>x.id);
+  // sessions liegt aufsteigend nach Datum -- renderHistory dreht die Liste zum Anzeigen um.
+  b.sessions=s.liste.slice().sort((x,y)=>x.date-y.date);
+  if(!b.profile||typeof b.profile!=='object') b.profile={xp:0};
+  else b.profile=Object.assign({}, b.profile);
+  // ⚠️ XP wird gespeichert, nicht aus den Einheiten gerechnet. Uebernommene Einheiten
+  // muessen ihren Punktestand deshalb mitbringen, sonst zeigte der Rang weniger an, als
+  // die Einheiten darunter hergeben. Einheiten vor dem 05.08. haben kein xp -> zaehlen 0,
+  // genau wie an dem Tag, an dem sie entstanden sind.
+  b.profile.xp=(+b.profile.xp||0) + s.neu.reduce((n,x)=>n+(+x.xp||0), 0);
+  const gw=gewichteZusammen(b.profile.weights, d.profile&&d.profile.weights);
+  const vorher=(b.profile.weights||[]).length;
+  b.profile.weights=gw;
+  return {blob:b, uebernommen: s.neu.length + Math.max(0, gw.length-vorher)};
+}
 // Liefert {ok,data}: ok=false heißt "konnte nicht laden" (Netz), NICHT "Konto ist leer".
 async function cloudPull(){ if(!await ensureToken()) return {ok:false,data:null};
   try{ const r=await fetch(`${SUPA_URL}/rest/v1/gymlog_data?id=eq.${session.user.id}&select=data`,{headers:authHeaders(true)});
@@ -3698,11 +3745,25 @@ function scheduleSync(){ if(!session) return; setDirty(true); clearTimeout(syncT
 // eingefroren, feuert der Timer nie und der Eintrag bleibt auf dem Geraet liegen.
 // Bei einem Training faellt dasselbe nicht auf, weil man danach noch lange in der App ist.
 function flushSync(){ if(!session||!dirty) return; clearTimeout(syncT); cloudPush(true); }
-// Beim Start: lokale ungesicherte Änderungen haben Vorrang, sonst Cloud laden.
+// Beim Start: IMMER erst holen, dann zusammenfuehren, dann bei Bedarf schieben.
+// ⚠️ Hier stand bis zum 24.08.2026 "if(dirty){ push; return; }" -- ein Geraet mit einer
+// offenen Aenderung holte damit nie und ueberschrieb das andere. Genau der Datenverlust.
+let letzterAbgleich=0;
 async function cloudSyncStart(){ if(!session) return;
-  if(dirty){ await cloudPush(); return; }
-  const res=await cloudPull(); if(!res.ok) return;
-  if(res.data){ loadBlob(res.data); if(session) render(); } else await cloudPush(); }
+  letzterAbgleich=Date.now();
+  const res=await cloudPull();
+  if(!res.ok){ if(dirty) cloudPush(); return; }        // kein Netz: der lokale Stand gilt weiter
+  if(!res.data){ await cloudPush(); return; }          // Konto noch leer: lokaler Stand zieht ein
+  const lokal=appDataBlob();
+  // Zweimal zusammengefuehrt, weil beide Richtungen etwas anderes beantworten:
+  //   dirty -> der lokale Stand ist der frischere, er gibt Plaene und Einstellungen vor
+  //   sonst -> der Stand aus der Cloud gibt sie vor
+  // Die zweite Rechnung sagt nur, ob die Cloud etwas NICHT hat -- dann muss geschoben werden.
+  const ausLokal=blobsZusammen(lokal, res.data);
+  const ausCloud=blobsZusammen(res.data, lokal);
+  loadBlob((dirty?ausLokal:ausCloud).blob);
+  if(session) render();
+  if(dirty || ausCloud.uebernommen>0){ setDirty(true); await cloudPush(); } }
 async function authSignUp(username,email,password){ username=(username||'').trim(); email=(email||'').trim();
   if(!username||!email||!password) throw 'Bitte Username, E-Mail und Passwort ausfüllen.';
   if(password.length<6) throw 'Passwort mind. 6 Zeichen.';
@@ -4156,7 +4217,12 @@ window.addEventListener('online',()=>{ if(session&&dirty) cloudPush(); });
 // Zwei Wege, weil kein Browser beide zuverlaessig meldet: 'visibilitychange' kommt beim
 // Wegwischen und beim Bildschirm-Aus, 'pagehide' beim echten Schliessen. Doppelt gesendet
 // wird nichts -- flushSync prueft dirty, und der erste Erfolg setzt es zurueck.
-document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') flushSync(); });
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'){ flushSync(); return; }
+  // Zurueck in der App: nachsehen, ob am anderen Geraet etwas dazugekommen ist. Ohne das
+  // wuerde ein PC, der den ganzen Tag offen steht, die Einheiten vom Handy nie sehen.
+  // Hoechstens alle 30 s, damit Hin- und Herschalten keine Anfragen-Lawine ausloest.
+  if(session && Date.now()-letzterAbgleich>30000) cloudSyncStart(); });
 window.addEventListener('pagehide',flushSync);
 
 // Versteckte Admin-Freischaltung: 5x auf Brock auf der Startseite tippen (nur auf Karls Gerät).
