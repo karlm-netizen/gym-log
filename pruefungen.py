@@ -389,6 +389,75 @@ window.addEventListener('error', e => {
   });
   t('Ohne Eintraege kein letztes Gewicht', () => { profile.weights = []; return eq(lastWeight(), null); });
 
+  // ================================================================ Sichern beim Wegschalten
+  /* Fehler vom 24.08.2026, gemeldet von Karl: "die eintragungen beim gewicht werden nicht
+     gesyned". Die Ursache lag NICHT im Eintragen -- addWeight und save() sind seit dem
+     22.08. geprueft -- sondern im Weg in die Cloud: gesendet wurde erst 2 Sekunden nach
+     der letzten Aenderung. Wer sich wiegt, tippt eine Zahl und legt das Handy weg; die
+     Seite friert ein, der Timer feuert nie. Bei einem Training faellt genau derselbe
+     Fehler nicht auf, weil man danach noch lange in der App bleibt.
+     Die Pruefungen halten die zwei Ereignisse fest, an denen jetzt sofort gesendet wird. */
+  const mitFlush = (fn) => {                       // Umgebung stellen und hinterher aufraeumen
+    const echtPush = window.cloudPush, echtSession = session, echtDirty = dirty;
+    const rufe = [];
+    window.cloudPush = (arg) => { rufe.push(arg); return Promise.resolve(true); };
+    session = {user:{id:'test'}, expires_at: Date.now() + 3600e3, access_token:'x'};
+    try { return fn(rufe); }
+    finally { window.cloudPush = echtPush; session = echtSession; setDirty(echtDirty); }
+  };
+  const wegschalten = (zustand) => {               // visibilityState ist sonst schreibgeschuetzt
+    const alt = Object.getOwnPropertyDescriptor(Document.prototype, 'visibilityState');
+    Object.defineProperty(document, 'visibilityState', {value: zustand, configurable: true});
+    document.dispatchEvent(new Event('visibilitychange'));
+    delete document.visibilityState;
+    if (alt) Object.defineProperty(Document.prototype, 'visibilityState', alt);
+  };
+
+  t('Wegschalten sendet sofort', () => mitFlush(rufe => {
+    setDirty(true); wegschalten('hidden');
+    return eq(rufe.length, 1);
+  }));
+  t('Beim Wegschalten mit keepalive', () => mitFlush(rufe => {
+    setDirty(true); wegschalten('hidden');
+    return eq(rufe[0], true);
+  }));
+  t('Zurueckkommen sendet nicht', () => mitFlush(rufe => {
+    setDirty(true); wegschalten('visible');
+    return eq(rufe.length, 0);
+  }));
+  t('Ohne Aenderung wird nichts gesendet', () => mitFlush(rufe => {
+    setDirty(false); wegschalten('hidden');
+    return eq(rufe.length, 0);
+  }));
+  t('Schliessen sendet sofort', () => mitFlush(rufe => {
+    setDirty(true); window.dispatchEvent(new Event('pagehide'));
+    return eq(rufe.length, 1);
+  }));
+  // Ohne Anmeldung gibt es keine Cloud -- dann waere jeder Sendeversuch ein Fehler im Log.
+  t('Nicht angemeldet sendet nichts', () => {
+    const echtPush = window.cloudPush, echtSession = session;
+    const rufe = [];
+    window.cloudPush = (arg) => { rufe.push(arg); return Promise.resolve(true); };
+    session = null;
+    try { flushSync(); return eq(rufe.length, 0); }
+    finally { window.cloudPush = echtPush; session = echtSession; }
+  });
+  /* Der wartende 2-Sekunden-Timer muss weg, sonst sendet die App beim Zurueckkommen
+     denselben Stand ein zweites Mal. */
+  t('Der wartende Timer wird geloescht', () => mitFlush(rufe => {
+    profile.weights = []; setDirty(true);
+    scheduleSync();                                 // setzt den 2-Sekunden-Timer
+    flushSync();
+    const offen = (typeof syncT !== 'undefined');
+    return offen ? eq(rufe.length, 1) : 'syncT gibt es nicht mehr';
+  }));
+  // Und die Kette davor: ein Gewichtseintrag muss ueberhaupt als ungesichert gelten.
+  t('Gewicht eintragen macht ungesichert', () => mitFlush(() => {
+    profile.weights = []; setDirty(false);
+    addWeight(80);
+    return eq(dirty, true);
+  }));
+
   // ================================================================ Selber Tag
   t('Morgens und abends ist derselbe Tag', () =>
     sameDay(new Date(2026,7,22,7,30).getTime(), new Date(2026,7,22,23,50).getTime()) || 'nein');

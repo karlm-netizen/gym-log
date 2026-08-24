@@ -2,6 +2,38 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-08-24
+
+### ⚖️ Gewichtseinträge kamen nicht in der Cloud an
+
+**Karls Meldung:** *„die eintragungen beim gewicht werden nicht gesyned"*.
+
+Die Ursache lag **nicht im Eintragen** — `addWeight()` und `save()` sind seit dem 22.08.
+geprüft und stimmen. Sie lag im Weg in die Cloud: gesendet wurde erst **2 Sekunden nach
+der letzten Änderung** (`scheduleSync`), und es gab **keinen einzigen Handler**, der
+vor dem Schließen noch schnell sichert.
+
+💡 **Warum das ausgerechnet beim Gewicht auffällt und sonst nie:** Wiegen dauert fünf
+Sekunden — Zahl eintippen, „Eingetragen", Handy weglegen. Die Seite friert ein, der Timer
+feuert nie, der Eintrag bleibt auf dem Gerät liegen. Bei einem Training passiert genau
+dasselbe, fällt aber nicht auf, weil man danach noch 45 Minuten in der App ist und der
+nächste Handgriff die Sicherung nachholt.
+
+**Eingebaut:**
+- `flushSync()` — sendet sofort statt zu warten, sobald etwas Ungesichertes offen ist.
+- Zwei Auslöser, weil kein Browser beide zuverlässig meldet: **`visibilitychange`**
+  (Wegwischen, Bildschirm aus) und **`pagehide`** (echtes Schließen).
+- `cloudPush(true)` setzt **`keepalive`** — damit sendet der Browser die Anfrage zu Ende,
+  auch wenn die App schon zu ist. ⚠️ Nur bis **64 KB** Körper erlaubt, darüber wirft
+  `fetch`; oberhalb wird deshalb normal gesendet statt gar nicht.
+- Doppelt gesendet wird nichts: `flushSync` prüft `dirty` und löscht den wartenden Timer.
+
+**Prüfungen: 387 → 395.** Fassung **v25**.
+
+✅ **Gegengeprobt, nicht geglaubt:** mit entfernten Handlern fallen genau die drei neuen
+Prüfungen um (`Wegschalten sendet sofort`, `Beim Wegschalten mit keepalive`,
+`Schliessen sendet sofort`). Eine Prüfung, die auch ohne den Einbau grün ist, prüft nichts.
+
 ## 2026-08-23
 
 ### 🔔 Push nachgezogen — der Melde-Kreis war noch offen

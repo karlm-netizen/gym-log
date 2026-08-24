@@ -3458,7 +3458,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v24';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v25';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 const MELD_KEY = 'gymlog:meldungen';
 const POST_KEY = 'gymlog:postfach';
 
@@ -3681,12 +3681,23 @@ async function cloudPull(){ if(!await ensureToken()) return {ok:false,data:null}
     if(!r.ok){ setSync(false); return {ok:false,data:null}; }
     const rows=await r.json(); setSync(true); return {ok:true,data:(rows&&rows.length)?rows[0].data:null}; }
   catch(e){ setSync(false); return {ok:false,data:null}; } }
-async function cloudPush(){ if(!await ensureToken()) return false;
-  try{ const r=await fetch(`${SUPA_URL}/rest/v1/gymlog_data`,{method:'POST',headers:{...authHeaders(true),'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify([{id:session.user.id,data:appDataBlob(),updated_at:new Date().toISOString()}])});
+async function cloudPush(beimSchliessen){ if(!await ensureToken()) return false;
+  try{ const koerper=JSON.stringify([{id:session.user.id,data:appDataBlob(),updated_at:new Date().toISOString()}]);
+    const opt={method:'POST',headers:{...authHeaders(true),'Prefer':'resolution=merge-duplicates'},body:koerper};
+    // keepalive laesst die Anfrage den Seitenabbau ueberleben -- der Browser sendet sie zu Ende,
+    // auch wenn die App schon zu ist. ⚠️ Nur bis 64 KB Koerper erlaubt; darueber wirft fetch.
+    // Dann lieber normal senden (kommt vielleicht nicht durch) als gar nicht (kommt sicher nicht).
+    if(beimSchliessen && new TextEncoder().encode(koerper).length < 60*1024) opt.keepalive=true;
+    const r=await fetch(`${SUPA_URL}/rest/v1/gymlog_data`,opt);
     setSync(r.ok); if(r.ok) setDirty(false); return r.ok; }
   catch(e){ setSync(false); return false; } }
 function scheduleSync(){ if(!session) return; setDirty(true); clearTimeout(syncT); syncT=setTimeout(cloudPush,2000); }
+// Beim Wegschalten sofort sichern, statt die 2 Sekunden abzuwarten.
+// ⚠️ Genau daran sind Gewichtseintraege gescheitert (gefunden am 24.08.2026): wiegen,
+// eintragen, Handy weglegen -- das sind keine zwei Sekunden. Wird die Seite vorher
+// eingefroren, feuert der Timer nie und der Eintrag bleibt auf dem Geraet liegen.
+// Bei einem Training faellt dasselbe nicht auf, weil man danach noch lange in der App ist.
+function flushSync(){ if(!session||!dirty) return; clearTimeout(syncT); cloudPush(true); }
 // Beim Start: lokale ungesicherte Änderungen haben Vorrang, sonst Cloud laden.
 async function cloudSyncStart(){ if(!session) return;
   if(dirty){ await cloudPush(); return; }
@@ -4142,6 +4153,11 @@ render();                 // ohne Anmeldung erscheint hier das Login-Fenster
 splashWeg();              // die Ansicht steht — der Schirm hat seine Aufgabe erfuellt
 cloudSyncStart();         // im Hintergrund; ohne Netz startet die App trotzdem normal
 window.addEventListener('online',()=>{ if(session&&dirty) cloudPush(); });
+// Zwei Wege, weil kein Browser beide zuverlaessig meldet: 'visibilitychange' kommt beim
+// Wegwischen und beim Bildschirm-Aus, 'pagehide' beim echten Schliessen. Doppelt gesendet
+// wird nichts -- flushSync prueft dirty, und der erste Erfolg setzt es zurueck.
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') flushSync(); });
+window.addEventListener('pagehide',flushSync);
 
 // Versteckte Admin-Freischaltung: 5x auf Brock auf der Startseite tippen (nur auf Karls Gerät).
 // Lag früher auf dem App-Titel — den gibt es seit dem Entfernen des Kopfbereichs nicht mehr.
