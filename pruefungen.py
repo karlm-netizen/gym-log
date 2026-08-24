@@ -586,6 +586,123 @@ window.addEventListener('error', e => {
     return (a.sessions.length === 1 && a.profile.xp === 5) || 'Basis wurde angefasst';
   });
 
+  // ================================================================ Passwort vergessen
+  /* Eingebaut am 24.08.2026, uebernommen von angel-log (v57-v59). Bis dahin gab es keinen
+     Weg zurueck: wer sein Passwort vergass, war endgueltig ausgesperrt. Karl ist genau das
+     am 18.08. bei angel-log selbst passiert, und seit dem 23.08. testet Bruno diese App. */
+
+  // ---- Die Stunde Pause. Sie ist keine Sicherheitssperre, sondern schuetzt das gemeinsame
+  // Kontingent von 2 Mails je Stunde davor, dass ein Ungeduldiger es allein aufbraucht.
+  const ohneBremse = (fn) => {
+    const alt = localStorage.getItem(BREMSE_KEY);
+    try { localStorage.removeItem(BREMSE_KEY); return fn(); }
+    finally { if (alt === null) localStorage.removeItem(BREMSE_KEY);
+              else localStorage.setItem(BREMSE_KEY, alt); }
+  };
+
+  t('Frisch ist nichts gebremst', () => ohneBremse(() => eq(bremseRestMin('a@x.de'), 0)));
+  t('Nach dem Absenden ist eine Stunde Pause', () => ohneBremse(() => {
+    bremseSetzen('a@x.de');
+    const r = bremseRestMin('a@x.de');
+    return (r > 55 && r <= 60) || r + ' Minuten Rest';
+  }));
+  /* Der Schluessel ist die ADRESSE, nicht das Geraet. Wer beim ersten Versuch das falsche
+     Konto erwischt hat, muss sofort das richtige probieren duerfen -- geraeteweit haette
+     die Bremse genau die richtige Handlung bestraft. */
+  t('Gebremst wird je Adresse, nicht je Geraet', () => ohneBremse(() => {
+    bremseSetzen('a@x.de');
+    return eq(bremseRestMin('b@x.de'), 0);
+  }));
+  t('Grossschreibung ist dieselbe Adresse', () => ohneBremse(() => {
+    bremseSetzen('a@x.de');
+    return (bremseRestMin('  A@X.DE  ') > 0) || 'nicht erkannt';
+  }));
+  // Das Geraet soll nie laenger als eine Stunde festhalten, wer hier zurueckgesetzt hat.
+  t('Abgelaufenes wird beim Schreiben weggeraeumt', () => ohneBremse(() => {
+    localStorage.setItem(BREMSE_KEY, JSON.stringify({'alt@x.de': Date.now() - 2*60*60*1000}));
+    bremseSetzen('neu@x.de');
+    const o = bremseLesen();
+    return (!('alt@x.de' in o) && ('neu@x.de' in o)) || JSON.stringify(o);
+  }));
+
+  // ---- Der Rueckweg aus der Mail
+  const mitHash = (h, fn) => {
+    const vorher = location.hash, tk = resetToken, rf = resetRefresh;
+    try { location.hash = h; return fn(); }
+    finally { resetToken = tk; resetRefresh = rf;
+              try { location.hash = vorher; } catch (e) {} }
+  };
+
+  t('Ohne Rautenteil passiert nichts', () => mitHash('', () => eq(rueckkehrAusMail(), null)));
+  /* ⚠️ Wichtig: der geteilte Trainingsplan kommt als "#p=..." herein. Wuerde der
+     Ruecksetz-Weg den auch anfassen, waere das Plan-Teilen kaputt. */
+  t('Ein geteilter Plan im Link wird nicht angefasst', () =>
+    mitHash('#p=abc', () => eq(rueckkehrAusMail(), null)));
+  t('Recovery-Link setzt den Token', () =>
+    mitHash('#access_token=TOK123&refresh_token=REF456&type=recovery', () => {
+      const r = rueckkehrAusMail();
+      return (r && r.token === 'TOK123' && resetToken === 'TOK123' && resetRefresh === 'REF456')
+        || JSON.stringify(r);
+    }));
+  /* ⚠️ Ein Zugangs-Token im Verlauf des Browsers ist genau das, was man nicht will --
+     und beim Teilen der Adresse ginge er mit. */
+  t('Der Token wird aus der Adresszeile geraeumt', () =>
+    mitHash('#access_token=TOK123&type=recovery', () => {
+      rueckkehrAusMail();
+      return (location.hash.indexOf('TOK123') === -1) || 'Token steht noch in der Adresse';
+    }));
+  // Ohne diesen Zweig staende der Anmelde-Schirm nach einem alten Link wortlos da.
+  t('Abgelaufener Link sagt, dass er abgelaufen ist', () =>
+    mitHash('#error=access_denied&error_description=Email+link+is+invalid+or+has+expired', () => {
+      const r = rueckkehrAusMail();
+      return (r && /abgelaufen/i.test(r.fehler)) || JSON.stringify(r);
+    }));
+  t('Ein Link ohne Token gibt keinen Token her', () =>
+    mitHash('#type=recovery', () => {
+      const r = rueckkehrAusMail();
+      return (r && r.fehler && !r.token) || JSON.stringify(r);
+    }));
+
+  // ---- Der Weg muss auch sichtbar sein, sonst findet ihn niemand
+  const mitGate = (modus, fn) => {
+    const v = view, am = authMode, inhalt = app.innerHTML;
+    try { authMode = modus; renderAuthGate(); return fn(app.innerHTML); }
+    finally { view = v; authMode = am; app.innerHTML = inhalt; }
+  };
+  t('Auf dem Anmelde-Schirm steht "Passwort vergessen?"', () =>
+    mitGate('login', h => h.indexOf('Passwort vergessen?') >= 0 || 'steht nicht da'));
+  t('Beim Registrieren steht es nicht', () =>
+    mitGate('register', h => h.indexOf('Passwort vergessen?') < 0 || 'steht faelschlich da'));
+  t('Der Vergessen-Schirm hat ein E-Mail-Feld', () =>
+    mitGate('vergessen', h => h.indexOf('id="rs_mail"') >= 0 || 'kein Feld'));
+  // Zweimal eingeben, damit kein Vertipper drin bleibt (angel-log v58).
+  t('Das neue Passwort wird zweimal eingegeben', () =>
+    mitGate('neuespw', h => (h.indexOf('id="np_pw"') >= 0 && h.indexOf('id="np_pw2"') >= 0)
+      || 'nur ein Feld'));
+
+  // ================================================================ Datenschutzerklaerung
+  /* Am 24.08.2026 stand sie auf dem Stand vom 6. August, waehrend Schritte, Push und der
+     Melde-Knopf laengst drin waren. Ein falscher Satz in dieser Erklaerung war schon am
+     05.08.2026 einer der sechs Fehler, die erst beim Benutzen auffielen. */
+  const datenschutzText = () => {
+    const v = view, inhalt = app.innerHTML;
+    try { renderPrivacy(); return app.innerHTML; }
+    finally { view = v; app.innerHTML = inhalt; }
+  };
+  t('Der Discord-Weg steht drin', () =>
+    datenschutzText().indexOf('Discord') >= 0 || 'Discord wird nicht genannt');
+  t('Dass die Meldung die EU verlaesst, steht drin', () => {
+    const h = datenschutzText();
+    return /Discord[\s\S]{0,400}EU/.test(h) || 'kein Hinweis beim Discord-Absatz';
+  });
+  t('Die Schritte stehen in der Datenliste', () =>
+    datenschutzText().indexOf('Schritte') >= 0 || 'Schritte fehlen');
+  t('Die Push-Kennung steht drin', () =>
+    datenschutzText().indexOf('Benachrichtigungen') >= 0 || 'Push fehlt');
+  // Ein Stand, der aelter ist als die Funktionen darunter, ist schlimmer als keiner.
+  t('Der Stand ist nicht mehr der 6. August', () =>
+    (PRIVACY_STAND.indexOf('6. August') < 0) || 'Stand nicht hochgezogen');
+
   // ================================================================ Selber Tag
   t('Morgens und abends ist derselbe Tag', () =>
     sameDay(new Date(2026,7,22,7,30).getTime(), new Date(2026,7,22,23,50).getTime()) || 'nein');

@@ -1031,7 +1031,7 @@ const SUPA_KEY='sb_publishable_7UvOL7KzzgJK6om8OwUsSg_usOMz92l';
 // Git-Historie stünde. Karls Entscheidung am 03.08.2026.
 const PRIVACY_OWNER='Karl Fangmeyer (privat betriebene App)';
 const PRIVACY_CONTACT='karlm.fangmeyer@gmail.com';
-const PRIVACY_STAND='6. August 2026';   // bei jeder inhaltlichen Aenderung mit hochziehen
+const PRIVACY_STAND='24. August 2026';   // bei jeder inhaltlichen Aenderung mit hochziehen
 function save(){ DB.set('programs',programs); DB.set('sessions',sessions); DB.set('active',active); DB.set('settings',settings); DB.set('profile',profile); scheduleSync(); }
 
 let view='home', editPlanId=null, editProgId=null, detailSessionId=null, detailExName=null;
@@ -1243,7 +1243,56 @@ function syncSessionClock(){
   else if(sessClock){ clearInterval(sessClock); sessClock=null; }
 }
 
-function renderAuthGate(err){ const login=authMode==='login';
+function renderAuthGate(err){
+  // --- Adresse eingeben, um einen Link zu bekommen ---
+  if(authMode==='vergessen'){
+    app.innerHTML=`<div class="gate-hero">
+        <div style="display:flex;justify-content:center;margin-bottom:6px">${monster(104,'happy')}</div>
+        <div class="big">Passwort vergessen</div>
+        <div class="tiny muted">Wir schicken dir einen Link, mit dem du ein neues setzt.</div>
+      </div>
+      <div class="card">
+        <div class="field" style="margin:0 0 10px"><label>E-Mail</label>
+          <input id="rs_mail" type="email" inputmode="email" autocomplete="email" placeholder="du@mail.de" value="${esc(resetMail)}"></div>
+        ${err?`<div class="tiny" style="color:var(--danger);margin:2px 2px 10px">${esc(err)}</div>`:''}
+        <button class="btn primary" data-act="sendReset">Link schicken</button>
+        <button class="link" data-act="authBack" style="width:100%;text-align:center;margin-top:12px">Zurück zum Anmelden</button>
+      </div>`;
+    const f=document.getElementById('rs_mail'); if(f) f.focus(); return; }
+
+  // --- Der Link ist unterwegs ---
+  if(authMode==='gesendet'){
+    app.innerHTML=`<div class="gate-hero">
+        <div style="display:flex;justify-content:center;margin-bottom:6px">${monster(104,'happy')}</div>
+        <div class="big">Schau in dein Postfach</div>
+        <div class="tiny muted">Wir haben einen Link an <b>${esc(resetMail)}</b> geschickt.</div>
+      </div>
+      <div class="card">
+        <p class="tiny muted" style="margin:0 0 12px">Der Link führt zurück in diese App. Kommt nichts an,
+          sieh im Spam nach — und prüfe, ob die Adresse stimmt.</p>
+        <p class="tiny muted" style="margin:0 0 12px">⚠️ Ein neuer Link geht erst in einer Stunde.</p>
+        <button class="btn" data-act="authBack">Zurück zum Anmelden</button>
+      </div>`;
+    return; }
+
+  // --- Neues Passwort setzen (aus dem Link heraus) ---
+  if(authMode==='neuespw'){
+    app.innerHTML=`<div class="gate-hero">
+        <div style="display:flex;justify-content:center;margin-bottom:6px">${monster(104,'happy')}</div>
+        <div class="big">Neues Passwort</div>
+        <div class="tiny muted">Zweimal eingeben, damit kein Vertipper drin bleibt.</div>
+      </div>
+      <div class="card">
+        <div class="field" style="margin:0 0 10px"><label>Neues Passwort</label>
+          <input id="np_pw" type="password" autocomplete="new-password" placeholder="mind. 6 Zeichen"></div>
+        <div class="field" style="margin:0 0 10px"><label>Nochmal</label>
+          <input id="np_pw2" type="password" autocomplete="new-password" placeholder="zur Sicherheit"></div>
+        ${err?`<div class="tiny" style="color:var(--danger);margin:2px 2px 10px">${esc(err)}</div>`:''}
+        <button class="btn primary" data-act="savePw">Passwort speichern</button>
+      </div>`;
+    const f=document.getElementById('np_pw'); if(f) f.focus(); return; }
+
+  const login=authMode==='login';
   app.innerHTML=`<div class="gate-hero">
       <div style="display:flex;justify-content:center;margin-bottom:6px">${monster(104,'happy')}</div>
       <div class="big">${login?'Willkommen zurück':'Leg los'}</div>
@@ -1256,6 +1305,7 @@ function renderAuthGate(err){ const login=authMode==='login';
       ${err?`<div class="tiny" style="color:var(--danger);margin:2px 2px 10px">${esc(err)}</div>`:''}
       <button class="btn primary" data-act="${login?'doLogin':'doRegister'}">${login?'Anmelden':'Konto erstellen'}</button>
       <button class="link" data-act="authSwitch" style="width:100%;text-align:center;margin-top:12px">${login?'Noch kein Konto? Registrieren':'Schon ein Konto? Anmelden'}</button>
+      ${login?`<button class="link" data-act="authForgot" style="width:100%;text-align:center;margin-top:8px">Passwort vergessen?</button>`:''}
     </div>`;
   const f=document.getElementById(login?'au_id':'au_user'); if(f) f.focus(); }
 
@@ -3330,14 +3380,22 @@ function renderPrivacy(){
         <li>deine Trainings, geloggten Einheiten, Sätze und Gewichte</li>
         <li>dein Körpergewicht, wenn du es einträgst</li>
         <li>was du gegessen hast, wenn du es einträgst (Name, Menge, Nährwerte)</li>
+        <li>deine <b style="color:var(--txt)">Schritte</b>, wenn du sie anschaltest — die Zahl kommt aus
+          dem Kurzbefehl auf deinem iPhone, die App liest deine Gesundheitsdaten nicht selbst</li>
         <li>XP, Level und deine Einstellungen</li>
+        <li>eine <b style="color:var(--txt)">Geräte-Kennung für Benachrichtigungen</b>, wenn du Push
+          erlaubst — damit eine Antwort auf deine Meldung ankommt. Ohne Push wird nichts gespeichert.</li>
+        <li>deine <b style="color:var(--txt)">Problemmeldungen</b> samt Antwort, wenn du welche schickst
+          (siehe unten)</li>
       </ul>
 
       <b>Warum wir das dürfen</b>
       <p class="muted" style="margin:4px 0 14px">Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO:
         ohne Konto und ohne deine Trainingsdaten kann die App das nicht tun, wofür du sie benutzt.
-        Freiwillige Angaben — dein <b style="color:var(--txt)">Körpergewicht</b> — beruhen auf deiner
-        Einwilligung (lit. a); die kannst du jederzeit zurücknehmen, indem du die Einträge löschst.</p>
+        Freiwillige Angaben — dein <b style="color:var(--txt)">Körpergewicht</b>, deine
+        <b style="color:var(--txt)">Schritte</b> und die <b style="color:var(--txt)">Benachrichtigungen</b> —
+        beruhen auf deiner Einwilligung (lit. a); die kannst du jederzeit zurücknehmen, indem du die
+        Einträge löschst bzw. den jeweiligen Schalter in den Einstellungen ausmachst.</p>
 
       <b>Wo die Daten liegen</b>
       <p class="muted" style="margin:4px 0 14px">Auf deinem Gerät und zusätzlich bei
@@ -3345,8 +3403,10 @@ function renderPrivacy(){
         Supabase arbeitet dabei nur im Auftrag und nach Weisung (Auftragsverarbeitung, Art. 28 DSGVO).
         Die Server dieses Projekts stehen in der <b style="color:var(--txt)">EU</b> —
         <b style="color:var(--txt)">deine gespeicherten Daten verlassen die EU nicht.</b>
-        Die einzige Ausnahme ist ein Essens-Foto, das du selbst zum Schätzen abschickst (siehe unten);
-        das wird nirgends von uns gespeichert, geht auf dem Weg aber in die USA.
+        <b style="color:var(--txt)">Zwei Ausnahmen gibt es</b>, und beide löst du selbst aus:
+        ein <b style="color:var(--txt)">Essens-Foto</b>, das du zum Schätzen abschickst, und eine
+        <b style="color:var(--txt)">Problemmeldung</b>, die dem Betreiber über Discord zugestellt wird.
+        Beides geht in die USA; Näheres steht weiter unten.
         Die App braucht ein Konto; einen Weg, sie ganz ohne Anmeldung zu benutzen, gibt es nicht.</p>
 
       <b>Wenn du Essen einträgst</b>
@@ -3363,10 +3423,27 @@ function renderPrivacy(){
           <b style="color:var(--txt)">Nimm keine Bilder auf, auf denen Personen zu erkennen sind.</b></li>
       </ul>
 
+      <b>Wenn du ein Problem meldest</b>
+      <p class="muted" style="margin:4px 0 8px">Mit deinem Text gehen automatisch mit:
+        <b style="color:var(--txt)">dein Username</b>, die <b style="color:var(--txt)">Fassung der App</b>,
+        die <b style="color:var(--txt)">Kennung deines Browsers</b> (enthält Gerät und Betriebssystem),
+        die <b style="color:var(--txt)">Bildschirmgröße</b>, ob du gerade
+        <b style="color:var(--txt)">online oder offline</b> bist, die
+        <b style="color:var(--txt)">Anzahl deiner Einheiten</b> und der
+        <b style="color:var(--txt)">Zeitpunkt des letzten Abgleichs</b>. Ohne diese Angaben steht in
+        einer Meldung „geht nicht" und niemand kann etwas damit anfangen.</p>
+      <p class="muted" style="margin:0 0 14px">Die Meldung wird beim Betreiber gespeichert und ihm
+        zusätzlich als Nachricht über <b style="color:var(--txt)">Discord</b> (Discord Inc.,
+        <b style="color:var(--txt)">USA</b>) zugestellt — <b style="color:var(--txt)">damit verlässt sie
+        die EU</b>. Seine Antwort kommt auf demselben Weg zurück in dein Postfach in der App.
+        <b style="color:var(--txt)">Ohne Meldung geht dabei nichts nach außen</b> — das passiert nur,
+        wenn du den Knopf drückst.</p>
+
       <b>Wofür sie benutzt werden</b>
       <p class="muted" style="margin:4px 0 14px">Ausschließlich dafür, dir deine eigenen Trainings anzuzeigen.
         <b style="color:var(--txt)">Keine Werbung, kein Tracking, keine Analyse-Dienste.</b>
-        An Dritte geht nichts — mit Ausnahme der zwei Fälle oben, die du jedes Mal selbst auslöst.
+        An Dritte geht nichts — mit Ausnahme der drei Fälle oben (Barcode, Foto, Problemmeldung),
+        die du jedes Mal selbst auslöst.
         Es werden auch keine Cookies zu Werbezwecken gesetzt. XP, Level und Rang rechnet die App allein
         aus deinen Einheiten aus — das bleibt in der App und hat für dich keinerlei Folgen nach außen.</p>
 
@@ -3458,7 +3535,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v26';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v27';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 const MELD_KEY = 'gymlog:meldungen';
 const POST_KEY = 'gymlog:postfach';
 
@@ -3764,6 +3841,90 @@ async function cloudSyncStart(){ if(!session) return;
   loadBlob((dirty?ausLokal:ausCloud).blob);
   if(session) render();
   if(dirty || ausCloud.uebernommen>0){ setDirty(true); await cloudPush(); } }
+/* ---------- Passwort vergessen (24.08.2026) ----------
+   Uebernommen von angel-log (v57-v59), wo dieser Weg seit dem 19.08. im Betrieb steht.
+   Bis heute gab es bei Gym-Log keinen Weg zurueck: wer sein Passwort vergass, war
+   endgueltig ausgesperrt -- ohne Konto ist die App nicht benutzbar, der Anmelde-Schirm
+   liegt deckend ueber allem. Genau das ist Karl am 18.08. bei angel-log selbst passiert,
+   und seit dem 23.08. testet Bruno diese App hier.
+
+   ⚠️ Zwei Dinge, die von hier aus NICHT zu sehen sind:
+   1. `redirect_to` muss in Supabase freigeschaltet sein (Authentication -> URL
+      Configuration -> Redirect URLs). Steht die Adresse nicht auf der Liste, schickt
+      Supabase den Link stillschweigend an die Site-URL -- und antwortet trotzdem 200.
+   2. Der eingebaute Mailversand ist im Gratis-Tarif auf 2 Mails je Stunde gedeckelt,
+      und zwar PROJEKTWEIT, nicht je Person. Reisst er, kommt 429 zurueck.            */
+const RUECKKEHR_ZIEL = () => location.origin + location.pathname;
+const BREMSE_KEY = 'gymlog:reset-bremse';
+const BREMSE_MS  = 60*60*1000;
+
+/* 🔴 Das ist KEINE Sicherheitssperre. Sie steht im localStorage und ist mit einem zweiten
+   Geraet in Sekunden umgangen. Die echte Bremse bleibt der Server. Was hier steht, schuetzt
+   den ehrlichen Nutzer davor, aus Ungeduld beide Plaetze der Stunde fuer alle anderen zu
+   verbrauchen. */
+function bremseLesen(){ try{ return JSON.parse(localStorage.getItem(BREMSE_KEY)||'{}'); }catch(e){ return {}; } }
+// Abgelaufenes fliegt bei jedem Schreiben raus -- das Geraet soll nie laenger als eine Stunde
+// festhalten, wer hier ein Passwort zurueckgesetzt hat. Das zaehlt an einem geteilten Geraet.
+function bremseSchreiben(o){ const jetzt=Date.now(), sauber={};
+  Object.keys(o||{}).forEach(k=>{ if(jetzt-o[k] < BREMSE_MS) sauber[k]=o[k]; });
+  try{ localStorage.setItem(BREMSE_KEY, JSON.stringify(sauber)); }catch(e){} }
+/* Der Schluessel ist die ADRESSE, nicht das Geraet. Wer beim ersten Versuch das falsche
+   Konto erwischt hat, muss sofort das richtige probieren duerfen -- eine geraeteweite
+   Stunde haette genau die richtige Handlung bestraft. Zwei Leute an einem Geraet
+   blockieren sich aus demselben Grund nicht. */
+function bremseSchluessel(mail){ return String(mail||'').trim().toLowerCase(); }
+function bremseRestMin(mail){ const t=bremseLesen()[bremseSchluessel(mail)];
+  if(!t) return 0; const rest=BREMSE_MS-(Date.now()-t); return rest>0 ? Math.ceil(rest/60000) : 0; }
+function bremseSetzen(mail){ const o=bremseLesen(); o[bremseSchluessel(mail)]=Date.now(); bremseSchreiben(o); }
+
+async function rueckstellungAnfordern(mail){
+  const r=await fetch(`${SUPA_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(RUECKKEHR_ZIEL())}`,
+    {method:'POST', headers:{'apikey':SUPA_KEY,'Content-Type':'application/json'},
+     body:JSON.stringify({email:mail})});
+  if(!r.ok){ const d=await r.json().catch(()=>({}));
+    const m=(d&&(d.msg||d.error_description||d.message||d.error))||'';
+    if(r.status===429 || /rate|limit|seconds/i.test(m))
+      throw 'Es wurden gerade zu viele Links verschickt. Versuch es in einer Stunde nochmal.';
+    throw 'Die E-Mail ließ sich gerade nicht verschicken.'; }
+  /* ⚠️ Absichtlich KEINE Rueckmeldung darueber, ob es die Adresse gibt. Supabase antwortet
+     fuer unbekannte Adressen genauso mit 200, und das ist richtig so -- sonst waere das
+     hier ein Nachschlagedienst "hat diese Adresse ein Konto?". */
+}
+
+/* Setzt das Passwort mit dem Token aus der Mail. Der Token kommt NICHT aus `session` --
+   zu diesem Zeitpunkt ist niemand angemeldet. Er steht in der Adresse des Links und wird
+   von rueckkehrAusMail() aufgefangen. */
+async function passwortSetzen(neu, token){
+  const r=await fetch(`${SUPA_URL}/auth/v1/user`,
+    {method:'PUT', headers:{'apikey':SUPA_KEY,'Content-Type':'application/json','Authorization':'Bearer '+token},
+     body:JSON.stringify({password:neu})});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok) throw (d&&(d.msg||d.error_description||d.message))||'Das Passwort ließ sich nicht ändern.';
+  return d;
+}
+
+/* Der Rueckweg aus der Mail. Supabase haengt die Sitzung als Rauten-Teil an die Adresse:
+   `#access_token=…&refresh_token=…&type=recovery`.
+   ⚠️ Der Rauten-Teil wird sofort aus der Adresszeile geraeumt. Ein Zugangs-Token im
+      Verlauf des Browsers ist genau das, was man nicht will -- und beim Teilen der
+      Adresse ginge er mit. Gelesen ist er da schon.
+   ⚠️ Auch der Fehlerfall kommt als Rauten-Teil (`error_description`), typisch beim
+      abgelaufenen Link. Ohne diesen Zweig staende der Anmelde-Schirm wortlos da. */
+let resetToken=null, resetRefresh=null, resetMail='';
+function rueckkehrAusMail(){
+  const roh=(location.hash||'').replace(/^#/,''); if(!roh) return null;
+  const p=new URLSearchParams(roh);
+  const typ=p.get('type'), fehler=p.get('error_description')||p.get('error'), token=p.get('access_token');
+  if(!typ && !fehler) return null;
+  if(typ!=='recovery' && !fehler) return null;
+  try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){}
+  if(fehler || !token) return {fehler: /expired|invalid/i.test(fehler||'')
+    ? 'Dieser Link ist abgelaufen. Fordere unten einen neuen an.'
+    : 'Mit diesem Link stimmt etwas nicht. Fordere unten einen neuen an.'};
+  resetToken=token; resetRefresh=p.get('refresh_token')||null;
+  return {token};
+}
+
 async function authSignUp(username,email,password){ username=(username||'').trim(); email=(email||'').trim();
   if(!username||!email||!password) throw 'Bitte Username, E-Mail und Passwort ausfüllen.';
   if(password.length<6) throw 'Passwort mind. 6 Zeichen.';
@@ -3810,6 +3971,49 @@ async function deleteAccount(){
   setDirty(false); authMode='login'; view='home';
   return accountGone?'full':'dataonly';
 }
+async function sendeRuecksetzLink(){
+  const el=document.getElementById('rs_mail');
+  const mail=(el?el.value:'').trim();
+  if(!mail.includes('@')) return renderAuthGate('Bitte deine E-Mail-Adresse eingeben.');
+  /* ⚠️ Die Sperre kommt VOR der Netz-Pruefung und VOR dem Absenden. Wer gesperrt und
+     offline ist, bekaeme sonst "kein Netz", ginge online und erfuehre erst dann von der
+     Wartezeit. Und eine Bremse, die erst nach der Anfrage greift, hat den Platz schon
+     verbraucht. */
+  const rest=bremseRestMin(mail);
+  if(rest>0){ resetMail=mail;
+    return renderAuthGate(`Für diese Adresse ist gerade ein Link unterwegs. Neuer Versuch in ${rest} Min.`); }
+  const btn=document.querySelector('[data-act="sendReset"]');
+  if(btn){ btn.disabled=true; btn.textContent='Einen Moment …'; }
+  try{ await rueckstellungAnfordern(mail);
+    /* Gesetzt wird erst NACH dem Erfolg: ein Vertipper, ein Netzausfall oder die
+       Server-Bremse selbst darf niemanden eine Stunde aussperren, ohne dass ueberhaupt
+       eine Mail unterwegs ist. */
+    bremseSetzen(mail); resetMail=mail; authMode='gesendet'; renderAuthGate(); }
+  catch(e){ if(btn){ btn.disabled=false; btn.textContent='Link schicken'; }
+    resetMail=mail; renderAuthGate(typeof e==='string'?e:'Hat nicht geklappt — bitte nochmal.'); }
+}
+
+async function speichereNeuesPasswort(){
+  const v=id=>{ const el=document.getElementById(id); return el?el.value:''; };
+  const pw=v('np_pw'), pw2=v('np_pw2');
+  if(pw.length<6) return renderAuthGate('Passwort mind. 6 Zeichen.');
+  if(pw!==pw2)    return renderAuthGate('Die beiden Passwörter sind nicht gleich.');
+  if(!resetToken) return renderAuthGate('Der Link ist nicht mehr gültig. Fordere unten einen neuen an.');
+  const btn=document.querySelector('[data-act="savePw"]');
+  if(btn){ btn.disabled=true; btn.textContent='Einen Moment …'; }
+  try{ const nutzer=await passwortSetzen(pw, resetToken);
+    /* Der Token aus der Mail IST eine gueltige Sitzung -- wer das Passwort gesetzt hat,
+       ist damit angemeldet und muss es nicht gleich noch einmal eintippen. Genau das ist
+       der Moment, in dem er sonst wieder scheitern koennte. */
+    setSession({access_token:resetToken, refresh_token:resetRefresh, expires_in:3600, user:nutzer},
+               (nutzer&&nutzer.user_metadata&&nutzer.user_metadata.username)||null);
+    resetToken=null; resetRefresh=null;
+    authMode='login'; view='home'; render(); toast('Passwort geändert');
+    cloudSyncStart().then(()=>{ if(!profile.onboarded) startOnboard(); }); }
+  catch(e){ if(btn){ btn.disabled=false; btn.textContent='Passwort speichern'; }
+    renderAuthGate(typeof e==='string'?e:'Hat nicht geklappt — bitte nochmal.'); }
+}
+
 async function doAuth(mode){ const v=id=>{ const el=document.getElementById(id); return el?el.value:''; };
   const btn=document.querySelector('[data-act="doLogin"],[data-act="doRegister"]');
   if(btn){ btn.disabled=true; btn.textContent='Moment …'; }
@@ -4133,6 +4337,13 @@ document.addEventListener('click',ev=>{
   else if(a==='export'){ exportData(); }
   else if(a==='resetall'){ confirmTwice('rst',t,'Wirklich alles löschen?',()=>{ programs=[neuerPlan('Mein Plan',seedPlans())]; sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null; normalizeProfile(); bindPlans(); save(); applyTheme(); view='home'; render(); toast('Zurückgesetzt'); }); }
   else if(a==='authSwitch'){ authMode=(authMode==='login')?'register':'login'; renderAuthGate(); }
+  else if(a==='authForgot'){ const el=document.getElementById('au_id');
+    // Was im Anmeldefeld steht, mitnehmen -- aber nur, wenn es eine Adresse ist.
+    if(el && el.value.includes('@')) resetMail=el.value.trim();
+    authMode='vergessen'; renderAuthGate(); }
+  else if(a==='authBack'){ authMode='login'; renderAuthGate(); }
+  else if(a==='sendReset'){ sendeRuecksetzLink(); }
+  else if(a==='savePw'){ speichereNeuesPasswort(); }
   else if(a==='doLogin'){ doAuth('login'); }
   else if(a==='doRegister'){ doAuth('register'); }
   else if(a==='logout'){ confirmTwice('lo',t,'Abmelden?',()=>{ authSignOut().then(ok=>{ render();
@@ -4195,6 +4406,17 @@ document.addEventListener('change',ev=>{ if(view==='plan') syncPlanInputs();
 
 // ---------- Start ----------
 applyTheme();
+/* ⚠️ VOR leseImportAusLink(): beide lesen den Rauten-Teil der Adresse. Der Rueckweg aus
+   der Ruecksetz-Mail muss zuerst drankommen, sonst raeumt der andere ihn womoeglich weg. */
+const zurueckAusMail = rueckkehrAusMail();
+let startFehler = null;
+if(zurueckAusMail){
+  // Wer aus der Mail kommt, setzt ein neues Passwort -- eine alte Anmeldung auf diesem
+  // Geraet darf den Schirm nicht ueberdecken.
+  clearSession();
+  if(zurueckAusMail.fehler){ authMode='vergessen'; startFehler=zurueckAusMail.fehler; }
+  else authMode='neuespw';
+}
 leseImportAusLink();      // geteilter Plan im Link? Hash gleich entfernen, Angebot kommt nach dem Login
 if(active) view='workout';
 else if(session && !profile.onboarded) startOnboard();   // neues Konto → erst der Assistent
@@ -4210,7 +4432,7 @@ else if(session && !profile.onboarded) startOnboard();   // neues Konto → erst
   if(!schrittModus()){ toast('Schritte sind ausgeschaltet — anschalten in den Einstellungen'); return; }
   if(setzeSchritte(n)){ view='body';
     setTimeout(()=>toast(n.toLocaleString('de-DE')+' Schritte übernommen'), 400); } })();
-render();                 // ohne Anmeldung erscheint hier das Login-Fenster
+if(startFehler) renderAuthGate(startFehler); else render();   // ohne Anmeldung erscheint hier das Login-Fenster
 splashWeg();              // die Ansicht steht — der Schirm hat seine Aufgabe erfuellt
 cloudSyncStart();         // im Hintergrund; ohne Netz startet die App trotzdem normal
 window.addEventListener('online',()=>{ if(session&&dirty) cloudPush(); });

@@ -4,6 +4,73 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-24
 
+### 🔑 „Passwort vergessen" gibt es jetzt — und die Datenschutzerklärung kennt die ganze App
+
+Beides aus Karls Ansage nach einem Abgleich gegen Angel-Log: *„check mal im allgemeinen die
+app auf probleme die wir schon in der angel app hatten"*. Angel-Log ist sechs Wochen weiter
+und hat diese Fehler schon bezahlt — hier ist der übernommene Teil.
+
+#### 🔑 Der Weg zurück ins eigene Konto
+
+Bis heute gab es **keinen**. Wer sein Passwort vergaß, war endgültig ausgesperrt — ohne Konto
+ist die App nicht benutzbar, der Anmelde-Schirm liegt deckend über allem. Genau das ist Karl
+am 18.08. bei [[angel-log]] selbst passiert, und seit dem 23.08. testet Bruno diese App.
+
+Übernommen aus Angel-Log v57–v59, samt der dort teuer gelernten Feinheiten:
+
+- **Eine Stunde Pause zwischen zwei Links** — 🔴 keine Sicherheitssperre, sie steht im
+  `localStorage`. Der eingebaute Mailversand ist im Gratis-Tarif auf **2 Mails je Stunde**
+  gedeckelt, und zwar **projektweit**. Ein Ungeduldiger, der dreimal drückt, verbraucht
+  sonst beide Plätze der Stunde für alle anderen.
+- **Der Schlüssel ist die Adresse, nicht das Gerät.** Wer beim ersten Versuch das falsche
+  Konto erwischt, muss sofort das richtige probieren dürfen — geräteweit hätte die Bremse
+  genau die richtige Handlung bestraft.
+- **Gebremst wird vor dem Absenden, gesetzt erst nach dem Erfolg.** Eine Bremse danach hat
+  den Platz schon verbraucht; und ein Vertipper darf niemanden aussperren, ohne dass
+  überhaupt eine Mail unterwegs ist.
+- **Das neue Passwort wird zweimal eingegeben.**
+- **Der Token wird sofort aus der Adresszeile geräumt** — ein Zugangs-Token im Verlauf des
+  Browsers ist genau das, was man nicht will, und beim Teilen der Adresse ginge er mit.
+- **Der abgelaufene Link bekommt einen eigenen Satz** statt eines wortlosen Schirms.
+- ⚠️ **Es wird nicht verraten, ob es die Adresse gibt** — weder durch die Meldung noch durch
+  die Bremse. Sonst wäre das ein Nachschlagedienst „hat diese Adresse ein Konto?".
+- 💡 **Wer das Passwort gesetzt hat, ist danach angemeldet.** Der Token aus der Mail *ist*
+  eine gültige Sitzung — sonst wäre gleich der nächste Moment der, in dem man wieder scheitert.
+
+🔴 **Ein Handgriff liegt bei Karl:** `https://karlm-netizen.github.io/gym-log/` muss in
+Supabase unter **Authentication → URL Configuration → Redirect URLs** stehen. Fehlt sie,
+schickt Supabase den Link stillschweigend woandershin — **und antwortet trotzdem mit 200**.
+Von der App aus ist das nicht zu sehen.
+
+#### 📜 Die Datenschutzerklärung stand auf dem 6. August
+
+Seither sind **Schritte**, **Push** und der **Melde-Knopf** dazugekommen — keiner davon war
+beschrieben. Und ein Satz stimmte dadurch nicht mehr: *„deine gespeicherten Daten verlassen
+die EU nicht."*
+
+- **Der Discord-Weg steht jetzt drin** — mit allem, was an einer Meldung mitgeht (Username,
+  Fassung, Browser-Kennung, Bildschirm, online/offline, Anzahl der Einheiten, letzter
+  Abgleich) und dem klaren Satz, dass sie damit die EU verlässt (Discord Inc., USA).
+- **Schritte** stehen in der Datenliste, mit dem Hinweis, dass die Zahl aus dem Kurzbefehl
+  kommt und die App keine Gesundheitsdaten selbst liest.
+- **Die Push-Kennung** steht drin, samt „ohne Push wird nichts gespeichert".
+- **Rechtsgrundlage** ergänzt: Gewicht, Schritte und Benachrichtigungen sind Einwilligung
+  (Art. 6 Abs. 1 lit. a), zurücknehmbar über den jeweiligen Schalter.
+- Aus „zwei Ausnahmen" sind **drei Fälle** geworden (Barcode, Foto, Meldung).
+- **Stand: 24. August 2026.**
+
+**Prüfungen: 415 → 435.**
+
+✅ **Gegengeprobt:** die neuen Prüfungen gegen die Fassung von vorhin laufen lassen —
+**19 der 20 fallen um.** Die eine, die grün bleibt, ist die Negativ-Prüfung („beim
+Registrieren steht *kein* Vergessen-Link"), und die war vorher zu Recht grün.
+
+⏭️ **Nicht mitgemacht:** `email_for_username` ist weiter offen. Angel-Log hat die Funktion am
+18.08. entfernt, weil sie fremde E-Mail-Adressen herausgibt; live nachgemessen antwortet sie
+bei Gym-Log ohne Anmeldung mit HTTP 200. Das braucht ein `drop function` in Supabase und
+steht als eigener Punkt.
+
+
 ### 🔀 Der Abgleich führt jetzt zusammen, statt zu überschreiben
 
 **Beim Beheben des Gewichts-Fehlers daneben gefunden** — und es war die größere Hälfte.
