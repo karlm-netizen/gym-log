@@ -1300,7 +1300,7 @@ function renderAuthGate(err){
     </div>
     <div class="card">
       ${login?'':`<div class="field" style="margin:0 0 10px"><label>Username</label><input id="au_user" autocomplete="username" placeholder="dein Name"></div>`}
-      <div class="field" style="margin:0 0 10px"><label>${login?'E-Mail oder Username':'E-Mail'}</label><input id="au_id" autocomplete="${login?'username':'email'}" placeholder="${login?'E-Mail oder Username':'du@mail.de'}"></div>
+      <div class="field" style="margin:0 0 10px"><label>E-Mail</label><input id="au_id" type="email" inputmode="email" autocomplete="email" placeholder="du@mail.de" value="${login?esc(letzteMailLesen()):''}"></div>
       <div class="field" style="margin:0 0 10px"><label>Passwort</label><input id="au_pw" type="password" autocomplete="${login?'current-password':'new-password'}" placeholder="mind. 6 Zeichen"></div>
       ${err?`<div class="tiny" style="color:var(--danger);margin:2px 2px 10px">${esc(err)}</div>`:''}
       <button class="btn primary" data-act="${login?'doLogin':'doRegister'}">${login?'Anmelden':'Konto erstellen'}</button>
@@ -3535,7 +3535,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v27';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v28';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 const MELD_KEY = 'gymlog:meldungen';
 const POST_KEY = 'gymlog:postfach';
 
@@ -3854,6 +3854,18 @@ async function cloudSyncStart(){ if(!session) return;
       Supabase den Link stillschweigend an die Site-URL -- und antwortet trotzdem 200.
    2. Der eingebaute Mailversand ist im Gratis-Tarif auf 2 Mails je Stunde gedeckelt,
       und zwar PROJEKTWEIT, nicht je Person. Reisst er, kommt 429 zurueck.            */
+/* Die Bequemlichkeit, die mit der Namens-Anmeldung wegfaellt, kommt hier zurueck:
+   die zuletzt an DIESEM Geraet benutzte Adresse steht beim naechsten Anmelden im Feld.
+   ⚠️ Eigener Speicherschluessel, nicht im Konto -- clearSession() raeumt beim Abmelden das
+      Konto weg, und genau danach soll sie ja noch dastehen. Sie ueberlebt das Abmelden und
+      stirbt nur mit "Konto loeschen".
+   ⚠️ Sie verlaesst das Geraet nicht (reiner localStorage) und steht deshalb auch nicht in
+      der Datenschutzerklaerung bei den Wegen nach aussen. */
+const LETZTE_MAIL_KEY = 'gymlog:letzte-mail';
+function letzteMailLesen(){ try{ return localStorage.getItem(LETZTE_MAIL_KEY)||''; }catch(e){ return ''; } }
+function letzteMailMerken(mail){ try{ mail ? localStorage.setItem(LETZTE_MAIL_KEY, String(mail))
+                                          : localStorage.removeItem(LETZTE_MAIL_KEY); }catch(e){} }
+
 const RUECKKEHR_ZIEL = () => location.origin + location.pathname;
 const BREMSE_KEY = 'gymlog:reset-bremse';
 const BREMSE_MS  = 60*60*1000;
@@ -3932,13 +3944,37 @@ async function authSignUp(username,email,password){ username=(username||'').trim
   const r=await fetch(`${SUPA_URL}/auth/v1/signup`,{method:'POST',headers:{'apikey':SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password,data:{username}})});
   const d=await r.json(); if(!r.ok) throw d.msg||d.error_description||d.error||'Registrierung fehlgeschlagen.';
   if(!d.access_token) throw 'Konto erstellt. Falls E-Mail-Bestätigung aktiv ist: E-Mail bestätigen, dann anmelden.';
-  setSession(d,username); setDirty(true); await cloudPush(); }
+  setSession(d,username); letzteMailMerken(email); setDirty(true); await cloudPush(); }
+/* ---------- Anmelden geht nur mit E-Mail (24.08.2026) ----------
+   Bis v27 ging es auch mit dem Benutzernamen. Stand kein `@` in der Eingabe, holte die App
+   ueber die Datenbank-Funktion `email_for_username` erst die zugehoerige Adresse. Diese
+   Funktion war fuer `anon` freigegeben und MUSSTE es sein -- gefragt wird, bevor jemand
+   angemeldet ist.
+
+   🔴 Die Folge: wer einen Benutzernamen kannte oder erriet, bekam die E-Mail dazu.
+   Am 24.08. live nachgemessen, mit dem oeffentlichen Schluessel aus diesem Quelltext:
+   HTTP 200, erreichbar ohne Anmeldung. angel-log hat dieselbe Funktion am 18.08. entfernt.
+
+   ⚖️ Ehrlich zur Groessenordnung: an die Trainingsdaten kam dadurch nie jemand, dafuer sorgt
+   RLS. Es ging allein um die Adresse. Der Grund fuers Zumachen bleibt trotzdem gut -- es ist
+   die einzige Sache an dieser App, die sich hinterher nicht reparieren laesst. Herausgegebene
+   Adressen holt man nicht zurueck, und man erfaehrt nicht einmal, dass es passiert ist.
+
+   ⚠️ Was NICHT gewonnen ist: `username_taken` bleibt oeffentlich und muss es bleiben -- die
+   Registrierung fragt damit. Ob es einen Namen gibt, ist weiterhin abfragbar, nur die
+   E-Mail dahinter nicht mehr.
+   ⚠️ Und: `drop function` in Supabase gehoert dazu. Ein `git push` liefert die Datenbank
+   nicht mit aus -- bis dahin ist die Funktion dort weiter offen, auch wenn die App sie
+   nicht mehr ruft.                                                                      */
 async function authSignIn(idOrEmail,password){ idOrEmail=(idOrEmail||'').trim();
-  if(!idOrEmail||!password) throw 'Bitte E-Mail/Username und Passwort eingeben.';
-  let email=idOrEmail; if(!idOrEmail.includes('@')){ email=await supaRPC('email_for_username',{uname:idOrEmail}); if(!email) throw 'Username nicht gefunden.'; }
+  if(!idOrEmail||!password) throw 'Bitte E-Mail und Passwort eingeben.';
+  /* Wer seinen Namen eintippt, bekommt eine eigene Meldung -- sonst hielte er sein
+     Passwort fuer falsch und probierte es immer wieder. */
+  if(!idOrEmail.includes('@')) throw 'Zum Anmelden brauchst du deine E-Mail-Adresse, nicht deinen Benutzernamen.';
+  const email=idOrEmail;
   const r=await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'apikey':SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});
-  const d=await r.json(); if(!r.ok) throw d.error_description||d.msg||'E-Mail/Username oder Passwort falsch.';
-  setSession(d); const res=await cloudPull();
+  const d=await r.json(); if(!r.ok) throw d.error_description||d.msg||'E-Mail oder Passwort falsch.';
+  setSession(d); letzteMailMerken(email); const res=await cloudPull();
   if(res.ok && res.data) loadBlob(res.data);            // Konto hat Daten → die gelten
   else if(res.ok){ setDirty(true); await cloudPush(); } // Konto noch leer → lokale Daten übernehmen
 }
@@ -3965,7 +4001,8 @@ async function deleteAccount(){
       accountGone=r.ok; }catch(e){}
   }
   if(!dataGone && !accountGone) return 'offline';       // nichts erreicht — Konto bleibt bestehen
-  clearSession();
+  clearSession(); letzteMailMerken(null);               // beim Loeschen geht auch die Adresse
+
   programs=[neuerPlan('Mein Plan',seedPlans())]; sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null; normalizeProfile(); bindPlans();
   DB.set('programs',programs); DB.set('sessions',sessions); DB.set('profile',profile); DB.set('settings',settings); DB.set('active',null);
   setDirty(false); authMode='login'; view='home';
@@ -4340,6 +4377,7 @@ document.addEventListener('click',ev=>{
   else if(a==='authForgot'){ const el=document.getElementById('au_id');
     // Was im Anmeldefeld steht, mitnehmen -- aber nur, wenn es eine Adresse ist.
     if(el && el.value.includes('@')) resetMail=el.value.trim();
+    else if(!resetMail) resetMail=letzteMailLesen();
     authMode='vergessen'; renderAuthGate(); }
   else if(a==='authBack'){ authMode='login'; renderAuthGate(); }
   else if(a==='sendReset'){ sendeRuecksetzLink(); }

@@ -680,6 +680,83 @@ window.addEventListener('error', e => {
     mitGate('neuespw', h => (h.indexOf('id="np_pw"') >= 0 && h.indexOf('id="np_pw2"') >= 0)
       || 'nur ein Feld'));
 
+  // ================================================================ Anmelden nur mit E-Mail
+  /* Eingebaut am 24.08.2026, uebernommen von angel-log v56. Bis dahin ging Anmelden auch
+     mit dem Benutzernamen -- die App holte dafuer ueber `email_for_username` erst die
+     Adresse, und diese Funktion war zwangslaeufig fuer NICHT Angemeldete offen. Wer einen
+     Namen erriet, bekam die E-Mail dazu. Live gemessen: HTTP 200 ohne Anmeldung. */
+
+  // Die Funktion darf aus der App heraus nicht mehr gerufen werden.
+  t('Die App ruft email_for_username nicht mehr', () =>
+    (typeof authSignIn === 'function'
+      && !/supaRPC\(\s*['\"]email_for_username/.test(authSignIn.toString()))
+    || 'der Aufruf steht noch drin');
+
+  const mitFehler = async (fn) => { try { await fn(); return null; }
+                                    catch (e) { return typeof e === 'string' ? e : (e && e.message) || String(e); } };
+
+  /* ⚠️ Der Prueframen ist synchron -- authSignIn ist es nicht. Geprueft wird deshalb der
+     Quelltext der Funktion, nicht ihr Ablauf: dass ueberhaupt auf das @ geprueft wird und
+     dass es dafuer einen EIGENEN Satz gibt. Ohne den haelt derjenige sein Passwort fuer
+     falsch und probiert es immer wieder. */
+  /* ⚠️ Diese Pruefung hiess zuerst nur "wird auf @ geprueft" -- und war damit auch gegen
+     die ALTE Fassung gruen: die prueft ebenfalls auf @, nur um danach nachzuschlagen
+     statt abzubrechen. Gruen aus dem falschen Grund. Geprueft wird deshalb, dass auf die
+     Pruefung ein `throw` folgt und kein Nachschlagen. */
+  t('Ohne @ wird abgebrochen statt nachgeschlagen', () => {
+    const q = authSignIn.toString().replace(/\s+/g, ' ');
+    return /includes\( ?['\"]@['\"] ?\) ?\) ?throw/.test(q) || 'auf die @-Pruefung folgt kein throw';
+  });
+  t('Der Benutzername bekommt einen eigenen Satz', () => {
+    const q = authSignIn.toString();
+    return /E-Mail-Adresse, nicht deinen Benutzernamen/.test(q) || 'kein eigener Satz';
+  });
+  // Ob es einen Namen GIBT, bleibt abfragbar -- die Registrierung braucht das.
+  t('username_taken wird weiter benutzt', () =>
+    /username_taken/.test(authSignUp.toString()) || 'wird nicht mehr gefragt');
+
+  // ---- Die Bequemlichkeit, die dafuer zurueckkommt
+  const ohneMail = (fn) => {
+    const alt = localStorage.getItem(LETZTE_MAIL_KEY);
+    try { localStorage.removeItem(LETZTE_MAIL_KEY); return fn(); }
+    finally { if (alt === null) localStorage.removeItem(LETZTE_MAIL_KEY);
+              else localStorage.setItem(LETZTE_MAIL_KEY, alt); }
+  };
+  const gate = (modus) => {
+    const v = view, am = authMode, inhalt = app.innerHTML;
+    try { authMode = modus; renderAuthGate(); return app.innerHTML; }
+    finally { view = v; authMode = am; app.innerHTML = inhalt; }
+  };
+
+  t('Ohne Vorgeschichte ist das Feld leer', () => ohneMail(() =>
+    gate('login').indexOf('value=""') >= 0 || 'kein leeres Feld'));
+  t('Die zuletzt benutzte Adresse steht im Feld', () => ohneMail(() => {
+    letzteMailMerken('karl@example.de');
+    return gate('login').indexOf('karl@example.de') >= 0 || 'steht nicht im Feld';
+  }));
+  /* Beim Registrieren waere es die Adresse eines ANDEREN Kontos -- und das faellt beim
+     Tippen niemandem auf. */
+  t('Beim Registrieren bleibt das Feld leer', () => ohneMail(() => {
+    letzteMailMerken('karl@example.de');
+    return gate('register').indexOf('karl@example.de') < 0 || 'steht faelschlich da';
+  }));
+  t('Das Feld ist ein echtes E-Mail-Feld', () => ohneMail(() => {
+    const h = gate('login');
+    return (h.indexOf('type="email"') >= 0 && h.indexOf('inputmode="email"') >= 0)
+      || 'kein E-Mail-Feld';
+  }));
+  // Sie soll das Abmelden ueberleben -- genau danach soll sie ja noch dastehen.
+  t('Die Adresse liegt nicht im Konto', () => ohneMail(() => {
+    letzteMailMerken('karl@example.de');
+    const sess = DB.get('session', null);
+    return (JSON.stringify(sess || {}).indexOf('karl@example.de') < 0) || 'steht im Konto';
+  }));
+  t('Sie verlaesst das Geraet nicht', () => ohneMail(() => {
+    letzteMailMerken('karl@example.de');
+    return (JSON.stringify(appDataBlob()).indexOf('karl@example.de') < 0)
+      || 'wandert in die Cloud';
+  }));
+
   // ================================================================ Datenschutzerklaerung
   /* Am 24.08.2026 stand sie auf dem Stand vom 6. August, waehrend Schritte, Push und der
      Melde-Knopf laengst drin waren. Ein falscher Satz in dieser Erklaerung war schon am

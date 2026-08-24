@@ -4,6 +4,64 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-24
 
+### 🔒 Angemeldet wird nur noch mit E-Mail
+
+Der letzte offene Punkt aus dem Abgleich gegen [[angel-log]], das dieselbe Funktion am
+**18.08.2026 entfernt hat** (v56).
+
+Bis v27 ging Anmelden mit **E-Mail oder Benutzername**. Stand kein `@` in der Eingabe, holte
+die App über die Datenbank-Funktion `email_for_username` erst die zugehörige Adresse. Diese
+Funktion war für `anon` freigegeben und **musste** es sein — gefragt wird, bevor jemand
+angemeldet ist.
+
+🔴 **Die Folge: wer einen Benutzernamen kannte oder erriet, bekam die E-Mail dazu.**
+Am 24.08. live nachgemessen, mit dem öffentlichen Schlüssel aus dem Quelltext der App —
+also mit dem, was jeder Besucher der Seite ohnehin hat: **HTTP 200, erreichbar ohne
+Anmeldung.**
+
+⚖️ **Ehrlich zur Größenordnung:** an die Trainingsdaten kam dadurch nie jemand, dafür sorgt
+RLS. Es ging allein um die Adresse. Der Grund fürs Zumachen bleibt trotzdem gut — **es ist
+die einzige Sache an dieser App, die sich hinterher nicht reparieren lässt.** Herausgegebene
+Adressen holt man nicht zurück, und man erfährt nicht einmal, dass es passiert ist.
+
+- **Registrieren** bleibt unverändert: Benutzername + E-Mail + Passwort. Der Benutzername
+  bleibt **Anzeigename**.
+- **Anmelden** geht nur noch mit E-Mail. Das Feld ist jetzt ein echtes E-Mail-Feld
+  (`type`, `inputmode`, `autocomplete`) — am Handy kommt damit die Tastatur mit `@`.
+- Wer seinen Namen eintippt, bekommt einen **eigenen Satz** („Zum Anmelden brauchst du deine
+  E-Mail-Adresse, nicht deinen Benutzernamen.") statt „Anmelden hat nicht geklappt" — sonst
+  hielte er sein Passwort für falsch und probierte es immer wieder.
+
+⚠️ **Was NICHT gewonnen ist:** `username_taken` bleibt öffentlich und **muss** es bleiben —
+die Registrierung fragt damit. **Ob es einen Namen gibt, ist weiterhin abfragbar**, nur die
+E-Mail dahinter nicht mehr.
+
+#### 💡 Die Bequemlichkeit kommt an anderer Stelle zurück
+
+Die zuletzt an **diesem Gerät** benutzte Adresse steht beim nächsten Anmelden im Feld.
+
+- Eigener Speicherschlüssel, **nicht im Konto** — `clearSession()` räumt beim Abmelden das
+  Konto weg, und genau danach soll sie ja noch dastehen. Sie überlebt das Abmelden und
+  stirbt nur mit „Konto löschen".
+- **Beim Registrieren bleibt das Feld leer.** Dort wäre es die Adresse eines anderen Kontos,
+  und das fällt beim Tippen niemandem auf.
+- Sie verlässt das Gerät nicht (reiner `localStorage`) und steht deshalb auch nicht in der
+  Datenschutzerklärung bei den Wegen nach außen. Dafür gibt es zwei eigene Prüfungen.
+
+🔴 **Ein Handgriff liegt bei Karl:** `supabase-email-schliessen.sql` einmal ausführen.
+**Ein `git push` liefert die Datenbank nicht mit aus** — bis dahin ist die Funktion dort
+weiter offen, auch wenn die App sie nicht mehr ruft. Es steht ein `drop function` in der
+Datei, kein bloßes `revoke`: ein stehengebliebener `grant` hätte sie wieder geöffnet.
+
+**Prüfungen: 435 → 445.**
+
+✅ **Gegengeprobt: 9 der 10 neuen fallen gegen v27 um.** Die eine, die grün bleibt, ist der
+Regressions-Wächter „`username_taken` wird weiter benutzt" — und der war zu Recht schon grün.
+⚠️ **Dabei ist eine Prüfung aufgefallen, die grün war aus dem falschen Grund:** „wird auf `@`
+geprüft" traf auch auf v27 zu — die prüft ebenfalls auf `@`, nur um danach **nachzuschlagen
+statt abzubrechen**. Jetzt wird geprüft, dass auf die `@`-Prüfung ein `throw` folgt.
+
+
 ### 🔑 „Passwort vergessen" gibt es jetzt — und die Datenschutzerklärung kennt die ganze App
 
 Beides aus Karls Ansage nach einem Abgleich gegen Angel-Log: *„check mal im allgemeinen die
