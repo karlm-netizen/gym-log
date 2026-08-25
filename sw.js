@@ -1,7 +1,7 @@
 ﻿// Gym-Log Service Worker â€” Netz zuerst (Updates erreichen den Nutzer sofort),
 // Cache nur als Offline-RÃ¼ckfall. Assets einzeln cachen, damit eine fehlende
 // Datei nicht die ganze Offline-Funktion killt (Lektion aus Dranbleiben).
-const CACHE = 'gymlog-v29';
+const CACHE = 'gymlog-v30';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-180.png',
   './icon-maskable-192.png', './icon-maskable-512.png',
   './brock.png',
@@ -72,8 +72,14 @@ self.addEventListener('notificationclick', e => {
     const ziel = new URL((e.notification.data && e.notification.data.url) || './', self.location.href).href;
     const fenster = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const f of fenster){
-      if (f.url.startsWith(self.registration.scope) && 'focus' in f) return f.focus();
+      if (f.url.startsWith(self.registration.scope) && 'focus' in f) {
+        /* Das offene Fenster weiss nichts von der Mitteilung -- ohne diese Nachricht
+           holt focus() nur die Startseite nach vorn, auf der nichts steht. Ob wirklich
+           gesprungen wird, entscheidet die App: laeuft ein Training, bleibt sie stehen. */
+        if ('postMessage' in f) { try { f.postMessage({ typ: 'postfach' }); } catch (e) {} }
+        return f.focus();
+      }
     }
-    if (self.clients.openWindow) return self.clients.openWindow(ziel);
+    if (self.clients.openWindow) return self.clients.openWindow(ziel + '#postfach');
   })());
 });

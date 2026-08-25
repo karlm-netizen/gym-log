@@ -15,7 +15,7 @@ mit falschem Datum, stehenbleibender Pausen-Timer, Überlauf bei 320 px, falsche
 Die Prüfungen unten sind entlang genau dieser Fehler gebaut, nicht entlang dessen,
 was sich leicht prüfen lässt.
 """
-import subprocess, re, pathlib, shutil, sys, os
+import subprocess, re, pathlib, shutil, sys, os, json
 
 SRC  = pathlib.Path(__file__).resolve().parent
 WORK = SRC / '.testrun'
@@ -1553,6 +1553,83 @@ window.addEventListener('error', e => {
     return eq(postfachSignatur(a), postfachSignatur(b));
   });
 
+  // ---- Die rote Zahl an der unteren Leiste (25.08.2026, v30) ----
+  t('Die untere Leiste bekommt die rote Zahl', () => {
+    localStorage.setItem(POST_KEY, JSON.stringify([
+      {id:'a', antwort:'Hi', gelesen_am:null},
+      {id:'b', antwort:'Auch', gelesen_am:null}]));
+    setNav();
+    const p = document.querySelector('#nav button[data-nav="settings"] .navpunkt');
+    return (p && p.textContent === '2') || 'gefunden: ' + (p ? p.textContent : 'nichts');
+  });
+  t('Ohne ungelesene Antwort verschwindet sie wieder', () => {
+    localStorage.setItem(POST_KEY, JSON.stringify([
+      {id:'a', antwort:'Hi', gelesen_am:'2026-08-25T05:00:00Z'}]));
+    setNav();
+    return !document.querySelector('#nav button[data-nav="settings"] .navpunkt') || 'steht noch da';
+  });
+  // ⚠️ Sie sitzt am Zahnrad, weil das Postfach dort drin liegt. An 'Trainieren' waere sie
+  // eine Zahl, hinter der nichts steckt.
+  t('Sie sitzt am Zahnrad, nicht woanders', () => {
+    localStorage.setItem(POST_KEY, JSON.stringify([{id:'a', antwort:'Hi', gelesen_am:null}]));
+    setNav();
+    const alle = document.querySelectorAll('#nav .navpunkt');
+    if (alle.length !== 1) return alle.length + ' Punkte statt einem';
+    return alle[0].closest('button').dataset.nav === 'settings'
+      || 'sitzt an: ' + alle[0].closest('button').dataset.nav;
+  });
+  t('Mehr als neun werden zu 9+', () => {
+    localStorage.setItem(POST_KEY, JSON.stringify(
+      Array.from({length:12}, (_,i) => ({id:'x'+i, antwort:'Hi', gelesen_am:null}))));
+    setNav();
+    return eq(document.querySelector('#nav .navpunkt').textContent, '9+');
+  });
+
+  // ---- Der Sprung ins Postfach reisst kein Training auseinander ----
+  // 🔴 Das ist der einzige Nachteil, den das Direktspringen hat: wer zwischen zwei Saetzen
+  // aufs Handy schaut, waere mitten aus seiner Einheit gerissen worden.
+  t('Waehrend eines Trainings wird NICHT ins Postfach gesprungen', () => {
+    localStorage.setItem(POST_KEY, JSON.stringify([{id:'a', antwort:'Hi', gelesen_am:null}]));
+    const vorherActive = active, vorherView = view;
+    active = { start: Date.now(), ex: [] };      // ein laufendes Training vortaeuschen
+    view = 'home';
+    const gesprungen = postfachSpringen();
+    const wo = view;
+    active = vorherActive; view = vorherView;
+    if (gesprungen) return 'ist gesprungen, obwohl ein Training laeuft';
+    return eq(wo, 'home');
+  });
+  // ⚠️ Und die rote Zahl muss trotzdem erscheinen -- sonst waere das Nicht-Springen ein
+  // stilles Verschlucken der Antwort statt eines Aufschubs.
+  t('Bei laufendem Training bleibt die rote Zahl stehen', () => {
+    localStorage.setItem(POST_KEY, JSON.stringify([{id:'a', antwort:'Hi', gelesen_am:null}]));
+    const vorherActive = active, vorherView = view;
+    active = { start: Date.now(), ex: [] }; view = 'home';
+    postfachSpringen();
+    const p = document.querySelector('#nav button[data-nav="settings"] .navpunkt');
+    const txt = p ? p.textContent : null;
+    active = vorherActive; view = vorherView;
+    return eq(txt, '1');
+  });
+  t('Ohne laufendes Training wird gesprungen', () => {
+    localStorage.setItem(POST_KEY, JSON.stringify([{id:'a', antwort:'Hi', gelesen_am:null}]));
+    const vorherActive = active, vorherView = view;
+    active = null; view = 'home';
+    const gesprungen = postfachSpringen();
+    const wo = view;
+    active = vorherActive; view = vorherView; render();
+    return (gesprungen && wo === 'meldung') || 'gelandet auf: ' + wo;
+  });
+  // Der Weg von der Mitteilung ins offene Fenster: der Service Worker schickt eine
+  // Nachricht, die App hoert darauf. Fehlt eines von beidem, passiert gar nichts.
+  t('Der Service Worker schickt die Nachricht ins offene Fenster', () => {
+    const sw = SW_QUELLE;
+    return (/postMessage\(\s*\{\s*typ:\s*'postfach'/.test(sw)) || 'kein postMessage im notificationclick';
+  });
+  t('Bei geschlossener App wird mit #postfach geoeffnet', () => {
+    return (/openWindow\(ziel \+ '#postfach'\)/.test(SW_QUELLE)) || 'oeffnet ohne #postfach';
+  });
+
   // Aufraeumen, damit die Reihenfolge der Pruefungen egal bleibt.
   t('Melde-Speicher laesst sich leeren', () => {
     localStorage.removeItem(MELD_KEY); localStorage.removeItem(POST_KEY);
@@ -2287,7 +2364,15 @@ window.addEventListener('error', e => {
 """
 
 html = (WORK / 'index.html').read_text(encoding='utf-8')
-(WORK / 'test.html').write_text(html + TESTS, encoding='utf-8')
+
+# ⚠️ sw.js laeuft NIE in dieser Seite -- ein Service Worker hat eine eigene Umgebung, und
+# headless registriert ihn nicht. Sein Quelltext wird deshalb als Zeichenkette
+# hereingereicht, damit die Pruefungen wenigstens den Weg von der Mitteilung ins Fenster
+# nachlesen koennen. Das ist Lesen, kein Ausfuehren -- und es steht hier, damit niemand
+# glaubt, der Service Worker sei mitgeprueft.
+SW_TXT = (WORK / 'sw.js').read_text(encoding='utf-8')
+SW_BLOCK = '<script>window.SW_QUELLE = ' + json.dumps(SW_TXT) + ';</script>' + chr(10)
+(WORK / 'test.html').write_text(html + SW_BLOCK + TESTS, encoding='utf-8')
 
 # ⚠️ Zeitbudget grosszuegig: virtuelle Zeit kostet keine echte, ein groesseres
 # Budget also nichts ausser Luft nach oben. In angel-log hat ein zu knappes

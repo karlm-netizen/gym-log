@@ -4,6 +4,56 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-25
 
+### 🔴 v30 — die Antwort ist jetzt zu sehen, ohne dass man sie sucht
+
+**Karls Frage:** *„Bau, dass man die Nachricht direkt sieht — oder zieht das Nachteile mit
+sich?"* Es zieht genau **einen** nach sich, und der ist in dieser Fassung ausgeräumt (unten).
+
+v29 hat dafür gesorgt, dass die App von einer Antwort **erfährt**. Sie zu **sehen** war
+weiterhin Glückssache: die rote Zahl saß nur *in* den Einstellungen auf der Karte *Problem
+melden* — also erst, nachdem man dort hingegangen war. Wer auf die Mitteilung tippte, landete
+auf der Startseite, und dort deutete nichts auf eine Antwort hin.
+🔴 **Eine Benachrichtigung, die man nur findet, wenn man ohnehin nachsieht, ist keine.**
+
+**Zwei Wege, beide gebaut:**
+
+#### Die rote Zahl steht an der unteren Leiste
+
+Am **Zahnrad**, weil das Postfach dort drin liegt. ⚠️ **Nicht an „Trainieren"** — eine Zahl
+an einer Stelle, hinter der nichts steckt, wäre schlimmer als keine. Ab zehn steht `9+` da.
+
+#### Auf die Mitteilung tippen führt direkt ins Postfach
+
+Zwei Fälle, weil das Handy zwei kennt: **war die App noch offen**, schickt der Service Worker
+eine Nachricht ins bestehende Fenster; **war sie zu**, wird sie mit `#postfach` geöffnet.
+⚠️ Die Raute wird sofort wieder aus der Adresszeile genommen — sonst landet jedes spätere
+Neuladen erneut im Postfach.
+⚠️ **Warum überhaupt eine Nachricht und kein einfaches `focus()`:** das offene Fenster weiß
+nichts von der Mitteilung. `focus()` allein holt genau die Seite nach vorn, auf der nichts
+steht — also den Zustand, den Karl gemeldet hat.
+
+#### 🔴 Der eine Nachteil — und was dagegen steht
+
+**Wer zwischen zwei Sätzen aufs Handy schaut, würde mitten aus seinem Training gerissen.**
+Die Zeit läuft weiter, halb eingetippte Sätze stehen da, und der Weg zurück ist ein
+Suchspiel. Das ist kein Randfall — es ist **die** Situation, in der die App benutzt wird.
+
+➡️ **Deshalb springt sie nicht, solange ein Training läuft.** Dann bleibt es bei der roten
+Zahl, und man geht hin, wenn man fertig ist. 💡 **Die Zahl muss in dem Fall trotzdem
+erscheinen** — sonst wäre das Nicht-Springen ein stilles Verschlucken statt eines Aufschubs.
+Dafür steht eine eigene Prüfung.
+
+**Prüfungen: 451 → 460.**
+✅ **Dreimal gegengeprobt**, jedes Mal fällt genau das um, was der Rückbau kaputt macht:
+Wache gegen laufendes Training raus → 2 Prüfungen; Punkt an der Leiste raus → 3; `postMessage`
+im Service Worker raus → 1.
+
+⚠️ **Was dabei auffiel und hier stehen bleibt: `sw.js` läuft in den Prüfungen nie.** Ein
+Service Worker hat eine eigene Umgebung, und headless registriert ihn nicht. Sein Quelltext
+wird jetzt als Zeichenkette hereingereicht, damit der Weg von der Mitteilung ins Fenster
+wenigstens **nachgelesen** werden kann. **Das ist Lesen, kein Ausführen** — wer glaubt, der
+Service Worker sei damit geprüft, irrt sich.
+
 ### 🔔 v29 — die Antwort war da, die App zeigte sie nur nicht
 
 **Karls Meldung:** *„benachrichtigt wurde ich auch, als ich dann aber auf die App gegangen

@@ -216,6 +216,13 @@ setTimeout(function(){
   .rotzahl{min-width:20px; height:20px; padding:0 6px; border-radius:99px; background:var(--danger);
     color:#fff; font-size:12px; font-weight:700; display:inline-flex; align-items:center;
     justify-content:center}
+  /* Dieselbe rote Zahl, aber an der unteren Leiste. Sie sitzt am Zahnrad, weil das
+     Postfach dort drin liegt -- eine Zahl an einer Stelle, hinter der nichts steckt,
+     waere schlimmer als keine. */
+  nav button{position:relative}
+  .navpunkt{position:absolute; top:4px; left:50%; margin-left:6px; min-width:16px; height:16px;
+    padding:0 4px; border-radius:99px; background:var(--danger); color:#fff; font-size:10px;
+    font-weight:700; display:flex; align-items:center; justify-content:center; line-height:1}
 
   /* Mahlzeiten-Bloecke (23.08.2026, nach Karls Vorlage) */
   .mz{padding:12px 14px}
@@ -1208,7 +1215,22 @@ function splashWeg(){
 // Die Rang-Ansicht hat keinen eigenen Platz mehr in der Leiste — man kommt nur über die
 // Rang-Karte auf der Startseite dorthin, deshalb bleibt dort „Start" markiert.
 function setNav(){ const map=(view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='admin'||view==='privacy'||view==='meldung')?'settings':(view==='body'||view==='food')?'body':'home';
-  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on', b.dataset.nav===map)); }
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on', b.dataset.nav===map));
+  navPunktZeichnen(); }
+/* Die rote Zahl an der unteren Leiste (25.08.2026).
+   ⚠️ Sie war vorher NUR in den Einstellungen zu sehen -- also erst, nachdem man dort
+   hingegangen war. Wer auf die Mitteilung tippte, landete auf der Startseite, und dort
+   deutete nichts auf eine Antwort hin. Eine Benachrichtigung, die man nur findet, wenn
+   man ohnehin nachsieht, ist keine. */
+function navPunktZeichnen(){
+  const knopf = document.querySelector('#nav button[data-nav="settings"]');
+  if(!knopf) return;
+  const n = postfachUngelesen();
+  let punkt = knopf.querySelector('.navpunkt');
+  if(!n){ if(punkt) punkt.remove(); return; }
+  if(!punkt){ punkt = document.createElement('span'); punkt.className = 'navpunkt'; knopf.appendChild(punkt); }
+  punkt.textContent = n > 9 ? '9+' : String(n);
+}
 function render(){
   if(!session){ document.body.classList.add('gate'); document.body.classList.remove('setup'); renderAuthGate(); return; }
   document.body.classList.remove('gate');
@@ -3539,7 +3561,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v29';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v30';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 const MELD_KEY = 'gymlog:meldungen';
 const POST_KEY = 'gymlog:postfach';
 
@@ -3628,6 +3650,23 @@ function postfachGeaendert(vorher, nachher){
    Postfach geht. Der Push weckt das Geraet, aber nichts fragte den Server -- die rote
    Zahl blieb auf 0 und die Startseite sah aus wie vorher. */
 let postfachZuletzt = 0;
+/* Auf die Mitteilung getippt: direkt ins Postfach.
+   🔴 **Ausser es laeuft gerade ein Training.** Wer zwischen zwei Saetzen aufs Handy schaut,
+   darf nicht aus seiner Einheit gerissen werden -- die Zeit laeuft weiter, die Eingaben
+   stehen halb da. Dann bleibt es bei der roten Zahl, und er geht hin, wenn er fertig ist.
+   Das ist der einzige Nachteil, den das Direktspringen hat, und er ist damit weg. */
+async function postfachOeffnen(){
+  await postfachAuffrischen();
+  return postfachSpringen();
+}
+/* Der Sprung selbst -- bewusst SYNCHRON und als eigene Funktion. Der Prueframen ist
+   synchron; steckte die Entscheidung in der async-Funktion, waere sie nur ueber einen
+   Umweg pruefbar, und geprueft wuerde am Ende etwas anderes als das, was passiert. */
+function postfachSpringen(){
+  if(active){ navPunktZeichnen(); return false; }   // Training laeuft -- nicht wegreissen
+  view = 'meldung'; render();
+  return true;
+}
 async function postfachAuffrischen(){
   if(!session) return false;
   postfachZuletzt = Date.now();
@@ -4503,6 +4542,19 @@ if(startFehler) renderAuthGate(startFehler); else render();   // ohne Anmeldung 
 splashWeg();              // die Ansicht steht — der Schirm hat seine Aufgabe erfuellt
 cloudSyncStart();         // im Hintergrund; ohne Netz startet die App trotzdem normal
 postfachAuffrischen();    // ist waehrend der Abwesenheit eine Antwort gekommen?
+// Auf die Mitteilung getippt. Zwei Wege, weil zwei Faelle:
+//   App lief noch  -> der Service Worker schickt eine Nachricht ins offene Fenster
+//   App war zu     -> sie wird mit '#postfach' geoeffnet
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('message', e => {
+    if(e.data && e.data.typ === 'postfach') postfachOeffnen();
+  });
+}
+if(location.hash === '#postfach'){
+  // Die Raute wieder wegnehmen, sonst landet ein spaeteres Neuladen erneut im Postfach.
+  history.replaceState(null, '', location.pathname + location.search);
+  postfachOeffnen();
+}
 window.addEventListener('online',()=>{ if(session&&dirty) cloudPush(); });
 // Zwei Wege, weil kein Browser beide zuverlaessig meldet: 'visibilitychange' kommt beim
 // Wegwischen und beim Bildschirm-Aus, 'pagehide' beim echten Schliessen. Doppelt gesendet
