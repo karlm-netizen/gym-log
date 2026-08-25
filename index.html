@@ -3242,7 +3242,11 @@ function renderMeldung(){
   app.innerHTML = h;
   pushStandZeichnen();
   // Nachladen, ohne die Ansicht zu blockieren — offline bleibt die Spiegelung stehen.
-  postfachHolen().then(rows => { if(view==='meldung' && rows && rows.length !== post.length) renderMeldung(); });
+  // ⚠️ Verglichen wird der INHALT, nicht die Anzahl. Eine Antwort legt keine Zeile an,
+  // sie fuellt `antwort` in einer bestehenden. Auf die Anzahl zu schauen hiess: die
+  // Antwort kam an, wurde gespeichert -- und die Ansicht zeichnete sich nie neu.
+  // Genau das war der Fehler vom 25.08.2026: sichtbar erst nach einem Neustart.
+  postfachHolen().then(rows => { if(view==='meldung' && postfachGeaendert(post, rows)) renderMeldung(); });
 }
 
 function renderSettings(){
@@ -3535,7 +3539,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v28';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v29';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 const MELD_KEY = 'gymlog:meldungen';
 const POST_KEY = 'gymlog:postfach';
 
@@ -3607,6 +3611,31 @@ async function postfachHolen(){
 /* Wie viele unglelesene Antworten? Das ist die rote Zahl am Zahnrad. */
 function postfachUngelesen(){
   return postfachLesen().filter(m => m.antwort && !m.gelesen_am).length;
+}
+/* Ein Fingerabdruck ueber das, was sich aendern KANN: die Antwort und ob sie gelesen ist.
+   Der Text einer Meldung liegt fest, sobald sie raus ist -- er gehoert nicht hierher. */
+function postfachSignatur(l){
+  return (l||[]).map(m => `${m.id}|${m.antwort||''}|${m.gelesen_am||''}`).join('~');
+}
+/* DIE Entscheidung: muss neu gezeichnet werden? Steht bewusst als eigene Funktion da und
+   nicht inline -- sonst haengt die Pruefung an der Signatur statt an der Entscheidung,
+   und ein Rueckfall auf den Anzahl-Vergleich faellt keiner Pruefung auf. */
+function postfachGeaendert(vorher, nachher){
+  return postfachSignatur(vorher) !== postfachSignatur(nachher);
+}
+/* Nachsehen, ob eine Antwort da ist, und die Ansicht nur dann neu zeichnen.
+   ⚠️ Ohne das erfaehrt die App NIE von einer Antwort, solange man nicht von Hand ins
+   Postfach geht. Der Push weckt das Geraet, aber nichts fragte den Server -- die rote
+   Zahl blieb auf 0 und die Startseite sah aus wie vorher. */
+let postfachZuletzt = 0;
+async function postfachAuffrischen(){
+  if(!session) return false;
+  postfachZuletzt = Date.now();
+  const vorher = postfachLesen();
+  const rows = await postfachHolen();
+  if(!postfachGeaendert(vorher, rows)) return false;
+  render();          // zeichnet die aktuelle Ansicht neu -- inkl. der roten Zahl
+  return true;
 }
 async function antwortGelesen(id){
   const l = postfachLesen();
@@ -4473,6 +4502,7 @@ else if(session && !profile.onboarded) startOnboard();   // neues Konto → erst
 if(startFehler) renderAuthGate(startFehler); else render();   // ohne Anmeldung erscheint hier das Login-Fenster
 splashWeg();              // die Ansicht steht — der Schirm hat seine Aufgabe erfuellt
 cloudSyncStart();         // im Hintergrund; ohne Netz startet die App trotzdem normal
+postfachAuffrischen();    // ist waehrend der Abwesenheit eine Antwort gekommen?
 window.addEventListener('online',()=>{ if(session&&dirty) cloudPush(); });
 // Zwei Wege, weil kein Browser beide zuverlaessig meldet: 'visibilitychange' kommt beim
 // Wegwischen und beim Bildschirm-Aus, 'pagehide' beim echten Schliessen. Doppelt gesendet
@@ -4482,7 +4512,10 @@ document.addEventListener('visibilitychange',()=>{
   // Zurueck in der App: nachsehen, ob am anderen Geraet etwas dazugekommen ist. Ohne das
   // wuerde ein PC, der den ganzen Tag offen steht, die Einheiten vom Handy nie sehen.
   // Hoechstens alle 30 s, damit Hin- und Herschalten keine Anfragen-Lawine ausloest.
-  if(session && Date.now()-letzterAbgleich>30000) cloudSyncStart(); });
+  if(session && Date.now()-letzterAbgleich>30000) cloudSyncStart();
+  // Eigene Bremse, nicht die vom Abgleich: wer auf die Mitteilung tippt, kommt SOFORT
+  // zurueck in die App -- und genau dann muss die Antwort da sein, nicht 30 s spaeter.
+  if(session && Date.now()-postfachZuletzt>5000) postfachAuffrischen(); });
 window.addEventListener('pagehide',flushSync);
 
 // Versteckte Admin-Freischaltung: 5x auf Brock auf der Startseite tippen (nur auf Karls Gerät).

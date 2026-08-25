@@ -1518,6 +1518,41 @@ window.addEventListener('error', e => {
     localStorage.setItem(POST_KEY, JSON.stringify([{id:'a', antwort:null, gelesen_am:null}]));
     return eq(postfachUngelesen(), 0);
   });
+  // ---- Der Fehler vom 25.08.2026: Antwort kam an, Ansicht zeichnete sich nie neu ----
+  // Verglichen wurde die ANZAHL der Zeilen. Eine Antwort legt keine Zeile an, sie fuellt
+  // `antwort` in einer bestehenden -- die Anzahl blieb gleich, also passierte nichts.
+  // Sichtbar wurde sie erst nach einem Neustart, weil dann der Spiegel gezeichnet wurde.
+  t('Eine Antwort loest ein Neuzeichnen aus, obwohl die Anzahl gleich bleibt', () => {
+    const vorher = [{id:'a', antwort:null, gelesen_am:null}];
+    const nachher= [{id:'a', antwort:'Hi', gelesen_am:null}];
+    if (vorher.length !== nachher.length) return 'Aufbau falsch: Anzahl unterscheidet sich';
+    return postfachGeaendert(vorher, nachher)
+      || 'kein Neuzeichnen - genau der Fehler vom 25.08.';
+  });
+  t('Ohne Aenderung wird NICHT neu gezeichnet', () => {
+    const l = [{id:'a', antwort:'Hi', gelesen_am:null}];
+    return !postfachGeaendert(l, l.map(m => ({...m}))) || 'zeichnet grundlos neu';
+  });
+  t('Gleicher Bestand ergibt gleiche Signatur', () => {
+    const l = [{id:'a', antwort:'Hi', gelesen_am:null}, {id:'b', antwort:null, gelesen_am:null}];
+    return eq(postfachSignatur(l), postfachSignatur(l.map(m => ({...m}))));
+  });
+  t('Gelesen-Markieren aendert die Signatur', () => {
+    const vorher = [{id:'a', antwort:'Hi', gelesen_am:null}];
+    const nachher= [{id:'a', antwort:'Hi', gelesen_am:'2026-08-25T05:00:00Z'}];
+    return (postfachSignatur(vorher) !== postfachSignatur(nachher)) || 'unveraendert';
+  });
+  t('Ein leeres Postfach hat eine Signatur, keine Ausnahme', () =>
+    eq(postfachSignatur([]), '') && eq(postfachSignatur(null), ''));
+  // ⚠️ Der Meldetext gehoert NICHT in die Signatur: er liegt fest, sobald die Meldung
+  // raus ist. Waere er drin, kaeme kein Fehler dabei heraus - nur eine Signatur, die
+  // mehr beobachtet als sich aendern kann.
+  t('Der Meldetext geht nicht in die Signatur ein', () => {
+    const a = [{id:'a', text:'eins', antwort:'Hi', gelesen_am:null}];
+    const b = [{id:'a', text:'zwei', antwort:'Hi', gelesen_am:null}];
+    return eq(postfachSignatur(a), postfachSignatur(b));
+  });
+
   // Aufraeumen, damit die Reihenfolge der Pruefungen egal bleibt.
   t('Melde-Speicher laesst sich leeren', () => {
     localStorage.removeItem(MELD_KEY); localStorage.removeItem(POST_KEY);

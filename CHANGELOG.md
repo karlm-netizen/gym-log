@@ -2,6 +2,61 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-08-25
+
+### 🔔 v29 — die Antwort war da, die App zeigte sie nur nicht
+
+**Karls Meldung:** *„benachrichtigt wurde ich auch, als ich dann aber auf die App gegangen
+bin, war die Nachricht nicht da. Erst als ich die App einmal neugestartet habe."*
+
+Der erste Fehler, den die **echte Benutzung** gefunden hat — der Push kam am 25.08. um 06:26
+zum ersten Mal überhaupt auf einem Gerät an, und derselbe Handgriff legte den Fehler dahinter
+frei. Auf dem Prüfstand wäre er nie aufgefallen: dort startet die App bei jedem Durchlauf neu,
+und genau der Neustart hat ihn versteckt.
+
+**Zwei Ursachen, beide behoben.**
+
+#### 1. Verglichen wurde die Anzahl der Zeilen, nicht ihr Inhalt
+
+Am Ende von `renderMeldung()` stand:
+
+```js
+postfachHolen().then(rows => { if(rows.length !== post.length) renderMeldung(); });
+```
+
+⚠️ **Eine Antwort legt keine Zeile an — sie füllt `antwort` in einer bestehenden.** Die Anzahl
+blieb also gleich, die Bedingung war falsch, und neu gezeichnet wurde nie. Die Antwort **war
+längst geholt und im Gerät gespeichert**; nur der Bildschirm zeigte weiter den alten Stand.
+Deshalb stand sie nach einem Neustart da: dann wurde der Spiegel frisch gezeichnet.
+
+Jetzt entscheidet `postfachGeaendert()` über einen Fingerabdruck aus `id`, `antwort` und
+`gelesen_am`. 💡 **Der Meldetext geht bewusst nicht ein** — er liegt fest, sobald die Meldung
+raus ist. Etwas zu beobachten, das sich nicht ändern kann, macht keine Prüfung besser.
+
+⚠️ **Warum das eine eigene Funktion ist und nicht eine Zeile im Zeichnen:** hinge die Prüfung
+an der Signatur statt an der Entscheidung, wäre sie **grün aus dem falschen Grund** — ein
+Rückfall auf den Anzahl-Vergleich fiele niemandem auf. Genau dieser Fehler ist am 24.08. bei
+der `@`-Prüfung aufgetreten.
+
+#### 2. Nichts fragte den Server, außer man ging von Hand ins Postfach
+
+`postfachHolen()` wurde an **zwei** Stellen gerufen: beim Zeichnen des Postfachs und nach dem
+Abschicken einer Meldung. **Nicht beim Start, nicht beim Zurückkommen in die App.**
+
+🔴 **Die Folge war größer als der sichtbare Fehler:** der Push weckte das Gerät, aber die App
+fragte nirgends nach. Die rote Zahl an *Problem melden* blieb auf 0, weil sie nur den lokalen
+Spiegel zählt. Wer auf die Mitteilung tippte, landete auf der Startseite — und dort deutete
+**nichts** darauf hin, dass eine Antwort da war.
+
+Jetzt wird beim Start und beim Zurückkommen nachgesehen, und nur bei einer echten Änderung neu
+gezeichnet. ⚠️ **Eigene Bremse (5 s), nicht die 30 s vom Abgleich:** wer auf die Mitteilung
+tippt, ist sofort in der App — dann muss die Antwort da sein, nicht eine halbe Minute später.
+
+**Prüfungen: 445 → 451.**
+✅ **Gegengeprobt:** setzt man den Anzahl-Vergleich wieder ein, fällt *„Eine Antwort löst ein
+Neuzeichnen aus, obwohl die Anzahl gleich bleibt"* um. Ohne den Rückbau wäre nicht zu sehen
+gewesen, ob die Prüfung den Fehler wirklich fängt.
+
 ## 2026-08-24
 
 ### 🔒 Angemeldet wird nur noch mit E-Mail
