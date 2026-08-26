@@ -420,6 +420,8 @@ setTimeout(function(){
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6.5 7.5v9M17.5 7.5v9M3.5 10v4M20.5 10v4M6.5 12h11"/></svg>Trainieren</button>
   <button data-nav="body">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2.7c3.4 3.3 5.3 5.8 5.3 9a5.3 5.3 0 0 1-10.6 0c0-1.9.7-3.3 1.9-4.7.2 1.3.8 2.1 1.7 2.5.6-2.7-.6-4.9 1.7-6.8z"/></svg>Kalorien</button>
+  <button data-nav="erfolge">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M8 3h8v5a4 4 0 0 1-8 0z"/><path d="M8 5H5.5a2.5 2.5 0 0 0 2.5 4"/><path d="M16 5h2.5a2.5 2.5 0 0 1-2.5 4"/><path d="M12 12v4"/><path d="M9 20h6"/><path d="M10 16h4l1 4H9z"/></svg>Erfolge</button>
   <button data-nav="settings">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Einstellungen</button>
 </nav>
@@ -1009,6 +1011,7 @@ function normalizeProfile(){
   if(typeof profile.xp!=='number') profile.xp=0;
   if(!Array.isArray(profile.weights)) profile.weights=[];   // [{date, kg}] — Körpergewicht über die Zeit
   if(profile.rankSkin===undefined) profile.rankSkin=null;   // ausgerüsteter Rang (null = der echte)
+  if(!profile.aufgaben||typeof profile.aufgaben!=='object') profile.aufgaben={tag:'',fertig:{}};  // Tagesaufgaben
   kcalInit();                                               // Tagesziel, eigene Lebensmittel, Mahlzeiten
 }
 normalizeProfile();
@@ -1145,6 +1148,116 @@ function fmtDauer(ms){ if(!(ms>0)) return null; const min=Math.round(ms/60000);
 function arbeit(sets){ return (sets||[]).filter(s=>!s.warm); }
 function volume(en){ let v=0; en.forEach(e=>arbeit(e.sets).forEach(s=>{ if(s.done) v+=(+s.weight||0)*(+s.reps||0); })); return Math.round(v); }
 function doneSets(en){ let n=0; en.forEach(e=>arbeit(e.sets).forEach(s=>{ if(s.done) n++; })); return n; }
+/* Wie viele Saetze dieser Einheit waren ein eigener Rekord? Die Markierung setzt der
+   Haken beim Abhaken (dort ist die Historie noch ohne die laufende Einheit). */
+function zaehleRekorde(en){ let n=0; en.forEach(e=>arbeit(e.sets).forEach(s=>{ if(s.done&&s.pr) n++; })); return n; }
+
+/* ---------- Tagesaufgaben (26.08.2026) ----------
+   Karls Ansage: "wir brauchen ein System mit Aufgaben vielleicht, z.B. ueberhaupt die App
+   oeffnen."
+
+   🔴 **Der Einwand, der hier ins Produkt eingebaut ist statt zurueckgefragt zu werden.**
+   Im Vault steht seit dem 22.08. bewusst: kein XP fuers Essen, weil es Level und Rang mit
+   etwas aufblaeht, das keine Anstrengung ist -- Brocks Rang sagt dann nichts mehr ueber
+   das Training aus. Eine Aufgabe "App geoeffnet" ist genau so ein Fall.
+
+   ➡️ Geloest ueber die GROESSENORDNUNG, nicht ueber ein Nein: hoechstens **30 XP am Tag**,
+   gegen 260-380 fuer eine Einheit. Aufgaben schieben an, sie tragen nicht. Wer nur die App
+   oeffnet, kommt auf 5 XP -- in einem Monat 150, also weniger als eine einzige Einheit.
+   ⚠️ Wuerde man sie groesser machen, waere Gigachad ohne Training erreichbar. Das ist die
+   Grenze, an der dieses Feature aufhoert.                                              */
+const AUFGABEN = [
+  { id:'auf',   xp:5,  name:'Reingeschaut',   text:'Die App heute geöffnet' },
+  { id:'ein',   xp:10, name:'Eingetragen',    text:'Gewicht oder eine Mahlzeit eingetragen' },
+  { id:'train', xp:15, name:'Trainiert',      text:'Eine Einheit abgeschlossen' },
+];
+const AUFGABEN_MAX = AUFGABEN.reduce((n,a)=>n+a.xp,0);   // 30 -- der Deckel steht in den Daten
+
+function heuteKey(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+/* ⚠️ Der Tageswechsel wird beim LESEN geprueft, nicht per Timer. Ein Timer um Mitternacht
+   liefe nur, solange die App offen ist -- und sie ist es nachts nie. */
+function aufgabenHeute(){
+  if(!profile.aufgaben || profile.aufgaben.tag !== heuteKey()) profile.aufgaben = { tag: heuteKey(), fertig: {} };
+  return profile.aufgaben;
+}
+function aufgabeFertig(id){ return !!aufgabenHeute().fertig[id]; }
+/* Haken dran und XP gutschreiben. Gibt zurueck, ob es diesmal wirklich etwas gab --
+   zweimal dieselbe Aufgabe am selben Tag zaehlt nicht. */
+function aufgabeErledigen(id){
+  const a = AUFGABEN.find(x=>x.id===id); if(!a) return false;
+  const h = aufgabenHeute();
+  if(h.fertig[a.id]) return false;
+  h.fertig[a.id] = true;
+  profile.xp += a.xp;
+  save();
+  return true;
+}
+function aufgabenOffen(){ return AUFGABEN.filter(a=>!aufgabeFertig(a.id)).length; }
+function aufgabenXPheute(){ return AUFGABEN.reduce((n,a)=>n+(aufgabeFertig(a.id)?a.xp:0),0); }
+
+/* ---------- Erfolge (26.08.2026) ----------
+   Karls Ansage: "ausserdem haette ich gerne einen Achievement-Katalog als 3ter Reiter
+   unten zwischen Einstellungen und Kalorien."
+
+   ⚠️ **Alles hier wird GERECHNET, nichts gespeichert.** Ein gespeicherter Erfolg geht
+   beim Abmelden verloren oder haengt nach einer korrigierten Einheit in der Luft -- und
+   dann steht ein Haken an etwas, das die Daten nicht mehr hergeben. Dieselbe Entscheidung
+   wie beim Essens-Serienrekord.
+   ⚠️ Deshalb geben ALLE Erfolge einen Zaehlerstand `ist()` gegen ein `ziel` zurueck, auch
+   die, die man nur einmal bekommt. Damit steht ueberall ein Fortschritt statt eines
+   nackten Schlosses -- 47 von 50 ist ein Grund weiterzumachen, ein graues Feld nicht.   */
+function gesamtVolumen(){ return sessions.reduce((v,s)=>v+volume(s.entries),0); }
+function gesamtRekorde(){ return sessions.reduce((v,s)=>v+(+s.pr||0),0); }
+/* ⚠️ Beide benutzen `wochenStart()` weiter unten -- die App hat ihren eigenen Begriff von
+   einer Woche (Montag 00:00), und der muss ueberall derselbe sein. Beim ersten Bauen stand
+   hier eine eigene Wochenrechnung; die haette an einer Stelle Montag und an einer anderen
+   Donnerstag gemeint. */
+function besteWoche(){
+  const z={}; sessions.forEach(s=>{ const w=wochenStart(s.date); z[w]=(z[w]||0)+1; });
+  return Object.values(z).reduce((m,v)=>Math.max(m,v),0);
+}
+/* 🔴 NICHT `wochenSerie()` -- die gibt es schon und meint etwas anderes: die Serie BIS HEUTE,
+   fuer die Flamme auf der Startseite. Beim ersten Bauen hiess diese hier genauso und wurde
+   von der bestehenden still ueberschrieben; gefunden hat es erst eine Pruefung.
+
+   ⚠️ Fuer einen Erfolg braucht es die LAENGSTE JE, nicht die laufende. Sonst verschwindet
+   eine Trophaee wieder, sobald die Serie reisst -- und ein Katalog, aus dem Dinge wieder
+   herausfallen, ist kein Katalog. Geschafft bleibt geschafft. */
+function besteWochenSerie(){
+  const w=[...new Set(sessions.map(s=>wochenStart(s.date)))].sort((a,b)=>a-b);
+  const WOCHE=604800000;
+  let best=0, lauf=0, vor=null;
+  w.forEach(x=>{ lauf = (vor!==null && x-vor===WOCHE) ? lauf+1 : 1; vor=x; best=Math.max(best,lauf); });
+  return best;
+}
+const ERFOLGE = [
+  { id:'e1',  gr:'Training',    em:'🏁', name:'Angefangen',      text:'Die erste Einheit abgeschlossen',        ziel:1,      ist:()=>sessions.length },
+  { id:'e2',  gr:'Training',    em:'🔟', name:'Zehnkampf',       text:'10 Einheiten abgeschlossen',             ziel:10,     ist:()=>sessions.length },
+  { id:'e3',  gr:'Training',    em:'💪', name:'Fünfzig',         text:'50 Einheiten abgeschlossen',             ziel:50,     ist:()=>sessions.length },
+  { id:'e4',  gr:'Training',    em:'🗿', name:'Hundert',         text:'100 Einheiten abgeschlossen',            ziel:100,    ist:()=>sessions.length },
+
+  { id:'v1',  gr:'Volumen',     em:'🧱', name:'Eine Tonne',      text:'1.000 kg insgesamt bewegt',              ziel:1000,   ist:gesamtVolumen },
+  { id:'v2',  gr:'Volumen',     em:'🚗', name:'Zehn Tonnen',     text:'10.000 kg insgesamt bewegt',             ziel:10000,  ist:gesamtVolumen },
+  { id:'v3',  gr:'Volumen',     em:'🐋', name:'Hundert Tonnen',  text:'100.000 kg insgesamt bewegt',            ziel:100000, ist:gesamtVolumen },
+  { id:'v4',  gr:'Volumen',     em:'🌋', name:'Halbe Million',   text:'500.000 kg insgesamt bewegt',            ziel:500000, ist:gesamtVolumen },
+
+  { id:'r1',  gr:'Rekorde',     em:'⭐', name:'Erster Rekord',   text:'Einen eigenen Rekord gebrochen',         ziel:1,      ist:gesamtRekorde },
+  { id:'r2',  gr:'Rekorde',     em:'🌟', name:'Zehn Rekorde',    text:'10 eigene Rekorde gebrochen',            ziel:10,     ist:gesamtRekorde },
+  { id:'r3',  gr:'Rekorde',     em:'✨', name:'Fünfzig Rekorde', text:'50 eigene Rekorde gebrochen',            ziel:50,     ist:gesamtRekorde },
+
+  { id:'d1',  gr:'Dranbleiben', em:'📅', name:'Volle Woche',     text:'3 Einheiten in einer Woche',             ziel:3,      ist:besteWoche },
+  { id:'d2',  gr:'Dranbleiben', em:'🔥', name:'Vier am Stück',   text:'4 Wochen hintereinander trainiert',      ziel:4,      ist:besteWochenSerie },
+  { id:'d3',  gr:'Dranbleiben', em:'🧗', name:'Ein Vierteljahr', text:'13 Wochen hintereinander trainiert',     ziel:13,     ist:besteWochenSerie },
+
+  { id:'l1',  gr:'Rang',        em:'🥉', name:'Level 10',        text:'Level 10 erreicht',                      ziel:10,     ist:()=>levelFromXP(profile.xp).level },
+  { id:'l2',  gr:'Rang',        em:'🥈', name:'Level 25',        text:'Level 25 erreicht',                      ziel:25,     ist:()=>levelFromXP(profile.xp).level },
+  { id:'l3',  gr:'Rang',        em:'🥇', name:'Gigachad',        text:'Level 45 — der höchste Rang',            ziel:45,     ist:()=>levelFromXP(profile.xp).level },
+
+  { id:'k1',  gr:'Körper',      em:'⚖️', name:'Auf die Waage',   text:'Zum ersten Mal das Gewicht eingetragen', ziel:1,      ist:()=>(profile.weights||[]).length },
+  { id:'k2',  gr:'Körper',      em:'📈', name:'Dreißig Wiegen',  text:'30-mal das Gewicht eingetragen',         ziel:30,     ist:()=>(profile.weights||[]).length },
+];
+function erfolgOffen(e){ return e.ist() < e.ziel; }
+function erfolgeGeschafft(){ return ERFOLGE.filter(e=>!erfolgOffen(e)).length; }
 function lastPerf(name){ for(let i=sessions.length-1;i>=0;i--){ const e=sessions[i].entries.find(x=>x.name===name);
   if(e){ const d=arbeit(e.sets).filter(s=>s.done&&(+s.weight||+s.reps)); if(d.length){ const b=d[d.length-1]; return {w:+b.weight||0,r:+b.reps||0}; } } } return null; }
 // ---------- Steigerung vorschlagen ----------
@@ -1214,7 +1327,7 @@ function splashWeg(){
 // ---------- Rendering ----------
 // Die Rang-Ansicht hat keinen eigenen Platz mehr in der Leiste — man kommt nur über die
 // Rang-Karte auf der Startseite dorthin, deshalb bleibt dort „Start" markiert.
-function setNav(){ const map=(view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='admin'||view==='privacy'||view==='meldung')?'settings':(view==='body'||view==='food')?'body':'home';
+function setNav(){ const map=(view==='erfolge')?'erfolge':(view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='admin'||view==='privacy'||view==='meldung')?'settings':(view==='body'||view==='food')?'body':'home';
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on', b.dataset.nav===map));
   navPunktZeichnen(); }
 /* Die rote Zahl an der unteren Leiste (25.08.2026).
@@ -1240,7 +1353,7 @@ function render(){
   // während Barcode oder KI noch laufen (die setzen view selbst auf 'food').
   if(view!=='food'&&!foodBusy){ foodStep='list'; foodDraft=null; foodFehler=''; foodMz=''; }
   setNav();
-  ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, body:renderBody, food:renderFood, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin, meldung:renderMeldung}[view]||renderHome)();
+  ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, body:renderBody, food:renderFood, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin, meldung:renderMeldung, erfolge:renderErfolge}[view]||renderHome)();
   syncSessionClock();
   // Geteilter Plan aus dem Link: erst anbieten, wenn jemand angemeldet ist und nicht gerade
   // im Assistenten steckt — sonst laege das Fenster ueber der Pflicht-Einrichtung.
@@ -1879,9 +1992,35 @@ let sessEdit=false;
 // XP nachfuehren. Moeglich nur, wenn beim Beenden festgehalten wurde, wie viel es dafuer gab —
 // Einheiten von vor dem 06.08. haben kein s.xp, dort bleibt der Punktestand unangetastet
 // (lieber ein alter Wert stehen als ein geratener abgezogen).
-function sessXP(en){ return doneSets(en)*10 + 50 + Math.floor(volume(en)/1000)*20; }
+/* ---------- XP fuer eine Einheit (neu am 26.08.2026) ----------
+   ⚠️ VORHER: Saetze*10 + 50 + (Volumen/1000)*20, ohne Deckel. Das hat DIE KILOS belohnt,
+   nicht die Anstrengung. Durchgerechnet am 22.08.:
+
+     Anfaenger Oberkoerper  12 Saetze,  2.500 kg = 210 XP
+     Fortgeschritten Beine  18 Saetze, 20.000 kg = 630 XP   -> dreimal so viel
+
+   Kniebeugen bewegen nun mal mehr Kilo als Curls. Wer stark ist, stieg dreimal so
+   schnell auf, und ein ehrlich harter Oberkoerpertag war weniger wert als ein lockerer
+   Beintag. Bis Gigachad (Level 45, 42.240 XP): Anfaenger 15 Monate, Fortgeschrittener 5.
+
+   JETZT: die Kilos zaehlen weiter (Karls Ansage: "soll aber auch Gewicht belohnen"),
+   aber GEDECKELT. Oben drauf kommt, was wirklich Anstrengung ist: jeder Satz, und jeder
+   Satz, der einen eigenen Rekord bricht.
+
+     Anfaenger Oberkoerper  12 Saetze, 2 Rekorde, 2.500 kg = 260 XP
+     Fortgeschritten Beine  18 Saetze, 2 Rekorde, 20.000 kg = 380 XP  -> Faktor 1,5
+
+   ⚠️ Der Deckel ist der eigentliche Eingriff, nicht der Rekord-Bonus. Ohne ihn waechst
+   der Volumenanteil mit der Kraft unbegrenzt weiter und frisst alles andere auf. */
+const VOL_XP_MAX = 100;              // hoechstens 100 XP aus dem Volumen, also 5.000 kg
+function volXP(en){ return Math.min(Math.floor(volume(en)/1000)*20, VOL_XP_MAX); }
+/* ⚠️ `prs` kommt VON AUSSEN und wird nicht aus `en` gerechnet. Ob ein Satz ein Rekord war,
+   haengt an der Historie zum Zeitpunkt des Trainings -- nicht an den Saetzen selbst. Wer
+   das aus `en` herleiten wollte, bekaeme beim spaeteren Nachrechnen (sessRecalc) eine
+   andere Zahl als beim Beenden. Deshalb wird die Anzahl an der Einheit festgehalten. */
+function sessXP(en, prs){ return doneSets(en)*10 + 50 + (+prs||0)*25 + volXP(en); }
 function sessRecalc(s){
-  if(typeof s.xp==='number'){ const neu=sessXP(s.entries);
+  if(typeof s.xp==='number'){ const neu=sessXP(s.entries, s.pr||0);
     profile.xp=Math.max(0, profile.xp + (neu - s.xp)); s.xp=neu; }
   save();
 }
@@ -2347,6 +2486,7 @@ function addMeal(d,menge){
   const w=draftWerte(d,menge), k=kcalInit();
   // ⚠️ `foodMz` ist die im Block angetippte Mahlzeit. Ist keine gewaehlt (etwa ueber
   // den allgemeinen Knopf), entscheidet die Uhrzeit — nie ein fester Vorgabewert.
+  aufgabeErledigen('ein');      // Tagesaufgabe: etwas eingetragen
   k.meals.push({id:uid(),date:Date.now(),name:d.name||'Essen', mz: foodMz || mahlzeitJetzt(),
     menge:(+menge||0)+(d.basis==='portion'?'×':' g'), quelle:d.quelle||'eigen', ...w});
   save(); return w;
@@ -3100,6 +3240,7 @@ function addWeight(kg){
   if(!(kg>0)||kg>500) return false;
   const now=Date.now(), i=(profile.weights||[]).findIndex(x=>sameDay(x.date,now));
   if(i>=0) profile.weights[i]={date:now,kg}; else profile.weights.push({date:now,kg});
+  aufgabeErledigen('ein');      // Tagesaufgabe: etwas eingetragen
   save(); return true;
 }
 
@@ -3270,6 +3411,68 @@ function renderMeldung(){
   // Genau das war der Fehler vom 25.08.2026: sichtbar erst nach einem Neustart.
   postfachHolen().then(rows => { if(view==='meldung' && postfachGeaendert(post, rows)) renderMeldung(); });
 }
+
+/* ---------- Erfolge ----------
+   Aufbau: erst die Tagesaufgaben (was HEUTE geht), dann der Katalog nach Gruppen.
+   ⚠️ Die Reihenfolge ist Absicht: die Aufgaben sind das Einzige auf dieser Seite, das man
+   sofort tun kann. Stuenden sie unten, waeren sie eine Fussnote unter 18 Trophaeen.       */
+function renderErfolge(){
+  const geschafft = erfolgeGeschafft();
+  let h = `<div class="row between" style="margin:2px 4px 10px">
+      <h2>Erfolge</h2><span class="tiny muted">${geschafft} von ${ERFOLGE.length}</span></div>`;
+
+  // ---- Tagesaufgaben ----
+  const offen = aufgabenOffen();
+  h += `<div class="card">
+    <div class="row between" style="align-items:baseline">
+      <b>Heute</b>
+      <span class="tiny muted">${aufgabenXPheute()} von ${AUFGABEN_MAX} XP</span></div>`;
+  AUFGABEN.forEach(a => {
+    const fertig = aufgabeFertig(a.id);
+    h += `<div class="row between" style="margin-top:12px;align-items:center;gap:10px">
+        <div class="row" style="gap:10px;min-width:0;align-items:center">
+          <span style="font-size:18px;opacity:${fertig?1:.35}">${fertig?'✅':'⬜'}</span>
+          <div style="min-width:0">
+            <b style="${fertig?'':'color:var(--muted)'}">${esc(a.name)}</b>
+            <div class="tiny muted">${esc(a.text)}</div></div></div>
+        <span class="tiny" style="white-space:nowrap;color:${fertig?'var(--ok)':'var(--muted)'}">+${a.xp} XP</span></div>`;
+  });
+  h += `<div class="tiny muted" style="margin-top:14px;line-height:1.6">
+      ${offen ? `Noch ${offen} ${offen===1?'Aufgabe':'Aufgaben'} offen.` : 'Alles erledigt für heute.'}
+      <br><b style="color:var(--txt)">Aufgaben schieben an, sie tragen nicht.</b> Höchstens
+      ${AUFGABEN_MAX} XP am Tag — eine Einheit bringt das Zehnfache. Der Rang soll etwas
+      über dein Training sagen, nicht darüber, wie oft du die App aufmachst.</div></div>`;
+
+  // ---- Der Katalog ----
+  const gruppen = [...new Set(ERFOLGE.map(e=>e.gr))];
+  gruppen.forEach(g => {
+    const liste = ERFOLGE.filter(e=>e.gr===g);
+    h += `<div class="row between" style="margin:20px 4px 6px"><h2>${esc(g)}</h2>
+        <span class="tiny muted">${liste.filter(e=>!erfolgOffen(e)).length}/${liste.length}</span></div>`;
+    h += `<div class="card">`;
+    liste.forEach((e,i) => {
+      const ist = e.ist(), fertig = ist >= e.ziel;
+      const anteil = Math.max(0, Math.min(100, Math.round(ist / e.ziel * 100)));
+      h += `<div style="${i?'border-top:1px solid var(--line);margin-top:12px;padding-top:12px':''}">
+        <div class="row between" style="align-items:center;gap:10px">
+          <div class="row" style="gap:10px;min-width:0;align-items:center">
+            <span style="font-size:22px;filter:${fertig?'none':'grayscale(1)'};opacity:${fertig?1:.4}">${e.em}</span>
+            <div style="min-width:0">
+              <b style="${fertig?'':'color:var(--muted)'}">${esc(e.name)}</b>
+              <div class="tiny muted">${esc(e.text)}</div></div></div>
+          ${fertig ? `<span class="tiny" style="color:var(--ok);font-weight:700;white-space:nowrap">geschafft</span>`
+                   : `<span class="tiny muted" style="white-space:nowrap">${fmtZiel(ist)} / ${fmtZiel(e.ziel)}</span>`}
+        </div>
+        ${fertig ? '' : `<div class="bar" style="margin-top:8px;height:6px;background:var(--card2);border-radius:99px;overflow:hidden">
+            <i style="display:block;height:100%;width:${anteil}%;background:var(--accent)"></i></div>`}
+      </div>`;
+    });
+    h += `</div>`;
+  });
+  app.innerHTML = h;
+}
+/* Grosse Zahlen lesbar: 100000 -> 100.000. Bei Volumen steht sonst eine Ziffernwurst. */
+function fmtZiel(n){ return Math.round(n).toLocaleString('de-DE'); }
 
 function renderSettings(){
   const usr='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>';
@@ -3561,7 +3764,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v30';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v31';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 const MELD_KEY = 'gymlog:meldungen';
 const POST_KEY = 'gymlog:postfach';
 
@@ -4153,12 +4356,14 @@ function finishWorkout(){
   const entries=active.exercises.map(e=>({name:e.name||'Übung',icon:e.icon,sets:e.sets.filter(s=>s.done)})).filter(e=>e.sets.length);
   if(entries.length===0){ active=null; save(); toast('Verworfen (nichts erledigt)'); view='home'; render(); return; }
   const beforeL=levelFromXP(profile.xp).level, beforeRank=rankForLevel(beforeL).name;
-  const gained=sessXP(entries);
+  const prs=zaehleRekorde(entries);
+  const gained=sessXP(entries, prs);
   profile.xp+=gained;
+  aufgabeErledigen('train');     // Tagesaufgabe mit abhaken, falls noch offen
   // dur = wie lange die Einheit gedauert hat. Einheiten vor dem 05.08. haben kein dur.
   // xp = was es dafuer gab. Wird gebraucht, um den Punktestand nachzufuehren, wenn die
   // Einheit spaeter im Verlauf korrigiert wird (seit 06.08.).
-  sessions.push({id:active.id,date:active.date,dur:Date.now()-active.date,planName:active.planName,xp:gained,entries});
+  sessions.push({id:active.id,date:active.date,dur:Date.now()-active.date,planName:active.planName,xp:gained,pr:prs,entries});
   active=null; endRest();
   const afterL=levelFromXP(profile.xp).level, afterRank=rankForLevel(afterL);
   save(); view='home';
@@ -4280,10 +4485,16 @@ document.addEventListener('click',ev=>{
     // gaebe nie wieder eine Meldung.
     if(s.done && !s.warm){
       const name=active.exercises[ei].name, alt=prFor(name);
-      if(+s.weight>0 && (!alt || +s.weight>alt.w))
+      if(+s.weight>0 && (!alt || +s.weight>alt.w)){
+        /* ⚠️ Am SATZ merken, nicht mitzaehlen. Wer abhakt, wieder abwaehlt und erneut
+           abhakt, wuerde sonst zweimal Rekord-XP bekommen. Gezaehlt wird erst beim
+           Beenden, ueber die Saetze -- das ist unabhaengig davon, wie oft geklickt wurde. */
+        s.pr = true;
         toast(alt ? `Neuer Rekord: ${fmtKg(+s.weight)} kg (vorher ${fmtKg(alt.w)})`
                   : `Erster Eintrag für ${name} — ab jetzt zählt jeder Rekord`);
+      }
     }
+    if(!s.done) delete s.pr;      // abgewaehlt = kein Rekord mehr
     save();
     if(s.done){ startRest(settings.rest); if(navigator.vibrate) navigator.vibrate(40); } render(); return; }
   if(t.dataset.addset!=null){ const e=active.exercises[+t.dataset.addset], last=e.sets[e.sets.length-1]||{}; e.sets.push({weight:last.weight||'',reps:last.reps||'',done:false}); save(); render(); return; }
@@ -4542,6 +4753,7 @@ if(startFehler) renderAuthGate(startFehler); else render();   // ohne Anmeldung 
 splashWeg();              // die Ansicht steht — der Schirm hat seine Aufgabe erfuellt
 cloudSyncStart();         // im Hintergrund; ohne Netz startet die App trotzdem normal
 postfachAuffrischen();    // ist waehrend der Abwesenheit eine Antwort gekommen?
+if(session) aufgabeErledigen('auf');   // Tagesaufgabe: reingeschaut
 // Auf die Mitteilung getippt. Zwei Wege, weil zwei Faelle:
 //   App lief noch  -> der Service Worker schickt eine Nachricht ins offene Fenster
 //   App war zu     -> sie wird mit '#postfach' geoeffnet

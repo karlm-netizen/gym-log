@@ -2,6 +2,97 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-08-26
+
+### 🏆 v31 — XP zählt Anstrengung, Tagesaufgaben, und ein Erfolgs-Katalog
+
+**Karls Ansage:** *„Wir brauchen ein System mit Aufgaben vielleicht, z. B. überhaupt die App
+öffnen. Soll aber auch Gewicht belohnen, und ja, Anstrengung statt Kilos. Außerdem hätte ich
+gerne einen Achievement-Katalog als 3ter Reiter unten zwischen Einstellungen und Kalorien."*
+
+Der XP-Umbau stand seit dem **22.08.** als Karls eigener Punkt im Vault (*„wir müssen uns
+unbedingt um xp kümmern"*) und war damals vertagt worden — *„mach erstmal das andere"*.
+
+#### 1. Die Formel belohnt nicht mehr das Schwersein
+
+**Vorher:** `Sätze×10 + 50 + (Volumen/1000)×20`, ohne Deckel.
+
+| | Sätze | Volumen | XP |
+|---|---|---|---|
+| Anfänger, Oberkörper | 12 | 2.500 kg | **210** |
+| Fortgeschritten, Beine | 18 | 20.000 kg | **630** |
+
+🔴 **Faktor 3,0 — und daran war nichts Verdientes.** Kniebeugen bewegen nun mal mehr Kilo als
+Curls. Ein ehrlich harter Oberkörpertag war weniger wert als ein lockerer Beintag, und wer
+schon stark war, stieg dreimal so schnell auf. Bis Gigachad (Level 45, 42.240 XP): Anfänger
+**15 Monate**, Fortgeschrittener **5**. Dranbleiben zählte in der Formel überhaupt nicht.
+
+**Jetzt:** `Sätze×10 + 50 + Rekord-Sätze×25 + min(Volumen-XP, 100)`
+
+Damit liegen dieselben zwei Einheiten bei **260** und **380** — Faktor **1,5**.
+
+💡 **Die Kilos zählen weiter mit** (Karls ausdrückliche Ansage), aber gedeckelt bei 100 XP.
+⚠️ **Der Deckel ist der eigentliche Eingriff, nicht der Rekord-Bonus.** Ohne ihn wächst der
+Volumenanteil mit der Kraft unbegrenzt weiter und frisst alles andere auf.
+
+⚠️ **Eine Falle beim Bauen: `sessRecalc()` rechnet XP neu, wenn man eine Einheit im Verlauf
+korrigiert.** Ob ein Satz ein Rekord war, hängt aber an der **Historie zum Zeitpunkt des
+Trainings** — aus den Sätzen allein ist das nicht herzuleiten. Die Anzahl wird deshalb an der
+Einheit festgehalten (`s.pr`) und beim Nachrechnen durchgereicht. Sonst käme beim Bearbeiten
+eine andere Zahl heraus als beim Beenden.
+
+💡 Gezählt wird über eine Markierung **am Satz**, nicht beim Klicken — wer abhakt, abwählt und
+erneut abhakt, bekäme sonst zweimal Rekord-XP.
+
+#### 2. Tagesaufgaben — drei am Tag, zusammen 30 XP
+
+*Reingeschaut* (5) · *Eingetragen* (10) · *Trainiert* (15).
+
+🔴 **Hier steckt ein Einwand im Produkt statt in einer Rückfrage.** Im Vault steht seit dem
+22.08. bewusst: **kein XP fürs Essen**, weil es Level und Rang mit etwas aufbläht, das keine
+Anstrengung ist — Brocks Rang sagt dann nichts mehr über das Training aus. Eine Aufgabe
+*„App geöffnet"* ist genau derselbe Fall.
+
+➡️ **Gelöst über die Größenordnung, nicht über ein Nein:** höchstens **30 XP am Tag** gegen
+**260–380** für eine Einheit. Wer nur die App öffnet, sammelt in einem Monat 150 XP — weniger
+als eine einzige Einheit. **Aufgaben schieben an, sie tragen nicht.** Dafür steht eine eigene
+Prüfung, die den Abstand festhält.
+
+⚠️ Der Tageswechsel wird **beim Lesen** geprüft, nicht per Timer. Ein Timer um Mitternacht
+liefe nur, solange die App offen ist — und nachts ist sie es nie.
+
+#### 3. Erfolge — neuer Reiter zwischen Kalorien und Einstellungen
+
+**18 Erfolge in fünf Gruppen:** Training, Volumen, Rekorde, Dranbleiben, Rang, Körper.
+
+⚠️ **Alles wird gerechnet, nichts gespeichert.** Ein gespeicherter Erfolg geht beim Abmelden
+verloren oder hängt nach einer korrigierten Einheit in der Luft — dann steht ein Haken an
+etwas, das die Daten nicht mehr hergeben. Dieselbe Entscheidung wie beim Essens-Serienrekord.
+
+💡 **Jeder Erfolg hat einen Zählerstand, auch die einmaligen.** *47 von 50* ist ein Grund
+weiterzumachen, ein graues Feld nicht.
+
+#### 🔴 Ein Fehler beim Bauen, gefunden von einer Prüfung
+
+`wochenSerie()` **gab es schon** — sie zählt die Serie **bis heute** für die Flamme auf der
+Startseite. Ich habe eine zweite gleichen Namens danebengestellt, und die bestehende hat sie
+still überschrieben. Aufgefallen ist es nur, weil eine Prüfung eine konkrete Zahl erwartet hat.
+
+➡️ Umbenannt in **`besteWochenSerie()`** — und das ist auch inhaltlich richtig: **für einen
+Erfolg braucht es die längste Serie je, nicht die laufende.** Sonst verschwindet eine Trophäe
+wieder, sobald die Serie reißt. **Geschafft bleibt geschafft.**
+⚠️ Dazu benutzt sie jetzt `wochenStart()`, den Wochenbegriff der App (Montag 00:00). Meine
+erste Fassung hatte eine eigene Wochenrechnung — die hätte an einer Stelle Montag und an einer
+anderen Donnerstag gemeint.
+
+**Prüfungen: 460 → 486.**
+✅ **Fünfmal gegengeprobt**, jedes Mal fällt genau das um, was der Rückbau kaputt macht:
+Volumen-Deckel raus → 2 · Rekord-Bonus raus → 2 · Namenskollision zurück → **kompletter
+Abbruch** · Aufgaben-Sperre raus → 1 · Reiter ans Ende → 1.
+⚠️ **Die erste Fassung der Reiter-Gegenprobe war falsch gebaut** (nur ein Attribut gesetzt
+statt den Knopf zu verschieben) und sah deshalb wie eine schwache Prüfung aus. Richtig gebaut
+fällt sie um. **Eine Gegenprobe, die nichts kaputt macht, beweist nichts.**
+
 ## 2026-08-25
 
 ### 🔴 v30 — die Antwort ist jetzt zu sehen, ohne dass man sie sucht

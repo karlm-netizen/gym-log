@@ -1630,6 +1630,177 @@ window.addEventListener('error', e => {
     return (/openWindow\(ziel \+ '#postfach'\)/.test(SW_QUELLE)) || 'oeffnet ohne #postfach';
   });
 
+  // ================================================ XP-Umbau (26.08.2026, v31)
+  // Hilfsbau: eine Einheit mit n Saetzen zu je (kg x wdh), die ersten `prs` als Rekord.
+  const einheitMit = (n, kg, wdh, prs) => {
+    const sets = Array.from({length:n}, () => ({weight:kg, reps:wdh, done:true}));
+    if (prs) for (let i=0; i<prs && i<n; i++) sets[i].pr = true;
+    return [{ name:'Test', sets }];
+  };
+
+  // ---- DIE Pruefung: der Grund, warum ueberhaupt umgebaut wurde ----
+  // Vorher: Anfaenger-Oberkoerper 210 XP, Fortgeschritten-Beine 630 XP. Faktor 3,0.
+  // Kniebeugen bewegen nun mal mehr Kilo als Curls - ein ehrlich harter Oberkoerpertag
+  // war weniger wert als ein lockerer Beintag, und wer stark ist, stieg dreimal so schnell auf.
+  t('Ein Beintag ist nicht mehr dreimal so viel wert wie ein Oberkoerpertag', () => {
+    const ober = sessXP(einheitMit(12, 100, 2, 2), 2);   // 12 Saetze,  2.400 kg, 2 Rekorde
+    const bein = sessXP(einheitMit(18, 200, 6, 2), 2);   // 18 Saetze, 21.600 kg, 2 Rekorde
+    const faktor = bein / ober;
+    if (faktor >= 2) return 'Faktor ' + faktor.toFixed(2) + ' - immer noch die alte Schieflage';
+    return faktor > 1 || 'Faktor ' + faktor.toFixed(2) + ' - der Beintag muesste etwas mehr geben, nicht weniger';
+  });
+  // Der Deckel ist der eigentliche Eingriff, nicht der Rekord-Bonus. Ohne ihn waechst der
+  // Volumenanteil mit der Kraft unbegrenzt weiter und frisst alles andere auf.
+  t('Das Volumen ist bei 100 XP gedeckelt', () =>
+    eq(volXP(einheitMit(20, 500, 20, 0)), VOL_XP_MAX));
+  t('Wenig Volumen zaehlt weiter voll mit', () =>
+    eq(volXP(einheitMit(10, 100, 2, 0)), 40));
+  t('Karls Ansage: Gewicht wird weiter belohnt', () => {
+    const leicht = sessXP(einheitMit(10, 10, 2, 0), 0);
+    const schwer = sessXP(einheitMit(10, 100, 2, 0), 0);
+    return schwer > leicht || 'schweres Training bringt nicht mehr als leichtes';
+  });
+  t('Jeder Rekord bringt 25 XP', () =>
+    eq(sessXP(einheitMit(10, 100, 2, 3), 3) - sessXP(einheitMit(10, 100, 2, 0), 0), 75));
+  // Ob ein Satz Rekord war, haengt an der Historie zum Zeitpunkt des Trainings. Wer das aus
+  // den Saetzen herleiten wollte, bekaeme beim Nachrechnen eine andere Zahl als beim Beenden.
+  t('Die Rekordzahl kommt von aussen, nicht aus den Saetzen', () => {
+    const en = einheitMit(10, 100, 2, 0);
+    return eq(sessXP(en, 4) - sessXP(en, 0), 100);
+  });
+  t('Rekorde werden ueber die Satz-Markierung gezaehlt', () =>
+    eq(zaehleRekorde(einheitMit(10, 100, 2, 3)), 3));
+  t('Ein abgewaehlter Satz zaehlt nicht als Rekord', () => {
+    const en = einheitMit(3, 100, 2, 3);
+    en[0].sets[1].done = false;
+    return eq(zaehleRekorde(en), 2);
+  });
+
+  // ================================================ Tagesaufgaben
+  // Der Deckel ist hier die ganze Idee: Aufgaben schieben an, sie tragen nicht. Im Vault
+  // steht seit dem 22.08. bewusst "kein XP fuers Essen" - eine Aufgabe "App geoeffnet" ist
+  // derselbe Fall, geloest ueber die Groessenordnung statt ueber ein Nein.
+  t('Aufgaben bringen hoechstens 30 XP am Tag', () => eq(AUFGABEN_MAX, 30));
+  t('Eine Einheit ist ein Vielfaches aller Tagesaufgaben wert', () => {
+    const einheit = sessXP(einheitMit(12, 100, 2, 2), 2);
+    return einheit >= AUFGABEN_MAX * 5
+      || 'Einheit ' + einheit + ' XP gegen ' + AUFGABEN_MAX + ' XP Aufgaben - zu nah beieinander';
+  });
+  t('Eine erledigte Aufgabe gibt ihre XP', () => {
+    profile.aufgaben = { tag:'', fertig:{} };
+    const vorher = profile.xp;
+    const gab = aufgabeErledigen('auf');
+    const delta = profile.xp - vorher;
+    profile.aufgaben = { tag:'', fertig:{} }; profile.xp = vorher;
+    return (gab && delta === 5) || 'gab=' + gab + ' delta=' + delta;
+  });
+  t('Dieselbe Aufgabe zweimal am Tag zaehlt nur einmal', () => {
+    profile.aufgaben = { tag:'', fertig:{} };
+    const vorher = profile.xp;
+    aufgabeErledigen('auf');
+    const nochmal = aufgabeErledigen('auf');
+    const delta = profile.xp - vorher;
+    profile.aufgaben = { tag:'', fertig:{} }; profile.xp = vorher;
+    return (nochmal === false && delta === 5) || 'nochmal=' + nochmal + ' delta=' + delta;
+  });
+  // Der Tageswechsel wird beim LESEN geprueft, nicht per Timer - ein Timer um Mitternacht
+  // liefe nur, solange die App offen ist, und die ist sie nachts nie.
+  t('Am naechsten Tag stehen die Aufgaben wieder offen', () => {
+    profile.aufgaben = { tag:'2020-01-01', fertig:{ auf:true, ein:true, train:true } };
+    const offen = aufgabenOffen();
+    profile.aufgaben = { tag:'', fertig:{} };
+    return eq(offen, AUFGABEN.length);
+  });
+  t('Eine unbekannte Aufgabe gibt nichts', () => {
+    const vorher = profile.xp;
+    const gab = aufgabeErledigen('gibtsnicht');
+    const delta = profile.xp - vorher;
+    profile.xp = vorher;
+    return (gab === false && delta === 0) || 'gab=' + gab + ' delta=' + delta;
+  });
+
+  // ================================================ Erfolge
+  t('Der Katalog hat Eintraege und jeder ist vollstaendig', () => {
+    const kaputt = ERFOLGE.filter(e => !e.id || !e.name || !e.gr || !(e.ziel > 0) || typeof e.ist !== 'function');
+    return (ERFOLGE.length >= 10 && kaputt.length === 0) || kaputt.length + ' unvollstaendig';
+  });
+  t('Erfolgs-Kennungen sind eindeutig', () => {
+    const ids = ERFOLGE.map(e => e.id);
+    return eq(new Set(ids).size, ids.length);
+  });
+  // Nichts wird gespeichert, alles gerechnet. Ein gespeicherter Erfolg haengt nach einer
+  // korrigierten Einheit in der Luft - dann steht ein Haken an etwas, das die Daten nicht
+  // mehr hergeben. Dieselbe Entscheidung wie beim Essens-Serienrekord.
+  t('Ohne Einheiten ist nichts geschafft, was Einheiten braucht', () => {
+    const merk = sessions; sessions = [];
+    const offen = erfolgOffen(ERFOLGE.find(e => e.id === 'e1'));
+    sessions = merk;
+    return offen || 'Erste Einheit gilt als geschafft, obwohl es keine gibt';
+  });
+  t('Mit einer Einheit ist der erste Erfolg da', () => {
+    const merk = sessions;
+    sessions = [{ id:'x', date:Date.now(), entries:einheitMit(3, 50, 5, 0), xp:100, pr:0 }];
+    const offen = erfolgOffen(ERFOLGE.find(e => e.id === 'e1'));
+    sessions = merk;
+    return !offen || 'Erste Einheit gilt nicht als geschafft';
+  });
+  // 🔴 besteWochenSerie, NICHT wochenSerie. Letztere gibt es schon und meint die Serie BIS
+  // HEUTE (die Flamme auf der Startseite). Beim ersten Bauen hiess die neue genauso und
+  // wurde still ueberschrieben - diese Pruefung hat es gefunden.
+  t('Die laengste Wochenserie zaehlt auch weit zurueckliegende', () => {
+    const merk = sessions, W = 604800000, t0 = Date.UTC(2026, 0, 8);
+    sessions = [t0, t0+W, t0+2*W, t0+4*W].map((d,i) => ({ id:'w'+i, date:d, entries:[], xp:0 }));
+    const serie = besteWochenSerie();
+    sessions = merk;
+    return eq(serie, 3);           // drei am Stueck, dann eine Luecke
+  });
+  // ⚠️ Der Unterschied ist der ganze Punkt: eine Trophaee darf nicht verschwinden, wenn die
+  // Serie reisst. Geschafft bleibt geschafft.
+  t('Die laufende Serie ist etwas anderes als die laengste je', () => {
+    const merk = sessions, W = 604800000, t0 = Date.UTC(2026, 0, 8);
+    sessions = [t0, t0+W, t0+2*W].map((d,i) => ({ id:'u'+i, date:d, entries:[], xp:0 }));
+    const laengste = besteWochenSerie(), laufend = wochenSerie();
+    sessions = merk;
+    return (laengste === 3 && laufend === 0)
+      || 'laengste=' + laengste + ' laufend=' + laufend + ' - die beiden duerfen nicht dasselbe sein';
+  });
+  t('Die beste Woche zaehlt Einheiten, nicht Wochen', () => {
+    const merk = sessions, T = 86400000, t0 = Date.UTC(2026, 0, 8);
+    sessions = [t0, t0+T, t0+2*T, t0+30*T].map((d,i) => ({ id:'b'+i, date:d, entries:[], xp:0 }));
+    const best = besteWoche();
+    sessions = merk;
+    return eq(best, 3);
+  });
+
+  // ================================================ Der neue Reiter
+  t('Es gibt einen Erfolge-Reiter in der unteren Leiste', () =>
+    !!document.querySelector('#nav button[data-nav="erfolge"]') || 'nicht da');
+  // Karls Ansage: "als 3ter reiter unten zwischen einstellungen und kalorien"
+  t('Der Reiter steht zwischen Kalorien und Einstellungen', () => {
+    const reihe = [...document.querySelectorAll('#nav button')].map(b => b.dataset.nav);
+    return eq(reihe.join('|'), 'home|body|erfolge|settings');
+  });
+  // ⚠️ renderErfolge() direkt, nicht ueber render(): das prueft `session` und springt ohne
+  // Anmeldung ins Login-Fenster. Im Prueframen ist niemand angemeldet.
+  t('Die Erfolgs-Ansicht laesst sich zeichnen', () => {
+    renderErfolge();
+    const txt = document.getElementById('app').textContent;
+    return (txt.includes('Erfolge') && txt.includes('Heute')) || 'Inhalt fehlt';
+  });
+  t('Die Ansicht zeigt jeden Erfolg des Katalogs', () => {
+    renderErfolge();
+    const txt = document.getElementById('app').textContent;
+    const fehlt = ERFOLGE.filter(e => !txt.includes(e.name));
+    return fehlt.length === 0 || 'fehlen: ' + fehlt.map(e=>e.name).join(', ');
+  });
+  t('Der eigene Reiter wird eingefaerbt, wenn man drin ist', () => {
+    const merkView = view;
+    view = 'erfolge'; setNav();
+    const an = document.querySelector('#nav button[data-nav="erfolge"]').classList.contains('on');
+    view = merkView; setNav();
+    return an || 'bleibt grau';
+  });
+
   // Aufraeumen, damit die Reihenfolge der Pruefungen egal bleibt.
   t('Melde-Speicher laesst sich leeren', () => {
     localStorage.removeItem(MELD_KEY); localStorage.removeItem(POST_KEY);
