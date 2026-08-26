@@ -1772,6 +1772,92 @@ window.addEventListener('error', e => {
     return eq(best, 3);
   });
 
+  // ================================================ XP fuer Erfolge (v32)
+  // 🔴 Karls Einwand, und er ist der Kern: "aber nicht fuer Erfolge in Hinsicht auf Level".
+  // Ein Erfolg fuer Level 25, der XP gibt, ist ein Kreis - die Belohnung fuers Leveln waeren
+  // Level. Bei Gigachad waere es sogar folgenlos, weil darueber nichts mehr kommt.
+  t('Rang-Erfolge geben keine XP', () => {
+    const rang = ERFOLGE.filter(e => e.gr === 'Rang');
+    const mitXP = rang.filter(e => e.xp);
+    return (rang.length === 3 && mitXP.length === 0)
+      || 'diese Rang-Erfolge geben XP: ' + mitXP.map(e => e.name).join(', ');
+  });
+  t('Alle anderen Erfolge geben XP', () => {
+    const ohne = ERFOLGE.filter(e => e.gr !== 'Rang' && !(e.xp > 0));
+    return ohne.length === 0 || 'ohne XP: ' + ohne.map(e => e.name).join(', ');
+  });
+  // ⚠️ Die Regel dahinter, damit sie beim naechsten Erfolg nicht vergessen wird: ein Erfolg
+  // gibt XP, wenn er NICHT in XP gemessen wird.
+  t('Kein Erfolg belohnt das, woran er sich misst', () => {
+    const kreis = ERFOLGE.filter(e => e.xp > 0 && e.ist === undefined);
+    const rangMitXP = ERFOLGE.filter(e => e.xp > 0 && e.gr === 'Rang');
+    return (kreis.length === 0 && rangMitXP.length === 0) || 'Kreis gefunden';
+  });
+
+  t('Ein erfuellter Erfolg wird ausgezahlt', () => {
+    const merkS = sessions, merkE = profile.erfolge, merkX = profile.xp;
+    sessions = [{ id:'a1', date:Date.now(), entries:einheitMit(3, 50, 5, 0), xp:100, pr:0 }];
+    profile.erfolge = {};
+    const neu = erfolgeAuszahlen();
+    const delta = profile.xp - merkX;
+    const dabei = neu.some(e => e.id === 'e1');
+    sessions = merkS; profile.erfolge = merkE; profile.xp = merkX;
+    return (dabei && delta > 0) || 'dabei=' + dabei + ' delta=' + delta;
+  });
+  // ⚠️ Ohne die Liste "schon ausgezahlt" gaebe es bei JEDEM App-Start dieselben XP nochmal.
+  // Das ist die einzige Stelle im ganzen Erfolgs-Teil, an der etwas gespeichert wird.
+  t('Derselbe Erfolg wird nicht zweimal ausgezahlt', () => {
+    const merkS = sessions, merkE = profile.erfolge, merkX = profile.xp;
+    sessions = [{ id:'a1', date:Date.now(), entries:einheitMit(3, 50, 5, 0), xp:100, pr:0 }];
+    profile.erfolge = {};
+    erfolgeAuszahlen();
+    const nachErstem = profile.xp;
+    const nochmal = erfolgeAuszahlen();
+    const delta = profile.xp - nachErstem;
+    sessions = merkS; profile.erfolge = merkE; profile.xp = merkX;
+    return (nochmal.length === 0 && delta === 0) || 'nochmal=' + nochmal.length + ' delta=' + delta;
+  });
+  t('Ein unerfuellter Erfolg wird nicht ausgezahlt', () => {
+    const merkS = sessions, merkE = profile.erfolge, merkX = profile.xp;
+    sessions = []; profile.erfolge = {};
+    const neu = erfolgeAuszahlen();
+    const delta = profile.xp - merkX;
+    sessions = merkS; profile.erfolge = merkE; profile.xp = merkX;
+    return (neu.length === 0 && delta === 0) || 'neu=' + neu.length + ' delta=' + delta;
+  });
+  // ⚠️ Nichts wird zurueckgenommen. Wer eine Einheit korrigiert und unter eine Schwelle
+  // rutscht, behaelt die XP - gleiche Linie wie bei sessRecalc: lieber ein alter Wert stehen
+  // als ein geratener abgezogen.
+  t('Ausgezahlte XP werden nicht zurueckgenommen', () => {
+    const merkS = sessions, merkE = profile.erfolge, merkX = profile.xp;
+    sessions = [{ id:'a1', date:Date.now(), entries:einheitMit(3, 50, 5, 0), xp:100, pr:0 }];
+    profile.erfolge = {};
+    erfolgeAuszahlen();
+    const nachAuszahlung = profile.xp;
+    sessions = [];                       // Einheit weg - der Erfolg gilt nicht mehr
+    erfolgeAuszahlen();
+    const jetzt = profile.xp;
+    sessions = merkS; profile.erfolge = merkE; profile.xp = merkX;
+    return eq(jetzt, nachAuszahlung);
+  });
+  // Die Groessenordnung: rund 8.000 von 42.240 XP bis Gigachad. Fuer jeden einzelnen muss die
+  // Arbeit trotzdem gemacht werden - es ist ein Bonus auf Geleistetes, keine Abkuerzung.
+  t('Alle Erfolge zusammen sind keine Abkuerzung nach Gigachad', () => {
+    const summe = ERFOLGE.reduce((n, e) => n + (e.xp || 0), 0);
+    const bisGiga = xpForLevel(45);
+    const anteil = summe / bisGiga;
+    return (anteil > 0.05 && anteil < 0.35)
+      || 'Anteil ' + (anteil * 100).toFixed(0) + '% von ' + bisGiga + ' XP';
+  });
+  t('Die Ansicht nennt die XP eines offenen Erfolgs', () => {
+    const merkS = sessions, merkE = profile.erfolge;
+    sessions = []; profile.erfolge = {};
+    renderErfolge();
+    const txt = document.getElementById('app').textContent;
+    sessions = merkS; profile.erfolge = merkE;
+    return txt.includes('+1.500') || txt.includes('+1500') || 'keine XP-Angabe gefunden';
+  });
+
   // ================================================ Der neue Reiter
   t('Es gibt einen Erfolge-Reiter in der unteren Leiste', () =>
     !!document.querySelector('#nav button[data-nav="erfolge"]') || 'nicht da');

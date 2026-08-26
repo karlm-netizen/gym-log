@@ -1012,6 +1012,7 @@ function normalizeProfile(){
   if(!Array.isArray(profile.weights)) profile.weights=[];   // [{date, kg}] — Körpergewicht über die Zeit
   if(profile.rankSkin===undefined) profile.rankSkin=null;   // ausgerüsteter Rang (null = der echte)
   if(!profile.aufgaben||typeof profile.aufgaben!=='object') profile.aufgaben={tag:'',fertig:{}};  // Tagesaufgaben
+  if(!profile.erfolge||typeof profile.erfolge!=='object') profile.erfolge={};              // schon ausgezahlte Erfolge
   kcalInit();                                               // Tagesziel, eigene Lebensmittel, Mahlzeiten
 }
 normalizeProfile();
@@ -1231,33 +1232,74 @@ function besteWochenSerie(){
   return best;
 }
 const ERFOLGE = [
-  { id:'e1',  gr:'Training',    em:'🏁', name:'Angefangen',      text:'Die erste Einheit abgeschlossen',        ziel:1,      ist:()=>sessions.length },
-  { id:'e2',  gr:'Training',    em:'🔟', name:'Zehnkampf',       text:'10 Einheiten abgeschlossen',             ziel:10,     ist:()=>sessions.length },
-  { id:'e3',  gr:'Training',    em:'💪', name:'Fünfzig',         text:'50 Einheiten abgeschlossen',             ziel:50,     ist:()=>sessions.length },
-  { id:'e4',  gr:'Training',    em:'🗿', name:'Hundert',         text:'100 Einheiten abgeschlossen',            ziel:100,    ist:()=>sessions.length },
+  { id:'e1',  gr:'Training',    em:'🏁', xp:100,  name:'Angefangen',      text:'Die erste Einheit abgeschlossen',        ziel:1,      ist:()=>sessions.length },
+  { id:'e2',  gr:'Training',    em:'🔟', xp:250,  name:'Zehnkampf',       text:'10 Einheiten abgeschlossen',             ziel:10,     ist:()=>sessions.length },
+  { id:'e3',  gr:'Training',    em:'💪', xp:750,  name:'Fünfzig',         text:'50 Einheiten abgeschlossen',             ziel:50,     ist:()=>sessions.length },
+  { id:'e4',  gr:'Training',    em:'🗿', xp:1500, name:'Hundert',         text:'100 Einheiten abgeschlossen',            ziel:100,    ist:()=>sessions.length },
 
-  { id:'v1',  gr:'Volumen',     em:'🧱', name:'Eine Tonne',      text:'1.000 kg insgesamt bewegt',              ziel:1000,   ist:gesamtVolumen },
-  { id:'v2',  gr:'Volumen',     em:'🚗', name:'Zehn Tonnen',     text:'10.000 kg insgesamt bewegt',             ziel:10000,  ist:gesamtVolumen },
-  { id:'v3',  gr:'Volumen',     em:'🐋', name:'Hundert Tonnen',  text:'100.000 kg insgesamt bewegt',            ziel:100000, ist:gesamtVolumen },
-  { id:'v4',  gr:'Volumen',     em:'🌋', name:'Halbe Million',   text:'500.000 kg insgesamt bewegt',            ziel:500000, ist:gesamtVolumen },
+  { id:'v1',  gr:'Volumen',     em:'🧱', xp:100,  name:'Eine Tonne',      text:'1.000 kg insgesamt bewegt',              ziel:1000,   ist:gesamtVolumen },
+  { id:'v2',  gr:'Volumen',     em:'🚗', xp:250,  name:'Zehn Tonnen',     text:'10.000 kg insgesamt bewegt',             ziel:10000,  ist:gesamtVolumen },
+  { id:'v3',  gr:'Volumen',     em:'🐋', xp:750,  name:'Hundert Tonnen',  text:'100.000 kg insgesamt bewegt',            ziel:100000, ist:gesamtVolumen },
+  { id:'v4',  gr:'Volumen',     em:'🌋', xp:1500, name:'Halbe Million',   text:'500.000 kg insgesamt bewegt',            ziel:500000, ist:gesamtVolumen },
 
-  { id:'r1',  gr:'Rekorde',     em:'⭐', name:'Erster Rekord',   text:'Einen eigenen Rekord gebrochen',         ziel:1,      ist:gesamtRekorde },
-  { id:'r2',  gr:'Rekorde',     em:'🌟', name:'Zehn Rekorde',    text:'10 eigene Rekorde gebrochen',            ziel:10,     ist:gesamtRekorde },
-  { id:'r3',  gr:'Rekorde',     em:'✨', name:'Fünfzig Rekorde', text:'50 eigene Rekorde gebrochen',            ziel:50,     ist:gesamtRekorde },
+  { id:'r1',  gr:'Rekorde',     em:'⭐', xp:100,  name:'Erster Rekord',   text:'Einen eigenen Rekord gebrochen',         ziel:1,      ist:gesamtRekorde },
+  { id:'r2',  gr:'Rekorde',     em:'🌟', xp:250,  name:'Zehn Rekorde',    text:'10 eigene Rekorde gebrochen',            ziel:10,     ist:gesamtRekorde },
+  { id:'r3',  gr:'Rekorde',     em:'✨', xp:750,  name:'Fünfzig Rekorde', text:'50 eigene Rekorde gebrochen',            ziel:50,     ist:gesamtRekorde },
 
-  { id:'d1',  gr:'Dranbleiben', em:'📅', name:'Volle Woche',     text:'3 Einheiten in einer Woche',             ziel:3,      ist:besteWoche },
-  { id:'d2',  gr:'Dranbleiben', em:'🔥', name:'Vier am Stück',   text:'4 Wochen hintereinander trainiert',      ziel:4,      ist:besteWochenSerie },
-  { id:'d3',  gr:'Dranbleiben', em:'🧗', name:'Ein Vierteljahr', text:'13 Wochen hintereinander trainiert',     ziel:13,     ist:besteWochenSerie },
+  { id:'d1',  gr:'Dranbleiben', em:'📅', xp:150,  name:'Volle Woche',     text:'3 Einheiten in einer Woche',             ziel:3,      ist:besteWoche },
+  { id:'d2',  gr:'Dranbleiben', em:'🔥', xp:400,  name:'Vier am Stück',   text:'4 Wochen hintereinander trainiert',      ziel:4,      ist:besteWochenSerie },
+  { id:'d3',  gr:'Dranbleiben', em:'🧗', xp:1000, name:'Ein Vierteljahr', text:'13 Wochen hintereinander trainiert',     ziel:13,     ist:besteWochenSerie },
 
-  { id:'l1',  gr:'Rang',        em:'🥉', name:'Level 10',        text:'Level 10 erreicht',                      ziel:10,     ist:()=>levelFromXP(profile.xp).level },
-  { id:'l2',  gr:'Rang',        em:'🥈', name:'Level 25',        text:'Level 25 erreicht',                      ziel:25,     ist:()=>levelFromXP(profile.xp).level },
-  { id:'l3',  gr:'Rang',        em:'🥇', name:'Gigachad',        text:'Level 45 — der höchste Rang',            ziel:45,     ist:()=>levelFromXP(profile.xp).level },
+  { id:'l1',  gr:'Rang',        em:'🥉', xp:0,    name:'Level 10',        text:'Level 10 erreicht',                      ziel:10,     ist:()=>levelFromXP(profile.xp).level },
+  { id:'l2',  gr:'Rang',        em:'🥈', xp:0,    name:'Level 25',        text:'Level 25 erreicht',                      ziel:25,     ist:()=>levelFromXP(profile.xp).level },
+  { id:'l3',  gr:'Rang',        em:'🥇', xp:0,    name:'Gigachad',        text:'Level 45 — der höchste Rang',            ziel:45,     ist:()=>levelFromXP(profile.xp).level },
 
-  { id:'k1',  gr:'Körper',      em:'⚖️', name:'Auf die Waage',   text:'Zum ersten Mal das Gewicht eingetragen', ziel:1,      ist:()=>(profile.weights||[]).length },
-  { id:'k2',  gr:'Körper',      em:'📈', name:'Dreißig Wiegen',  text:'30-mal das Gewicht eingetragen',         ziel:30,     ist:()=>(profile.weights||[]).length },
+  { id:'k1',  gr:'Körper',      em:'⚖️', xp:50,   name:'Auf die Waage',   text:'Zum ersten Mal das Gewicht eingetragen', ziel:1,      ist:()=>(profile.weights||[]).length },
+  { id:'k2',  gr:'Körper',      em:'📈', xp:150,  name:'Dreißig Wiegen',  text:'30-mal das Gewicht eingetragen',         ziel:30,     ist:()=>(profile.weights||[]).length },
 ];
 function erfolgOffen(e){ return e.ist() < e.ziel; }
 function erfolgeGeschafft(){ return ERFOLGE.filter(e=>!erfolgOffen(e)).length; }
+
+/* ---------- XP fuer Erfolge (26.08.2026, v32) ----------
+   Karls Frage: "Macht es Sinn, fuer Erfolge XP zu kriegen? Aber nicht fuer Erfolge in
+   Hinsicht auf Level."
+
+   🔴 **Der zweite Halbsatz ist der wichtige, und er stimmt.** Ein Erfolg fuer Level 25, der
+   XP gibt, ist ein Kreis: die Belohnung fuers Leveln waeren Level. Bei Gigachad waere es
+   sogar folgenlos, weil darueber nichts mehr kommt. Daraus die Regel, nach der die Tabelle
+   oben gebaut ist:
+
+       Ein Erfolg gibt XP, wenn er NICHT in XP gemessen wird.
+
+   Die drei Rang-Erfolge stehen deshalb auf `xp:0` -- nicht vergessen, sondern entschieden.
+
+   ⚠️ **Warum das die Regel vom 22.08. (kein XP fuers Essen) nicht bricht:** "App geoeffnet"
+   waere eine NEUE, freie XP-Quelle. "100 Einheiten" ist keine -- die hundert Einheiten sind
+   laengst trainiert und haben laengst XP gebracht. Der Erfolg ist ein Bonus auf Arbeit, die
+   schon geleistet ist, kein zweiter Weg nach oben. Deshalb darf er auch dreistellig sein.
+   Alle zusammen: rund 8.000 von 42.240 XP bis Gigachad -- und fuer jeden einzelnen muss die
+   Arbeit trotzdem gemacht werden.                                                        */
+
+/* ⚠️ Hier wird als Einziges im ganzen Erfolgs-Teil etwas GESPEICHERT: welche schon ausgezahlt
+   sind. Der Erfolg selbst bleibt gerechnet (und damit immer ehrlich) -- ohne diese Liste
+   gaebe es aber bei jedem App-Start dieselben XP nochmal. */
+function erfolgeBezahlt(){
+  if(!profile.erfolge || typeof profile.erfolge!=='object') profile.erfolge={};
+  return profile.erfolge;
+}
+/* Zahlt aus, was faellig ist. Gibt zurueck, was diesmal dazukam -- fuer die Meldung.
+   ⚠️ **Es wird NICHTS zurueckgenommen.** Wer eine Einheit im Verlauf korrigiert und dabei
+   unter eine Schwelle rutscht, behaelt die XP. Gleiche Linie wie bei sessRecalc: lieber ein
+   alter Wert stehen als ein geratener abgezogen. */
+function erfolgeAuszahlen(){
+  const bez = erfolgeBezahlt(); const neu = [];
+  ERFOLGE.forEach(e => {
+    if(!e.xp || bez[e.id] || erfolgOffen(e)) return;
+    bez[e.id] = true; profile.xp += e.xp; neu.push(e);
+  });
+  if(neu.length) save();
+  return neu;
+}
 function lastPerf(name){ for(let i=sessions.length-1;i>=0;i--){ const e=sessions[i].entries.find(x=>x.name===name);
   if(e){ const d=arbeit(e.sets).filter(s=>s.done&&(+s.weight||+s.reps)); if(d.length){ const b=d[d.length-1]; return {w:+b.weight||0,r:+b.reps||0}; } } } return null; }
 // ---------- Steigerung vorschlagen ----------
@@ -3461,12 +3503,15 @@ function renderErfolge(){
               <b style="${fertig?'':'color:var(--muted)'}">${esc(e.name)}</b>
               <div class="tiny muted">${esc(e.text)}</div></div></div>
           ${fertig ? `<span class="tiny" style="color:var(--ok);font-weight:700;white-space:nowrap">geschafft</span>`
-                   : `<span class="tiny muted" style="white-space:nowrap">${fmtZiel(ist)} / ${fmtZiel(e.ziel)}</span>`}
+                   : `<span class="tiny muted" style="white-space:nowrap">${fmtZiel(ist)} / ${fmtZiel(e.ziel)}${e.xp?` · +${e.xp}`:''}</span>`}
         </div>
         ${fertig ? '' : `<div class="bar" style="margin-top:8px;height:6px;background:var(--card2);border-radius:99px;overflow:hidden">
             <i style="display:block;height:100%;width:${anteil}%;background:var(--accent)"></i></div>`}
       </div>`;
     });
+    if(g === 'Rang') h += `<div class="tiny muted" style="margin-top:12px;line-height:1.6">
+        Diese drei geben <b style="color:var(--txt)">keine XP</b> — sie werden ja in XP
+        gemessen. Ein Erfolg fürs Leveln, der Level bringt, wäre ein Kreis.</div>`;
     h += `</div>`;
   });
   app.innerHTML = h;
@@ -3764,7 +3809,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v31';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v32';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 const MELD_KEY = 'gymlog:meldungen';
 const POST_KEY = 'gymlog:postfach';
 
@@ -4360,18 +4405,38 @@ function finishWorkout(){
   const gained=sessXP(entries, prs);
   profile.xp+=gained;
   aufgabeErledigen('train');     // Tagesaufgabe mit abhaken, falls noch offen
+  /* ⚠️ NACH dem Gutschreiben der Einheit und NACH dem Anhaengen an `sessions` -- sonst
+     zaehlt der Erfolg "Angefangen" die gerade beendete Einheit noch nicht mit, und man
+     bekaeme ihn erst beim naechsten Mal. Das Anhaengen passiert gleich unten. */
   // dur = wie lange die Einheit gedauert hat. Einheiten vor dem 05.08. haben kein dur.
   // xp = was es dafuer gab. Wird gebraucht, um den Punktestand nachzufuehren, wenn die
   // Einheit spaeter im Verlauf korrigiert wird (seit 06.08.).
   sessions.push({id:active.id,date:active.date,dur:Date.now()-active.date,planName:active.planName,xp:gained,pr:prs,entries});
   active=null; endRest();
+  const frischeErfolge = erfolgeAuszahlen();          // jetzt ist die Einheit in `sessions`
   const afterL=levelFromXP(profile.xp).level, afterRank=rankForLevel(afterL);
   save(); view='home';
   if(afterL>beforeL){ let extra='';
     if(afterRank.name!==beforeRank){ extra+=`<div style="margin-top:8px">Neuer Rang: <b style="color:${afterRank.color}">${esc(afterRank.name)}</b></div>`;
       if(afterRank.unlock) extra+=`<div class="tiny muted" style="margin-top:4px">Design „${THEMES[afterRank.unlock].label}" freigeschaltet — im Rang-Tab wählbar</div>`; }
-    render(); showModal(`<div class="tiny muted">Level up!</div><div class="big">Level ${afterL}</div><div>+${gained} XP</div>${extra}`);
+    render(); showModal(`<div class="tiny muted">Level up!</div><div class="big">Level ${afterL}</div><div>+${gained} XP</div>${erfolgZeile(frischeErfolge)}${extra}`);
+  } else if(frischeErfolge.length){
+    /* ⚠️ Ein neuer Erfolg bekommt sein eigenes Fenster, keinen Toast. Ein Toast ist nach
+       1,8 s weg -- und etwas, das man einmal im Leben freischaltet, soll man auch sehen. */
+    render(); showModal(`<div class="tiny muted">Stark! +${gained} XP</div>${erfolgZeile(frischeErfolge)}`);
   } else { render(); toast(`Stark! +${gained} XP`); }
+}
+
+/* Die Zeile "neuer Erfolg" fuer das Fenster nach einer Einheit. Leer, wenn nichts dazukam --
+   dann faellt sie im Text einfach weg, statt ein leeres Kaestchen zu hinterlassen. */
+function erfolgZeile(liste){
+  if(!liste || !liste.length) return '';
+  const xp = liste.reduce((n,e)=>n+e.xp,0);
+  return `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)">
+      <div class="tiny muted">${liste.length===1?'Neuer Erfolg':liste.length+' neue Erfolge'}</div>
+      ${liste.map(e=>`<div style="margin-top:4px"><span style="font-size:18px">${e.em}</span>
+        <b style="margin-left:6px">${esc(e.name)}</b></div>`).join('')}
+      <div class="tiny" style="color:var(--ok);margin-top:6px">+${xp} XP</div></div>`;
 }
 
 let armed={};
@@ -4754,6 +4819,10 @@ splashWeg();              // die Ansicht steht — der Schirm hat seine Aufgabe 
 cloudSyncStart();         // im Hintergrund; ohne Netz startet die App trotzdem normal
 postfachAuffrischen();    // ist waehrend der Abwesenheit eine Antwort gekommen?
 if(session) aufgabeErledigen('auf');   // Tagesaufgabe: reingeschaut
+/* ⚠️ Rueckwirkend: beim ersten Start mit v32 wird auf einen Schlag gutgeschrieben, was
+   laengst erfuellt war. Das ist ein Sprung, kein Aufbau -- aber die Arbeit dafuer ist
+   getan, und die Alternative waere, sie nie zu wuerdigen. */
+if(session) erfolgeAuszahlen();
 // Auf die Mitteilung getippt. Zwei Wege, weil zwei Faelle:
 //   App lief noch  -> der Service Worker schickt eine Nachricht ins offene Fenster
 //   App war zu     -> sie wird mit '#postfach' geoeffnet

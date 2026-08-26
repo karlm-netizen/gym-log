@@ -4,6 +4,60 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-26
 
+### 🎖️ v32 — Erfolge geben XP, Rang-Erfolge bewusst nicht
+
+**Karls Frage:** *„Was meinst du, macht es Sinn, für Erfolge XP zu kriegen? Aber nicht für
+Erfolge in Hinsicht auf Level."*
+
+🔴 **Der zweite Halbsatz ist der eigentliche Fund, und er stimmt.** Ein Erfolg für *Level 25*,
+der XP gibt, ist ein **Kreis**: die Belohnung fürs Leveln wären Level. Bei *Gigachad* wäre es
+sogar folgenlos, weil darüber nichts mehr kommt.
+
+Daraus die Regel, nach der jetzt alles gebaut ist — sie steht auch so im Quelltext, damit sie
+beim nächsten Erfolg nicht vergessen wird:
+
+> **Ein Erfolg gibt XP, wenn er nicht in XP gemessen wird.**
+
+*Level 10*, *Level 25* und *Gigachad* stehen deshalb auf `xp:0` — **nicht vergessen, sondern
+entschieden.** In der Ansicht steht der Grund unter der Gruppe, sonst sieht es nach einem
+Fehler aus.
+
+#### Warum das die Regel vom 22.08. nicht bricht
+
+Dort steht: **kein XP fürs Essen**, weil es Level und Rang mit etwas aufbläht, das keine
+Anstrengung ist. Der Unterschied:
+
+- *„App geöffnet"* wäre eine **neue, freie XP-Quelle** — deshalb dort nur 5 XP mit Tagesdeckel.
+- *„100 Einheiten"* ist **keine**. Die hundert Einheiten sind längst trainiert und haben längst
+  XP gebracht. Der Erfolg ist ein **Bonus auf Arbeit, die schon geleistet ist**, kein zweiter
+  Weg nach oben.
+
+Deshalb dürfen diese dreistellig sein: 100 für die erste Stufe, bis 1.500 für *Hundert
+Einheiten* und *Halbe Million*. **Zusammen 8.050 XP** von 42.240 bis Gigachad — **19 %**, und
+für jeden einzelnen muss die Arbeit trotzdem gemacht werden.
+
+#### Zwei Entscheidungen im Kleingedruckten
+
+**1. Was ausgezahlt ist, wird gespeichert.** Das ist die einzige Stelle im ganzen Erfolgs-Teil,
+an der etwas gespeichert wird — der Erfolg selbst bleibt gerechnet und damit immer ehrlich.
+⚠️ Ohne diese Liste gäbe es bei **jedem App-Start** dieselben XP nochmal.
+
+**2. Es wird nichts zurückgenommen.** Wer eine Einheit im Verlauf korrigiert und dabei unter
+eine Schwelle rutscht, behält die XP. Gleiche Linie wie bei `sessRecalc`: **lieber ein alter
+Wert stehen als ein geratener abgezogen.**
+
+⚠️ **Rückwirkend beim ersten Start:** was längst erfüllt war, wird auf einen Schlag
+gutgeschrieben. Das ist ein Sprung, kein Aufbau — aber die Arbeit dafür ist getan, und die
+Alternative wäre, sie nie zu würdigen.
+
+💡 **Ein neuer Erfolg bekommt ein eigenes Fenster, keinen Toast.** Ein Toast ist nach 1,8 s
+weg — etwas, das man einmal im Leben freischaltet, soll man auch sehen.
+
+**Prüfungen: 486 → 495.**
+✅ **Dreimal gegengeprobt:** Gigachad auf 5.000 XP gesetzt → 2 Prüfungen fallen · Sperre gegen
+doppelte Auszahlung raus → 1 · unerfüllte Erfolge auszahlen → 1 (und zeigt nebenbei die
+Gesamtsumme: **8.050 XP über 16 Erfolge**).
+
 ### 🏆 v31 — XP zählt Anstrengung, Tagesaufgaben, und ein Erfolgs-Katalog
 
 **Karls Ansage:** *„Wir brauchen ein System mit Aufgaben vielleicht, z. B. überhaupt die App
