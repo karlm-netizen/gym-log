@@ -2,6 +2,149 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-08-27
+
+### 🏅 v33 — zehn Meldungen von Karl, neun davon eingebaut
+
+Karl hat nach einem Tag mit v32 eine Liste geschickt. Sie steht hier der Reihe nach, weil
+mehrere Punkte denselben Kern haben: **etwas war richtig gebaut, aber an der falschen Stelle.**
+
+#### 1. „Reingeschaut geht nicht direkt durch, wenn man die App startet"
+
+🔴 **Es ging durch — eine Zeile zu spät.** Der Startblock zeichnete zuerst die Seite und hakte
+die Tagesaufgabe danach ab. Neu gezeichnet hat danach niemand. Wer gleich nach dem Start auf
+die Erfolgs-Seite ging, sah ein leeres Kästchen an einer Aufgabe, die längst erledigt war.
+
+➡️ Abhaken steht jetzt **vor** dem ersten `render()`.
+
+⚠️ **Die zweite Hälfte war der eigentliche Fund, und die hat Karl nicht gemeldet — sie wäre ihm
+morgen früh aufgefallen.** Die App wird als PWA fast nie wirklich geschlossen; sie liegt im
+Hintergrund und kommt am nächsten Tag wieder nach vorn. Der Startblock läuft dann **nie
+erneut**, und die Tagesaufgabe wäre still offen geblieben. Beim Zurückkommen in die App wird
+deshalb nachgefasst — und nur dann neu gezeichnet, wenn wirklich etwas dazukam, sonst risse
+ein `render()` bei jedem Wechsel laufende Eingaben weg.
+
+#### 2. „500 t sind zu viel" · 4. „13 Wochen ist zu viel, vor allem unfair bei Krankheit"
+
+- **Halbe Million → Viertelmillion.** `v4` steht auf **250.000 kg** statt 500.000.
+- **Ein Vierteljahr → Acht Wochen.** `d3` steht auf **8** statt 13.
+
+🔴 **Bei den Wochen war die Zahl aber nur die halbe Antwort.** Karls zweiter Halbsatz — *„unfair
+für Leute, die mal krank sind"* — wäre mit einer kleineren Zahl **nicht** behoben: eine Grippe
+reißt eine Serie ab Woche 1 genauso ab wie ab Woche 12. Der Erfolg hätte dann Krankheit
+bestraft, nicht fehlenden Willen.
+
+➡️ Deshalb zählt `besteWochenSerieJoker()` daneben, und die **überbrückt eine ausgefallene
+Woche**. Zwei Wochen am Stück reißen weiter ab — ohne diese Grenze wäre aus dem Erfolg
+*„irgendwann mal acht Wochen trainiert"* geworden, und das misst gar nichts mehr.
+⚠️ **Die Pausenwoche zählt nicht mit:** trainiert–Pause–trainiert steht bei 2, nicht bei 3.
+Verziehen heißt verziehen, nicht geschenkt.
+⚠️ **`besteWochenSerie()` bleibt daneben unverändert streng** — *Vier am Stück* ist kurz genug,
+dass ein Joker ihn fast geschenkt hätte.
+
+#### 3. „Ich will über meine Admin-Konsole alle Erfolge freischalten können"
+
+Gebaut wie `devUnlockAll` bei den Designs: ein Schalter, der nur die Frage *„ist der offen?"*
+umbiegt. **Gespeichert wird nichts** — aus geht der Schalter, und überall steht wieder der
+echte Stand.
+
+🔴 **Die wichtigste Zeile des ganzen Features ist eine Sperre**, und sie steht in
+`erfolgeAuszahlen()`. Ohne sie hätte ein Klick auf *Alle Erfolge freischalten* **8.050 XP über
+16 Erfolge** ins Profil geschrieben — und zurückgenommen wird hier nichts. Die Gegenprobe zeigt
+genau diese Zahl, wenn man die Sperre entfernt.
+
+#### 5. „Oben eine Anzeige, wie viele Erfolge man hat, bzw. ein Board"
+
+Vorher stand dort ein graues *„12 von 22"* in Kleinschrift neben der Überschrift — eine
+Fußnote, kein Stand. Jetzt: **Ring mit dem Anteil**, Prozentzahl, vollständige Gruppen und
+**wie viel XP aus Erfolgen** verdient sind, gegen die mögliche Summe.
+
+#### 6. „Auf dem PC ist die rote Zahl verschoben, die muss rechts über dem Wort sein"
+
+🔴 **Und so war es auch.** Die Zahl hing am *Knopf* und stand auf `left:50%`. Auf dem Handy ist
+das die Mitte über der Beschriftung — richtig. In der PC-Seitenleiste ist es die Mitte eines
+204 px breiten Knopfes, also irgendwo hinter dem Wort im Leeren.
+
+➡️ Die Beschriftungen sitzen jetzt in einem eigenen `<span class="navtxt">`, und die Zahl hängt
+**an der Schrift statt an der Knopfbreite**.
+💡 **Auf dem Handy ändert sich dabei nichts, und zwar mit Absicht:** dort ist der Span
+`position:static`, die Zahl bezieht sich also weiter auf den Knopf und steht exakt wie vorher.
+Erst die PC-Fassung schaltet ihn auf `relative`. Ein Umhängen im DOM je Bildschirmbreite wäre
+die Alternative gewesen — ein Wort, das seinen eigenen Bezugsrahmen mitbringt, fällt bei
+späteren Umbauten nicht auf die Nase.
+
+#### 7. „Kann man was dagegen tun, dass der Plan-Link gefühlt ein A4-Blatt füllt"
+
+**Gemessen an einem Vier-Tage-Plan mit 23 Übungen: 1.005 Zeichen.** In einer Chat-Blase ist das
+eine Wand aus Buchstaben, und mancher Messenger bricht sie mittendrin um.
+
+Zwei Schritte, zusammen **auf 398 Zeichen — 60 % kürzer**:
+
+1. **v3 spart die Feldnamen.** Statt `{"n":…,"d":…,"w":…,"e":[…]}` steht dort
+   `[name, tag, aufwärmen, übungen]`. Die Reihenfolge trägt die Bedeutung.
+2. **Deflate.** Übungsnamen wiederholen sich zwischen den Trainings (*Bankdrücken* steht in
+   Push **und** in Oberkörper) — genau davon lebt ein Packer. Das bringt mehr als Schritt 1.
+
+⚠️ **v1 und v2 werden weiter gelesen.** Ein Link, den Karl gestern verschickt hat, darf morgen
+nicht unbekannt sein. Fehlt `CompressionStream` (alter Browser), geht der alte lange Link raus.
+
+🔴 **Und warum das Packen nicht im Klick passiert:** `CompressionStream` ist asynchron, und ein
+`await` vor `navigator.share()` kostet auf iOS die Nutzergeste — dann geht das Teilen-Fenster
+gar nicht mehr auf. Der Code wird deshalb **vorgewärmt, sobald die Plan-Liste gezeichnet
+wird**, also lange bevor jemand auf Teilen drücken kann.
+
+#### 8. „Die Leiste ganz unten war auf einmal in der Mitte"
+
+⚠️ **Nicht nachgestellt** — es hängt am Browser, nicht an dieser App, und Karl hat es selbst
+als einmalig beschrieben. Was dahintersteckt, ist aber bekannt: ein Handy hat **zwei**
+Bildschirmgrößen. Die eine (Layout) rechnet die Seite, die andere (sichtbar) ist das, was
+gerade zu sehen ist. `bottom:0` meint immer die erste. Laufen beide auseinander — typischerweise
+kurz nachdem eine Tastatur zugegangen ist —, landet *„ganz unten"* mitten im Bild.
+
+➡️ Eine Schleife misst den Unterschied und schiebt die Leiste um genau den Betrag zurück.
+🔴 **Nur wenn er größer als 4 px ist.** Im Normalfall passiert damit gar nichts und der Browser
+macht seine Arbeit weiter selbst — eine Dauerkorrektur hätte ein neues Zittern gegen ein
+seltenes Verrutschen eingetauscht.
+
+#### 9. „Bei Erfolge eine goldene Zahl, und das Zeichen wird Gold und bewegt sich"
+
+Gebaut: **goldene Zahl am Pokal**, der Pokal färbt sich mit und wackelt alle 2,2 s kurz.
+
+🔴 **Gold und nicht dieselbe rote Zahl, und das ist keine Geschmacksfrage.** Rot heißt in dieser
+App *„da liegt etwas für dich"* — eine Antwort im Postfach, also ein offener Posten. Ein neuer
+Erfolg ist das Gegenteil: eine Belohnung. Zwei verschiedene Sachen dürfen nicht gleich aussehen.
+Dafür steht eine eigene Prüfung.
+
+⚠️ **Beim ersten Start mit v33 leuchtet nichts auf**, obwohl die App noch nie wusste, was Karl
+gesehen hat. Alles bereits Verdiente wird als *gesehen* eingetragen. Sonst hinge dort eine
+goldene 12 für Erfolge, die er seit gestern kennt — und die Zahl wäre entwertet, bevor sie das
+erste Mal etwas bedeutet.
+⚠️ **Der Admin-Schalter zählt hier nicht mit**, sonst stünde nach einem Klick eine goldene 22
+da und Karl sucht 22 Erfolge, die er nie freigeschaltet hat.
+💡 Wer Bewegung im System abgestellt hat (`prefers-reduced-motion`), bekommt keine — das Gold
+trägt die Botschaft auch allein.
+
+#### 10. „Wie lange bleibt der KI-Schlüssel in der App und wie lange hält der?"
+
+Keine Änderung, eine Antwort — sie steht in der Antwort an Karl und unten im Vault.
+
+---
+
+**Prüfungen: 495 → 523.**
+✅ **Sieben Gegenproben, jede wirft genau das um, was der Rückbau kaputt macht:** Auszahl-Sperre
+raus → 1 (und meldet die 8.050 XP) · d3 wieder streng → 1 · 500 t zurück → 1 · Zahl wieder am
+Knopf → 1 · Reingeschaut wieder nach dem Zeichnen → 1 · goldene Zahl wie die rote → 2 ·
+Vorwärmen abgeschaltet → 1.
+
+🔴 **Zwei davon haben beim ersten Anlauf NICHT gebissen, und das war der wertvollste Teil des
+Tages.** *d3 wieder streng zählen* ließ keine einzige Prüfung umfallen: alle Joker-Prüfungen
+riefen `besteWochenSerieJoker()` direkt auf, und die Ziel-Prüfung sah nur die Zahl 8. Geprüft
+war damit die Zählung — **aber nicht, dass der Erfolg sie benutzt**, also genau die Verbindung,
+um die es Karl ging. Dasselbe beim Vorwärmen: geprüft war der Packer, nicht der Auslöser, und
+ohne Auslöser hätte Karl beim ersten Teilen still wieder den langen Link bekommen.
+➡️ **Beide Lücken sind mit einer eigenen Prüfung geschlossen.** Merksatz: eine Prüfung, die den
+Baustein direkt aufruft, prüft den Baustein — nicht seinen Einbau.
+
 ## 2026-08-26
 
 ### 🎖️ v32 — Erfolge geben XP, Rang-Erfolge bewusst nicht

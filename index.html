@@ -68,6 +68,12 @@ setTimeout(function(){
     --bg:#0f1115; --card:#181b22; --card2:#222630; --line:#2b303b;
     --txt:#eef1f6; --muted:#8b93a4; --accent:#e6e9ef; --accent-ink:#12141a; --ok:#3ecf8e;
     --danger:#ff5d5d; --r:16px; --sp:16px;
+    /* Gold fuer neu freigeschaltete Erfolge (27.08.2026). Zwei Werte, weil eins nicht
+       reicht: `--gold` ist die FLAECHE (darauf liegt dunkle Schrift, das traegt auf
+       jedem Untergrund), `--gold-txt` ist die SCHRIFT. Auf „Schlicht Hell“ waere ein
+       helles Gold als Schrift auf Weiss nicht mehr zu lesen — dort steht deshalb ein
+       dunkleres. Jedes Design setzt beide selbst, siehe THEMES. */
+    --gold:#f0b429; --gold-txt:#f5c542;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
   /* ---------- Ladebildschirm ----------
@@ -220,9 +226,51 @@ setTimeout(function(){
      Postfach dort drin liegt -- eine Zahl an einer Stelle, hinter der nichts steckt,
      waere schlimmer als keine. */
   nav button{position:relative}
+  /* ⚠️ `.navtxt` ist auf dem Handy bewusst `position:static`. Die Zahl liegt IM Wort-Span,
+     positioniert sich dadurch aber gegen den Knopf (der ist `position:relative`) -- also
+     genau wie vor dem 27.08. Erst die PC-Fassung unten schaltet den Span auf `relative`
+     und holt die Zahl damit ans Wort heran. Ein Umhaengen im DOM je Bildschirmbreite waere
+     die Alternative gewesen; ein Wort, das seinen eigenen Bezugsrahmen mitbringt, ist
+     weniger beweglich und faellt bei Umbauten nicht auf die Nase. */
+  .navtxt{position:static}
   .navpunkt{position:absolute; top:4px; left:50%; margin-left:6px; min-width:16px; height:16px;
     padding:0 4px; border-radius:99px; background:var(--danger); color:#fff; font-size:10px;
     font-weight:700; display:flex; align-items:center; justify-content:center; line-height:1}
+
+  /* ---- Neue Erfolge: goldene Zahl + Zeichen, das sich bewegt (27.08.2026) ----
+     Karls Wunsch: "eine goldene Zahl wenn man ein neues Achievement freigeschaltet hat,
+     und das Zeichen wird dann auch Gold und bewegt sich so ein bisschen."
+     ⚠️ Rot heisst in dieser App "da liegt etwas fuer dich" (Postfach). Ein Erfolg ist
+     kein offener Posten, sondern eine Belohnung -- deshalb Gold und nicht dieselbe rote
+     Zahl. Zwei verschiedene Sachen duerfen nicht gleich aussehen. */
+  .navpunkt.gold{background:var(--gold); color:#3a2a00; box-shadow:0 0 0 2px var(--card), 0 0 10px rgba(245,197,66,.55)}
+  nav button.hat-neu{color:var(--gold-txt)}
+  nav button.hat-neu svg{animation:pokal 2.2s ease-in-out infinite; transform-origin:50% 70%}
+  @keyframes pokal{
+    0%,68%,100%{transform:rotate(0) scale(1)}
+    74%{transform:rotate(-9deg) scale(1.08)}
+    80%{transform:rotate(7deg) scale(1.08)}
+    86%{transform:rotate(-5deg) scale(1.04)}
+    92%{transform:rotate(0) scale(1)} }
+  /* Wer Bewegung abgestellt hat, bekommt keine — das Gold traegt die Botschaft auch allein. */
+  @media (prefers-reduced-motion: reduce){ nav button.hat-neu svg{animation:none} }
+
+  /* ---- Das Board oben auf der Erfolgs-Seite (27.08.2026) ---- */
+  .erf-ring{width:78px; height:78px; flex:0 0 78px; border-radius:50%;
+    background:conic-gradient(var(--accent) calc(var(--anteil,0)*1%), var(--card2) 0);
+    display:flex; align-items:center; justify-content:center}
+  .erf-ring-in{width:60px; height:60px; border-radius:50%; background:var(--card);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.15}
+  .erf-ring-in b{font-size:21px}
+  .erf-neu-hinweis{margin-top:12px; padding:8px 10px; border-radius:10px;
+    background:rgba(240,180,41,.14); border:1px solid var(--gold); color:var(--gold-txt);
+    font-size:13px; font-weight:700}
+  /* Der frisch freigeschaltete Erfolg im Katalog. Nur eine Kante und ein Hauch Flaeche —
+     eine kraeftig gefuellte Zeile zwischen grauen sieht aus wie "ausgewaehlt". */
+  .erf-frisch{border-left:3px solid var(--gold); padding-left:9px; margin-left:-12px;
+    background:rgba(245,197,66,.08); border-radius:0 8px 8px 0}
+  .erf-neu-pill{background:var(--gold); color:#3a2a00; font-weight:800; padding:2px 8px;
+    border-radius:99px; white-space:nowrap; letter-spacing:.4px}
 
   /* Mahlzeiten-Bloecke (23.08.2026, nach Karls Vorlage) */
   .mz{padding:12px 14px}
@@ -378,6 +426,14 @@ setTimeout(function(){
     nav button{flex:0 0 auto; flex-direction:row; justify-content:flex-start; gap:12px;
       font-size:14.5px; font-weight:600; padding:11px 12px; border-radius:12px; width:100%}
     nav button.on{background:var(--card2)}
+    /* 🔴 Karls Meldung vom 27.08.2026: "auf dem PC ist die rote Zahl ein bisschen
+       verschoben, die muss rechts ueber dem Wort sein wie auf dem Handy auch."
+       Und so war es auch: `left:50%` meint in der Seitenleiste die Mitte eines 204 px
+       breiten Knopfes -- die Zahl schwebte hinter dem Wort im Leeren. Hier wird der
+       Wort-Span zum Bezugsrahmen, damit die Zahl an der Schrift klebt und nicht an der
+       Knopfbreite. Mitgewandert waere sie sonst bei jeder Aenderung an der Leiste. */
+    .navtxt{position:relative}
+    .navpunkt{top:-7px; left:auto; right:-15px; margin-left:0}
     body.gate{padding-left:0} body.setup{padding-left:0}
 
     /* Pausen-Timer sitzt rechts unten statt ueber der Leiste */
@@ -417,13 +473,13 @@ setTimeout(function(){
 
 <nav id="nav">
   <button data-nav="home" class="on">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6.5 7.5v9M17.5 7.5v9M3.5 10v4M20.5 10v4M6.5 12h11"/></svg>Trainieren</button>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6.5 7.5v9M17.5 7.5v9M3.5 10v4M20.5 10v4M6.5 12h11"/></svg><span class="navtxt">Trainieren</span></button>
   <button data-nav="body">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2.7c3.4 3.3 5.3 5.8 5.3 9a5.3 5.3 0 0 1-10.6 0c0-1.9.7-3.3 1.9-4.7.2 1.3.8 2.1 1.7 2.5.6-2.7-.6-4.9 1.7-6.8z"/></svg>Kalorien</button>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2.7c3.4 3.3 5.3 5.8 5.3 9a5.3 5.3 0 0 1-10.6 0c0-1.9.7-3.3 1.9-4.7.2 1.3.8 2.1 1.7 2.5.6-2.7-.6-4.9 1.7-6.8z"/></svg><span class="navtxt">Kalorien</span></button>
   <button data-nav="erfolge">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M8 3h8v5a4 4 0 0 1-8 0z"/><path d="M8 5H5.5a2.5 2.5 0 0 0 2.5 4"/><path d="M16 5h2.5a2.5 2.5 0 0 1-2.5 4"/><path d="M12 12v4"/><path d="M9 20h6"/><path d="M10 16h4l1 4H9z"/></svg>Erfolge</button>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M8 3h8v5a4 4 0 0 1-8 0z"/><path d="M8 5H5.5a2.5 2.5 0 0 0 2.5 4"/><path d="M16 5h2.5a2.5 2.5 0 0 1-2.5 4"/><path d="M12 12v4"/><path d="M9 20h6"/><path d="M10 16h4l1 4H9z"/></svg><span class="navtxt">Erfolge</span></button>
   <button data-nav="settings">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Einstellungen</button>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="navtxt">Einstellungen</span></button>
 </nav>
 
 <div id="toast" class="toast"></div>
@@ -442,12 +498,12 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 
 // ---------- Themes ----------
 const THEMES = {
-  dark:    {label:'Schlicht Dunkel', free:true, vars:{'--bg':'#0f1115','--card':'#181b22','--card2':'#222630','--line':'#2b303b','--txt':'#eef1f6','--muted':'#8b93a4','--accent':'#e6e9ef','--accent-ink':'#12141a','--ok':'#3ecf8e','--danger':'#ff5d5d'}},
-  light:   {label:'Schlicht Hell', free:true, vars:{'--bg':'#f4f6fa','--card':'#ffffff','--card2':'#eef1f6','--line':'#e0e4ea','--txt':'#141821','--muted':'#5c6472','--accent':'#181b22','--accent-ink':'#ffffff','--ok':'#1f9d63','--danger':'#e23b3b'}},
-  midnight:{label:'Mitternacht', vars:{'--bg':'#0a0f1e','--card':'#111a30','--card2':'#182446','--line':'#24325c','--txt':'#eaf0ff','--muted':'#8493b8','--accent':'#5b8def','--accent-ink':'#08122b','--ok':'#43d9a3','--danger':'#ff6b81'}},
-  crimson: {label:'Crimson', vars:{'--bg':'#120a0c','--card':'#1e1113','--card2':'#2b171a','--line':'#3d2024','--txt':'#ffeef0','--muted':'#b88a90','--accent':'#ff4d5e','--accent-ink':'#2a0508','--ok':'#3ecf8e','--danger':'#ff8a94'}},
-  gold:    {label:'Schwarz-Gold', vars:{'--bg':'#0e0d0a','--card':'#1a1712','--card2':'#26211a','--line':'#38301f','--txt':'#fbf3e2','--muted':'#b3a07a','--accent':'#e8b23a','--accent-ink':'#241a05','--ok':'#3ecf8e','--danger':'#ff6b6b'}},
-  neon:    {label:'Obsidian', vars:{'--bg':'#0a0812','--card':'#140f22','--card2':'#1e1733','--line':'#2c2148','--txt':'#f0ecff','--muted':'#9488b8','--accent':'#a06bff','--accent-ink':'#0c0618','--ok':'#43d9a3','--danger':'#ff6b81'}},
+  dark:    {label:'Schlicht Dunkel', free:true, vars:{'--bg':'#0f1115','--card':'#181b22','--card2':'#222630','--line':'#2b303b','--txt':'#eef1f6','--muted':'#8b93a4','--accent':'#e6e9ef','--accent-ink':'#12141a','--ok':'#3ecf8e','--danger':'#ff5d5d','--gold':'#f0b429','--gold-txt':'#f5c542'}},
+  light:   {label:'Schlicht Hell', free:true, vars:{'--bg':'#f4f6fa','--card':'#ffffff','--card2':'#eef1f6','--line':'#e0e4ea','--txt':'#141821','--muted':'#5c6472','--accent':'#181b22','--accent-ink':'#ffffff','--ok':'#1f9d63','--danger':'#e23b3b','--gold':'#f0b429','--gold-txt':'#9a6b00'}},
+  midnight:{label:'Mitternacht', vars:{'--bg':'#0a0f1e','--card':'#111a30','--card2':'#182446','--line':'#24325c','--txt':'#eaf0ff','--muted':'#8493b8','--accent':'#5b8def','--accent-ink':'#08122b','--ok':'#43d9a3','--danger':'#ff6b81','--gold':'#f0b429','--gold-txt':'#f5c542'}},
+  crimson: {label:'Crimson', vars:{'--bg':'#120a0c','--card':'#1e1113','--card2':'#2b171a','--line':'#3d2024','--txt':'#ffeef0','--muted':'#b88a90','--accent':'#ff4d5e','--accent-ink':'#2a0508','--ok':'#3ecf8e','--danger':'#ff8a94','--gold':'#f0b429','--gold-txt':'#f5c542'}},
+  gold:    {label:'Schwarz-Gold', vars:{'--bg':'#0e0d0a','--card':'#1a1712','--card2':'#26211a','--line':'#38301f','--txt':'#fbf3e2','--muted':'#b3a07a','--accent':'#e8b23a','--accent-ink':'#241a05','--ok':'#3ecf8e','--danger':'#ff6b6b','--gold':'#f0b429','--gold-txt':'#f5c542'}},
+  neon:    {label:'Obsidian', vars:{'--bg':'#0a0812','--card':'#140f22','--card2':'#1e1733','--line':'#2c2148','--txt':'#f0ecff','--muted':'#9488b8','--accent':'#a06bff','--accent-ink':'#0c0618','--ok':'#43d9a3','--danger':'#ff6b81','--gold':'#f0b429','--gold-txt':'#f5c542'}},
 };
 
 // ---------- Ränge ----------
@@ -1013,6 +1069,12 @@ function normalizeProfile(){
   if(profile.rankSkin===undefined) profile.rankSkin=null;   // ausgerüsteter Rang (null = der echte)
   if(!profile.aufgaben||typeof profile.aufgaben!=='object') profile.aufgaben={tag:'',fertig:{}};  // Tagesaufgaben
   if(!profile.erfolge||typeof profile.erfolge!=='object') profile.erfolge={};              // schon ausgezahlte Erfolge
+  /* Welche Erfolge Karl schon GESEHEN hat -- davon haengt die goldene Zahl an der Leiste ab.
+     ⚠️ Bleibt hier bewusst `null`, wenn das Feld fehlt, statt auf `{}` zu springen: `{}` hiesse
+     "noch keinen gesehen", und beim ersten Start mit v33 leuchteten dann auf einen Schlag alle
+     laengst verdienten Erfolge als neu auf. Gesaet wird erst in erfolgeGesehenInit() -- dort
+     steht ERFOLGE zur Verfuegung, hier oben noch nicht (const, Zeile ~1290). */
+  if(profile.erfolgeGesehen!==null && typeof profile.erfolgeGesehen!=='object') profile.erfolgeGesehen=null;
   kcalInit();                                               // Tagesziel, eigene Lebensmittel, Mahlzeiten
 }
 normalizeProfile();
@@ -1231,6 +1293,40 @@ function besteWochenSerie(){
   w.forEach(x=>{ lauf = (vor!==null && x-vor===WOCHE) ? lauf+1 : 1; vor=x; best=Math.max(best,lauf); });
   return best;
 }
+/* ---------- Dieselbe Serie, aber eine Luecke wird verziehen (27.08.2026) ----------
+   Karls Einwand: "13 Wochen ist zu viel, vor allem unfair fuer Leute die mal krank sind."
+
+   🔴 Er hat zweimal recht, und es sind zwei verschiedene Sachen:
+   1. **Zu lang** -- das Ziel steht deshalb jetzt auf 8 statt 13 Wochen.
+   2. **Zu hart** -- und das waere mit einer kleineren Zahl NICHT behoben. Eine Grippe reisst
+      eine Serie ab Woche 1 genauso wie ab Woche 12. Wer acht Wochen durchhaelt und in Woche
+      sechs flach liegt, faengt sonst bei null an, und der Erfolg bestraft dann Krankheit,
+      nicht fehlenden Willen.
+
+   ➡️ Deshalb ueberbrueckt diese Zaehlung **eine** ausgefallene Woche. Die Pausenwoche zaehlt
+   dabei NICHT mit -- wer trainiert, pausiert, trainiert, steht bei 2, nicht bei 3. Verziehen
+   heisst verziehen, nicht geschenkt.
+   ⚠️ Zwei Wochen am Stueck reissen die Serie weiterhin ab. Ohne diese Grenze waere aus dem
+   Erfolg "irgendwann mal acht Wochen trainiert" geworden, und das misst gar nichts mehr.
+   ⚠️ `besteWochenSerie()` bleibt daneben unveraendert -- "Vier am Stueck" soll streng sein.
+   Vier Wochen sind kurz genug, dass ein Joker sie fast geschenkt haette.                  */
+function besteWochenSerieJoker(erlaubt){
+  const luecken = (erlaubt==null ? 1 : erlaubt);
+  const w=[...new Set(sessions.map(s=>wochenStart(s.date)))].sort((a,b)=>a-b);
+  const WOCHE=604800000;
+  let best=0, lauf=0, offen=luecken, vor=null;
+  w.forEach(x=>{
+    if(vor===null){ lauf=1; offen=luecken; }
+    else {
+      const abstand = Math.round((x-vor)/WOCHE);
+      if(abstand===1) lauf++;
+      else if(abstand===2 && offen>0){ offen--; lauf++; }   // eine Woche ausgelassen: verziehen
+      else { lauf=1; offen=luecken; }                        // zwei oder mehr: von vorn
+    }
+    vor=x; best=Math.max(best,lauf);
+  });
+  return best;
+}
 const ERFOLGE = [
   { id:'e1',  gr:'Training',    em:'🏁', xp:100,  name:'Angefangen',      text:'Die erste Einheit abgeschlossen',        ziel:1,      ist:()=>sessions.length },
   { id:'e2',  gr:'Training',    em:'🔟', xp:250,  name:'Zehnkampf',       text:'10 Einheiten abgeschlossen',             ziel:10,     ist:()=>sessions.length },
@@ -1240,7 +1336,7 @@ const ERFOLGE = [
   { id:'v1',  gr:'Volumen',     em:'🧱', xp:100,  name:'Eine Tonne',      text:'1.000 kg insgesamt bewegt',              ziel:1000,   ist:gesamtVolumen },
   { id:'v2',  gr:'Volumen',     em:'🚗', xp:250,  name:'Zehn Tonnen',     text:'10.000 kg insgesamt bewegt',             ziel:10000,  ist:gesamtVolumen },
   { id:'v3',  gr:'Volumen',     em:'🐋', xp:750,  name:'Hundert Tonnen',  text:'100.000 kg insgesamt bewegt',            ziel:100000, ist:gesamtVolumen },
-  { id:'v4',  gr:'Volumen',     em:'🌋', xp:1500, name:'Halbe Million',   text:'500.000 kg insgesamt bewegt',            ziel:500000, ist:gesamtVolumen },
+  { id:'v4',  gr:'Volumen',     em:'🌋', xp:1500, name:'Viertelmillion',  text:'250.000 kg insgesamt bewegt',            ziel:250000, ist:gesamtVolumen },
 
   { id:'r1',  gr:'Rekorde',     em:'⭐', xp:100,  name:'Erster Rekord',   text:'Einen eigenen Rekord gebrochen',         ziel:1,      ist:gesamtRekorde },
   { id:'r2',  gr:'Rekorde',     em:'🌟', xp:250,  name:'Zehn Rekorde',    text:'10 eigene Rekorde gebrochen',            ziel:10,     ist:gesamtRekorde },
@@ -1248,7 +1344,7 @@ const ERFOLGE = [
 
   { id:'d1',  gr:'Dranbleiben', em:'📅', xp:150,  name:'Volle Woche',     text:'3 Einheiten in einer Woche',             ziel:3,      ist:besteWoche },
   { id:'d2',  gr:'Dranbleiben', em:'🔥', xp:400,  name:'Vier am Stück',   text:'4 Wochen hintereinander trainiert',      ziel:4,      ist:besteWochenSerie },
-  { id:'d3',  gr:'Dranbleiben', em:'🧗', xp:1000, name:'Ein Vierteljahr', text:'13 Wochen hintereinander trainiert',     ziel:13,     ist:besteWochenSerie },
+  { id:'d3',  gr:'Dranbleiben', em:'🧗', xp:1000, name:'Acht Wochen',     text:'8 Wochen am Stück — eine Woche darf ausfallen', ziel:8,  ist:besteWochenSerieJoker },
 
   { id:'l1',  gr:'Rang',        em:'🥉', xp:0,    name:'Level 10',        text:'Level 10 erreicht',                      ziel:10,     ist:()=>levelFromXP(profile.xp).level },
   { id:'l2',  gr:'Rang',        em:'🥈', xp:0,    name:'Level 25',        text:'Level 25 erreicht',                      ziel:25,     ist:()=>levelFromXP(profile.xp).level },
@@ -1257,8 +1353,48 @@ const ERFOLGE = [
   { id:'k1',  gr:'Körper',      em:'⚖️', xp:50,   name:'Auf die Waage',   text:'Zum ersten Mal das Gewicht eingetragen', ziel:1,      ist:()=>(profile.weights||[]).length },
   { id:'k2',  gr:'Körper',      em:'📈', xp:150,  name:'Dreißig Wiegen',  text:'30-mal das Gewicht eingetragen',         ziel:30,     ist:()=>(profile.weights||[]).length },
 ];
-function erfolgOffen(e){ return e.ist() < e.ziel; }
+/* ---------- Admin: alle Erfolge freischalten (27.08.2026, Karls Wunsch) ----------
+   Gleiche Linie wie `devUnlockAll` bei den Designs: zum Ansehen, nicht zum Erspielen.
+   🔴 **Es wird nichts gespeichert.** Der Schalter biegt nur die Frage "ist der offen?"
+   um -- geht er wieder aus, steht ueberall wieder der echte Stand. Ein Erfolg, der sich
+   ueber den Admin dauerhaft ins Profil schreibt, waere spaeter nicht mehr von einem echten
+   zu unterscheiden.
+   ⚠️ Und er zahlt **keine XP** aus -- siehe die Sperre in erfolgeAuszahlen(). Sonst haette
+   ein Blick in den Katalog Karls Rang um 8.050 XP verschoben, und zwar unumkehrbar (es wird
+   nichts zurueckgenommen).                                                              */
+function alleErfolgeFrei(){ return !!settings.devAllErfolge; }
+function erfolgOffen(e){ return alleErfolgeFrei() ? false : (e.ist() < e.ziel); }
 function erfolgeGeschafft(){ return ERFOLGE.filter(e=>!erfolgOffen(e)).length; }
+
+/* ---------- Was ist neu? (27.08.2026) ----------
+   Karls Wunsch: "bei Erfolge eine goldene Zahl wenn man ein neues Achievement freigeschaltet
+   hat, und das Zeichen wird dann auch gold und bewegt sich ein bisschen."
+
+   Dafuer muss die App wissen, was Karl schon GESEHEN hat -- der Erfolg selbst bleibt
+   gerechnet. Gespeichert wird nur diese Sichtliste.
+   ⚠️ **Beim allerersten Start wird alles Verdiente als gesehen eingetragen**, nicht als neu.
+   Sonst leuchtete beim Umstieg auf v33 eine goldene 12 auf fuer Erfolge, die Karl seit
+   gestern kennt -- und die goldene Zahl waere entwertet, bevor sie das erste Mal etwas
+   bedeutet hat.                                                                          */
+function erfolgeGesehenInit(){
+  if(profile.erfolgeGesehen && typeof profile.erfolgeGesehen==='object') return;
+  const g={}; ERFOLGE.forEach(e=>{ if(e.ist() >= e.ziel) g[e.id]=true; });   // echter Stand, nicht der Admin-Schalter
+  profile.erfolgeGesehen=g; save();
+}
+/* ⚠️ Der Admin-Schalter zaehlt hier NICHT mit. Sonst stuende nach einem Klick eine goldene 22
+   an der Leiste, und Karl sucht 22 Erfolge, die er nie freigeschaltet hat. */
+function erfolgeNeu(){
+  const g = profile.erfolgeGesehen || {};
+  return ERFOLGE.filter(e => e.ist() >= e.ziel && !g[e.id]);
+}
+/* Beim Oeffnen der Erfolgs-Seite abhaken. Gibt zurueck, ob sich etwas geaendert hat --
+   nur dann muss die Leiste neu gezeichnet werden. */
+function erfolgeAlsGesehen(){
+  const neu = erfolgeNeu(); if(!neu.length) return false;
+  if(!profile.erfolgeGesehen || typeof profile.erfolgeGesehen!=='object') profile.erfolgeGesehen={};
+  neu.forEach(e=>{ profile.erfolgeGesehen[e.id]=true; });
+  save(); return true;
+}
 
 /* ---------- XP fuer Erfolge (26.08.2026, v32) ----------
    Karls Frage: "Macht es Sinn, fuer Erfolge XP zu kriegen? Aber nicht fuer Erfolge in
@@ -1292,6 +1428,10 @@ function erfolgeBezahlt(){
    unter eine Schwelle rutscht, behaelt die XP. Gleiche Linie wie bei sessRecalc: lieber ein
    alter Wert stehen als ein geratener abgezogen. */
 function erfolgeAuszahlen(){
+  /* 🔴 Der Admin-Schalter darf NICHTS auszahlen. erfolgOffen() meldet mit ihm alles als
+     geschafft -- ohne diese Sperre haette ein Klick auf "Alle Erfolge freischalten" 8.050 XP
+     ins Profil geschrieben, und zurueckgenommen wird hier nichts. */
+  if(alleErfolgeFrei()) return [];
   const bez = erfolgeBezahlt(); const neu = [];
   ERFOLGE.forEach(e => {
     if(!e.xp || bez[e.id] || erfolgOffen(e)) return;
@@ -1377,14 +1517,27 @@ function setNav(){ const map=(view==='erfolge')?'erfolge':(view==='history'||vie
    hingegangen war. Wer auf die Mitteilung tippte, landete auf der Startseite, und dort
    deutete nichts auf eine Antwort hin. Eine Benachrichtigung, die man nur findet, wenn
    man ohnehin nachsieht, ist keine. */
-function navPunktZeichnen(){
-  const knopf = document.querySelector('#nav button[data-nav="settings"]');
+/* Eine Zahl an einen Knopf haengen -- oder wieder wegnehmen.
+   ⚠️ Sie sitzt IM Wort-Span, nicht am Knopf. Auf dem Handy ist das egal (der Span ist
+   `position:static`, die Zahl bezieht sich also weiter auf den Knopf und steht wie eh und
+   je). Auf dem PC wird der Span zum Bezugsrahmen, und die Zahl sitzt rechts ueber dem Wort
+   statt irgendwo in der Mitte der Seitenleiste. Karls Meldung vom 27.08.2026. */
+function navZahl(knopf, n, gold){
   if(!knopf) return;
-  const n = postfachUngelesen();
-  let punkt = knopf.querySelector('.navpunkt');
-  if(!n){ if(punkt) punkt.remove(); return; }
-  if(!punkt){ punkt = document.createElement('span'); punkt.className = 'navpunkt'; knopf.appendChild(punkt); }
+  const ziel = knopf.querySelector('.navtxt') || knopf;
+  let punkt = ziel.querySelector('.navpunkt');
+  if(!n){ if(punkt) punkt.remove(); knopf.classList.remove('hat-neu'); return; }
+  if(!punkt){ punkt = document.createElement('span'); ziel.appendChild(punkt); }
+  punkt.className = 'navpunkt' + (gold ? ' gold' : '');
   punkt.textContent = n > 9 ? '9+' : String(n);
+  knopf.classList.toggle('hat-neu', !!gold);
+}
+function navPunktZeichnen(){
+  navZahl(document.querySelector('#nav button[data-nav="settings"]'), postfachUngelesen(), false);
+  /* 🔴 Golden, nicht rot. Rot heisst in dieser App "da liegt etwas fuer dich"
+     (eine Antwort im Postfach). Ein neuer Erfolg ist kein offener Posten, sondern eine
+     Belohnung -- und zwei verschiedene Sachen duerfen nicht gleich aussehen. */
+  navZahl(document.querySelector('#nav button[data-nav="erfolge"]'), erfolgeNeu().length, true);
 }
 function render(){
   if(!session){ document.body.classList.add('gate'); document.body.classList.remove('setup'); renderAuthGate(); return; }
@@ -1397,6 +1550,11 @@ function render(){
   setNav();
   ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, body:renderBody, food:renderFood, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin, meldung:renderMeldung, erfolge:renderErfolge}[view]||renderHome)();
   syncSessionClock();
+  /* Den Kurzcode fuers Teilen im Hintergrund bauen, solange noch niemand geklickt hat.
+     Genau hier, weil auf diesen zwei Seiten der Teilen-Knopf steht -- und weil ein Umbau am
+     Plan den alten Code ungueltig macht (der Zwischenspeicher haengt am Inhalt, nicht an der
+     Kennung, und faellt deshalb von allein auf einen neuen Eintrag). */
+  if(view==='progs'||view==='plans') alleplaeneVorwaermen();
   // Geteilter Plan aus dem Link: erst anbieten, wenn jemand angemeldet ist und nicht gerade
   // im Assistenten steckt — sonst laege das Fenster ueber der Pflicht-Einrichtung.
   if(planImport && !importGezeigt && view!=='onboard'){ importGezeigt=true;
@@ -3460,8 +3618,43 @@ function renderMeldung(){
    sofort tun kann. Stuenden sie unten, waeren sie eine Fussnote unter 18 Trophaeen.       */
 function renderErfolge(){
   const geschafft = erfolgeGeschafft();
-  let h = `<div class="row between" style="margin:2px 4px 10px">
-      <h2>Erfolge</h2><span class="tiny muted">${geschafft} von ${ERFOLGE.length}</span></div>`;
+  /* 🔴 Was NEU ist, wird hier eingesammelt und sofort abgehakt (27.08.2026). Danach ist
+     die goldene Zahl an der Leiste weg -- gesehen ist gesehen. Die Liste `frisch` lebt aber
+     bis zum Ende dieser Funktion weiter, damit die neuen Erfolge auf DIESER Seite noch
+     golden hervorstechen. Wer wegen der goldenen Zahl herkommt, soll auch finden, wofuer. */
+  const frisch = new Set(erfolgeNeu().map(e=>e.id));
+  const wurdeGesehen = erfolgeAlsGesehen();
+
+  // ---- Das Board (27.08.2026, Karls Wunsch: "oben eine Anzeige wieviel Erfolge man hat") ----
+  // ⚠️ Vorher stand hier nur ein graues "12 von 22" in Kleinschrift neben der Ueberschrift.
+  // Das ist eine Fussnote, kein Stand. Ein Katalog ohne sichtbaren Gesamtstand gibt keinen
+  // Grund, ihn zu oeffnen.
+  const anteilGes = Math.round(geschafft / ERFOLGE.length * 100);
+  const bez = erfolgeBezahlt();
+  const xpAusErfolgen = ERFOLGE.reduce((n,e)=>n+(bez[e.id]?e.xp:0), 0);
+  const xpMoeglich    = ERFOLGE.reduce((n,e)=>n+e.xp, 0);
+  const gruppenFertig = [...new Set(ERFOLGE.map(e=>e.gr))]
+        .filter(g=>ERFOLGE.filter(e=>e.gr===g).every(e=>!erfolgOffen(e))).length;
+  const gruppenGes    = [...new Set(ERFOLGE.map(e=>e.gr))].length;
+
+  let h = `<div class="row between" style="margin:2px 4px 10px"><h2>Erfolge</h2></div>`;
+  h += `<div class="card erf-board">
+    <div class="row" style="gap:16px;align-items:center">
+      <div class="erf-ring" style="--anteil:${anteilGes}">
+        <div class="erf-ring-in"><b>${geschafft}</b><span class="tiny muted">von ${ERFOLGE.length}</span></div></div>
+      <div style="flex:1;min-width:0">
+        <b style="font-size:17px">${anteilGes} % geschafft</b>
+        <div class="tiny muted" style="margin-top:4px">${gruppenFertig} von ${gruppenGes} Gruppen vollstaendig</div>
+        <div class="bar" style="margin-top:10px;height:8px;background:var(--card2);border-radius:99px;overflow:hidden">
+          <i style="display:block;height:100%;width:${anteilGes}%;background:var(--accent)"></i></div>
+      </div></div>
+    <div class="row between" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+      <span class="tiny muted">Aus Erfolgen verdient</span>
+      <span class="tiny" style="font-weight:700">${xpAusErfolgen.toLocaleString('de-DE')} von ${xpMoeglich.toLocaleString('de-DE')} XP</span></div>`;
+  if(frisch.size) h += `<div class="erf-neu-hinweis">🏅 ${frisch.size} neu freigeschaltet — unten golden markiert</div>`;
+  if(alleErfolgeFrei()) h += `<div class="tiny" style="margin-top:10px;color:var(--danger)">
+      ⚠️ Admin: alle Erfolge sind freigeschaltet. Das ist nur eine Anzeige — es gibt dafür keine XP.</div>`;
+  h += `</div>`;
 
   // ---- Tagesaufgaben ----
   const offen = aufgabenOffen();
@@ -3493,16 +3686,18 @@ function renderErfolge(){
         <span class="tiny muted">${liste.filter(e=>!erfolgOffen(e)).length}/${liste.length}</span></div>`;
     h += `<div class="card">`;
     liste.forEach((e,i) => {
-      const ist = e.ist(), fertig = ist >= e.ziel;
+      const ist = e.ist(), fertig = !erfolgOffen(e);
       const anteil = Math.max(0, Math.min(100, Math.round(ist / e.ziel * 100)));
-      h += `<div style="${i?'border-top:1px solid var(--line);margin-top:12px;padding-top:12px':''}">
+      const neuHier = frisch.has(e.id);
+      h += `<div class="${neuHier?'erf-frisch':''}" style="${i?'border-top:1px solid var(--line);margin-top:12px;padding-top:12px':''}">
         <div class="row between" style="align-items:center;gap:10px">
           <div class="row" style="gap:10px;min-width:0;align-items:center">
             <span style="font-size:22px;filter:${fertig?'none':'grayscale(1)'};opacity:${fertig?1:.4}">${e.em}</span>
             <div style="min-width:0">
               <b style="${fertig?'':'color:var(--muted)'}">${esc(e.name)}</b>
               <div class="tiny muted">${esc(e.text)}</div></div></div>
-          ${fertig ? `<span class="tiny" style="color:var(--ok);font-weight:700;white-space:nowrap">geschafft</span>`
+          ${neuHier ? `<span class="tiny erf-neu-pill">NEU</span>`
+            : fertig ? `<span class="tiny" style="color:var(--ok);font-weight:700;white-space:nowrap">geschafft</span>`
                    : `<span class="tiny muted" style="white-space:nowrap">${fmtZiel(ist)} / ${fmtZiel(e.ziel)}${e.xp?` · +${e.xp}`:''}</span>`}
         </div>
         ${fertig ? '' : `<div class="bar" style="margin-top:8px;height:6px;background:var(--card2);border-radius:99px;overflow:hidden">
@@ -3515,6 +3710,9 @@ function renderErfolge(){
     h += `</div>`;
   });
   app.innerHTML = h;
+  /* ⚠️ setNav() laeuft in render() VOR dieser Funktion -- die goldene Zahl waere also noch
+     die alte. Hier also nochmal, nachdem oben abgehakt wurde. */
+  if(wurdeGesehen) navPunktZeichnen();
 }
 /* Grosse Zahlen lesbar: 100000 -> 100.000. Bei Volumen steht sonst eine Ziffernwurst. */
 function fmtZiel(n){ return Math.round(n).toLocaleString('de-DE'); }
@@ -3772,6 +3970,16 @@ function renderAdmin(){
   h+=`<div class="row between" style="margin:16px 4px 4px"><h2>Designs</h2></div><div class="card">
       <button class="btn ${settings.devUnlockAll?'primary':''}" data-admin="unlockall">${settings.devUnlockAll?'Alle Designs freigeschaltet ✓':'Alle Designs freischalten'}</button>
       <div class="tiny muted" style="margin-top:6px">Alle Special-Designs testen, ohne Rang-Grind.</div></div>`;
+  /* Karls Wunsch vom 27.08.2026: "ich will ueber meine Admin-Konsole ebenfalls alle Erfolge
+     freischalten koennen." Gleiche Bauart wie die Designs eine Karte hoeher. */
+  const echt = ERFOLGE.filter(e=>e.ist()>=e.ziel).length;
+  h+=`<div class="row between" style="margin:16px 4px 4px"><h2>Erfolge</h2></div><div class="card">
+      <button class="btn ${settings.devAllErfolge?'primary':''}" data-admin="allerfolge">${settings.devAllErfolge?'Alle Erfolge freigeschaltet ✓':'Alle Erfolge freischalten'}</button>
+      <div class="tiny muted" style="margin-top:6px">Nur zum Ansehen — <b style="color:var(--txt)">es gibt dafür keine XP</b>,
+        und gespeichert wird nichts. Ausgeschaltet steht wieder der echte Stand da
+        (gerade ${echt} von ${ERFOLGE.length}).</div>
+      <div class="tiny muted" style="margin-top:8px">Die goldene Zahl an der Leiste zählt weiter
+        nur echte Erfolge — sonst hängt hier eine ${ERFOLGE.length}, die nichts bedeutet.</div></div>`;
   h+=`<div class="row between" style="margin:16px 4px 4px"><h2>Verlauf-Testdaten</h2></div><div class="card">
       <div class="fab-row"><button class="btn" data-admin="demo">Demo-Einheiten</button><button class="btn danger" data-admin="clearhist">Verlauf leeren</button></div></div>`;
   app.innerHTML=h;
@@ -3966,7 +4174,70 @@ function planCode(prog){
     e:(p.exercises||[]).filter(e=>e.name).map(e=>[String(e.name).slice(0,60), +e.sets||3, volOf(e)==='low'?'l':'h'])
   })).filter(p=>p.e.length)}));
 }
-function planLink(prog){ return location.origin+location.pathname+'#p='+planCode(prog); }
+
+/* ---------- Der Link war zu lang (27.08.2026) ----------
+   Karls Meldung: "kannst du irgendwas dagegen tun, dass der Link fuer einen Plan gefuehlt
+   ein A4-Blatt fuellt."
+
+   Gemessen an einem echten Vier-Tage-Plan: **1.005 Zeichen**. In einer WhatsApp-Blase ist
+   das eine Wand aus Buchstaben, und mancher Messenger bricht sie mittendrin um.
+
+   Zwei Schritte, zusammen **auf 398 Zeichen — 60 % kuerzer**:
+   1. **v3 spart die Feldnamen.** Statt {"n":...,"d":...,"w":...,"e":[...]} steht dort jetzt
+      [name, tag, aufwaermen, uebungen]. Die Reihenfolge traegt die Bedeutung.
+   2. **Deflate.** Uebungsnamen wiederholen sich zwischen den Trainings ("Bankdruecken" steht
+      in Push UND Oberkoerper) -- genau davon lebt ein Packer. Das bringt mehr als Schritt 1.
+
+   ⚠️ **Warum trotzdem beides:** faellt der Packer aus (alter Browser ohne
+   CompressionStream), bleibt v2 uebrig -- und der alte Link funktioniert weiter. Empfangen
+   werden v1, v2 und v3; ein Link, den Karl gestern verschickt hat, darf morgen nicht
+   ploetzlich unbekannt sein.
+   🔴 **Und warum das Packen NICHT im Klick passiert:** `CompressionStream` ist
+   asynchron. Ein `await` vor `navigator.share()` kostet auf iOS die Nutzergeste, und dann
+   geht das Teilen-Fenster gar nicht mehr auf. Der Code wird deshalb vorgewaermt, sobald die
+   Plan-Liste gezeichnet wird -- also lange bevor jemand auf Teilen druecken kann. Ist er
+   wider Erwarten noch nicht fertig, geht der alte lange Link raus statt gar keiner.        */
+function planNutzlast(prog){
+  const pr=prog||activeProg();
+  return [3, String(pr.name||'Trainingsplan').slice(0,40), (pr.plans||[]).map(p=>[
+    String(p.name||'Training').slice(0,40),
+    (p.day==null ? -1 : +p.day),
+    planWarm(p)?1:0,
+    (p.exercises||[]).filter(e=>e.name).map(e=>[String(e.name).slice(0,60), +e.sets||3, volOf(e)==='low'?0:1])
+  ]).filter(p=>p[3].length)];
+}
+const planCodeCache = new Map();          // Nutzlast-JSON -> fertiger Kurzcode
+function packerDa(){ return typeof CompressionStream === 'function'; }
+async function packe(text){
+  const roh = new TextEncoder().encode(text);
+  const str = new Blob([roh]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+  const buf = await new Response(str).arrayBuffer();
+  let bin=''; new Uint8Array(buf).forEach(x=>{ bin+=String.fromCharCode(x); });
+  return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function entpacke(code){
+  const t=String(code).replace(/-/g,'+').replace(/_/g,'/');
+  const bin=atob(t), b=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) b[i]=bin.charCodeAt(i);
+  const str = new Blob([b]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return new Response(str).arrayBuffer().then(a=>new TextDecoder().decode(a));
+}
+/* Vorwaermen. Ruhig, folgenlos, und ein Fehlschlag faellt niemandem auf die Fuesse:
+   dann bleibt es eben beim langen Link. */
+function planCodeVorwaermen(prog){
+  if(!packerDa()) return;
+  const roh = JSON.stringify(planNutzlast(prog));
+  if(planCodeCache.has(roh)) return;
+  packe(roh).then(c=>{ planCodeCache.set(roh, 'z'+c); }).catch(()=>{});
+}
+function alleplaeneVorwaermen(){ (programs||[]).forEach(planCodeVorwaermen); }
+/* Der kurze Code, wenn er fertig ist -- sonst der alte lange. Synchron, damit die
+   Nutzergeste beim Teilen erhalten bleibt. */
+function planCodeKurz(prog){
+  const roh = JSON.stringify(planNutzlast(prog));
+  return planCodeCache.get(roh) || planCode(prog);
+}
+function planLink(prog){ return location.origin+location.pathname+'#p='+planCodeKurz(prog); }
 function sharePlan(progId){
   const pr=(progId?progById(progId):null)||activeProg();
   if(!pr.plans||!pr.plans.length){ toast('Dieser Plan hat noch keine Trainings'); return; }
@@ -3981,14 +4252,37 @@ function sharePlan(progId){
 // Empfangen: der Link wird beim Start gelesen, der Hash sofort entfernt (sonst haengt er beim
 // naechsten Oeffnen noch dran) und das Angebot erst nach der Anmeldung gezeigt.
 let planImport=null, importGezeigt=false;
+/* Aus dem gepackten v3-Format zurueck in die Form, mit der zeigeImport() und
+   importierePlan() seit jeher arbeiten. ⚠️ Die beiden bleiben damit unangetastet -- ein
+   neues Link-Format soll nicht bis in die Uebernahme durchschlagen. */
+function v3ZuPlan(a){
+  if(!Array.isArray(a) || a[0]!==3 || !Array.isArray(a[2])) return null;
+  return { name:(a[1]||'Geteilter Plan'), p:a[2].slice(0,10).map(p=>({
+    n:p[0], d:(p[1]===-1||p[1]==null)?null:+p[1], w:p[2]?1:0,
+    e:(p[3]||[]).map(e=>[e[0], +e[1]||3, e[2]?'h':'l'])
+  })) };
+}
 function leseImportAusLink(){
   const m=/[#&]p=([A-Za-z0-9\-_]+)/.exec(location.hash||''); if(!m) return;
-  try{ const d=JSON.parse(b64dec(m[1]));
+  const code=m[1];
+  try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){}
+  /* ⚠️ Ein gepackter Link faengt mit 'z' an. Entpacken geht nur asynchron -- deshalb ist
+     planImport hier zunaechst leer und wird nachgereicht. render() zeigt das Angebot, sobald
+     es steht; wer in der Zwischenzeit schon in der App ist, sieht es einen Wimpernschlag
+     spaeter aufgehen. Frueher als der Anmeldeschirm ist es ohnehin nie. */
+  if(code[0]==='z'){
+    if(typeof DecompressionStream !== 'function') return;   // zu alter Browser: kein Angebot, aber auch kein Absturz
+    entpacke(code.slice(1))
+      .then(txt=>{ const p=v3ZuPlan(JSON.parse(txt));
+        if(p && p.p.length){ planImport=p; if(session) render(); } })
+      .catch(()=>{});
+    return;
+  }
+  try{ const d=JSON.parse(b64dec(code));
     // v1 waren nur Trainings ohne Plan-Namen, v2 bringt den Namen mit. Beides annehmen.
     if(d && (d.v===1||d.v===2) && Array.isArray(d.p) && d.p.length)
       planImport={name:(d.name||'Geteilter Plan'), p:d.p.slice(0,10)};
   }catch(e){ planImport=null; }
-  try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){}
 }
 function zeigeImport(){
   const liste=planImport.p.map(p=>`<div class="row between" style="padding:5px 0;border-bottom:1px solid var(--line)">
@@ -4511,6 +4805,7 @@ document.addEventListener('click',ev=>{
     else if(cmd==='lvl') profile.xp=xpForLevel(Math.max(1,cur+(+arg)));
     else if(cmd==='jump') profile.xp=xpForLevel(+arg);
     else if(cmd==='unlockall') settings.devUnlockAll=!settings.devUnlockAll;
+    else if(cmd==='allerfolge') settings.devAllErfolge=!settings.devAllErfolge;
     else if(cmd==='demo') genDemo();
     else if(cmd==='clearhist') sessions=[];
     save(); applyTheme(); render(); return; }
@@ -4814,15 +5109,24 @@ else if(session && !profile.onboarded) startOnboard();   // neues Konto → erst
   if(!schrittModus()){ toast('Schritte sind ausgeschaltet — anschalten in den Einstellungen'); return; }
   if(setzeSchritte(n)){ view='body';
     setTimeout(()=>toast(n.toLocaleString('de-DE')+' Schritte übernommen'), 400); } })();
+/* 🔴 Das steht VOR dem ersten render() -- und das ist die eigentliche Korrektur vom
+   27.08.2026. Karls Meldung: "Reingeschaut geht nicht direkt durch, wenn man die App
+   startet." Es ging tatsaechlich durch, nur eben eine Zeile zu spaet: gezeichnet wurde
+   zuerst, abgehakt danach, und neu gezeichnet hat niemand. Wer nach dem Start sofort auf
+   die Erfolgs-Seite ging, sah einen leeren Haken an einer Aufgabe, die schon erledigt war.
+   ⚠️ Reihenfolge ist hier kein Schoenheitsfehler, sondern das Feature. */
+if(session){
+  aufgabeErledigen('auf');   // Tagesaufgabe: reingeschaut
+  erfolgeGesehenInit();      // muss VOR erfolgeAuszahlen laufen -- sonst gilt frisch Bezahltes als "schon gesehen"
+  /* ⚠️ Rueckwirkend: beim ersten Start mit v32 wird auf einen Schlag gutgeschrieben, was
+     laengst erfuellt war. Das ist ein Sprung, kein Aufbau -- aber die Arbeit dafuer ist
+     getan, und die Alternative waere, sie nie zu wuerdigen. */
+  erfolgeAuszahlen();
+}
 if(startFehler) renderAuthGate(startFehler); else render();   // ohne Anmeldung erscheint hier das Login-Fenster
 splashWeg();              // die Ansicht steht — der Schirm hat seine Aufgabe erfuellt
 cloudSyncStart();         // im Hintergrund; ohne Netz startet die App trotzdem normal
 postfachAuffrischen();    // ist waehrend der Abwesenheit eine Antwort gekommen?
-if(session) aufgabeErledigen('auf');   // Tagesaufgabe: reingeschaut
-/* ⚠️ Rueckwirkend: beim ersten Start mit v32 wird auf einen Schlag gutgeschrieben, was
-   laengst erfuellt war. Das ist ein Sprung, kein Aufbau -- aber die Arbeit dafuer ist
-   getan, und die Alternative waere, sie nie zu wuerdigen. */
-if(session) erfolgeAuszahlen();
 // Auf die Mitteilung getippt. Zwei Wege, weil zwei Faelle:
 //   App lief noch  -> der Service Worker schickt eine Nachricht ins offene Fenster
 //   App war zu     -> sie wird mit '#postfach' geoeffnet
@@ -4848,7 +5152,14 @@ document.addEventListener('visibilitychange',()=>{
   if(session && Date.now()-letzterAbgleich>30000) cloudSyncStart();
   // Eigene Bremse, nicht die vom Abgleich: wer auf die Mitteilung tippt, kommt SOFORT
   // zurueck in die App -- und genau dann muss die Antwort da sein, nicht 30 s spaeter.
-  if(session && Date.now()-postfachZuletzt>5000) postfachAuffrischen(); });
+  if(session && Date.now()-postfachZuletzt>5000) postfachAuffrischen();
+  /* 🔴 Zweite Haelfte der "Reingeschaut"-Korrektur (27.08.2026). Die App wird als PWA
+     selten wirklich geschlossen -- sie liegt im Hintergrund und kommt am naechsten Morgen
+     wieder nach vorn. Der Startblock oben laeuft dann NIE erneut, und die Tagesaufgabe
+     blieb still offen, obwohl reingeschaut wurde. Beim Zurueckkommen also nochmal.
+     ⚠️ Nur neu zeichnen, wenn wirklich etwas dazukam -- aufgabeErledigen() meldet das.
+     Ein render() bei jedem Wechsel in die App wuerde sonst laufende Eingaben wegreissen. */
+  if(session && aufgabeErledigen('auf')) render(); });
 window.addEventListener('pagehide',flushSync);
 
 // Versteckte Admin-Freischaltung: 5x auf Brock auf der Startseite tippen (nur auf Karls Gerät).
@@ -4860,6 +5171,38 @@ window.addEventListener('pagehide',flushSync);
     if(n>=5){ n=0; devAdmin=!devAdmin; DB.set('devadmin',devAdmin);
       toast(devAdmin?'Admin freigeschaltet — steht unten in den Einstellungen':'Admin deaktiviert'); }
   });
+})();
+
+/* ---------- Die untere Leiste bleibt unten (27.08.2026) ----------
+   Karls Meldung: "bin gerade in die App gegangen und die Leiste ganz unten war auf einmal in
+   der Mitte und ging auch nicht mehr runter. Beim Runterscrollen war das so, beim Hochscrollen
+   ging sie wieder an ihren Platz. Kein dauerhaftes Problem, ich sehe das gerade zum ersten Mal."
+
+   ⚠️ **Nachgestellt habe ich es nicht** -- es haengt am Browser, nicht an dieser App. Was
+   dahintersteckt, ist aber bekannt: ein Handy hat ZWEI Bildschirmgroessen. Die eine (Layout)
+   rechnet die Seite, die andere (sichtbar) ist das, was gerade zu sehen ist -- sie schrumpft
+   mit der Tastatur und waechst, wenn die Adressleiste des Browsers wegrutscht. `bottom:0`
+   meint immer die erste. Laufen die beiden auseinander -- typischerweise kurz nachdem eine
+   Tastatur zugegangen ist --, landet "ganz unten" mitten im Bild. Genau das hat Karl gesehen.
+
+   ➡️ Diese Schleife misst den Unterschied und schiebt die Leiste um genau den Betrag
+   zurueck. 🔴 **Nur wenn er groesser als 4 px ist.** Im Normalfall passiert damit gar
+   nichts, und der Browser macht seine Arbeit weiter selbst -- eine Dauerkorrektur waere ein
+   neues Zittern gegen ein seltenes Verrutschen eingetauscht.
+   ⚠️ Auf dem PC ist die Leiste eine Seitenleiste ueber die volle Hoehe. Dort waere jedes
+   Verschieben falsch, deshalb die Breitenpruefung. */
+(function(){
+  const vv = window.visualViewport; if(!vv) return;
+  const nav = document.getElementById('nav'); if(!nav) return;
+  function leisteAusrichten(){
+    if(window.innerWidth >= 900){ nav.style.transform=''; return; }
+    const abstand = document.documentElement.clientHeight - (vv.height + vv.offsetTop);
+    nav.style.transform = Math.abs(abstand) > 4 ? 'translateY(' + (-Math.round(abstand)) + 'px)' : '';
+  }
+  vv.addEventListener('resize', leisteAusrichten);
+  vv.addEventListener('scroll', leisteAusrichten);
+  window.addEventListener('orientationchange', ()=>setTimeout(leisteAusrichten, 250));
+  leisteAusrichten();
 })();
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});

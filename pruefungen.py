@@ -52,11 +52,20 @@ window.addEventListener('error', e => {
 });
 </script>
 <script>
-(function(){
+(async function(){
   const out = [];
   let ok = 0, bad = 0;
   const t = (name, fn) => {
     try { const r = fn(); if (r === true) { ok++; out.push('OK   ' + name); }
+          else { bad++; out.push('FAIL ' + name + '  -> ' + r); } }
+    catch (e) { bad++; out.push('ERR  ' + name + '  -> ' + e.message); }
+  };
+  /* ⚠️ Seit dem 27.08.2026 gibt es Pruefungen, die warten muessen: der Packer fuer den
+     Plan-Link (`CompressionStream`) arbeitet asynchron, und `t()` haette nur ein
+     "[object Promise]" gemeldet -- also einen gruenen Haken auf nichts. `tA` wartet
+     wirklich ab; der Lauf drumherum ist deshalb `async`. */
+  const tA = async (name, fn) => {
+    try { const r = await fn(); if (r === true) { ok++; out.push('OK   ' + name); }
           else { bad++; out.push('FAIL ' + name + '  -> ' + r); } }
     catch (e) { bad++; out.push('ERR  ' + name + '  -> ' + e.message); }
   };
@@ -1570,19 +1579,52 @@ window.addEventListener('error', e => {
   });
   // ⚠️ Sie sitzt am Zahnrad, weil das Postfach dort drin liegt. An 'Trainieren' waere sie
   // eine Zahl, hinter der nichts steckt.
+  // ⚠️ Seit dem 27.08.2026 gibt es an der Leiste ZWEI Zahlen: die rote am Zahnrad und
+  // die goldene am Pokal. Die Pruefung fragt deshalb gezielt nach der roten -- vorher stand
+  // hier `#nav .navpunkt` und traf ploetzlich die goldene mit.
   t('Sie sitzt am Zahnrad, nicht woanders', () => {
     localStorage.setItem(POST_KEY, JSON.stringify([{id:'a', antwort:'Hi', gelesen_am:null}]));
     setNav();
-    const alle = document.querySelectorAll('#nav .navpunkt');
-    if (alle.length !== 1) return alle.length + ' Punkte statt einem';
-    return alle[0].closest('button').dataset.nav === 'settings'
-      || 'sitzt an: ' + alle[0].closest('button').dataset.nav;
+    const rote = [...document.querySelectorAll('#nav .navpunkt')].filter(p => !p.classList.contains('gold'));
+    if (rote.length !== 1) return rote.length + ' rote Punkte statt einem';
+    return rote[0].closest('button').dataset.nav === 'settings'
+      || 'sitzt an: ' + rote[0].closest('button').dataset.nav;
   });
   t('Mehr als neun werden zu 9+', () => {
     localStorage.setItem(POST_KEY, JSON.stringify(
       Array.from({length:12}, (_,i) => ({id:'x'+i, antwort:'Hi', gelesen_am:null}))));
     setNav();
-    return eq(document.querySelector('#nav .navpunkt').textContent, '9+');
+    return eq(document.querySelector('#nav button[data-nav="settings"] .navpunkt').textContent, '9+');
+  });
+  // 🔴 Die rote Zahl ist eine Anforderung ("da liegt etwas fuer dich"), die goldene eine
+  // Belohnung. Saehen sie gleich aus, waere die Unterscheidung nur in meinem Kopf.
+  t('Rote und goldene Zahl sind unterscheidbar', () => {
+    localStorage.setItem(POST_KEY, JSON.stringify([{id:'a', antwort:'Hi', gelesen_am:null}]));
+    const merkG = profile.erfolgeGesehen, merkS = sessions;
+    // Eine Einheit genuegt -- "Angefangen" (e1) ist damit erfuellt und noch nicht gesehen.
+    // (Ohne Uebungen, `einheitMit` steht in dieser Datei erst weiter unten.)
+    sessions = [{ id:'a1', date:Date.now(), entries:[], xp:0, pr:0 }];
+    profile.erfolgeGesehen = {};
+    setNav();
+    const rot  = document.querySelector('#nav button[data-nav="settings"] .navpunkt');
+    const gold = document.querySelector('#nav button[data-nav="erfolge"] .navpunkt');
+    const ok = !!rot && !!gold && !rot.classList.contains('gold') && gold.classList.contains('gold');
+    profile.erfolgeGesehen = merkG; sessions = merkS;
+    return ok || 'rot=' + (rot && rot.className) + ' gold=' + (gold && gold.className);
+  });
+  // ⚠️ Karls Meldung: auf dem PC stand die Zahl in der Mitte der Seitenleiste statt am
+  // Wort. Die Ursache war der Bezugsrahmen -- sie hing am Knopf, nicht an der Beschriftung.
+  t('Die Zahl haengt an der Beschriftung, nicht am Knopf', () => {
+    localStorage.setItem(POST_KEY, JSON.stringify([{id:'a', antwort:'Hi', gelesen_am:null}]));
+    setNav();
+    const p = document.querySelector('#nav button[data-nav="settings"] .navpunkt');
+    return (!!p && !!p.parentElement && p.parentElement.classList.contains('navtxt'))
+      || 'haengt an: ' + (p ? p.parentElement.className || p.parentElement.tagName : 'nichts');
+  });
+  t('Jeder Leisten-Knopf hat eine Beschriftung im eigenen Span', () => {
+    const knoepfe = [...document.querySelectorAll('#nav button')];
+    const ohne = knoepfe.filter(b => !b.querySelector('.navtxt'));
+    return ohne.length === 0 || 'ohne .navtxt: ' + ohne.map(b => b.dataset.nav).join(', ');
   });
 
   // ---- Der Sprung ins Postfach reisst kein Training auseinander ----
@@ -1840,6 +1882,239 @@ window.addEventListener('error', e => {
     sessions = merkS; profile.erfolge = merkE; profile.xp = merkX;
     return eq(jetzt, nachAuszahlung);
   });
+  // ================================================ Erfolge v33 (27.08.2026)
+  // Karls drei Einwaende am Katalog: 500 t zu viel, 13 Wochen zu viel und unfair bei
+  // Krankheit, und der Admin soll alles freischalten koennen.
+
+  const WOCHE = 604800000;
+  // Baut Einheiten in den genannten Wochen-Abstaenden (0 = diese Woche, 1 = vorige, ...).
+  const wochenWie = (...abstaende) => abstaende.map((w, i) =>
+    ({ id:'w'+i, date: wochenStart(Date.now()) - w*WOCHE + 86400000, entries:[], xp:0, pr:0 }));
+
+  t('Volumen-Erfolg steht auf 250 t, nicht auf 500 t', () => {
+    const v4 = ERFOLGE.find(e => e.id === 'v4');
+    return eq(v4.ziel, 250000);
+  });
+  t('Der lange Dranbleiben-Erfolg steht auf 8 Wochen', () => {
+    const d3 = ERFOLGE.find(e => e.id === 'd3');
+    return eq(d3.ziel, 8);
+  });
+  // 🔴 Karls eigentlicher Einwand war nicht die Zahl, sondern die Haerte: eine Grippe
+  // reisst die Serie ab, und dann bestraft der Erfolg Krankheit statt fehlenden Willen.
+  t('Eine ausgefallene Woche reisst die Serie nicht ab', () => {
+    const merk = sessions;
+    sessions = wochenWie(5, 4, 3, 1, 0);          // Woche 2 fehlt
+    const mitJoker = besteWochenSerieJoker();
+    const streng   = besteWochenSerie();
+    sessions = merk;
+    // Fuenf trainierte Wochen, eine Luecke dazwischen ueberbrueckt. Streng gezaehlt reisst
+    // die Serie an der Luecke und die laengste bleibt bei drei.
+    return (mitJoker === 5 && streng === 3) || 'Joker=' + mitJoker + ' streng=' + streng;
+  });
+  // ⚠️ Verziehen heisst verziehen, nicht geschenkt: die Pausenwoche zaehlt nicht mit.
+  t('Die Pausenwoche zaehlt nicht als trainierte Woche', () => {
+    const merk = sessions;
+    sessions = wochenWie(2, 0);                   // trainiert, Pause, trainiert
+    const r = besteWochenSerieJoker();
+    sessions = merk;
+    return eq(r, 2);
+  });
+  // ⚠️ Ohne diese Grenze waere aus dem Erfolg "irgendwann mal acht Wochen trainiert"
+  // geworden, und das misst gar nichts mehr.
+  t('Zwei Wochen am Stueck reissen die Serie doch ab', () => {
+    const merk = sessions;
+    sessions = wochenWie(6, 5, 4, 1, 0);          // zwei Wochen Luecke
+    const r = besteWochenSerieJoker();
+    sessions = merk;
+    return eq(r, 3);
+  });
+  t('Nur EINE Luecke wird verziehen, nicht jede zweite Woche', () => {
+    const merk = sessions;
+    sessions = wochenWie(6, 4, 2, 0);             // jede zweite Woche
+    const r = besteWochenSerieJoker();
+    sessions = merk;
+    return eq(r, 2);
+  });
+  t('Der strenge Vier-Wochen-Erfolg bleibt streng', () => {
+    const d2 = ERFOLGE.find(e => e.id === 'd2');
+    return d2.ist === besteWochenSerie || 'd2 zaehlt nicht mehr streng';
+  });
+  /* 🔴 Nachgetragen am 27.08.2026, weil die Gegenprobe NICHT gebissen hat: d3 wieder auf
+     die strenge Zaehlung zurueckzubauen liess keine einzige Pruefung umfallen. Alle Joker-
+     Pruefungen riefen `besteWochenSerieJoker()` direkt auf, und die Ziel-Pruefung sah nur die
+     Zahl 8. Damit war zwar die Zaehlung geprueft, aber nicht, dass der Erfolg sie benutzt --
+     also genau die Verbindung, um die es Karl ging. */
+  t('Der lange Erfolg benutzt die verzeihende Zaehlung wirklich', () => {
+    const d3 = ERFOLGE.find(e => e.id === 'd3');
+    if (d3.ist !== besteWochenSerieJoker) return 'd3 zaehlt streng statt verzeihend';
+    const merk = sessions;
+    sessions = wochenWie(8, 7, 6, 5, 3, 2, 1, 0);   // acht Wochen, eine Luecke
+    const offen = erfolgOffen(d3);
+    sessions = merk;
+    return offen === false || 'mit einer Krankheitswoche bleibt der Erfolg verschlossen';
+  });
+
+  // ---- Admin: alle Erfolge freischalten ----
+  t('Der Admin-Schalter zeigt alle Erfolge als geschafft', () => {
+    const merkS = sessions, merkD = settings.devAllErfolge;
+    sessions = [];
+    settings.devAllErfolge = true;
+    const alle = erfolgeGeschafft();
+    settings.devAllErfolge = merkD; sessions = merkS;
+    return eq(alle, ERFOLGE.length);
+  });
+  // 🔴 Die wichtigste Pruefung dieses Blocks. Ohne die Sperre haette ein Klick 8.050 XP
+  // ins Profil geschrieben - und zurueckgenommen wird hier nichts.
+  t('Der Admin-Schalter zahlt keine XP aus', () => {
+    const merkS = sessions, merkD = settings.devAllErfolge, merkE = profile.erfolge, merkX = profile.xp;
+    sessions = []; profile.erfolge = {}; settings.devAllErfolge = true;
+    const neu = erfolgeAuszahlen();
+    const delta = profile.xp - merkX;
+    settings.devAllErfolge = merkD; sessions = merkS; profile.erfolge = merkE; profile.xp = merkX;
+    return (neu.length === 0 && delta === 0) || 'neu=' + neu.length + ' delta=' + delta;
+  });
+  // ⚠️ Sonst haengt eine goldene 22 an der Leiste und Karl sucht 22 Erfolge, die er nie
+  // freigeschaltet hat.
+  t('Die goldene Zahl zaehlt nur echte Erfolge, nicht den Admin-Schalter', () => {
+    const merkS = sessions, merkD = settings.devAllErfolge, merkG = profile.erfolgeGesehen;
+    sessions = []; profile.erfolgeGesehen = {};
+    settings.devAllErfolge = false; const ohne = erfolgeNeu().length;
+    settings.devAllErfolge = true;  const mit  = erfolgeNeu().length;
+    settings.devAllErfolge = merkD; sessions = merkS; profile.erfolgeGesehen = merkG;
+    // Nicht "null neu" - was echt verdient ist, darf durchaus neu sein. Der Schalter darf
+    // die Zahl nur nicht aufblaehen.
+    return eq(mit, ohne);
+  });
+
+  // ---- Was ist neu? ----
+  // ⚠️ Beim Umstieg auf v33 darf NICHT alles Verdiente als neu aufleuchten - sonst ist
+  // die goldene Zahl entwertet, bevor sie das erste Mal etwas bedeutet.
+  t('Beim ersten Start gilt Verdientes als gesehen, nicht als neu', () => {
+    const merkS = sessions, merkG = profile.erfolgeGesehen;
+    sessions = [{ id:'a1', date:Date.now(), entries:[], xp:0, pr:0 }];
+    profile.erfolgeGesehen = null;
+    erfolgeGesehenInit();
+    const n = erfolgeNeu().length;
+    profile.erfolgeGesehen = merkG; sessions = merkS;
+    return eq(n, 0);
+  });
+  t('Ein frisch verdienter Erfolg zaehlt als neu', () => {
+    const merkS = sessions, merkG = profile.erfolgeGesehen;
+    sessions = []; profile.erfolgeGesehen = null;
+    erfolgeGesehenInit();                        // noch nichts verdient
+    sessions = [{ id:'a1', date:Date.now(), entries:[], xp:0, pr:0 }];
+    const n = erfolgeNeu().length;
+    profile.erfolgeGesehen = merkG; sessions = merkS;
+    return n >= 1 || 'nichts als neu erkannt';
+  });
+  t('Nach dem Ansehen ist nichts mehr neu', () => {
+    const merkS = sessions, merkG = profile.erfolgeGesehen, merkV = view;
+    sessions = []; profile.erfolgeGesehen = null; erfolgeGesehenInit();
+    sessions = [{ id:'a1', date:Date.now(), entries:[], xp:0, pr:0 }];
+    view = 'erfolge'; renderErfolge();
+    const n = erfolgeNeu().length;
+    view = merkV; profile.erfolgeGesehen = merkG; sessions = merkS;
+    return eq(n, 0);
+  });
+
+  // ---- Das Board oben ----
+  t('Das Board nennt den Gesamtstand, nicht nur eine Fussnote', () => {
+    const merkV = view; view = 'erfolge'; renderErfolge();
+    const txt = document.getElementById('app').textContent;
+    const ring = document.querySelector('.erf-ring');
+    view = merkV;
+    return (!!ring && /% geschafft/.test(txt) && /Aus Erfolgen verdient/.test(txt))
+      || 'ring=' + !!ring + ' txt=' + txt.slice(0, 120);
+  });
+
+  // ================================================ Plan-Link kuerzen (v33)
+  // Karls Meldung: der Link fuellt gefuehlt ein A4-Blatt. Gemessen: 1.005 Zeichen.
+  t('Der Packer ist in diesem Browser da', () => typeof CompressionStream === 'function' || 'kein CompressionStream');
+  await tA('Der kurze Link ist deutlich kuerzer als der alte', async () => {
+    const pr = activeProg();
+    const lang = planCode(pr);
+    const kurz = 'z' + (await packe(JSON.stringify(planNutzlast(pr))));
+    return kurz.length < lang.length * 0.6
+      || 'kurz=' + kurz.length + ' lang=' + lang.length;
+  });
+  // 🔴 Kuerzer nuetzt nichts, wenn beim Empfaenger ein anderer Plan ankommt.
+  await tA('Der kurze Link bringt denselben Plan wieder heraus', async () => {
+    const pr = activeProg();
+    const roh = JSON.stringify(planNutzlast(pr));
+    const zurueck = await entpacke(await packe(roh));
+    return eq(zurueck, roh);
+  });
+  t('Aus dem kurzen Code wird wieder die alte Plan-Form', () => {
+    const pr = activeProg();
+    const p = v3ZuPlan(planNutzlast(pr));
+    const echt = (pr.plans || []).filter(x => (x.exercises || []).some(e => e.name));
+    if (!p) return 'v3ZuPlan hat null geliefert';
+    if (p.p.length !== Math.min(10, echt.length)) return p.p.length + ' Trainings statt ' + echt.length;
+    const erstes = p.p[0], quelle = echt[0];
+    return (erstes.n === quelle.name && erstes.e.length === quelle.exercises.filter(e=>e.name).length)
+      || 'erstes Training weicht ab';
+  });
+  // ⚠️ Ein Link, den Karl gestern verschickt hat, darf morgen nicht unbekannt sein.
+  t('Alte v2-Links werden weiterhin gelesen', () => {
+    const merk = planImport;
+    const alt = planCode(activeProg());
+    location.hash = '#p=' + alt;
+    planImport = null; leseImportAusLink();
+    const ok = !!planImport && Array.isArray(planImport.p) && planImport.p.length > 0;
+    planImport = merk; location.hash = '';
+    return ok || 'v2-Link nicht gelesen';
+  });
+  t('Ohne Vorwaermen bleibt der alte lange Link uebrig', () => {
+    const pr = activeProg();
+    planCodeCache.clear();
+    const c = planCodeKurz(pr);
+    return (c[0] !== 'z' && c === planCode(pr)) || 'unerwarteter Code: ' + c.slice(0, 12);
+  });
+  await tA('Vorgewaermt kommt der kurze Code heraus', async () => {
+    const pr = activeProg();
+    planCodeCache.clear();
+    planCodeVorwaermen(pr);
+    await new Promise(r => setTimeout(r, 60));
+    const c = planCodeKurz(pr);
+    return c[0] === 'z' || 'nicht vorgewaermt: ' + c.slice(0, 12);
+  });
+  /* 🔴 Auch nachgetragen, weil die Gegenprobe nicht gebissen hat: das Vorwaermen im
+     render() abzuschalten liess nichts umfallen -- die Pruefung darueber rief `planCodeVor-
+     waermen` selbst auf. Geprueft war damit der Packer, nicht der Ausloeser. Und ohne
+     Ausloeser bekaeme Karl beim ersten Teilen still wieder den langen Link. */
+  await tA('Das Zeichnen der Plan-Liste waermt den Code vor', async () => {
+    const merkV = view, merkSess = session;
+    // ⚠️ Ohne Anmeldung steigt render() sofort wieder aus (Anmeldeschirm) - dann
+    // waere diese Pruefung gruen, ohne je am Vorwaermen vorbeigekommen zu sein.
+    if(!session) session = { access_token:'test' };
+    planCodeCache.clear();
+    view = 'progs'; render();
+    await new Promise(r => setTimeout(r, 80));
+    const gefuellt = planCodeCache.size;
+    view = merkV; session = merkSess; render();
+    return gefuellt > 0 || 'der Zwischenspeicher blieb leer';
+  });
+
+  // ================================================ Tagesaufgabe "Reingeschaut" (v33)
+  // Karls Meldung: "geht nicht direkt durch, wenn man die App startet." Sie ging durch -
+  // nur eine Zeile zu spaet: gezeichnet wurde zuerst, abgehakt danach.
+  t('Reingeschaut wird abgehakt, bevor die Seite steht', () => {
+    const quelle = document.documentElement.innerHTML;
+    const abhaken = quelle.indexOf("aufgabeErledigen('auf')");
+    const zeichnen = quelle.indexOf('if(startFehler) renderAuthGate(startFehler); else render();');
+    return (abhaken > -1 && zeichnen > -1 && abhaken < zeichnen)
+      || 'abhaken=' + abhaken + ' zeichnen=' + zeichnen;
+  });
+  // 🔴 Die App wird als PWA selten wirklich geschlossen. Ohne das Nachfassen beim
+  // Zurueckkommen bliebe die Aufgabe am naechsten Morgen still offen.
+  t('Beim Zurueckkommen in die App wird nochmal abgehakt', () => {
+    const merkA = profile.aufgaben, merkX = profile.xp;
+    profile.aufgaben = { tag:'2020-01-01', fertig:{ auf:true } };   // gestern abgehakt
+    const gab = aufgabeErledigen('auf');                            // heute ist ein neuer Tag
+    profile.aufgaben = merkA; profile.xp = merkX;
+    return gab === true || 'am neuen Tag nicht erneut abgehakt';
+  });
+
   // Die Groessenordnung: rund 8.000 von 42.240 XP bis Gigachad. Fuer jeden einzelnen muss die
   // Arbeit trotzdem gemacht werden - es ist ein Bonus auf Geleistetes, keine Abkuerzung.
   t('Alle Erfolge zusammen sind keine Abkuerzung nach Gigachad', () => {
