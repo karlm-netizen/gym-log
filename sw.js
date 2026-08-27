@@ -1,7 +1,7 @@
 ﻿// Gym-Log Service Worker â€” Netz zuerst (Updates erreichen den Nutzer sofort),
 // Cache nur als Offline-RÃ¼ckfall. Assets einzeln cachen, damit eine fehlende
 // Datei nicht die ganze Offline-Funktion killt (Lektion aus Dranbleiben).
-const CACHE = 'gymlog-v39';
+const CACHE = 'gymlog-v40';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-180.png',
   './icon-maskable-192.png', './icon-maskable-512.png',
   './brock.png',

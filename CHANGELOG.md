@@ -4,6 +4,41 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-27
 
+### 🔴 v40 — die untere Leiste ist zurückgebaut (mein Fehler)
+
+**Karls Meldung:** *„Hab die App gerade mal auf dem Handy geöffnet — man kann die Leiste unten
+nicht mehr sehen, und immer wenn ich schon ganz oben bin und dann noch weiter hochscrolle,
+geht die Leiste hoch bis zur Mitte des Bildschirms."*
+
+🔴 **Das war meine Korrektur aus v33, und sie war schlimmer als das Problem.** Anlass war ein
+Verrutschen, das Karl **einmal** gesehen und selbst als einmalig beschrieben hatte. Daraus ist
+ein Fehler geworden, der **bei jedem Scrollen** auftritt.
+
+**Warum sie nicht funktionieren konnte:** `visualViewport.offsetTop` wandert beim Überziehen am
+oberen Rand (Gummiband) mit, und `clientHeight` und `visualViewport.height` stehen auf Android
+je nach Zustand der Adressleiste **in beiden Richtungen** auseinander. Die Rechnung hatte weder
+ein verlässliches Vorzeichen noch einen ruhenden Nullpunkt — sie hat das Gummiband
+mitgezeichnet.
+
+➡️ **Ersatzlos raus.** `position:fixed; bottom:0` macht der Browser selbst richtig.
+
+⚠️ **Die Regel daraus ist die eigentliche Lehre:** *gegen ein Verhalten, das man nicht
+nachstellen kann, baut man keine Dauerkorrektur.* Die seltene Ausnahme ist billiger als eine
+Korrektur, die immer läuft. Ich hatte in v33 sogar dazugeschrieben, dass ich es nicht
+nachstellen konnte — und es trotzdem gebaut.
+
+### ↕️ „Alles zurücksetzen" steht jetzt bei den anderen gefährlichen Knöpfen
+
+Karls Ansage: zwischen **Abmelden** und **Konto löschen**. Sachlich gehört er auch dorthin — die
+drei sind eine Leiter: abmelden (nichts weg), zurücksetzen (Daten weg, Konto bleibt), Konto
+löschen (alles weg). Vorher stand er in der Ansicht-Karte zwischen Design und Pausen-Timer,
+also zwischen lauter Harmlosem.
+
+**Prüfungen: 567 → 570.** Die neue Leisten-Prüfung sah zuerst im Quelltext der Seite nach und
+fand dort **ihren eigenen Text** wieder (die Prüfungen stehen mit im Dokument) — sie war rot,
+obwohl nichts kaputt war. Jetzt prüft sie das Verhalten: die Leiste darf sich auch dann nicht
+bewegen, wenn der sichtbare Bildschirm sich meldet.
+
 ### 🚚 v39 — die Volumen-Leiter stimmt jetzt auch physikalisch
 
 **Karl:** *„Eine Tonne eine Mauer? Finde ich doof irgendwie."* und *„Zehn Tonnen ein Auto?

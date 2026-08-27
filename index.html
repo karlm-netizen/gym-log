@@ -3830,9 +3830,6 @@ function renderSettings(){
       </div>
       <div class="field" style="margin:0 0 16px"><label>Pausen-Timer (Sekunden)</label>
         <input id="restInput" type="number" inputmode="numeric" value="${settings.rest}" min="10" step="5"></div>
-      <label class="tiny muted" style="display:block;margin:16px 0 6px">Zurücksetzen</label>
-      <button class="btn danger" data-act="resetall">Alles zurücksetzen</button>
-      <div class="tiny muted" style="margin-top:6px">Löscht alle Trainings, Einheiten und den Fortschritt.</div>
     </div>`;
   // Schritte aus der Health-App. ⚠️ Gym-Log kann Health nicht selbst lesen (HealthKit ist
   // nativen Apps vorbehalten) — der Weg laeuft ueber die Kurzbefehle-App. Die Anleitung steht
@@ -3912,6 +3909,13 @@ function renderSettings(){
       </div>
       <button class="btn" data-act="logout" style="color:var(--danger)">Abmelden</button>
       <div style="margin-bottom:16px"></div>
+      <!-- Karls Ansage vom 27.08.2026: "den Alles-zuruecksetzen-Knopf brauchen wir zwischen
+           Abmelden und Konto loeschen." Sachlich gehoert er auch hierher: die drei Knoepfe
+           sind eine Leiter -- abmelden (nichts weg), zuruecksetzen (Daten weg, Konto bleibt),
+           Konto loeschen (alles weg). In der Ansicht-Karte stand er zwischen Design und
+           Pausen-Timer, also zwischen lauter Harmlosem. -->
+      <button class="btn danger" data-act="resetall">Alles zurücksetzen</button>
+      <div class="tiny muted" style="margin:6px 0 16px">Löscht alle Trainings, Einheiten und den Fortschritt.</div>
       <button class="btn danger" data-act="delaccount">Konto löschen</button>
       <div class="tiny muted" style="margin-top:6px">Löscht dein Konto und <b>alle</b> Daten dauerhaft.
         Das lässt sich nicht rückgängig machen.</div>
@@ -5468,37 +5472,25 @@ window.addEventListener('pagehide',flushSync);
   });
 })();
 
-/* ---------- Die untere Leiste bleibt unten (27.08.2026) ----------
-   Karls Meldung: "bin gerade in die App gegangen und die Leiste ganz unten war auf einmal in
-   der Mitte und ging auch nicht mehr runter. Beim Runterscrollen war das so, beim Hochscrollen
-   ging sie wieder an ihren Platz. Kein dauerhaftes Problem, ich sehe das gerade zum ersten Mal."
+/* ---------- Zurueckgebaut: die Leiste wird NICHT mehr angefasst (27.08.2026) ----------
+   🔴 Hier stand ein paar Stunden lang eine Korrektur, die die untere Leiste an den
+   sichtbaren Bildschirm heften sollte. Karls Meldung danach: **"man kann die Leiste unten
+   nicht mehr sehen, und immer wenn ich schon ganz oben bin und weiter hochscrolle, geht sie
+   hoch bis zur Mitte des Bildschirms."**
 
-   ⚠️ **Nachgestellt habe ich es nicht** -- es haengt am Browser, nicht an dieser App. Was
-   dahintersteckt, ist aber bekannt: ein Handy hat ZWEI Bildschirmgroessen. Die eine (Layout)
-   rechnet die Seite, die andere (sichtbar) ist das, was gerade zu sehen ist -- sie schrumpft
-   mit der Tastatur und waechst, wenn die Adressleiste des Browsers wegrutscht. `bottom:0`
-   meint immer die erste. Laufen die beiden auseinander -- typischerweise kurz nachdem eine
-   Tastatur zugegangen ist --, landet "ganz unten" mitten im Bild. Genau das hat Karl gesehen.
+   ⚠️ **Das war schlimmer als das Problem, das sie loesen sollte.** Der Anlass war ein
+   Verrutschen, das Karl **einmal** gesehen hatte. Der Rueckbau eines Browser-Verhaltens von
+   Hand hat daraus einen Fehler gemacht, der **bei jedem Scrollen** auftritt.
 
-   ➡️ Diese Schleife misst den Unterschied und schiebt die Leiste um genau den Betrag
-   zurueck. 🔴 **Nur wenn er groesser als 4 px ist.** Im Normalfall passiert damit gar
-   nichts, und der Browser macht seine Arbeit weiter selbst -- eine Dauerkorrektur waere ein
-   neues Zittern gegen ein seltenes Verrutschen eingetauscht.
-   ⚠️ Auf dem PC ist die Leiste eine Seitenleiste ueber die volle Hoehe. Dort waere jedes
-   Verschieben falsch, deshalb die Breitenpruefung. */
-(function(){
-  const vv = window.visualViewport; if(!vv) return;
-  const nav = document.getElementById('nav'); if(!nav) return;
-  function leisteAusrichten(){
-    if(window.innerWidth >= 900){ nav.style.transform=''; return; }
-    const abstand = document.documentElement.clientHeight - (vv.height + vv.offsetTop);
-    nav.style.transform = Math.abs(abstand) > 4 ? 'translateY(' + (-Math.round(abstand)) + 'px)' : '';
-  }
-  vv.addEventListener('resize', leisteAusrichten);
-  vv.addEventListener('scroll', leisteAusrichten);
-  window.addEventListener('orientationchange', ()=>setTimeout(leisteAusrichten, 250));
-  leisteAusrichten();
-})();
+   **Warum sie nicht funktionieren konnte:** `visualViewport.offsetTop` wandert beim
+   Ueberziehen am oberen Rand (Gummiband) mit, und `clientHeight` und `visualViewport.height`
+   stehen auf Android je nach Zustand der Adressleiste in beiden Richtungen auseinander. Die
+   Rechnung hatte also weder ein verlaessliches Vorzeichen noch einen ruhenden Nullpunkt --
+   sie hat das Gummiband einfach mitgezeichnet.
+
+   ➡️ **Regel daraus:** gegen ein Verhalten, das man nicht nachstellen kann, baut man
+   keine Dauerkorrektur. `position:fixed; bottom:0` macht der Browser selbst richtig, und die
+   seltene Ausnahme ist billiger als eine Korrektur, die immer laeuft.                      */
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>

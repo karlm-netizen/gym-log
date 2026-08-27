@@ -2101,6 +2101,50 @@ window.addEventListener('error', e => {
     return gefuellt > 0 || 'der Zwischenspeicher blieb leer';
   });
 
+  // ================================================ Leiste + Konto-Karte (v40)
+  /* 🔴 Am 27.08.2026 stand hier ein paar Stunden eine Korrektur, die die untere Leiste
+     an den sichtbaren Bildschirm heften sollte. Karls Meldung danach: die Leiste war gar nicht
+     mehr zu sehen und wanderte beim Ueberziehen bis zur Bildschirmmitte. Zurueckgebaut.
+     Diese Pruefung haelt fest, dass niemand die Leiste mehr von Hand verschiebt -- der
+     Browser macht `position:fixed; bottom:0` selbst richtig. */
+  /* ⚠️ Diese Pruefung sah zuerst im Quelltext der Seite nach - und fand dort ihren
+     EIGENEN Text wieder, weil die Pruefungen mit im Dokument stehen. Sie war rot, obwohl
+     nichts kaputt war. Jetzt wird das VERHALTEN geprueft: die Leiste darf sich auch dann
+     nicht bewegen, wenn der sichtbare Bildschirm sich meldet. */
+  t('Die untere Leiste wird nicht von Hand verschoben', () => {
+    const nav = document.getElementById('nav');
+    if (/transform/.test(nav.getAttribute('style') || ''))
+      return 'die Leiste traegt ein transform: ' + nav.getAttribute('style');
+    if (window.visualViewport) {
+      window.visualViewport.dispatchEvent(new Event('resize'));
+      window.visualViewport.dispatchEvent(new Event('scroll'));
+    }
+    window.dispatchEvent(new Event('orientationchange'));
+    const t2 = getComputedStyle(nav).transform;
+    return (t2 === 'none' || t2 === '') || 'nach einem Viewport-Ereignis steht dort: ' + t2;
+  });
+  t('Die Leiste klebt unten, nicht am Inhalt', () => {
+    const st = getComputedStyle(document.getElementById('nav'));
+    return (st.position === 'fixed' && st.bottom === '0px')
+      || 'position=' + st.position + ' bottom=' + st.bottom;
+  });
+  /* Karls Ansage: der Zuruecksetzen-Knopf gehoert zwischen Abmelden und Konto loeschen.
+     ⚠️ Sachlich sind die drei eine Leiter: abmelden (nichts weg), zuruecksetzen (Daten
+     weg, Konto bleibt), Konto loeschen (alles weg). */
+  t('Zuruecksetzen steht zwischen Abmelden und Konto loeschen', () => {
+    const mV = view, mS = session, mA = devAdmin;
+    if(!session) session = { access_token:'t', user:{email:'a@b.de'}, username:'k' };
+    devAdmin = false;
+    view = 'settings'; renderSettings();
+    const q = document.getElementById('app').innerHTML;
+    const ab = q.indexOf('data-act="logout"');
+    const re = q.indexOf('data-act="resetall"');
+    const de = q.indexOf('data-act="delaccount"');
+    view = mV; session = mS; devAdmin = mA;
+    if (ab < 0 || re < 0 || de < 0) return 'ein Knopf fehlt: ab=' + ab + ' re=' + re + ' de=' + de;
+    return (ab < re && re < de) || 'Reihenfolge: abmelden=' + ab + ' reset=' + re + ' loeschen=' + de;
+  });
+
   // ================================================ Karls Textliste (v38)
   /* Karl hat am 27.08.2026 zehn Erklaertexte gestrichen und vier gekuerzt. Geprueft wird
      nicht, dass Text FEHLT -- das waere eine Pruefung, die jede spaetere Verbesserung
