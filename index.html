@@ -1388,8 +1388,17 @@ const ERFOLG_SVG = {
   haken:    `<path class="ma" d="M8 13l3.5 3.5L18 10"/><path class="ma" d="M8 26l3.5 3.5L18 23"/><path class="ma" d="M8 39l3.5 3.5L18 36"/><path d="M25 14h15M25 27h15M25 40h15"/>`,
   hantel:   `<path d="M6 18v12M12 14v20M36 14v20M42 18v12"/><path class="ma" d="M12 24h24"/>`,
   krone:    `<path d="M9 38h30"/><path d="M9 38L6 14l10 8 8-12 8 12 10-8-3 24z"/><path class="ma" d="M17 31h14"/>`,
-  stein:    `<path d="M9 18h30v12H9z"/><path d="M9 30h30v12H9z"/><path d="M24 18v12M16 30v12M32 30v12"/>`,
-  auto:     `<path d="M7 32v-6l5-9h24l5 9v6"/><path d="M7 32h34"/><path d="M12 17h24"/><circle cx="15" cy="34" r="4"/><circle cx="33" cy="34" r="4"/><path class="ma" d="M14 26h20"/>`,
+  /* 🔴 Karl am 27.08.2026 zu den beiden ersten Volumen-Stufen: "eine Tonne eine Mauer?
+     finde ich doof" und "zehn Tonnen ein Auto? erstens kann man das schwer erkennen, zweitens
+     wiegt kein Auto zehn Tonnen."
+     Der zweite Einwand ist sachlich richtig und loest den ersten gleich mit: **ein Kleinwagen
+     wiegt ungefaehr eine Tonne.** Das Auto ist also nicht falsch, es stand nur eine Stufe zu
+     hoch. Es rutscht auf 1 t (neu gezeichnet, deutlichere Dachlinie), und auf 10 t kommt ein
+     Lkw -- ein Sattelzug leer, ein Bus, ein Muellwagen liegen alle in dieser Groessenordnung.
+     Die Mauer ist damit weg. ⚠️ Bei 24 px muessen sich die beiden unterscheiden lassen:
+     flach und rund gegen hoch und eckig. Beide vorher nebeneinander angesehen. */
+  auto:     `<path d="M5 31v-4c0-1 .8-2 2-2h4l6-8h13l6 8h4c1.2 0 2 1 2 2v4"/><path d="M5 31h37"/><path class="ma" d="M18 25h12"/><circle cx="14" cy="33" r="4"/><circle cx="34" cy="33" r="4"/>`,
+  lkw:      `<path d="M4 33V13h22v20"/><path d="M26 33V20h8l6 6v7"/><path d="M4 33h38"/><path class="ma" d="M28 22h5l3 3h-8z"/><circle cx="12" cy="35" r="3.5"/><circle cx="34" cy="35" r="3.5"/>`,
   wal:      `<path d="M6 27c3-6 11-10 19-8 7 2 11 6 12 11 0 5-4 8-10 8H17c-7 0-11-5-11-11z"/><path d="M37 30l7-6v16l-7-6"/><path d="M14 32c4 3 10 3 14 0"/><path class="ma" d="M14 15v-5M10 12L8 7M18 12l2-5"/><circle cx="13" cy="24" r="1.6"/>`,
   vulkan:   `<path d="M5 42L18 16h12l13 26z"/><path d="M18 16h12"/><path class="ma" d="M24 14V4M18 13L14 6M30 13l4-7"/>`,
   stern1:   `<path d="M24 6l5.5 11.2L42 19l-9 8.8L35.2 40 24 34.2 12.8 40 15 27.8 6 19l12.5-1.8z"/>`,
@@ -1417,8 +1426,8 @@ const ERFOLGE = [
   { id:'e3',  gr:'Training', svg:'hantel', xp:750,  name:'Fünfzig',         text:'50 Einheiten abgeschlossen',             ziel:50,     ist:()=>sessions.length },
   { id:'e4',  gr:'Training', svg:'krone', xp:1500, name:'Hundert',         text:'100 Einheiten abgeschlossen',            ziel:100,    ist:()=>sessions.length },
 
-  { id:'v1',  gr:'Volumen', svg:'stein', xp:100,  name:'Eine Tonne',      text:'1.000 kg insgesamt bewegt',              ziel:1000,   ist:gesamtVolumen },
-  { id:'v2',  gr:'Volumen', svg:'auto', xp:250,  name:'Zehn Tonnen',     text:'10.000 kg insgesamt bewegt',             ziel:10000,  ist:gesamtVolumen },
+  { id:'v1',  gr:'Volumen', svg:'auto', xp:100,  name:'Eine Tonne',      text:'1.000 kg insgesamt bewegt',              ziel:1000,   ist:gesamtVolumen },
+  { id:'v2',  gr:'Volumen', svg:'lkw', xp:250,  name:'Zehn Tonnen',     text:'10.000 kg insgesamt bewegt',             ziel:10000,  ist:gesamtVolumen },
   { id:'v3',  gr:'Volumen', svg:'wal', xp:750,  name:'Hundert Tonnen',  text:'100.000 kg insgesamt bewegt',            ziel:100000, ist:gesamtVolumen },
   { id:'v4',  gr:'Volumen', svg:'vulkan', xp:1500, name:'Viertelmillion',  text:'250.000 kg insgesamt bewegt',            ziel:250000, ist:gesamtVolumen },
 

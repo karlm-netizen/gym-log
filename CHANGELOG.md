@@ -4,6 +4,37 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-27
 
+### 🚚 v39 — die Volumen-Leiter stimmt jetzt auch physikalisch
+
+**Karl:** *„Eine Tonne eine Mauer? Finde ich doof irgendwie."* und *„Zehn Tonnen ein Auto?
+Erstens kann man das schwer erkennen, zweitens wiegt kein Auto zehn Tonnen."*
+
+🔴 **Der zweite Einwand ist sachlich richtig — und er löst den ersten gleich mit.** Ein
+Kleinwagen wiegt **ungefähr eine Tonne**. Das Auto war also nicht falsch, es stand nur **eine
+Stufe zu hoch**. Damit wird die Mauer nicht ersetzt, sondern überflüssig.
+
+| | vorher | jetzt |
+|---|---|---|
+| 1 t | 🧱 Mauer | 🚗 **Kleinwagen** — wiegt ungefähr eine Tonne |
+| 10 t | 🚗 Auto | 🚚 **Lkw** — Sattelzug leer, Bus, Müllwagen liegen alle da |
+| 100 t | 🐋 Wal | 🐋 Wal *(Blauwal ~150 t)* |
+| 250 t | 🌋 Vulkan | 🌋 Vulkan |
+
+Das Auto ist dabei **neu gezeichnet** — deutlichere Dachlinie und größere Räder, denn Karls
+erster Einwand war *„kann man schwer erkennen"*, und der galt der Zeichnung, nicht der Stufe.
+
+⚠️ **Beide mussten sich bei 24 px unterscheiden lassen** — das ist die echte Größe in der
+Liste. Flach und rund gegen hoch und eckig; fünf Entwürfe nebeneinander angesehen, bevor einer
+eingebaut wurde.
+
+💡 **Was dabei auffällt, aber nicht angefasst ist:** der Vulkan auf 250 t ist jetzt der einzige
+in der Reihe, der **kein Gewicht** ist, das man sich vorstellen kann. Ein Großraumflugzeug wäre
+mit rund 280 t leer der passende Nachbar zum Wal. **Karls Entscheidung, nicht meine** — er hat
+nach zwei Symbolen gefragt, nicht nach vieren.
+
+**Prüfungen: 567** (unverändert — die bestehenden decken den Tausch ab: jeder Erfolg hat ein
+Symbol, das es gibt, und keines wird zweimal vergeben).
+
 ### ✂️ v38 — Karls Textliste: zehn Erklärungen raus, vier kürzer
 
 Karl hat eine Liste geschickt. Umgesetzt wie angegeben.
