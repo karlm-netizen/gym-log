@@ -279,6 +279,22 @@ setTimeout(function(){
   /* Wer Bewegung abgestellt hat, bekommt keine — das Gold traegt die Botschaft auch allein. */
   @media (prefers-reduced-motion: reduce){ nav button.hat-neu svg{animation:none} }
 
+  /* ---- Erfolgs-Symbole (27.08.2026) ----
+     Derselbe Strich wie bei den Uebungsbildern. Drei Zustaende, und sie sind BEWUSST nicht
+     nur ueber die Deckkraft getrennt: ein blasses Symbol und ein graues sehen bei Sonnenlicht
+     auf dem Handy gleich aus. Offen bekommt deshalb die Muted-Farbe, frisch das Gold. */
+  .erf-ico{fill:none; stroke:var(--txt); stroke-width:3; stroke-linecap:round;
+    stroke-linejoin:round; flex:0 0 auto}
+  .erf-ico .ma{stroke:var(--accent); stroke-width:4}
+  .erf-zu{stroke:var(--muted); opacity:.45}
+  .erf-zu .ma{stroke:var(--muted); stroke-width:3}
+  .erf-gold{stroke:var(--gold-txt)}
+  .erf-gold .ma{stroke:var(--gold)}
+  /* Frisch freigeschaltet wackelt kurz — dieselbe Bewegung wie der Pokal an der Leiste,
+     damit die goldene Zahl und das, was sie meint, erkennbar zusammengehoeren. */
+  .erf-frisch .erf-ico{animation:pokal 2.2s ease-in-out infinite; transform-origin:50% 60%}
+  @media (prefers-reduced-motion: reduce){ .erf-frisch .erf-ico{animation:none} }
+
   /* ---- Das Board oben auf der Erfolgs-Seite (27.08.2026) ---- */
   .erf-ring{width:78px; height:78px; flex:0 0 78px; border-radius:50%;
     background:conic-gradient(var(--accent) calc(var(--anteil,0)*1%), var(--card2) 0);
@@ -1351,31 +1367,75 @@ function besteWochenSerieJoker(erlaubt){
   });
   return best;
 }
+/* ---------- Erfolgs-Symbole (27.08.2026) ----------
+   Karls Ansage: "bei den Achievements SVG-Dateien benutzen."
+
+   Gezeichnet im selben Stil wie die Uebungsbilder: 48x48, Strich statt Flaeche, `.ma` fuer
+   den dicken Akzentstrich. Damit sehen Erfolge und Uebungen nach derselben App aus -- Emojis
+   sahen daneben aus wie hineinkopiert, und sie sehen auf jedem Geraet anders aus: das
+   Bergsteiger-Emoji ist auf Android ein anderer Mensch als auf dem iPhone, und ein paar
+   Systeme zeigen fuer 🗿 gar nichts.
+
+   ⚠️ **Sie stehen HIER im Quelltext und nicht als 19 eigene Dateien.** Die App ist eine
+   einzige Datei, damit sie offline laeuft; 19 Nachladungen waeren 19 Wege, an denen genau
+   das scheitern kann. "SVG" ist die Zeichenart, nicht der Dateiname.
+   ⚠️ Jedes Symbol ist einmal in 60 px und einmal in 24 px angesehen worden, bevor es hier
+   gelandet ist -- 24 px ist die echte Groesse in der Liste. Drei Entwuerfe sind dabei
+   durchgefallen (ein Bizeps, der wie ein Rohr aussah; ein Moai, der wie eine Tuer aussah;
+   ein Wal ohne Fontaene).                                                                */
+const ERFOLG_SVG = {
+  flagge:   `<path d="M13 43V6"/><path d="M13 8h22l-5 7 5 7H13"/><path d="M13 15h22"/><path d="M24 8v14"/>`,
+  haken:    `<path class="ma" d="M8 13l3.5 3.5L18 10"/><path class="ma" d="M8 26l3.5 3.5L18 23"/><path class="ma" d="M8 39l3.5 3.5L18 36"/><path d="M25 14h15M25 27h15M25 40h15"/>`,
+  hantel:   `<path d="M6 18v12M12 14v20M36 14v20M42 18v12"/><path class="ma" d="M12 24h24"/>`,
+  krone:    `<path d="M9 38h30"/><path d="M9 38L6 14l10 8 8-12 8 12 10-8-3 24z"/><path class="ma" d="M17 31h14"/>`,
+  stein:    `<path d="M9 18h30v12H9z"/><path d="M9 30h30v12H9z"/><path d="M24 18v12M16 30v12M32 30v12"/>`,
+  auto:     `<path d="M7 32v-6l5-9h24l5 9v6"/><path d="M7 32h34"/><path d="M12 17h24"/><circle cx="15" cy="34" r="4"/><circle cx="33" cy="34" r="4"/><path class="ma" d="M14 26h20"/>`,
+  wal:      `<path d="M6 27c3-6 11-10 19-8 7 2 11 6 12 11 0 5-4 8-10 8H17c-7 0-11-5-11-11z"/><path d="M37 30l7-6v16l-7-6"/><path d="M14 32c4 3 10 3 14 0"/><path class="ma" d="M14 15v-5M10 12L8 7M18 12l2-5"/><circle cx="13" cy="24" r="1.6"/>`,
+  vulkan:   `<path d="M5 42L18 16h12l13 26z"/><path d="M18 16h12"/><path class="ma" d="M24 14V4M18 13L14 6M30 13l4-7"/>`,
+  stern1:   `<path d="M24 6l5.5 11.2L42 19l-9 8.8L35.2 40 24 34.2 12.8 40 15 27.8 6 19l12.5-1.8z"/>`,
+  stern2:   `<path d="M20 8l4.5 9.2L35 18.6l-7.5 7.3L29.2 36 20 31.2 10.8 36 12.6 25.9 5 18.6l10.5-1.4z"/><path class="ma" d="M37 30l1.8 3.7 4.2.6-3 2.9.7 4.1-3.7-2-3.7 2 .7-4.1-3-2.9 4.2-.6z"/>`,
+  funkeln:  `<path class="ma" d="M16 6l2.6 6.4L25 15l-6.4 2.6L16 24l-2.6-6.4L7 15l6.4-2.6z"/><path d="M34 20l2 4.8 4.8 2-4.8 2-2 4.8-2-4.8-4.8-2 4.8-2z"/><path d="M21 32l1.6 3.8 3.8 1.6-3.8 1.6L21 43l-1.6-3.8-3.8-1.6 3.8-1.6z"/>`,
+  kalender: `<path d="M8 12h32v30H8z"/><path d="M8 21h32"/><path d="M17 7v9M31 7v9"/><path class="ma" d="M15 30l4 4 9-9"/>`,
+  flamme:   `<path d="M24 44c-8 0-13-5-13-12 0-8 7-11 7-19 0 0 8 3 8 10 2-2 3-5 3-8 5 4 8 10 8 17 0 7-5 12-13 12z"/><path class="ma" d="M24 44c-4 0-6-3-6-6s3-5 3-9c0 0 5 2 5 6 1-1 1-2 1-4 3 2 3 5 3 7 0 4-2 6-6 6z"/>`,
+  berg:     `<path d="M4 40L18 14l8 13 5-7 13 20z"/><path d="M13 26l5 3 4-3"/><path class="ma" d="M31 20v-9M31 11h8l-2.5 3L39 17h-8"/>`,
+  medaille1: `<path d="M17 5l5 13M31 5l-5 13"/><circle cx="24" cy="31" r="12"/><path class="ma" d="M22 26h2v11"/>`,
+  medaille2: `<path d="M17 5l5 13M31 5l-5 13"/><circle cx="24" cy="31" r="12"/><path class="ma" d="M20 27a3.5 3.5 0 0 1 7 0c0 4-7 4-7 9h7"/>`,
+  medaille3: `<path d="M17 5l5 13M31 5l-5 13"/><circle cx="24" cy="31" r="12"/><path class="ma" d="M24 22.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>`,
+  waage:    `<path d="M24 8v6"/><path d="M9 14h30"/><path d="M9 14L4 28h10z"/><path d="M39 14l5 14H34z"/><path class="ma" d="M24 14v24"/><path d="M16 42h16"/>`,
+  kurve:    `<path d="M8 6v36h36"/><path class="ma" d="M13 34l8-9 7 5 13-15"/><path d="M41 15h-7M41 15v7"/>`,
+};
+/* Ein Symbol in der passenden Stimmung: offen = grau, geschafft = normal, frisch = golden. */
+function erfolgSvg(e, zustand, size){
+  const d = ERFOLG_SVG[e.svg] || ERFOLG_SVG.stern1;
+  const kl = 'erf-ico' + (zustand==='frisch' ? ' erf-gold' : zustand==='zu' ? ' erf-zu' : '');
+  return `<svg class="${kl}" viewBox="0 0 48 48" width="${size||26}" height="${size||26}" aria-hidden="true">${d}</svg>`;
+}
+
 const ERFOLGE = [
-  { id:'e1',  gr:'Training',    em:'🏁', xp:100,  name:'Angefangen',      text:'Die erste Einheit abgeschlossen',        ziel:1,      ist:()=>sessions.length },
-  { id:'e2',  gr:'Training',    em:'🔟', xp:250,  name:'Zehnkampf',       text:'10 Einheiten abgeschlossen',             ziel:10,     ist:()=>sessions.length },
-  { id:'e3',  gr:'Training',    em:'💪', xp:750,  name:'Fünfzig',         text:'50 Einheiten abgeschlossen',             ziel:50,     ist:()=>sessions.length },
-  { id:'e4',  gr:'Training',    em:'🗿', xp:1500, name:'Hundert',         text:'100 Einheiten abgeschlossen',            ziel:100,    ist:()=>sessions.length },
+  { id:'e1',  gr:'Training', svg:'flagge', xp:100,  name:'Angefangen',      text:'Die erste Einheit abgeschlossen',        ziel:1,      ist:()=>sessions.length },
+  { id:'e2',  gr:'Training', svg:'haken', xp:250,  name:'Zehnkampf',       text:'10 Einheiten abgeschlossen',             ziel:10,     ist:()=>sessions.length },
+  { id:'e3',  gr:'Training', svg:'hantel', xp:750,  name:'Fünfzig',         text:'50 Einheiten abgeschlossen',             ziel:50,     ist:()=>sessions.length },
+  { id:'e4',  gr:'Training', svg:'krone', xp:1500, name:'Hundert',         text:'100 Einheiten abgeschlossen',            ziel:100,    ist:()=>sessions.length },
 
-  { id:'v1',  gr:'Volumen',     em:'🧱', xp:100,  name:'Eine Tonne',      text:'1.000 kg insgesamt bewegt',              ziel:1000,   ist:gesamtVolumen },
-  { id:'v2',  gr:'Volumen',     em:'🚗', xp:250,  name:'Zehn Tonnen',     text:'10.000 kg insgesamt bewegt',             ziel:10000,  ist:gesamtVolumen },
-  { id:'v3',  gr:'Volumen',     em:'🐋', xp:750,  name:'Hundert Tonnen',  text:'100.000 kg insgesamt bewegt',            ziel:100000, ist:gesamtVolumen },
-  { id:'v4',  gr:'Volumen',     em:'🌋', xp:1500, name:'Viertelmillion',  text:'250.000 kg insgesamt bewegt',            ziel:250000, ist:gesamtVolumen },
+  { id:'v1',  gr:'Volumen', svg:'stein', xp:100,  name:'Eine Tonne',      text:'1.000 kg insgesamt bewegt',              ziel:1000,   ist:gesamtVolumen },
+  { id:'v2',  gr:'Volumen', svg:'auto', xp:250,  name:'Zehn Tonnen',     text:'10.000 kg insgesamt bewegt',             ziel:10000,  ist:gesamtVolumen },
+  { id:'v3',  gr:'Volumen', svg:'wal', xp:750,  name:'Hundert Tonnen',  text:'100.000 kg insgesamt bewegt',            ziel:100000, ist:gesamtVolumen },
+  { id:'v4',  gr:'Volumen', svg:'vulkan', xp:1500, name:'Viertelmillion',  text:'250.000 kg insgesamt bewegt',            ziel:250000, ist:gesamtVolumen },
 
-  { id:'r1',  gr:'Rekorde',     em:'⭐', xp:100,  name:'Erster Rekord',   text:'Einen eigenen Rekord gebrochen',         ziel:1,      ist:gesamtRekorde },
-  { id:'r2',  gr:'Rekorde',     em:'🌟', xp:250,  name:'Zehn Rekorde',    text:'10 eigene Rekorde gebrochen',            ziel:10,     ist:gesamtRekorde },
-  { id:'r3',  gr:'Rekorde',     em:'✨', xp:750,  name:'Fünfzig Rekorde', text:'50 eigene Rekorde gebrochen',            ziel:50,     ist:gesamtRekorde },
+  { id:'r1',  gr:'Rekorde', svg:'stern1', xp:100,  name:'Erster Rekord',   text:'Einen eigenen Rekord gebrochen',         ziel:1,      ist:gesamtRekorde },
+  { id:'r2',  gr:'Rekorde', svg:'stern2', xp:250,  name:'Zehn Rekorde',    text:'10 eigene Rekorde gebrochen',            ziel:10,     ist:gesamtRekorde },
+  { id:'r3',  gr:'Rekorde', svg:'funkeln', xp:750,  name:'Fünfzig Rekorde', text:'50 eigene Rekorde gebrochen',            ziel:50,     ist:gesamtRekorde },
 
-  { id:'d1',  gr:'Dranbleiben', em:'📅', xp:150,  name:'Volle Woche',     text:'3 Einheiten in einer Woche',             ziel:3,      ist:besteWoche },
-  { id:'d2',  gr:'Dranbleiben', em:'🔥', xp:400,  name:'Vier am Stück',   text:'4 Wochen hintereinander trainiert',      ziel:4,      ist:besteWochenSerie },
-  { id:'d3',  gr:'Dranbleiben', em:'🧗', xp:1000, name:'Acht Wochen',     text:'8 Wochen am Stück — eine Woche darf ausfallen', ziel:8,  ist:besteWochenSerieJoker },
+  { id:'d1',  gr:'Dranbleiben', svg:'kalender', xp:150,  name:'Volle Woche',     text:'3 Einheiten in einer Woche',             ziel:3,      ist:besteWoche },
+  { id:'d2',  gr:'Dranbleiben', svg:'flamme', xp:400,  name:'Vier am Stück',   text:'4 Wochen hintereinander trainiert',      ziel:4,      ist:besteWochenSerie },
+  { id:'d3',  gr:'Dranbleiben', svg:'berg', xp:1000, name:'Acht Wochen',     text:'8 Wochen am Stück — eine Woche darf ausfallen', ziel:8,  ist:besteWochenSerieJoker },
 
-  { id:'l1',  gr:'Rang',        em:'🥉', xp:0,    name:'Level 10',        text:'Level 10 erreicht',                      ziel:10,     ist:()=>levelFromXP(profile.xp).level },
-  { id:'l2',  gr:'Rang',        em:'🥈', xp:0,    name:'Level 25',        text:'Level 25 erreicht',                      ziel:25,     ist:()=>levelFromXP(profile.xp).level },
-  { id:'l3',  gr:'Rang',        em:'🥇', xp:0,    name:'Gigachad',        text:'Level 45 — der höchste Rang',            ziel:45,     ist:()=>levelFromXP(profile.xp).level },
+  { id:'l1',  gr:'Rang', svg:'medaille1', xp:0,    name:'Level 10',        text:'Level 10 erreicht',                      ziel:10,     ist:()=>levelFromXP(profile.xp).level },
+  { id:'l2',  gr:'Rang', svg:'medaille2', xp:0,    name:'Level 25',        text:'Level 25 erreicht',                      ziel:25,     ist:()=>levelFromXP(profile.xp).level },
+  { id:'l3',  gr:'Rang', svg:'medaille3', xp:0,    name:'Gigachad',        text:'Level 45 — der höchste Rang',            ziel:45,     ist:()=>levelFromXP(profile.xp).level },
 
-  { id:'k1',  gr:'Körper',      em:'⚖️', xp:50,   name:'Auf die Waage',   text:'Zum ersten Mal das Gewicht eingetragen', ziel:1,      ist:()=>(profile.weights||[]).length },
-  { id:'k2',  gr:'Körper',      em:'📈', xp:150,  name:'Dreißig Wiegen',  text:'30-mal das Gewicht eingetragen',         ziel:30,     ist:()=>(profile.weights||[]).length },
+  { id:'k1',  gr:'Körper', svg:'waage', xp:50,   name:'Auf die Waage',   text:'Zum ersten Mal das Gewicht eingetragen', ziel:1,      ist:()=>(profile.weights||[]).length },
+  { id:'k2',  gr:'Körper', svg:'kurve', xp:150,  name:'Dreißig Wiegen',  text:'30-mal das Gewicht eingetragen',         ziel:30,     ist:()=>(profile.weights||[]).length },
 ];
 /* ---------- Admin: alle Erfolge freischalten (27.08.2026, Karls Wunsch) ----------
    Gleiche Linie wie `devUnlockAll` bei den Designs: zum Ansehen, nicht zum Erspielen.
@@ -3668,7 +3728,7 @@ function renderErfolge(){
         <div class="erf-ring-in"><b>${geschafft}</b><span class="tiny muted">von ${ERFOLGE.length}</span></div></div>
       <div style="flex:1;min-width:0">
         <b style="font-size:17px">${anteilGes} % geschafft</b>
-        <div class="tiny muted" style="margin-top:4px">${gruppenFertig} von ${gruppenGes} Gruppen vollstaendig</div>
+        <div class="tiny muted" style="margin-top:4px">${gruppenFertig} von ${gruppenGes} Gruppen vollständig</div>
         <div class="bar" style="margin-top:10px;height:8px;background:var(--card2);border-radius:99px;overflow:hidden">
           <i style="display:block;height:100%;width:${anteilGes}%;background:var(--accent)"></i></div>
       </div></div>
@@ -3716,7 +3776,7 @@ function renderErfolge(){
       h += `<div class="${neuHier?'erf-frisch':''}" style="${i?'border-top:1px solid var(--line);margin-top:12px;padding-top:12px':''}">
         <div class="row between" style="align-items:center;gap:10px">
           <div class="row" style="gap:10px;min-width:0;align-items:center">
-            <span style="font-size:22px;filter:${fertig?'none':'grayscale(1)'};opacity:${fertig?1:.4}">${e.em}</span>
+            ${erfolgSvg(e, neuHier ? 'frisch' : fertig ? 'auf' : 'zu', 26)}
             <div style="min-width:0">
               <b style="${fertig?'':'color:var(--muted)'}">${esc(e.name)}</b>
               <div class="tiny muted">${esc(e.text)}</div></div></div>
@@ -4907,8 +4967,8 @@ function erfolgZeile(liste){
   const xp = liste.reduce((n,e)=>n+e.xp,0);
   return `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)">
       <div class="tiny muted">${liste.length===1?'Neuer Erfolg':liste.length+' neue Erfolge'}</div>
-      ${liste.map(e=>`<div style="margin-top:4px"><span style="font-size:18px">${e.em}</span>
-        <b style="margin-left:6px">${esc(e.name)}</b></div>`).join('')}
+      ${liste.map(e=>`<div class="row" style="margin-top:6px;gap:8px;align-items:center;justify-content:center">
+        ${erfolgSvg(e,'frisch',22)}<b>${esc(e.name)}</b></div>`).join('')}
       <div class="tiny" style="color:var(--ok);margin-top:6px">+${xp} XP</div></div>`;
 }
 

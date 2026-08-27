@@ -4,6 +4,42 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-27
 
+### 🎨 v36 — die Erfolge haben jetzt gezeichnete Symbole
+
+**Karls Ansage:** *„bei den Achievements SVG-Dateien benutzen."*
+
+19 Symbole, gezeichnet im **selben Stil wie die Übungsbilder**: 48×48, Strich statt Fläche,
+`.ma` für den dicken Akzentstrich. Damit sehen Erfolge und Übungen nach derselben App aus.
+
+🔴 **Warum das mehr ist als Geschmack:** Emojis sehen auf jedem Gerät anders aus. Das
+Bergsteiger-Emoji ist auf Android ein anderer Mensch als auf dem iPhone, und für 🗿 zeigen
+manche Systeme gar nichts. Ein Katalog, dessen Bilder je nach Telefon wechseln, ist kein
+Katalog.
+
+⚠️ **Sie stehen im Quelltext und nicht als 19 eigene Dateien.** Die App ist eine einzige Datei,
+damit sie offline läuft — 19 Nachladungen wären 19 Wege, an denen genau das scheitern kann.
+*SVG* ist hier die Zeichenart, nicht der Dateiname.
+
+**Drei Zustände, und sie hängen bewusst nicht nur an der Deckkraft:**
+
+| Zustand | Aussehen |
+|---|---|
+| offen | Muted-Farbe, halb durchsichtig |
+| geschafft | normale Schriftfarbe, Akzent im Detail |
+| **frisch freigeschaltet** | **Gold — und es wackelt**, dieselbe Bewegung wie der Pokal an der Leiste |
+
+💡 Die Bewegung ist dieselbe wie bei der goldenen Zahl, damit erkennbar zusammengehört, was
+zusammengehört: die Zahl an der Leiste und das, was sie meint.
+
+🔴 **Jedes Symbol ist angesehen worden, bevor es eingebaut wurde** — einmal in 60 px und einmal
+in 24 px, denn 24 px ist die echte Größe in der Liste. **Drei Entwürfe sind dabei
+durchgefallen:** ein Bizeps, der wie ein Rohr aussah (→ Hantel), ein Moai, der wie eine Tür
+aussah (→ Krone), und ein Wal ohne Fontäne (→ mit). Danach noch ein Blick auf die ganze Seite —
+dabei fiel ein *„vollstaendig"* ohne ä auf, das seit v33 dastand.
+
+**Prüfungen: 546 → 552.** ✅ Vier Gegenproben: zwei Erfolge mit demselben Bild → 1 · Erfolg
+ohne Bild → 1 · alle Zustände gleich → 1 · kein Ersatzbild → 1.
+
 ### 🔗 v35 — den Link verpacken, so weit es der Empfänger zulässt
 
 **Karls Idee:** *„Kann man den Link sonst verpacken? In eine Überschrift z.B., hinter einfach

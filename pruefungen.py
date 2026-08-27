@@ -2101,6 +2101,42 @@ window.addEventListener('error', e => {
     return gefuellt > 0 || 'der Zwischenspeicher blieb leer';
   });
 
+  // ================================================ Erfolgs-Symbole (v36)
+  // Karls Ansage: "bei den Achievements SVG-Dateien benutzen."
+  t('Jeder Erfolg hat ein Symbol, das es auch gibt', () => {
+    const fehlt = ERFOLGE.filter(e => !e.svg || !ERFOLG_SVG[e.svg]);
+    return fehlt.length === 0 || 'ohne Symbol: ' + fehlt.map(e => e.id + '/' + e.svg).join(', ');
+  });
+  // ⚠️ Zwei Erfolge mit demselben Bild waeren im Katalog nicht zu unterscheiden - genau
+  // das war der Grund, sie ueberhaupt zu zeichnen.
+  t('Kein Symbol wird zweimal vergeben', () => {
+    const gesehen = {}, doppelt = [];
+    ERFOLGE.forEach(e => { if (gesehen[e.svg]) doppelt.push(e.svg); gesehen[e.svg] = 1; });
+    return doppelt.length === 0 || 'doppelt: ' + doppelt.join(', ');
+  });
+  t('Es sind keine Emojis mehr im Katalog', () => {
+    const mitEmoji = ERFOLGE.filter(e => e.em);
+    return mitEmoji.length === 0 || mitEmoji.length + ' Erfolge haben noch ein Emoji';
+  });
+  t('Die drei Zustaende sehen verschieden aus', () => {
+    const e = ERFOLGE[0];
+    const zu = erfolgSvg(e, 'zu'), auf = erfolgSvg(e, 'auf'), frisch = erfolgSvg(e, 'frisch');
+    return (/erf-zu/.test(zu) && !/erf-zu|erf-gold/.test(auf) && /erf-gold/.test(frisch))
+      || 'zu/auf/frisch nicht unterscheidbar';
+  });
+  // 🔴 Ein unbekannter Schluessel darf keine leere Luecke hinterlassen - lieber ein
+  // Ersatzbild als eine Zeile, in der neben dem Namen nichts steht.
+  t('Ein unbekanntes Symbol faellt auf ein Ersatzbild zurueck', () => {
+    const svg = erfolgSvg({ svg: 'gibtsnicht' }, 'auf');
+    return /<path/.test(svg) || 'leeres Bild: ' + svg;
+  });
+  t('Die Erfolgs-Seite zeigt Bilder statt Emojis', () => {
+    const merkV = view; view = 'erfolge'; renderErfolge();
+    const bilder = document.querySelectorAll('#app .erf-ico').length;
+    view = merkV;
+    return bilder === ERFOLGE.length || bilder + ' Bilder statt ' + ERFOLGE.length;
+  });
+
   // ================================================ Plan teilen (v35)
   /* Karls Idee: "kann man den Link sonst verpacken? In eine Ueberschrift z.B."
      🔴 Was mit einem Link passiert, entscheidet der Empfaenger. Discord kann ihn hinter
