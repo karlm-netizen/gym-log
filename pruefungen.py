@@ -70,6 +70,12 @@ window.addEventListener('error', e => {
     catch (e) { bad++; out.push('ERR  ' + name + '  -> ' + e.message); }
   };
   const eq = (a, b) => a === b ? true : (JSON.stringify(a) + ' != ' + JSON.stringify(b));
+  /* Festgenagelt am 27.08.2026, als der Plan-Link auf Nummern umgestellt wurde. Diese drei
+     Werte stehen hier als Zahl und nicht als Rechnung - eine Pruefung, die ihren Sollwert
+     aus dem Pruefling ableitet, prueft nichts. */
+  const LIB_LAENGE  = 672;
+  const LIB_ERSTER  = 'Bankdrücken';
+  const LIB_LETZTER = 'YTWL-Übung';
 
   // Der Zustand der App wird von einigen Pruefungen umgebogen. Am Ende zurueck,
   // damit die Reihenfolge der Pruefungen egal bleibt.
@@ -2093,6 +2099,180 @@ window.addEventListener('error', e => {
     const gefuellt = planCodeCache.size;
     view = merkV; session = merkSess; render();
     return gefuellt > 0 || 'der Zwischenspeicher blieb leer';
+  });
+
+  // ================================================ Training beenden (v34)
+  /* \U0001f534 Karls Meldung: "wenn ich auf Training beenden gehe, wird das Training einfach
+     verworfen. Liegt es daran, dass das Training nicht komplett abgeschlossen wurde? Aber
+     das waere nicht richtig."
+
+     Es lag genau daran. Bis hierher entschied allein der Haken, ob ein Satz existiert -- wer
+     80 kg und 8 Wiederholungen eintippte und nicht abhakte, hatte fuer die App nichts getan,
+     und die ganze Einheit verschwand hinter einem Hinweis, der nach 1,8 s weg war. */
+
+  // Ein laufendes Training bauen. Zurueckgesetzt wird in jeder Pruefung selbst.
+  const laufendesTraining = (saetze) => ({
+    id: 'test-' + Math.random(), date: Date.now() - 600000, planName: 'Testtag',
+    exercises: [{ name: 'Bankdruecken', icon: 'press', sets: saetze }]
+  });
+
+  t('Eingetragene Saetze zaehlen auch ohne Haken', () => {
+    const mA = active, mS = sessions, mX = profile.xp, mV = view;
+    sessions = [];
+    active = laufendesTraining([{ weight: 80, reps: 8, done: false },
+                                { weight: 80, reps: 7, done: false }]);
+    finishWorkout();
+    const gespeichert = sessions.length;
+    const saetze = gespeichert ? sessions[0].entries[0].sets.length : 0;
+    active = mA; sessions = mS; profile.xp = mX; view = mV; closeModal();
+    return (gespeichert === 1 && saetze === 2)
+      || 'Einheiten=' + gespeichert + ' Saetze=' + saetze;
+  });
+  // \u26a0\ufe0f Die Felder sind leer, solange niemand tippt (Vorschlaege stehen als Platzhalter).
+  // Ein geplanter, aber nicht gemachter Satz darf deshalb weiterhin nichts beitragen.
+  t('Leere Saetze zaehlen weiterhin nicht', () => {
+    const mA = active, mS = sessions, mX = profile.xp, mV = view;
+    sessions = [];
+    active = laufendesTraining([{ weight: 80, reps: 8, done: false },
+                                { weight: '',  reps: '', done: false }]);
+    finishWorkout();
+    const saetze = sessions.length ? sessions[0].entries[0].sets.length : 0;
+    active = mA; sessions = mS; profile.xp = mX; view = mV; closeModal();
+    return eq(saetze, 1);
+  });
+  // Dasselbe Nachziehen wie beim Abhaken von Hand: fehlende Wiederholungen bekommen die
+  // untere Zahl des Zielbereichs, sonst waere das Volumen dieses Satzes null.
+  t('Fehlende Wiederholungen werden nachgezogen', () => {
+    const mA = active, mS = sessions, mX = profile.xp, mV = view;
+    sessions = [];
+    active = laufendesTraining([{ weight: 80, reps: '', done: false }]);
+    finishWorkout();
+    const r = sessions.length ? +sessions[0].entries[0].sets[0].reps : 0;
+    active = mA; sessions = mS; profile.xp = mX; view = mV; closeModal();
+    return r > 0 || 'Wiederholungen blieben bei ' + r;
+  });
+  // \U0001f534 Sonst verloere Karl den Rekord-Bonus fuer genau die Saetze, die er getippt hat.
+  t('Ein Rekord wird auch ohne Haken vermerkt', () => {
+    const mA = active, mS = sessions, mX = profile.xp, mV = view;
+    sessions = [];
+    active = laufendesTraining([{ weight: 200, reps: 5, done: false }]);
+    finishWorkout();
+    const pr = sessions.length ? sessions[0].pr : -1;
+    active = mA; sessions = mS; profile.xp = mX; view = mV; closeModal();
+    return pr === 1 || 'Rekorde gezaehlt: ' + pr;
+  });
+  /* \U0001f534 Und der Fall, der Karl den Abend gekostet haette: wirklich nichts drin. Frueher
+     war die Einheit dann weg -- ohne Nachfrage, ohne Rueckweg. Jetzt bleibt sie stehen und
+     der Hinweis sagt, was los ist. Wegwerfen kann Karl selbst, dafuer gibt es Abbrechen. */
+  t('Ohne jede Eingabe wird nicht mehr stillschweigend verworfen', () => {
+    const mA = active, mS = sessions, mX = profile.xp, mV = view;
+    sessions = [];
+    active = laufendesTraining([{ weight: '', reps: '', done: false }]);
+    finishWorkout();
+    const nochDa = !!active, nichtsGespeichert = sessions.length === 0;
+    active = mA; sessions = mS; profile.xp = mX; view = mV; closeModal();
+    return (nochDa && nichtsGespeichert)
+      || 'Einheit noch da=' + nochDa + ' nichts gespeichert=' + nichtsGespeichert;
+  });
+  t('Ein abgehakter Satz zaehlt weiterhin, auch ohne Gewicht', () => {
+    const mA = active, mS = sessions, mX = profile.xp, mV = view;
+    sessions = [];
+    active = laufendesTraining([{ weight: '', reps: 12, done: true }]);
+    finishWorkout();
+    const gespeichert = sessions.length;
+    active = mA; sessions = mS; profile.xp = mX; view = mV; closeModal();
+    return eq(gespeichert, 1);
+  });
+  // Aufwaermsaetze zaehlen nicht ins Volumen - das war vorher so und bleibt so.
+  t('Ein eingetragener Aufwaermsatz bringt keinen Rekord', () => {
+    const mA = active, mS = sessions, mX = profile.xp, mV = view;
+    sessions = [];
+    active = laufendesTraining([{ weight: 300, reps: 5, done: false, warm: true },
+                                { weight: 60,  reps: 8, done: false }]);
+    finishWorkout();
+    const pr = sessions.length ? sessions[0].pr : -1;
+    active = mA; sessions = mS; profile.xp = mX; view = mV; closeModal();
+    return eq(pr, 1);
+  });
+
+  // ================================================ Nummern statt Namen (v34)
+  /* \U0001f534 Die wichtigste Pruefung im ganzen Link-Teil, und sie prueft keine Funktion,
+     sondern eine ZUSAGE: die Uebungs-Bibliothek ist ab dem 27.08.2026 anhaengend. Ein Link
+     enthaelt Nummern, keine Namen -- verschiebt sich ein Eintrag, zeigt jeder alte Link
+     still auf die falsche Uebung. "Still" ist das Problem: eine falsche Nummer sieht aus
+     wie eine richtige, und niemand merkt es, bis jemand mit dem falschen Gewicht dasteht.
+     Faellt diese Pruefung um, ist nicht sie kaputt -- dann wurde umsortiert. */
+  t('Die Uebungs-Bibliothek ist nicht umsortiert worden', () => {
+    if (EXNAMEN.length < LIB_LAENGE) return 'Bibliothek ist kuerzer geworden: ' + EXNAMEN.length + ' statt ' + LIB_LAENGE;
+    if (EXNAMEN[0] !== LIB_ERSTER) return 'erster Eintrag ist jetzt: ' + EXNAMEN[0];
+    if (EXNAMEN[LIB_LAENGE - 1] !== LIB_LETZTER) return 'Eintrag ' + (LIB_LAENGE-1) + ' ist jetzt: ' + EXNAMEN[LIB_LAENGE-1];
+    return true;
+  });
+  t('Jede Nummer zeigt auf genau einen Namen', () => {
+    const doppelt = EXNAMEN.filter((n, i) => EXNUMMER.get(n) !== i && EXNAMEN.indexOf(n) === i);
+    return doppelt.length === 0 || 'Nummer zeigt woanders hin: ' + doppelt.slice(0,3).join(', ');
+  });
+
+  t('Eine bekannte Uebung wird zur blossen Nummer', () => {
+    const x = ueNutzlast({ name: EXNAMEN[0], sets: 3, vol: 'high' });
+    return typeof x === 'number' || 'kam heraus: ' + JSON.stringify(x);
+  });
+  // \u26a0\ufe0f Karls eigene Uebungen kennt die Bibliothek nicht - die muessen als Text mit,
+  // sonst faellt beim Empfaenger genau das weg, was Karl selbst angelegt hat.
+  t('Eine eigene Uebung bleibt als Text erhalten', () => {
+    const x = ueNutzlast({ name: 'Karls Spezialuebung XYZ', sets: 3, vol: 'high' });
+    return x === 'Karls Spezialuebung XYZ' || 'kam heraus: ' + JSON.stringify(x);
+  });
+  t('Abweichende Satzzahl und Volumen gehen nicht verloren', () => {
+    const a = ueAusNutzlast(ueNutzlast({ name: EXNAMEN[0], sets: 5, vol: 'low' }));
+    return (a[0] === EXNAMEN[0] && a[1] === 5 && a[2] === 'l') || 'kam heraus: ' + JSON.stringify(a);
+  });
+  t('Der Normalfall kommt unveraendert zurueck', () => {
+    const a = ueAusNutzlast(ueNutzlast({ name: EXNAMEN[0], sets: 3, vol: 'high' }));
+    return (a[0] === EXNAMEN[0] && a[1] === 3 && a[2] === 'h') || 'kam heraus: ' + JSON.stringify(a);
+  });
+  /* \U0001f534 Der Empfaenger auf einem aelteren Stand. Lieber eine Uebung weniger als eine
+     falsche: eine Nummer, die es hier nicht gibt, darf NICHT auf den naechstbesten Namen
+     zeigen. Und gesagt werden muss es auch - deshalb `verloren`. */
+  t('Eine unbekannte Nummer wird weggelassen, nicht geraten', () => {
+    return ueAusNutzlast(999999) === null || 'unbekannte Nummer hat einen Namen bekommen';
+  });
+  t('Der Empfaenger erfaehrt, dass etwas fehlt', () => {
+    const p = v3ZuPlan([4, 'Test', [['Tag A', 0, 0, [0, 999999]]]]);
+    return (p && p.verloren === 1 && p.p[0].e.length === 1)
+      || 'verloren=' + (p && p.verloren) + ' uebrig=' + (p && p.p[0] && p.p[0].e.length);
+  });
+  // \u26a0\ufe0f v3-Links von heute Nachmittag muessen weiter gehen - sie stehen schon in einem
+  // Chat. Dasselbe gilt fuer v2 von gestern, das prueft der Block darueber.
+  t('v3-Links werden weiterhin gelesen', () => {
+    const p = v3ZuPlan([3, 'Alt', [['Tag A', 0, 0, [['Bankdruecken', 4, 'h']]]]]);
+    return (p && p.p.length === 1 && p.p[0].e[0][0] === 'Bankdruecken' && p.p[0].e[0][1] === 4)
+      || 'v3 kam nicht durch: ' + JSON.stringify(p);
+  });
+  await tA('Der ganze Weg: Plan -> Link -> Plan', async () => {
+    const pr = activeProg();
+    const roh = JSON.stringify(planNutzlast(pr));
+    const zurueck = v3ZuPlan(JSON.parse(await entpacke(await packe(roh))));
+    const echt = (pr.plans || []).filter(x => (x.exercises || []).some(e => e.name));
+    if (!zurueck) return 'nichts zurueckbekommen';
+    if (zurueck.verloren) return zurueck.verloren + ' Uebungen unterwegs verloren';
+    if (zurueck.p.length !== Math.min(10, echt.length)) return zurueck.p.length + ' statt ' + echt.length + ' Trainings';
+    const a = zurueck.p[0], b = echt[0];
+    const namenGleich = a.e.map(x => x[0]).join('|') === b.exercises.filter(e=>e.name).map(e=>e.name).join('|');
+    return namenGleich || 'Namen weichen ab:\n' + a.e.map(x=>x[0]).join('|') + '\n' + b.exercises.map(e=>e.name).join('|');
+  });
+  /* Die Zahl, um die es Karl ging. Kein Richtwert aus der Luft: der alte Link wird daneben
+     gebaut und gemessen.
+     ⚠️ Die Schwelle steht bei 2, nicht bei 3, und das ist kein Nachgeben. Der
+     Standardplan hier ist klein; bei ihm faellt die feste Grundlast (Plan- und Trainings-
+     namen) staerker ins Gewicht als die Uebungen. Gemessen: **Standardplan 435 -> 177
+     (Faktor 2,5)**, ein Vier-Tage-Plan mit 23 Uebungen **1.050 -> 198 (Faktor 5,3)**.
+     Der Gewinn waechst also genau dort, wo Karls Beschwerde herkam -- bei den langen. */
+  await tA('Der Link ist mindestens doppelt so kurz wie vorher', async () => {
+    const pr = activeProg();
+    const alt  = planCode(pr).length;
+    const neu  = 1 + (await packe(JSON.stringify(planNutzlast(pr)))).length;
+    return neu * 2 <= alt || 'neu=' + neu + ' alt=' + alt + ' (Faktor ' + (alt/neu).toFixed(1) + ')';
   });
 
   // ================================================ Tagesaufgabe "Reingeschaut" (v33)

@@ -4,6 +4,93 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-27
 
+### 🔴 v34 — beendete Trainings gingen verloren
+
+**Karls Meldung:** *„Wenn ich auf Training beenden gehe, wird das Training einfach verworfen.
+Liegt es daran, dass das Training nicht komplett abgeschlossen wurde? Aber das wäre nicht
+richtig."*
+
+**Er hat recht, und der Fehler war schwerer, als er klingt.** Bis hierher entschied **allein
+der Haken**, ob ein Satz existiert:
+
+```js
+sets: e.sets.filter(s => s.done)          // alles ohne Haken: weg
+if (entries.length === 0) { active = null; toast('Verworfen (nichts erledigt)'); }
+```
+
+Wer 80 kg und 8 Wiederholungen eintippte und den Haken nicht setzte, hatte für die App
+**nichts getan**. Die ganze Einheit verschwand hinter einem Hinweis, der nach 1,8 Sekunden weg
+war — **kein Rückweg, keine Nachfrage**, und der Text las sich wie eine Feststellung statt wie
+ein Verlust.
+
+➡️ **Ein Satz gilt jetzt als gemacht, wenn er abgehakt ist ODER wenn etwas drinsteht.**
+Niemand tippt 80 kg ein, ohne sie gehoben zu haben. Der Haken bleibt, wofür er da ist — die
+Pause starten, den Rekord im Moment feiern —, aber er entscheidet nicht mehr darüber, ob die
+Arbeit stattgefunden hat.
+
+⚠️ **Leere Sätze bleiben draußen.** Die Felder sind leer, solange niemand tippt (die Vorschläge
+stehen als *Platzhalter*, nicht als Wert) — ein geplanter, aber nicht gemachter Satz trägt also
+weiterhin nichts bei.
+⚠️ **Nachgezogen wird dasselbe wie beim Abhaken von Hand:** fehlende Wiederholungen bekommen
+die untere Zahl des Zielbereichs, und ein **Rekord wird auch hier vermerkt**. Sonst verlöre
+Karl den Rekord-Bonus für genau die Sätze, die er getippt hat.
+💡 **Und es wird gesagt, nicht stillschweigend gemacht:** *„3 Sätze waren nicht abgehakt —
+mitgezählt, weil etwas drinstand."*
+
+🔴 **Der Fall ohne jede Eingabe wird nicht mehr verworfen.** Früher war die Einheit dann weg.
+Jetzt bleibt sie stehen und ein Fenster sagt, dass nichts da war; wegwerfen kann man sie über
+*Abbrechen*. **Ein Fenster, das man wegtippen muss, ist an dieser Stelle billiger als eine
+verlorene Einheit.**
+
+### 🔗 Der Plan-Link, dritter Schritt — 1.050 → 198 Zeichen
+
+**Karls Rückfrage** nach v33: *„Der Link sieht besser aus, aber immer noch sehr lang. Kann man
+da noch was machen, oder bist du am Ende deiner Macht?"*
+
+War ich nicht — und das ist der unangenehme Teil. **Was ich in v33 gemacht habe, waren die zwei
+folgenlosen Schritte.** Dieser hier kostet etwas, und deshalb stand er nicht gleich dabei. Die
+Abwägung hätte Karl gehört, nicht mir.
+
+➡️ **Namen werden durch Nummern ersetzt.** Die Übungs-Bibliothek (672 Einträge, EXLIB + wger)
+hat jede Übung schon — statt *„Schrägbankdrücken Kurzhantel"* (28 Zeichen) steht im Link eine
+Zahl. Karls eigene Übungen kennt die Bibliothek nicht, die wandern weiter als Text mit.
+➡️ **Vorgaben werden weggelassen.** 3 Sätze, Volumen hoch — der Normalfall steht nicht mehr da.
+
+| | Zeichen |
+|---|---|
+| gestern (v2) | **1.050** |
+| v33, heute Nachmittag | 391 |
+| **v34, jetzt** | **198** — davon 43 die Adresse selbst |
+
+*(Gemessen an einem Vier-Tage-Plan mit 23 Übungen. Beim kleinen Standardplan sind es 435 → 177
+— der Gewinn wächst mit der Plangröße, also genau dort, wo die Beschwerde herkam.)*
+
+🔴 **Der Preis, und er ist echt: eine Nummer ist nur so viel wert wie die Liste, auf die sie
+zeigt.** Daraus folgt eine Regel, die wichtiger ist als das Feature selbst:
+
+> **`EXLIB` und `EXLIB_WGER` sind ab jetzt anhängend. Nie umsortieren, nie etwas mittendrin
+> einfügen, nie einen Eintrag löschen.**
+
+Verschiebt sich ein Eintrag, zeigt jeder alte Link **still** auf die falsche Übung — und eine
+falsche Nummer sieht aus wie eine richtige. **Eine Prüfung nagelt Länge und die beiden
+Randeinträge fest** und fällt um, sobald jemand daran dreht. Fällt sie, ist nicht sie kaputt.
+
+⚠️ **Kennt der Empfänger eine Nummer nicht** (ältere Fassung), fällt die Übung raus statt unter
+falschem Namen im Plan zu landen — und er bekommt es gesagt: *„Eine Übung ist nicht dabei —
+deine App kennt sie noch nicht."*
+⚠️ **v1, v2 und v3 werden weiter gelesen.** Die v3-Links von heute Nachmittag stehen schon in
+einem Chat.
+📏 **Weiter geht es ohne Server nicht.** Der Plan steckt vollständig im Link; kürzer als seine
+eigene Information wird er nicht.
+
+---
+
+**Prüfungen: 523 → 541.**
+✅ **Acht Gegenproben, jede wirft genau das um, was der Rückbau kaputt macht:** Übernahme raus →
+5 · leere Sätze mitzählen → 2 · Wiederholungen nicht nachziehen → 1 · Rekord ohne Haken weg →
+2 · leere Einheit wieder still verwerfen → 1 · Bibliothek umsortieren → 1 · unbekannte Nummer
+raten → 2 · eigene Übungen nicht mitschicken → 2.
+
 ### 🏅 v33 — zehn Meldungen von Karl, neun davon eingebaut
 
 Karl hat nach einem Tag mit v32 eine Liste geschickt. Sie steht hier der Reihe nach, weil

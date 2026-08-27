@@ -4197,13 +4197,59 @@ function planCode(prog){
    geht das Teilen-Fenster gar nicht mehr auf. Der Code wird deshalb vorgewaermt, sobald die
    Plan-Liste gezeichnet wird -- also lange bevor jemand auf Teilen druecken kann. Ist er
    wider Erwarten noch nicht fertig, geht der alte lange Link raus statt gar keiner.        */
+/* ---------- Schritt 3: Namen durch Nummern (27.08.2026) ----------
+   🔴 Karls Rueckfrage, nachdem v3 den Link von 1.050 auf 391 Zeichen gebracht hatte:
+   "sieht besser aus, aber immer noch sehr lang -- oder bist du am Ende deiner Macht?"
+
+   War ich nicht. Was ich beim ersten Mal gemacht habe, waren die zwei **folgenlosen**
+   Schritte. Dieser hier kostet etwas, und deshalb stand er nicht gleich dabei:
+
+   ⚠️ **Eine Nummer ist nur so viel wert wie die Liste, auf die sie zeigt.** Beide Seiten
+   muessen dieselbe Uebungs-Bibliothek haben. Bei Karl und seinen Testern ist das der Fall --
+   sie laden alle dieselbe Adresse --, aber es ist eine Voraussetzung, wo vorher keine war.
+
+   🔴 **Daraus folgt eine Regel, die wichtiger ist als dieses Feature:**
+
+       EXLIB und EXLIB_WGER sind AB JETZT anhaengend. Nie umsortieren, nie etwas
+       mittendrin einfuegen, nie einen Eintrag loeschen.
+
+   Verschiebt sich ein Eintrag, zeigt jeder alte Link auf die falsche Uebung -- und zwar
+   still, denn eine falsche Nummer sieht aus wie eine richtige. Eine Pruefung haelt Laenge
+   und Pruefsumme der Liste fest und faellt um, sobald jemand daran dreht.
+
+   Dazu kommt das Weglassen der Normalfaelle: **3 Saetze, Volumen hoch** ist die Vorgabe, also
+   steht dort nur noch die Nummer. Zusammen: **391 -> 198 Zeichen** (davon 43 die Adresse
+   selbst). Weiter geht es ohne Server nicht -- der Plan steckt vollstaendig im Link, und
+   kuerzer als seine eigene Information wird er nicht. */
+const EXNAMEN = EXLIB.map(e=>e.name).concat(EXLIB_WGER.map(e=>e[0]));
+const EXNUMMER = (()=>{ const m=new Map(); EXNAMEN.forEach((n,i)=>{ if(!m.has(n)) m.set(n,i); }); return m; })();
+
+/* Eine Uebung so klein wie moeglich: nur die Nummer, wenn Satzzahl und Volumen dem Normalfall
+   entsprechen. Ein Name, den die Bibliothek nicht kennt (Karls eigene Uebungen), steht
+   weiterhin als Text da -- der muss ja mit. */
+function ueNutzlast(e){
+  const k = EXNUMMER.has(e.name) ? EXNUMMER.get(e.name) : String(e.name).slice(0,60);
+  const saetze = +e.sets||3, hoch = volOf(e)!=='low';
+  if(saetze===3 && hoch) return k;
+  if(hoch) return [k, saetze];
+  return [k, saetze, 0];
+}
+/* Und zurueck. ⚠️ Eine Nummer, die diese Bibliothek nicht hat (Empfaenger auf einem
+   aelteren Stand), liefert null -- die Uebung faellt dann raus, statt unter falschem Namen
+   im Plan zu landen. Der Empfaenger bekommt das gesagt, siehe zeigeImport(). */
+function ueAusNutzlast(x){
+  const roh = Array.isArray(x) ? x : [x, 3, 1];
+  const k = roh[0], saetze = +roh[1]||3, vol = (roh[2]===0) ? 'l' : 'h';
+  const name = (typeof k === 'number') ? (EXNAMEN[k] || null) : String(k);
+  return name===null ? null : [name, saetze, vol];
+}
 function planNutzlast(prog){
   const pr=prog||activeProg();
-  return [3, String(pr.name||'Trainingsplan').slice(0,40), (pr.plans||[]).map(p=>[
+  return [4, String(pr.name||'Trainingsplan').slice(0,40), (pr.plans||[]).map(p=>[
     String(p.name||'Training').slice(0,40),
     (p.day==null ? -1 : +p.day),
     planWarm(p)?1:0,
-    (p.exercises||[]).filter(e=>e.name).map(e=>[String(e.name).slice(0,60), +e.sets||3, volOf(e)==='low'?0:1])
+    (p.exercises||[]).filter(e=>e.name).map(ueNutzlast)
   ]).filter(p=>p[3].length)];
 }
 const planCodeCache = new Map();          // Nutzlast-JSON -> fertiger Kurzcode
@@ -4256,11 +4302,17 @@ let planImport=null, importGezeigt=false;
    importierePlan() seit jeher arbeiten. ⚠️ Die beiden bleiben damit unangetastet -- ein
    neues Link-Format soll nicht bis in die Uebernahme durchschlagen. */
 function v3ZuPlan(a){
-  if(!Array.isArray(a) || a[0]!==3 || !Array.isArray(a[2])) return null;
-  return { name:(a[1]||'Geteilter Plan'), p:a[2].slice(0,10).map(p=>({
-    n:p[0], d:(p[1]===-1||p[1]==null)?null:+p[1], w:p[2]?1:0,
-    e:(p[3]||[]).map(e=>[e[0], +e[1]||3, e[2]?'h':'l'])
-  })) };
+  if(!Array.isArray(a) || !Array.isArray(a[2])) return null;
+  if(a[0]!==3 && a[0]!==4) return null;
+  let verloren = 0;
+  const p = a[2].slice(0,10).map(p=>{
+    const roh = (p[3]||[]);
+    // v3 hatte je Uebung [Name, Saetze, 'l'|'h'], v4 nur noch die Nummer (oder [Nr, Saetze, Vol]).
+    const e = (a[0]===4 ? roh.map(ueAusNutzlast) : roh.map(x=>[x[0], +x[1]||3, x[2]?'h':'l']))
+              .filter(x=>{ if(!x) verloren++; return !!x; });
+    return { n:p[0], d:(p[1]===-1||p[1]==null)?null:+p[1], w:p[2]?1:0, e };
+  }).filter(x=>x.e.length);
+  return { name:(a[1]||'Geteilter Plan'), p, verloren };
 }
 function leseImportAusLink(){
   const m=/[#&]p=([A-Za-z0-9\-_]+)/.exec(location.hash||''); if(!m) return;
@@ -4292,6 +4344,9 @@ function zeigeImport(){
   m.innerHTML=`<div class="modal-box" style="max-width:400px;text-align:left">
     <b>${esc(planImport.name)}</b>
     <div class="tiny muted" style="margin:6px 0 10px">Kommt als eigener Trainingsplan dazu. Deine bestehenden Pläne bleiben.</div>
+    ${planImport.verloren ? `<div class="tiny" style="color:var(--danger);margin:0 0 10px">⚠️
+      ${planImport.verloren===1?'Eine Übung ist':planImport.verloren+' Übungen sind'} nicht dabei —
+      deine App kennt sie noch nicht. Seite einmal neu laden und den Link nochmal öffnen.</div>` : ''}
     ${liste}
     <div class="fab-row" style="margin-top:16px">
       <button class="btn" data-act="importno">Nein danke</button>
@@ -4691,9 +4746,57 @@ function startWorkout(plan){
     return {id:uid(),name:e.name,icon:e.icon,reps:e.reps,vol:e.vol,sets}; });
   active={id:uid(),date:Date.now(),planId:plan.id,planName:plan.name,currentIdx:0,exercises:ex}; save(); view='workout'; render(); }
 
+/* ---------- Eingetragenes zaehlt, auch ohne Haken (27.08.2026) ----------
+   🔴 Karls Meldung: "wenn ich auf Training beenden gehe, wird das Training einfach
+   verworfen. Liegt es daran, dass das Training nicht komplett abgeschlossen wurde? Aber das
+   waere nicht richtig."
+
+   **Er hat recht, und der Fehler war schwerer als er klingt.** Bis hierher entschied allein
+   der Haken, ob ein Satz existiert. Wer 80 kg und 8 Wiederholungen eintippte und den Haken
+   nicht setzte, hatte fuer die App **nichts getan** -- und beim Beenden verschwand die ganze
+   Einheit hinter einem Hinweis, der nach 1,8 Sekunden weg war. **Kein Rueckweg, keine
+   Nachfrage, und der Hinweis las sich wie eine Feststellung statt wie ein Verlust.**
+
+   ➡️ Ein Satz gilt jetzt als gemacht, **wenn er abgehakt ist ODER wenn etwas drinsteht.**
+   Niemand tippt 80 kg ein, ohne sie gehoben zu haben. Der Haken bleibt, wofuer er da ist --
+   die Pause starten, den Rekord im Moment feiern --, aber er entscheidet nicht mehr darueber,
+   ob die Arbeit stattgefunden hat.
+
+   ⚠️ **Leere Saetze bleiben draussen.** Die Felder sind leer, solange niemand tippt (die
+   Vorschlaege stehen als Platzhalter, nicht als Wert) -- ein geplanter, aber nicht gemachter
+   Satz traegt also weiterhin nichts bei.
+   ⚠️ Nachgezogen wird dabei dasselbe wie beim Abhaken von Hand: fehlende Wiederholungen
+   bekommen die untere Zahl des Zielbereichs, und ein Rekord wird auch hier vermerkt. Sonst
+   verloere Karl fuer genau diese Saetze den Rekord-Bonus -- also fuer die, die er getippt hat.
+   `prFor()` liest nur abgeschlossene Einheiten, die laufende ist nicht dabei; der Wert bleibt
+   waehrend der Schleife also stabil. */
+function eingetragenesUebernehmen(){
+  let n=0;
+  (active.exercises||[]).forEach(e=>{
+    (e.sets||[]).forEach(s=>{
+      if(s.done) return;
+      if(!(+s.weight>0) && !(+s.reps>0)) return;      // wirklich leer: bleibt leer
+      s.done=true; n++;
+      if(!(+s.reps>0)) s.reps=exRange(e)[0];
+      if(!s.warm && +s.weight>0){ const alt=prFor(e.name); if(!alt || +s.weight>alt.w) s.pr=true; }
+    });
+  });
+  return n;
+}
 function finishWorkout(){
+  const nachgetragen=eingetragenesUebernehmen();
   const entries=active.exercises.map(e=>({name:e.name||'Übung',icon:e.icon,sets:e.sets.filter(s=>s.done)})).filter(e=>e.sets.length);
-  if(entries.length===0){ active=null; save(); toast('Verworfen (nichts erledigt)'); view='home'; render(); return; }
+  /* ⚠️ Hier steht jetzt wirklich nichts — kein Haken, kein getippter Wert. Verworfen wird
+     trotzdem nicht mehr stillschweigend: der Hinweis sagt, dass nichts da war, und die Einheit
+     bleibt stehen, bis Karl selbst abbricht. Ein Fenster, das man wegtippen muss, ist an
+     dieser Stelle billiger als eine verlorene Einheit. */
+  if(entries.length===0){
+    showModal(`<div class="tiny muted">Nichts eingetragen</div>
+      <div style="margin-top:8px">In keinem Satz steht ein Gewicht oder eine Wiederholung —
+      es gibt nichts zu speichern.</div>
+      <div class="tiny muted" style="margin-top:10px">Die Einheit läuft weiter. Zum Wegwerfen
+      unten auf <b>Abbrechen</b>.</div>`);
+    return; }
   const beforeL=levelFromXP(profile.xp).level, beforeRank=rankForLevel(beforeL).name;
   const prs=zaehleRekorde(entries);
   const gained=sessXP(entries, prs);
@@ -4710,14 +4813,22 @@ function finishWorkout(){
   const frischeErfolge = erfolgeAuszahlen();          // jetzt ist die Einheit in `sessions`
   const afterL=levelFromXP(profile.xp).level, afterRank=rankForLevel(afterL);
   save(); view='home';
+  /* ⚠️ Der Nachtrag wird GESAGT, nicht stillschweigend gemacht. Wer nie abhakt, soll
+     merken, dass die App mitgezaehlt hat — und wer versehentlich etwas stehen liess, soll
+     es sehen, solange die Einheit noch frisch im Kopf ist (korrigieren geht im Verlauf). */
+  const nachZeile = nachgetragen
+    ? `<div class="tiny muted" style="margin-top:10px">${nachgetragen===1?'Ein Satz war':nachgetragen+' Sätze waren'} nicht abgehakt — mitgezählt, weil etwas drinstand.</div>`
+    : '';
   if(afterL>beforeL){ let extra='';
     if(afterRank.name!==beforeRank){ extra+=`<div style="margin-top:8px">Neuer Rang: <b style="color:${afterRank.color}">${esc(afterRank.name)}</b></div>`;
       if(afterRank.unlock) extra+=`<div class="tiny muted" style="margin-top:4px">Design „${THEMES[afterRank.unlock].label}" freigeschaltet — im Rang-Tab wählbar</div>`; }
-    render(); showModal(`<div class="tiny muted">Level up!</div><div class="big">Level ${afterL}</div><div>+${gained} XP</div>${erfolgZeile(frischeErfolge)}${extra}`);
+    render(); showModal(`<div class="tiny muted">Level up!</div><div class="big">Level ${afterL}</div><div>+${gained} XP</div>${erfolgZeile(frischeErfolge)}${extra}${nachZeile}`);
   } else if(frischeErfolge.length){
     /* ⚠️ Ein neuer Erfolg bekommt sein eigenes Fenster, keinen Toast. Ein Toast ist nach
        1,8 s weg -- und etwas, das man einmal im Leben freischaltet, soll man auch sehen. */
-    render(); showModal(`<div class="tiny muted">Stark! +${gained} XP</div>${erfolgZeile(frischeErfolge)}`);
+    render(); showModal(`<div class="tiny muted">Stark! +${gained} XP</div>${erfolgZeile(frischeErfolge)}${nachZeile}`);
+  } else if(nachgetragen){
+    render(); showModal(`<div class="tiny muted">Stark! +${gained} XP</div>${nachZeile}`);
   } else { render(); toast(`Stark! +${gained} XP`); }
 }
 
