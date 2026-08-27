@@ -2101,6 +2101,131 @@ window.addEventListener('error', e => {
     return gefuellt > 0 || 'der Zwischenspeicher blieb leer';
   });
 
+  // ================================================ Wiederkommen (v41)
+  /* \U0001f534 Karls Nachsatz war die eigentliche Anforderung: "natuerlich nicht direkt, wenn
+     man die Website das erste Mal oeffnet -- wirklich nur nach 2 Wochen." Ein "schoen, dass
+     du wieder da bist" beim allerersten Oeffnen waere peinlich. */
+  const cbSichern = () => ({ z: profile.zuletztDa, s: sessions, o: profile.onboarded, v: view });
+  const cbZurueck = (m) => { profile.zuletztDa = m.z; sessions = m.s; profile.onboarded = m.o; view = m.v; };
+  const cbEinheit = () => [{ id:'x', date: Date.now()-30*864e5, entries:[], xp:0, pr:0 }];
+
+  t('Beim allerersten Oeffnen kommt es NICHT', () => {
+    const m = cbSichern();
+    profile.zuletztDa = null; sessions = cbEinheit(); profile.onboarded = true;
+    const r = comebackFaellig();
+    cbZurueck(m);
+    return r === false || 'es kaeme beim ersten Oeffnen';
+  });
+  t('Nach zwei Wochen Pause kommt es', () => {
+    const m = cbSichern();
+    profile.zuletztDa = Date.now() - 15*864e5; sessions = cbEinheit(); profile.onboarded = true;
+    const r = comebackFaellig();
+    cbZurueck(m);
+    return r === true || 'es kaeme nach 15 Tagen nicht';
+  });
+  t('Nach dreizehn Tagen noch nicht', () => {
+    const m = cbSichern();
+    profile.zuletztDa = Date.now() - 13*864e5; sessions = cbEinheit(); profile.onboarded = true;
+    const r = comebackFaellig();
+    cbZurueck(m);
+    return r === false || 'es kaeme schon nach 13 Tagen';
+  });
+  // \u26a0\ufe0f Wer nie angefangen hat, war nicht weg.
+  t('Ohne Einheiten und ohne Einrichtung kommt es nicht', () => {
+    const m = cbSichern();
+    profile.zuletztDa = Date.now() - 40*864e5; sessions = []; profile.onboarded = false;
+    const r = comebackFaellig();
+    cbZurueck(m);
+    return r === false || 'es kaeme fuer jemanden, der nie da war';
+  });
+  /* \U0001f534 Reihenfolge: erst fragen, dann stempeln. Andersherum waere die Antwort immer
+     "nein", und das Wiederkommen kaeme nie -- ein Fehler, den keine Einzelpruefung der beiden
+     Haelften sehen wuerde. */
+  t('Gefragt wird vor dem Stempeln', () => {
+    const m = cbSichern();
+    profile.zuletztDa = Date.now() - 20*864e5; sessions = cbEinheit(); profile.onboarded = true;
+    const faellig = comebackPruefen();
+    const neuerStempel = profile.zuletztDa;
+    cbZurueck(m);
+    return (faellig === true && Date.now() - neuerStempel < 5000)
+      || 'faellig=' + faellig + ' Stempel gesetzt=' + (Date.now() - neuerStempel < 5000);
+  });
+  t('Beim zweiten Mal am selben Tag kommt es nicht nochmal', () => {
+    const m = cbSichern();
+    profile.zuletztDa = Date.now() - 20*864e5; sessions = cbEinheit(); profile.onboarded = true;
+    comebackPruefen();
+    const nochmal = comebackPruefen();
+    cbZurueck(m);
+    return nochmal === false || 'es kaeme direkt nochmal';
+  });
+  t('Die Ansicht nennt Rang, Level und die Einheiten', () => {
+    const m = cbSichern();
+    sessions = cbEinheit(); comebackTage = 21;
+    view = 'comeback'; renderComeback();
+    const txt = document.getElementById('app').textContent;
+    cbZurueck(m);
+    const fehlt = ['Dein Rang', 'Level', 'Einheiten bisher'].filter(x => txt.indexOf(x) === -1);
+    return fehlt.length === 0 || 'fehlt: ' + fehlt.join(', ');
+  });
+  // \u26a0\ufe0f Wichtiger als das Lob: die Ansage, dass nichts verfallen ist. Sonst liest sich
+  // eine Pause wie eine Strafe.
+  t('Die Ansicht sagt, dass nichts verfallen ist', () => {
+    const m = cbSichern();
+    sessions = cbEinheit(); comebackTage = 21;
+    view = 'comeback'; renderComeback();
+    const txt = document.getElementById('app').textContent;
+    cbZurueck(m);
+    return /Nichts davon ist weg/.test(txt) || 'der Satz fehlt';
+  });
+  t('Aus der Ansicht kommt man wieder heraus', () => {
+    const m = cbSichern();
+    sessions = cbEinheit(); comebackTage = 21;
+    view = 'comeback'; renderComeback();
+    const raus = document.querySelectorAll('#app [data-act^="cb:"]').length;
+    cbZurueck(m);
+    return raus >= 1 || 'kein Weg aus der Ansicht heraus';
+  });
+
+  // ================================================ Admin: Tutorials (v41)
+  t('Beide Tutorials stehen in der Admin-Konsole', () => {
+    const mV = view, mD = devAdmin;
+    devAdmin = true; view = 'admin'; renderAdmin();
+    const q = document.getElementById('app').innerHTML;
+    view = mV; devAdmin = mD;
+    const fehlt = ['tut:kcal', 'tut:comeback'].filter(x => q.indexOf(x) === -1);
+    return fehlt.length === 0 || 'fehlt in der Konsole: ' + fehlt.join(', ');
+  });
+  /* \u26a0\ufe0f Das Abspielen darf nichts anfassen. Wer sich das Wiederkommen ansieht, will es
+     sehen -- nicht seinen Zeitstempel verlieren und es danach echt bekommen. */
+  t('Das Abspielen ruehrt die Daten nicht an', () => {
+    const mV = view, mD = devAdmin, mZ = profile.zuletztDa, mX = profile.xp;
+    devAdmin = true; profile.zuletztDa = 12345;
+    view = 'admin'; renderAdmin();
+    document.querySelector('[data-admin="tut:comeback"]').click();
+    const wo = view, zeit = profile.zuletztDa, xp = profile.xp;
+    view = mV; devAdmin = mD; profile.zuletztDa = mZ; profile.xp = mX; render();
+    return (wo === 'comeback' && zeit === 12345 && xp === mX)
+      || 'view=' + wo + ' zuletztDa=' + zeit;
+  });
+
+  // ================================================ Wischen zwischen den Reitern (v41)
+  /* Geprueft wird die ENTSCHEIDUNG, nicht der Finger: welche vier Reiter, in welcher
+     Reihenfolge, und wo nicht gewischt wird. Ein echter Wisch laesst sich hier nicht
+     nachstellen -- headless kennt keine Beruehrung. */
+  t('Die Reiter stehen in der Reihenfolge der Leiste', () => {
+    const inLeiste = [...document.querySelectorAll('#nav button')].map(b => b.dataset.nav);
+    return JSON.stringify(REITER) === JSON.stringify(inLeiste)
+      || 'Reiter ' + JSON.stringify(REITER) + ' gegen Leiste ' + JSON.stringify(inLeiste);
+  });
+  // \U0001f534 Der wichtigste Riegel: aus einer laufenden Einheit darf kein Wisch herausfuehren.
+  t('Aus einer laufenden Einheit wird nicht gewischt', () => {
+    return REITER.indexOf('workout') === -1 || 'die Einheit steht in der Wisch-Liste';
+  });
+  t('Auch Assistent und Wiederkommen sind ausgenommen', () => {
+    const drin = ['onboard', 'comeback', 'meldung', 'privacy'].filter(v => REITER.indexOf(v) !== -1);
+    return drin.length === 0 || 'wischbar, obwohl es nicht sollte: ' + drin.join(', ');
+  });
+
   // ================================================ Leiste + Konto-Karte (v40)
   /* 🔴 Am 27.08.2026 stand hier ein paar Stunden eine Korrektur, die die untere Leiste
      an den sichtbaren Bildschirm heften sollte. Karls Meldung danach: die Leiste war gar nicht
@@ -2347,11 +2472,25 @@ window.addEventListener('error', e => {
     const svg = erfolgSvg({ svg: 'gibtsnicht' }, 'auf');
     return /<path/.test(svg) || 'leeres Bild: ' + svg;
   });
+  /* ⚠️ Seit dem 27.08.2026 tragen auch die drei Tagesaufgaben ein Bild statt eines
+     Hakens -- die Zahl auf dieser Seite ist also Erfolge PLUS Aufgaben. Vorher stand hier
+     `ERFOLGE.length` allein, und die Pruefung fiel um, obwohl nichts kaputt war. */
   t('Die Erfolgs-Seite zeigt Bilder statt Emojis', () => {
     const merkV = view; view = 'erfolge'; renderErfolge();
     const bilder = document.querySelectorAll('#app .erf-ico').length;
     view = merkV;
-    return bilder === ERFOLGE.length || bilder + ' Bilder statt ' + ERFOLGE.length;
+    const soll = ERFOLGE.length + AUFGABEN.length;
+    return bilder === soll || bilder + ' Bilder statt ' + soll;
+  });
+  t('Jede Tagesaufgabe hat ein Symbol, das es gibt', () => {
+    const fehlt = AUFGABEN.filter(a => !a.svg || !ERFOLG_SVG[a.svg]);
+    return fehlt.length === 0 || 'ohne Symbol: ' + fehlt.map(a => a.id).join(', ');
+  });
+  t('Keine Tagesaufgabe zeigt mehr einen Haken', () => {
+    const merkV = view; view = 'erfolge'; renderErfolge();
+    const q = document.getElementById('app').innerHTML;
+    view = merkV;
+    return (q.indexOf('✅') === -1 && q.indexOf('⬜') === -1) || 'da steht noch ein Haken';
   });
 
   // ================================================ Plan teilen (v35)
@@ -2938,17 +3077,42 @@ window.addEventListener('error', e => {
     return (kcalInit().setup === true && !kobBauen().includes('Essen mitschreiben'))
            || 'Assistent kommt wieder';
   });
-  t('Der Assistent hat fuenf Schritte', () => {
+  t('Weiter fuehrt bis zur Zusammenfassung', () => {
     kobFrisch(); kobBauen();
     let n = 0;
-    for(let i = 0; i < 9; i++){
+    for(let i = 0; i < 12; i++){
       // ⚠️ Schritt 1 sperrt Weiter, solange kein Vorhaben gewaehlt ist - das ist gewollt,
       // also muss die Pruefung waehlen statt sich am eigenen Riegel aufzuhaengen.
       const wahl = document.querySelector('[data-act="kob:art:halten"]');
       if(wahl) wahl.click();
       const w = document.querySelector('[data-act="kob:next"]');
       if(!w || w.disabled) break; w.click(); n++; }
-    return (kobStep === 4 && n === 4) || ('Schritt ' + kobStep + ', ' + n + ' Klicks');
+    return (kobStep === KOB_LAST && n === KOB_LAST) || ('Schritt ' + kobStep + ' von ' + KOB_LAST + ', ' + n + ' Klicks');
+  });
+  t('Fuer jeden Schritt gibt es einen Satz von Brock', () => eq(KOB_SAY.length, KOB_LAST + 1));
+  /* 🔴 Der Schluessel-Schritt darf NICHT blockieren. Er verlangt etwas von aussen
+     (Google-Konto, zweite Seite, Warten) -- wer da haengenbleibt, richtet die Kalorien nie
+     ein. "Weiter" muss also auch ohne Schluessel offen sein. */
+  t('Der Schluessel-Schritt laesst sich ueberspringen', () => {
+    kobFrisch(); kobBauen();
+    kobDraft.art='halten'; kobDraft.wochen=12; kobDraft.kg=80;
+    kobStep = KOB_LAST - 1; renderKcalOb();
+    const w = document.querySelector('[data-act="kob:next"]');
+    return (w && !w.disabled) || 'Weiter ist gesperrt';
+  });
+  t('Der Schluessel-Schritt bietet das Eintragen an', () => {
+    kobFrisch(); kobBauen();
+    kobDraft.art='halten'; kobDraft.wochen=12; kobDraft.kg=80;
+    kobStep = KOB_LAST - 1; renderKcalOb();
+    return !!document.querySelector('[data-act="kob:key"]') || 'kein Knopf zum Eintragen';
+  });
+  // ⚠️ Sonst sieht es aus, als ginge ohne Schluessel gar nichts - dabei brauchen
+  // Barcode, eigene Lebensmittel und das Tagesziel keinen.
+  t('Der Schritt sagt, dass es auch ohne geht', () => {
+    kobFrisch(); kobBauen();
+    kobDraft.art='halten'; kobDraft.wochen=12; kobDraft.kg=80;
+    kobStep = KOB_LAST - 1; renderKcalOb();
+    return /auch ohne/.test(document.getElementById('app').textContent) || 'kein Hinweis darauf';
   });
   t('Ohne Vorhaben geht es nicht weiter', () => {
     kobFrisch(); kobBauen();
@@ -2987,7 +3151,10 @@ window.addEventListener('error', e => {
   const kobDurch = (art, wochen, kg) => {
     kobFrisch(); kobBauen();
     kobDraft.art = art; kobDraft.wochen = wochen; kobDraft.kg = kg;
-    kobStep = 4; renderKcalOb();
+    // ⚠️ KOB_LAST statt einer festen 4: am 27.08.2026 kam der Schritt mit dem
+    // KI-Schluessel dazu, und elf Pruefungen sprangen auf einen Schritt, auf dem es kein
+    // "Fertig" gibt. Die Zusammenfassung ist der letzte Schritt, wie viele es auch sind.
+    kobStep = KOB_LAST; renderKcalOb();
     document.querySelector('[data-act="kob:finish"]').click();
   };
   t('Fertig legt Vorhaben, Zeitraum und Ziel ab', () => {
@@ -3007,7 +3174,7 @@ window.addEventListener('error', e => {
   t('Ohne Gewicht bleibt Fertig gesperrt', () => {
     kobFrisch(); kobBauen();
     kobDraft.art = 'halten'; kobDraft.wochen = 8; kobDraft.kg = '';
-    kobStep = 4; renderKcalOb();
+    kobStep = KOB_LAST; renderKcalOb();
     return document.querySelector('[data-act="kob:finish"]').disabled || 'Fertig ist offen';
   });
   t('Woche und Zieldatum stimmen', () => {

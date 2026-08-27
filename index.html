@@ -1115,6 +1115,11 @@ function normalizeProfile(){
      laengst verdienten Erfolge als neu auf. Gesaet wird erst in erfolgeGesehenInit() -- dort
      steht ERFOLGE zur Verfuegung, hier oben noch nicht (const, Zeile ~1290). */
   if(profile.erfolgeGesehen!==null && typeof profile.erfolgeGesehen!=='object') profile.erfolgeGesehen=null;
+  /* Wann die App zuletzt offen war -- daran haengt das Wiederkommen (27.08.2026).
+     ⚠️ Fehlt der Wert, ist er `null` und NICHT `Date.now()`. Beim ersten Start mit dieser
+     Fassung weiss die App noch nichts, und "noch nichts" darf nicht als "war lange weg"
+     durchgehen -- sonst begruesst sie jeden Bestandsnutzer beim Umstieg mit "wieder da?". */
+  if(typeof profile.zuletztDa !== 'number') profile.zuletztDa = null;
   kcalInit();                                               // Tagesziel, eigene Lebensmittel, Mahlzeiten
 }
 normalizeProfile();
@@ -1270,9 +1275,9 @@ function zaehleRekorde(en){ let n=0; en.forEach(e=>arbeit(e.sets).forEach(s=>{ i
    ⚠️ Wuerde man sie groesser machen, waere Gigachad ohne Training erreichbar. Das ist die
    Grenze, an der dieses Feature aufhoert.                                              */
 const AUFGABEN = [
-  { id:'auf',   xp:5,  name:'Reingeschaut',   text:'Die App heute geöffnet' },
-  { id:'ein',   xp:10, name:'Eingetragen',    text:'Gewicht oder eine Mahlzeit eingetragen' },
-  { id:'train', xp:15, name:'Trainiert',      text:'Eine Einheit abgeschlossen' },
+  { id:'auf',   xp:5,  svg:'auge',   name:'Reingeschaut',   text:'Die App heute geöffnet' },
+  { id:'ein',   xp:10, svg:'stift',  name:'Eingetragen',    text:'Gewicht oder eine Mahlzeit eingetragen' },
+  { id:'train', xp:15, svg:'hantel', name:'Trainiert',      text:'Eine Einheit abgeschlossen' },
 ];
 const AUFGABEN_MAX = AUFGABEN.reduce((n,a)=>n+a.xp,0);   // 30 -- der Deckel steht in den Daten
 
@@ -1297,6 +1302,68 @@ function aufgabeErledigen(id){
 }
 function aufgabenOffen(){ return AUFGABEN.filter(a=>!aufgabeFertig(a.id)).length; }
 function aufgabenXPheute(){ return AUFGABEN.reduce((n,a)=>n+(aufgabeFertig(a.id)?a.xp:0),0); }
+
+/* ---------- Wiederkommen (27.08.2026) ----------
+   Karls Ansage: "ein Wiederkommens-Tutorial in so Richtung 'wieder motiviert?', das kommt,
+   wenn man die App 2 Wochen nicht geoeffnet hat. Natuerlich nicht direkt, wenn man die
+   Website das erste Mal oeffnet -- wirklich nur nach 2 Wochen."
+
+   🔴 **Der Nachsatz ist die eigentliche Anforderung.** Ein "schoen, dass du wieder da
+   bist" beim allerersten Oeffnen waere nicht nur falsch, sondern peinlich. Deshalb haengt es
+   an einem Wert, der beim ersten Mal fehlt (`zuletztDa === null`), statt an einer Rechnung
+   mit einem Ersatzwert. Kein Ersatzwert kann "noch nie" bedeuten.
+   ⚠️ Zweite Sperre: wer noch nie trainiert und nie eingerichtet hat, bekommt es auch
+   nicht -- der war nicht weg, der hat nie angefangen.                                     */
+const COMEBACK_TAGE = 14;
+let comebackTage = 0;                      // wie lange weg -- fuer den Text
+function comebackFaellig(){
+  const z = profile.zuletztDa;
+  if(typeof z !== 'number') return false;                       // erster Start mit dieser Fassung
+  if(!sessions.length && !profile.onboarded) return false;      // war nie richtig da
+  return (Date.now() - z) >= COMEBACK_TAGE * 864e5;
+}
+/* Setzt die Uhr neu und meldet, ob das Wiederkommen faellig war.
+   ⚠️ Beides in EINER Funktion, weil die Reihenfolge zaehlt: erst fragen, dann stempeln.
+   Andersherum waere die Antwort immer "nein". */
+function comebackPruefen(){
+  const faellig = comebackFaellig();
+  if(faellig) comebackTage = Math.floor((Date.now() - profile.zuletztDa) / 864e5);
+  profile.zuletztDa = Date.now();
+  save();
+  return faellig;
+}
+function renderComeback(){
+  const lp = levelFromXP(profile.xp), rang = rankForLevel(lp.level);
+  const wochen = Math.floor(comebackTage / 7);
+  const letzte = sessions.length ? sessions[sessions.length-1] : null;
+  let h = mascot('Wieder motiviert? Gut. Da machen wir weiter, wo du aufgehört hast.', 'happy', 96, equippedRank());
+  h += `<div class="card">
+    <h2 style="margin-top:0">Schön, dass du da bist</h2>
+    <p class="muted" style="font-size:13.5px;line-height:1.65">Du warst
+      <b style="color:var(--txt)">${wochen >= 2 ? wochen + ' Wochen' : comebackTage + ' Tage'}</b> nicht hier.
+      Das ist kein Vorwurf — es ist nur der Grund, warum ich dich kurz abhole.</p>
+    <div class="ob-sum" style="margin-top:6px">
+      <div class="row between"><span class="muted">Dein Rang</span><b style="color:${rang.color}">${esc(rang.name)}</b></div>
+      <div class="row between"><span class="muted">Level</span><b>${lp.level}</b></div>
+      <div class="row between"><span class="muted">Einheiten bisher</span><b>${sessions.length}</b></div>
+      ${letzte ? `<div class="row between"><span class="muted">Letzte Einheit</span><b>${fmtDate(letzte.date)}</b></div>` : ''}
+    </div>
+    <div class="tiny muted" style="margin-top:12px;line-height:1.7">
+      <b style="color:var(--txt)">Nichts davon ist weg.</b> Level, Rang und Erfolge bleiben —
+      hier verfällt nichts, weil man mal länger nicht da war.
+      <br>Nur die Wochen-Serie fängt wieder bei null an. Die misst, was gerade läuft.</div>
+    </div>`;
+  h += `<div class="card">
+    <h2 style="margin-top:0">Womit anfangen?</h2>
+    <p class="muted tiny" style="margin-bottom:12px">Nach einer Pause ist die erste Einheit die
+      schwerste — und die einzige, die zählt. Mach sie kleiner als sonst.</p>
+    <button class="btn primary" style="width:100%" data-act="cb:los">Zum Training</button>
+    <button class="btn" style="width:100%;margin-top:8px" data-act="cb:plan">Erst den Plan ansehen</button>
+    <div class="tiny muted" style="margin-top:12px">⚠️ Dein Plan steht noch so da, wie du ihn
+      verlassen hast. Wenn er nicht mehr passt, änder ihn lieber, als ihn zu ignorieren.</div>
+    </div>`;
+  app.innerHTML = h;
+}
 
 /* ---------- Erfolge (26.08.2026) ----------
    Karls Ansage: "ausserdem haette ich gerne einen Achievement-Katalog als 3ter Reiter
@@ -1397,6 +1464,13 @@ const ERFOLG_SVG = {
      Lkw -- ein Sattelzug leer, ein Bus, ein Muellwagen liegen alle in dieser Groessenordnung.
      Die Mauer ist damit weg. ⚠️ Bei 24 px muessen sich die beiden unterscheiden lassen:
      flach und rund gegen hoch und eckig. Beide vorher nebeneinander angesehen. */
+  /* Fuer die Tagesaufgaben (27.08.2026, Karls Ansage: "bei den heute tasks brauchen wir auch
+     svg dateien statt haken"). ⚠️ Ohne Haken muss "erledigt" trotzdem lesbar bleiben --
+     das traegt hier die Farbe: hell mit gruener XP-Zahl gegen grau. Nebeneinander angesehen,
+     bevor es eingebaut wurde. `hantel` teilt sich das Bild mit dem Erfolg "Fuenfzig"; das ist
+     kein Versehen, sondern dieselbe Sache an zwei Stellen. */
+  auge:     `<path d="M4 24c6-9 13-13 20-13s14 4 20 13c-6 9-13 13-20 13S10 33 4 24z"/><circle cx="24" cy="24" r="6"/><path class="ma" d="M24 21.5v5"/>`,
+  stift:    `<path d="M8 40l2-9L31 10a4.2 4.2 0 0 1 6 6L16 37z"/><path d="M28 13l6 6"/><path class="ma" d="M10 31l6 6"/>`,
   auto:     `<path d="M5 31v-4c0-1 .8-2 2-2h4l6-8h13l6 8h4c1.2 0 2 1 2 2v4"/><path d="M5 31h37"/><path class="ma" d="M18 25h12"/><circle cx="14" cy="33" r="4"/><circle cx="34" cy="33" r="4"/>`,
   lkw:      `<path d="M4 33V13h22v20"/><path d="M26 33V20h8l6 6v7"/><path d="M4 33h38"/><path class="ma" d="M28 22h5l3 3h-8z"/><circle cx="12" cy="35" r="3.5"/><circle cx="34" cy="35" r="3.5"/>`,
   wal:      `<path d="M6 27c3-6 11-10 19-8 7 2 11 6 12 11 0 5-4 8-10 8H17c-7 0-11-5-11-11z"/><path d="M37 30l7-6v16l-7-6"/><path d="M14 32c4 3 10 3 14 0"/><path class="ma" d="M14 15v-5M10 12L8 7M18 12l2-5"/><circle cx="13" cy="24" r="1.6"/>`,
@@ -1642,7 +1716,7 @@ function render(){
   // während Barcode oder KI noch laufen (die setzen view selbst auf 'food').
   if(view!=='food'&&!foodBusy){ foodStep='list'; foodDraft=null; foodFehler=''; foodMz=''; }
   setNav();
-  ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, body:renderBody, food:renderFood, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin, meldung:renderMeldung, erfolge:renderErfolge}[view]||renderHome)();
+  ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, body:renderBody, food:renderFood, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin, meldung:renderMeldung, erfolge:renderErfolge, comeback:renderComeback}[view]||renderHome)();
   syncSessionClock();
   /* Den Kurzcode fuers Teilen im Hintergrund bauen, solange noch niemand geklickt hat.
      Genau hier, weil auf diesen zwei Seiten der Teilen-Knopf steht -- und weil ein Umbau am
@@ -2795,12 +2869,21 @@ function addMeal(d,menge){
 //
 // ⚠️ Der Zeitraum ist NICHT Deko. Er macht aus einem Vorhaben eine Ansage mit Datum
 // (`kcalZielDatum`) und erlaubt eine Prognose (`kcalPrognose`) — beides gibt es ohne ihn nicht.
-const KOB_LAST = 4;
+/* ⚠️ Seit dem 27.08.2026 sechs Schritte statt fuenf. Karls Ansage: "beim Tutorial die
+   Sache mit dem KI-Schluessel einfuegen, dass man das da schon machen kann, aber auch
+   ueberspringen kann."
+   Er gehoert hierher und nicht in den Trainings-Assistenten: der Schluessel ist nur fuer
+   "Essen per Foto" da, und das ist genau dieser Teil der App.
+   🔴 **Ueberspringen muss die gleiche Groesse haben wie Eintragen.** Ein Schritt, der
+   etwas von aussen verlangt (Google-Konto, zweite Seite, Warten), darf den Assistenten nicht
+   blockieren -- sonst bleibt jemand beim Einrichten haengen und die Kalorien stehen nie. */
+const KOB_LAST = 5;
 const KOB_SAY = [
   'Kalorien! Mein zweites Lieblingsthema. Drei Fragen, dann steht das.',
   'Erstmal: wo soll die Reise hin?',
   'Ohne dein Gewicht rate ich nur. Und Raten kann jeder.',
   'Wie lange bleibst du dran? Sag was Ehrliches, nicht was Schönes.',
+  'Willst du dein Essen fotografieren können? Geht auch später.',
   'Steht. Ab jetzt rechne ich mit.'
 ];
 const KOB_WOCHEN = [4, 8, 12, 16];
@@ -2839,7 +2922,7 @@ function kcalPrognose(){
 
 function renderKcalOb(){
   const d = kobDraft;
-  let h = '<div class="ob-dots">' + [0,1,2,3,4].map(i => '<i class="' + (i <= kobStep ? 'on' : '') + '"></i>').join('') + '</div>';
+  let h = '<div class="ob-dots">' + [0,1,2,3,4,5].map(i => '<i class="' + (i <= kobStep ? 'on' : '') + '"></i>').join('') + '</div>';
   h += mascot(KOB_SAY[kobStep], (kobStep === 0 || kobStep === KOB_LAST) ? 'happy' : '',
               kobStep === 0 ? 96 : 72, equippedRank());
 
@@ -2878,6 +2961,23 @@ function renderKcalOb(){
       <b>Ohne festes Ende</b><span>Läuft einfach mit. Dann gibt es kein Zieldatum und keine Prognose.</span></button>
     ${d.wochen > 0 ? `<div class="tiny muted" style="margin-top:12px">Das wären
       <b style="color:var(--txt)">${fmtDate(Date.now() + d.wochen * 7 * 864e5)}</b>.</div>` : ''}
+    ${kobNav(false)}</div>`; }
+
+  else if(kobStep === 4){ const hat = !!aiKey() && !altSchluessel();
+    h += `<div class="card">
+    <h2 style="margin-top:0">Essen per Foto</h2>
+    <p class="muted" style="font-size:13.5px;line-height:1.65">Statt jede Zutat einzeln
+      einzutippen, kannst du dein Essen fotografieren — die Nährwerte werden geschätzt.
+      Dafür wird ein API-Schlüssel von Google Gemini benötigt.</p>
+    ${hat
+      ? `<div class="row between" style="background:var(--card2);border-radius:12px;padding:12px 14px;margin-bottom:12px">
+           <b>Schlüssel liegt</b><span class="pill">…${esc(aiKey().slice(-4))}</span></div>
+         <button class="btn" style="width:100%" data-act="kob:key">Ändern</button>`
+      : `<button class="btn primary" style="width:100%" data-act="kob:key">Schlüssel eintragen</button>`}
+    <div class="tiny muted" style="margin-top:10px;line-height:1.6">Kostenlos, ein Google-Konto
+      reicht. <b style="color:var(--txt)">Alles andere funktioniert auch ohne</b> — Barcode,
+      eigene Lebensmittel und das Tagesziel brauchen keinen Schlüssel.
+      <br>Nachtragen kannst du ihn jederzeit unter Einstellungen.</div>
     ${kobNav(false)}</div>`; }
 
   else { const z = ZIELE[d.art], kg = +String(d.kg).replace(',', '.') || 0;
@@ -3763,7 +3863,7 @@ function renderErfolge(){
     const fertig = aufgabeFertig(a.id);
     h += `<div class="row between" style="margin-top:12px;align-items:center;gap:10px">
         <div class="row" style="gap:10px;min-width:0;align-items:center">
-          <span style="font-size:18px;opacity:${fertig?1:.35}">${fertig?'✅':'⬜'}</span>
+          ${erfolgSvg(a, fertig ? 'auf' : 'zu', 24)}
           <div style="min-width:0">
             <b style="${fertig?'':'color:var(--muted)'}">${esc(a.name)}</b>
             <div class="tiny muted">${esc(a.text)}</div></div></div>
@@ -4071,6 +4171,18 @@ function renderAdmin(){
         (gerade ${echt} von ${ERFOLGE.length}).</div>
       <div class="tiny muted" style="margin-top:8px">Die goldene Zahl an der Leiste zählt weiter
         nur echte Erfolge — sonst hängt hier eine ${ERFOLGE.length}, die nichts bedeutet.</div></div>`;
+  /* Karls Ansage vom 27.08.2026: "die beiden Tutorials bitte in die Admin-Konsole eintragen,
+     damit ich sie da abspielen kann." ⚠️ Beide kommen im Betrieb nur unter Bedingungen hoch
+     (einmalig bzw. nach zwei Wochen Pause) -- ohne diesen Weg muesste Karl zum Ansehen die
+     Bedingung faelschen, also Daten anfassen. */
+  h+=`<div class="row between" style="margin:16px 4px 4px"><h2>Tutorials abspielen</h2></div><div class="card">
+      <button class="btn" style="width:100%" data-admin="tut:kcal">Ernährungs-Assistent</button>
+      <div class="tiny muted" style="margin:6px 0 12px">Die sechs Schritte inklusive KI-Schlüssel.
+        Läuft im Betrieb nur beim allerersten Öffnen des Kalorien-Teils.</div>
+      <button class="btn" style="width:100%" data-admin="tut:comeback">Wiederkommen</button>
+      <div class="tiny muted" style="margin-top:6px">Läuft im Betrieb nach
+        ${COMEBACK_TAGE} Tagen ohne Öffnen. ⚠️ Das Abspielen hier rührt
+        <b style="color:var(--txt)">nichts an</b> — es zeichnet nur die Ansicht.</div></div>`;
   h+=`<div class="row between" style="margin:16px 4px 4px"><h2>Verlauf-Testdaten</h2></div><div class="card">
       <div class="fab-row"><button class="btn" data-admin="demo">Demo-Einheiten</button><button class="btn danger" data-admin="clearhist">Verlauf leeren</button></div></div>`;
   app.innerHTML=h;
@@ -5090,6 +5202,12 @@ document.addEventListener('click',ev=>{
     else if(cmd==='jump') profile.xp=xpForLevel(+arg);
     else if(cmd==='unlockall') settings.devUnlockAll=!settings.devUnlockAll;
     else if(cmd==='allerfolge') settings.devAllErfolge=!settings.devAllErfolge;
+    /* ⚠️ Diese beiden kehren SOFORT zurueck: sie zeichnen eine Ansicht, statt einen Wert
+       zu setzen. Das save()/render() unten wuerde sie sonst gleich wieder ueberschreiben. */
+    else if(cmd==='tut'){
+      if(arg==='kcal'){ startKcalOb(); return; }
+      // Vorgetaeuscht, nicht gespeichert: comebackTage ist nur der Text in der Ansicht.
+      comebackTage = COMEBACK_TAGE + 3; view='comeback'; render(); return; }
     else if(cmd==='demo') genDemo();
     else if(cmd==='clearhist') sessions=[];
     save(); applyTheme(); render(); return; }
@@ -5202,6 +5320,12 @@ document.addEventListener('click',ev=>{
     toast('Kannst du jederzeit nachholen'); }
   else if(a&&a.startsWith('kob:art:')){ kobDraft.art=a.slice(8); renderKcalOb(); }
   else if(a&&a.startsWith('kob:w:')){ kobDraft.wochen=+a.slice(6); renderKcalOb(); }
+  /* ⚠️ fragKey() bringt ein eigenes Fenster mit und liefert ein Versprechen. Danach neu
+     zeichnen, damit der Schritt den hinterlegten Schluessel auch anzeigt -- sonst sieht es
+     aus, als waere nichts passiert. */
+  else if(a==='kob:key'){ fragKey().then(()=>{ if(view==='body') renderKcalOb(); }); }
+  else if(a==='cb:los'){ view='home'; render(); }
+  else if(a==='cb:plan'){ view='progs'; render(); }
   else if(a==='kob:finish'){
     const k=kcalInit(), d=kobDraft, kg=+String(d.kg).replace(',','.')||0;
     if(!(kg>0)){ toast('Ohne Gewicht geht es nicht'); return; }
@@ -5415,6 +5539,9 @@ else if(session && !profile.onboarded) startOnboard();   // neues Konto → erst
    die Erfolgs-Seite ging, sah einen leeren Haken an einer Aufgabe, die schon erledigt war.
    ⚠️ Reihenfolge ist hier kein Schoenheitsfehler, sondern das Feature. */
 if(session){
+  /* ⚠️ VOR aufgabeErledigen('auf'): die Frage "wie lange warst du weg" muss gestellt sein,
+     bevor irgendetwas den heutigen Tag stempelt. */
+  if(comebackPruefen()) view = 'comeback';
   aufgabeErledigen('auf');   // Tagesaufgabe: reingeschaut
   erfolgeGesehenInit();      // muss VOR erfolgeAuszahlen laufen -- sonst gilt frisch Bezahltes als "schon gesehen"
   /* ⚠️ Rueckwirkend: beim ersten Start mit v32 wird auf einen Schlag gutgeschrieben, was
@@ -5491,6 +5618,54 @@ window.addEventListener('pagehide',flushSync);
    ➡️ **Regel daraus:** gegen ein Verhalten, das man nicht nachstellen kann, baut man
    keine Dauerkorrektur. `position:fixed; bottom:0` macht der Browser selbst richtig, und die
    seltene Ausnahme ist billiger als eine Korrektur, die immer laeuft.                      */
+
+/* ---------- Zwischen den Reitern wischen (27.08.2026) ----------
+   Karls Ansage: "man soll auf dem Handy zwischen den einzelnen Reitern hin und her switchen
+   koennen."
+
+   ⚠️ **Nur zwischen den vier Reitern der unteren Leiste**, und nur wenn man gerade auf
+   einem davon steht. Wer in einer Einheit, im Assistenten oder in einer Unteransicht
+   (Verlauf, Datenschutz, Meldung) ist, wischt nichts weg -- dort waere ein Wisch ein
+   Datenverlust oder mindestens ein verlorener Platz.
+   🔴 **Und drei Riegel, damit es nicht ausloest, wo es nicht soll:** nicht aus einem
+   Eingabefeld heraus (dort wischt man Text), nicht aus etwas seitlich Scrollbarem heraus
+   (dort wischt man den Inhalt), und nicht bei offenem Fenster.
+   ⚠️ `passive:true` -- es wird nichts abgefangen, nur zugehoert. Ein Wisch, der das
+   normale Scrollen bremst, waere schlimmer als kein Wisch.                                */
+const REITER = ['home','body','erfolge','settings'];
+(function(){
+  const el = document.getElementById('app'); if(!el) return;
+  let x0=0, y0=0, t0=0, laeuft=false;
+  function darfWischen(ziel){
+    if(window.innerWidth >= 900) return false;                       // PC: Seitenleiste
+    if(document.getElementById('modal').classList.contains('show')) return false;
+    if(REITER.indexOf(view) === -1) return false;
+    if(ziel && ziel.closest && ziel.closest('input,textarea,select,button')) return false;
+    // Etwas, das selbst seitlich scrollt (Jahresraster im Verlauf, Chip-Reihen)
+    for(let n = ziel; n && n !== el; n = n.parentElement){
+      const st = getComputedStyle(n);
+      if((st.overflowX === 'auto' || st.overflowX === 'scroll') && n.scrollWidth > n.clientWidth + 4) return false;
+    }
+    return true;
+  }
+  el.addEventListener('touchstart', e => {
+    laeuft = false;
+    if(e.touches.length !== 1) return;
+    if(!darfWischen(e.target)) return;
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now(); laeuft = true;
+  }, {passive:true});
+  el.addEventListener('touchend', e => {
+    if(!laeuft) return; laeuft = false;
+    const t = e.changedTouches && e.changedTouches[0]; if(!t) return;
+    const dx = t.clientX - x0, dy = t.clientY - y0, dt = Date.now() - t0;
+    // Waagerecht, weit genug, nicht zu langsam - sonst war es Scrollen oder ein Halten.
+    if(dt > 700 || Math.abs(dx) < 60 || Math.abs(dy) > 45 || Math.abs(dx) < Math.abs(dy) * 1.8) return;
+    const i = REITER.indexOf(view); if(i === -1) return;
+    const ziel = i + (dx < 0 ? 1 : -1);
+    if(ziel < 0 || ziel >= REITER.length) return;      // am Rand: nichts, kein Umlauf
+    view = REITER[ziel]; render();
+  }, {passive:true});
+})();
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>

@@ -4,6 +4,70 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-27
 
+### 🎒 v41 — fünf Sachen von Karls Liste
+
+#### 1. Die Tagesaufgaben haben Symbole statt Haken
+
+*Reingeschaut* → Auge, *Eingetragen* → Stift, *Trainiert* → Hantel (dasselbe Bild wie beim
+Erfolg *Fünfzig* — dieselbe Sache an zwei Stellen, kein Versehen).
+⚠️ **Ohne Haken muss „erledigt" trotzdem lesbar bleiben.** Das trägt jetzt die Farbe: hell mit
+grüner XP-Zahl gegen grau. Vorher nebeneinander angesehen.
+
+#### 2. Der KI-Schlüssel steckt im Ernährungs-Assistenten
+
+Sechs Schritte statt fünf. Er gehört dorthin und nicht in den Trainings-Assistenten — der
+Schlüssel ist nur für *Essen per Foto* da.
+🔴 **Überspringen hat die gleiche Größe wie Eintragen.** Ein Schritt, der etwas von außen
+verlangt (Google-Konto, zweite Seite, Warten), darf den Assistenten nicht blockieren — sonst
+bleibt jemand beim Einrichten hängen und die Kalorien stehen nie. Dafür steht eine eigene
+Prüfung.
+💡 Und es steht dabei, dass **alles andere ohne Schlüssel geht**: Barcode, eigene Lebensmittel,
+Tagesziel. Sonst liest sich der Schritt wie eine Pflicht.
+
+#### 3. Das Wiederkommen nach zwei Wochen
+
+**Karls Nachsatz war die eigentliche Anforderung:** *„natürlich nicht direkt, wenn man die
+Website das erste Mal öffnet."* Ein *„schön, dass du wieder da bist"* beim allerersten Öffnen
+wäre peinlich.
+
+➡️ Deshalb hängt es an einem Wert, der beim ersten Mal **fehlt** (`zuletztDa === null`), statt
+an einer Rechnung mit einem Ersatzwert. **Kein Ersatzwert kann „noch nie" bedeuten.** Zweite
+Sperre: wer nie trainiert und nie eingerichtet hat, bekommt es auch nicht — der war nicht weg,
+der hat nie angefangen.
+⚠️ **Erst fragen, dann stempeln.** Andersherum wäre die Antwort immer „nein" und das
+Wiederkommen käme nie — ein Fehler, den keine Prüfung der beiden Hälften einzeln sieht.
+Deshalb stehen beide in **einer** Funktion, und dafür gibt es eine eigene Prüfung.
+💡 Inhaltlich wichtiger als das Lob: die Ansage, dass **nichts verfallen ist**. Level, Rang und
+Erfolge bleiben; nur die Wochen-Serie fängt neu an. Sonst liest sich eine Pause wie eine Strafe.
+
+#### 4. Beide Tutorials in der Admin-Konsole
+
+Beide kommen im Betrieb nur unter Bedingungen hoch. Ohne diesen Weg müsste Karl zum Ansehen
+die Bedingung fälschen, also Daten anfassen.
+⚠️ **Das Abspielen rührt nichts an** — es zeichnet nur die Ansicht. Wer sich das Wiederkommen
+ansieht, will es sehen, nicht seinen Zeitstempel verlieren und es danach echt bekommen.
+
+#### 5. Wischen zwischen den Reitern
+
+Nur zwischen den vier Reitern der unteren Leiste, und nur wenn man auf einem davon steht.
+🔴 **Aus einer laufenden Einheit führt kein Wisch heraus** — dort wäre er ein Datenverlust.
+Dasselbe gilt für Assistent, Wiederkommen und die Unteransichten.
+⚠️ Drei Riegel: nicht aus einem Eingabefeld heraus, nicht aus etwas seitlich Scrollbarem
+heraus, nicht bei offenem Fenster. Und `passive:true` — ein Wisch, der das normale Scrollen
+bremst, wäre schlimmer als kein Wisch.
+
+---
+
+**Prüfungen: 570 → 590.** ✅ Acht Gegenproben, jede beißt.
+
+⚠️ **Der neue Schritt im Assistenten hat zwölf bestehende Prüfungen umgeworfen** — sie sprangen
+mit einer festen `kobStep = 4` auf die Zusammenfassung, die jetzt Schritt 5 ist. Sie stehen
+jetzt auf `KOB_LAST`. **Eine Prüfung, die eine Schrittnummer hartkodiert, prüft die Nummer
+mit** — und die war nie das Versprechen.
+
+💡 Beim Ansehen der fertigen Ansichten fiel ein *„Wöchen-Serie"* auf. Dritter Tippfehler
+heute, den nur das Hinsehen gefunden hat.
+
 ### 🔴 v40 — die untere Leiste ist zurückgebaut (mein Fehler)
 
 **Karls Meldung:** *„Hab die App gerade mal auf dem Handy geöffnet — man kann die Leiste unten
