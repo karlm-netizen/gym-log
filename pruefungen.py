@@ -316,16 +316,45 @@ window.addEventListener('error', e => {
   t('XP einer Einheit', () => eq(sessXP(EINTRAG), 2*10 + 50 + Math.floor(1080/1000)*20));
 
   // ================================================================ Steigerung
-  const machEinheit = (satzListe) => ([{ date: Date.now(), entries: [{ name:'Bankdrücken', sets: satzListe }] }]);
+  /* ⚠️ `soll` mitgeben, sonst baut die Pruefung einen Zustand, den die App gar nicht
+     erzeugen kann: eine gespeicherte Einheit enthaelt NUR abgehakte Saetze (finishWorkout
+     filtert). Am 27.08.2026 hat genau das eine Pruefung gruen gehalten, deren Zweig in der
+     App unerreichbar war. Ohne Angabe entspricht `soll` der Zahl der uebergebenen Saetze. */
+  const machEinheit = (satzListe, soll) => ([{ date: Date.now(), entries: [{ name:'Bankdrücken',
+    soll: (soll != null ? soll : satzListe.filter(x => !x.warm).length), sets: satzListe }] }]);
   t('Alles abgehakt und drueber -> mehr Gewicht', () => {
     sessions = machEinheit([{warm:false,done:true,weight:60,reps:15},{warm:false,done:true,weight:60,reps:15}]);
     const s = suggest('Bankdrücken', null);
     return (s && s.up === true && s.w === 62.5) || JSON.stringify(s);
   });
-  t('Ein Satz nicht abgehakt -> gleiches Gewicht', () => {
-    sessions = machEinheit([{warm:false,done:true,weight:60,reps:15},{warm:false,done:false,weight:60,reps:0}]);
+  /* 🔴 So sieht der Fall in der App wirklich aus: zwei Saetze standen da (`soll:2`),
+     einer wurde gemacht -- der andere ist gar nicht erst gespeichert. Vorher stand hier ein
+     nicht abgehakter Satz IN der Einheit, und den gibt es dort nie. */
+  t('Nicht alle geplanten Saetze gemacht -> gleiches Gewicht', () => {
+    sessions = machEinheit([{warm:false,done:true,weight:60,reps:15}], 2);
     const s = suggest('Bankdrücken', null);
     return (s && s.up === false && s.w === 60) || JSON.stringify(s);
+  });
+  t('Der Text nennt geschafft und geplant', () => {
+    sessions = machEinheit([{warm:false,done:true,weight:60,reps:15}], 3);
+    const s = suggest('Bankdrücken', null);
+    return (s && /1 von 3 Sätzen/.test(s.text)) || (s && s.text) || 'kein Vorschlag';
+  });
+  // ⚠️ Alte Einheiten haben kein `soll`. Fuer die muss es beim alten Verhalten bleiben,
+  // sonst bremst eine geratene Sollzahl einen Vorschlag aus, den es nie gab.
+  t('Ohne soll bleibt es beim alten Verhalten', () => {
+    sessions = [{ date: Date.now(), entries: [{ name:'Bankdrücken',
+      sets:[{warm:false,done:true,weight:60,reps:15},{warm:false,done:true,weight:60,reps:15}] }] }];
+    const s = suggest('Bankdrücken', null);
+    return (s && s.up === true) || JSON.stringify(s);
+  });
+  // Aufwaermsaetze zaehlen nicht in die Sollzahl - sie sind auch sonst nirgends Teil der Rechnung.
+  t('Der Aufwaermsatz zaehlt nicht ins Soll', () => {
+    sessions = machEinheit([{warm:true,done:true,weight:40,reps:10},
+                            {warm:false,done:true,weight:60,reps:15},
+                            {warm:false,done:true,weight:60,reps:15}]);
+    const s = suggest('Bankdrücken', null);
+    return (s && s.up === true) || JSON.stringify(s);
   });
   t('Genau auf der Grenze -> noch nicht mehr', () => {
     // repGoal ist 14 bei viel Volumen; 14 ist NICHT ueber 14.
@@ -2101,6 +2130,59 @@ window.addEventListener('error', e => {
     return gefuellt > 0 || 'der Zwischenspeicher blieb leer';
   });
 
+  // ================================================ Aus dem Durchsehen, 2. Runde (v43)
+  /* 🔴 Abmelden und Loeschen haben Plaene, Einheiten und Profil zurueckgesetzt -- die
+     kontogebundenen Sachen daneben aber nicht. Der schaerfste Fall: eine abgeschickte, noch
+     nicht zugestellte Meldung haengt an der Verbindung, nicht am Konto. Die naechste
+     Anmeldung haette sie mit IHREM Token rausgeschickt. */
+  const raeumProbe = (auchSchluessel) => {
+    localStorage.setItem(MELD_KEY, JSON.stringify([{id:'m1', text:'offen', umfeld:{}}]));
+    localStorage.setItem(POST_KEY, JSON.stringify([{id:'p1', antwort:'Hi', gelesen_am:null}]));
+    DB.set('postfach-gelesen', ['p9']);
+    DB.set('aikey', 'AIzaTEST');
+    kontoDatenRaeumen(auchSchluessel);
+    return { meld: (localStorage.getItem(MELD_KEY)||'').length,
+             post: (localStorage.getItem(POST_KEY)||'').length,
+             gel:  (DB.get('postfach-gelesen', []) || []).length,
+             key:  DB.get('aikey','') };
+  };
+  t('Abmelden nimmt offene Meldungen mit', () => {
+    const r = raeumProbe(false); DB.set('aikey','');
+    return r.meld === 0 || 'es liegt noch etwas im Ausgang';
+  });
+  t('Abmelden raeumt das Postfach', () => {
+    const r = raeumProbe(false); DB.set('aikey','');
+    return (r.post === 0 && r.gel === 0) || 'post=' + r.post + ' gelesen=' + r.gel;
+  });
+  /* ⚠️ Der Schluessel gehoert zum GERAET, nicht zum Konto -- steht so in den
+     Einstellungen. Ihn beim Abmelden wegzunehmen waere eine Schikane. */
+  t('Abmelden laesst den KI-Schluessel liegen', () => {
+    const r = raeumProbe(false); DB.set('aikey','');
+    return r.key === 'AIzaTEST' || 'der Schluessel ist weg: ' + JSON.stringify(r.key);
+  });
+  // ⚠️ Beim Loeschen steht "alle Daten dauerhaft" -- dann darf nichts uebrigbleiben.
+  t('Konto loeschen nimmt auch den Schluessel mit', () => {
+    const r = raeumProbe(true); DB.set('aikey','');
+    return r.key === '' || 'der Schluessel liegt noch da';
+  });
+  /* 🔴 Und wieder der Einbau statt nur des Teils. Ueber APP_QUELLE, sonst faende die
+     Pruefung ihren eigenen Text im Dokument wieder. */
+  t('Abmelden ruft das Aufraeumen auch auf', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    return q.indexOf('kontoDatenRaeumen(false)') > -1 || 'authSignOut raeumt nicht auf';
+  });
+  t('Konto loeschen ruft es mit dem Schluessel auf', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    return q.indexOf('kontoDatenRaeumen(true)') > -1 || 'deleteAccount raeumt den Schluessel nicht mit';
+  });
+  t('Nach dem Abmelden steht keine rote Zahl mehr', () => {
+    localStorage.setItem(POST_KEY, JSON.stringify([{id:'p1', antwort:'Hi', gelesen_am:null}]));
+    const vorher = postfachUngelesen();
+    kontoDatenRaeumen(false);
+    const nachher = postfachUngelesen();
+    return (vorher === 1 && nachher === 0) || 'vorher=' + vorher + ' nachher=' + nachher;
+  });
+
   // ================================================ Aus dem Durchsehen (v42)
   /* 🔴 Der Fund, der beim Durchsehen am peinlichsten war: das Wiederkommen stand ganz
      am Ende der Startfolge und ueberschrieb damit jede Ansicht, die vorher gesetzt worden war
@@ -2690,6 +2772,33 @@ window.addEventListener('error', e => {
     return (nochDa && nichtsGespeichert)
       || 'Einheit noch da=' + nochDa + ' nichts gespeichert=' + nichtsGespeichert;
   });
+  /* 🔴 Und der Einbau, nicht nur das Teil: `finishWorkout` muss die geplante Zahl auch
+     wirklich mitschreiben. Ohne das bliebe `soll` fuer immer leer, `suggest` faende nie
+     etwas vor und der reparierte Schutz waere erneut wirkungslos -- diesmal leiser. */
+  t('Die geplante Satzzahl wird mitgeschrieben', () => {
+    const mA = active, mS = sessions, mX = profile.xp, mV = view;
+    sessions = [];
+    active = laufendesTraining([{ weight:60, reps:10, done:true },
+                                { weight:60, reps:9,  done:true },
+                                { weight:'', reps:'', done:false }]);   // dritter nicht gemacht
+    finishWorkout();
+    const e = sessions.length ? sessions[0].entries[0] : null;
+    active = mA; sessions = mS; profile.xp = mX; view = mV; closeModal();
+    if(!e) return 'nichts gespeichert';
+    return (e.soll === 3 && e.sets.length === 2)
+      || 'soll=' + e.soll + ' gespeichert=' + e.sets.length;
+  });
+  t('Der Aufwaermsatz zaehlt auch beim Speichern nicht ins Soll', () => {
+    const mA = active, mS = sessions, mX = profile.xp, mV = view;
+    sessions = [];
+    active = laufendesTraining([{ weight:40, reps:10, done:true, warm:true },
+                                { weight:60, reps:10, done:true }]);
+    finishWorkout();
+    const e = sessions.length ? sessions[0].entries[0] : null;
+    active = mA; sessions = mS; profile.xp = mX; view = mV; closeModal();
+    return (e && e.soll === 1) || 'soll=' + (e && e.soll);
+  });
+
   t('Ein abgehakter Satz zaehlt weiterhin, auch ohne Gewicht', () => {
     const mA = active, mS = sessions, mX = profile.xp, mV = view;
     sessions = [];

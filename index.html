@@ -1621,7 +1621,7 @@ function lastPerf(name){ for(let i=sessions.length-1;i>=0;i--){ const e=sessions
 // Letztes Mal jeden Satz abgehakt → mehr Gewicht. Sonst dasselbe nochmal.
 function lastEntry(name){ for(let i=sessions.length-1;i>=0;i--){
   const e=sessions[i].entries.find(x=>x.name===name);
-  if(e){ const s=arbeit(e.sets); if(s.length) return {name:e.name, sets:s}; } } return null; }
+  if(e){ const s=arbeit(e.sets); if(s.length) return {name:e.name, sets:s, soll:e.soll}; } } return null; }
 function stepFor(name){ const n=(name||'').toLowerCase();
   return /kniebeug|squat|kreuzheb|deadlift|beinpress|hack squat|hip thrust|langhantelrudern|beinbeuger|beinstrecker/.test(n) ? 5 : 2.5; }
 function fmtKg(v){ return (Math.round(v*10)/10).toString().replace('.',','); }
@@ -1630,11 +1630,28 @@ function fmtKg(v){ return (Math.round(v*10)/10).toString().replace('.',','); }
 // (6–10 bzw. 8–12) — wer den oberen Rand nur trifft, bleibt beim Gewicht.
 function repGoal(ex){ return volOf(ex)==='low' ? 10 : 14; }
 // ex = die Uebung im laufenden Training; ihr Ziel schlaegt die globale Wahl
+/* 🔴 Hier lag ein Schutz, der NIE greifen konnte (gefunden beim Durchsehen am
+   27.08.2026). Die Absicht war richtig: mehr Gewicht erst, wenn beim letzten Mal **jeder**
+   Satz gemacht wurde -- wer vier Saetze geplant und zwei geschafft hat, soll nicht auch noch
+   hochgehen.
+
+   Nur stand da `done.length === e.sets.length`, und **in einer gespeicherten Einheit sind
+   ausschliesslich gemachte Saetze**: `finishWorkout` legt nur ab, was abgehakt ist. Beide
+   Zahlen waren also immer gleich, `alle` war immer `true` -- und der Zweig darunter
+   ("letztes Mal 2 von 4 Saetzen") konnte nie erscheinen. Toter Text und ein Schutz, der
+   nichts schuetzt, an derselben Stelle.
+
+   ➡️ Seit v43 schreibt `finishWorkout` die geplante Zahl als `soll` mit. Jetzt laesst
+   sich vergleichen, was dastand, mit dem, was gemacht wurde.
+   ⚠️ Aeltere Einheiten haben kein `soll`. Fuer die faellt es auf das alte Verhalten
+   zurueck (`alle === true`) -- lieber wie bisher als eine geratene Sollzahl, die einen
+   Vorschlag ausbremst, den es nie gab. */
 function suggest(name,ex){
   const e=lastEntry(name); if(!e) return null;
   const done=e.sets.filter(s=>s.done); if(!done.length) return null;
   const w=Math.max(...done.map(s=>+s.weight||0));
-  const alle=done.length===e.sets.length;         // jeder Satz abgehakt
+  const soll=(+e.soll>0) ? +e.soll : done.length;
+  const alle=done.length>=soll;                   // jeder geplante Satz auch gemacht
   const [lo,hi]=exRange(ex), grenze=repGoal(ex);
   // Die schwaechste Wiederholungszahl entscheidet: hochgehen erst, wenn JEDER Satz drueber lag.
   // Ein einzelner guter Satz soll das Gewicht nicht hochziehen.
@@ -1643,7 +1660,7 @@ function suggest(name,ex){
   if(w>0){
     if(drueber){ const nw=w+stepFor(name);
       return {w:nw, up:true, text:`Heute <b>${fmtKg(nw)} kg</b> — letztes Mal ${minWdh} Wdh bei ${fmtKg(w)} kg, also über ${grenze}`}; }
-    if(!alle) return {w:w, up:false, text:`Nochmal <b>${fmtKg(w)} kg</b> — letztes Mal ${done.length} von ${e.sets.length} Sätzen`};
+    if(!alle) return {w:w, up:false, text:`Nochmal <b>${fmtKg(w)} kg</b> — letztes Mal ${done.length} von ${soll} Sätzen`};
     return {w:w, up:false, text:`Nochmal <b>${fmtKg(w)} kg</b> — mehr Gewicht, sobald jeder Satz über <b>${grenze} Wdh</b> liegt`};
   }
   // Ohne Hantel (Klimmzuege & Co.) gibt es kein Gewicht zum Draufpacken
@@ -4958,10 +4975,35 @@ async function authSignIn(idOrEmail,password){ idOrEmail=(idOrEmail||'').trim();
   else if(res.ok){ setDirty(true); await cloudPush(); } // Konto noch leer → lokale Daten übernehmen
 }
 // Abmelden nur, wenn nichts Ungesichertes offen ist — sonst wären die Daten weg.
+/* ---------- Was beim Abmelden auf dem Geraet bleiben darf (27.08.2026) ----------
+   🔴 Gefunden beim Durchsehen: Abmelden und Konto-Loeschen haben Plaene, Einheiten,
+   Profil und Einstellungen zurueckgesetzt -- **die kontogebundenen Sachen daneben aber nicht.**
+   Liegen geblieben sind:
+
+   - `postfach` — die Problemmeldungen samt Antworten. Nach dem Abmelden zaehlt
+     `postfachUngelesen()` weiter, und wer sich als Naechstes anmeldet, sieht die rote Zahl
+     und kurz die Meldungen des Vorgaengers, bis der Abruf sie ersetzt.
+   - `meldungen` — **abgeschickte, aber noch nicht zugestellte Meldungen.** Die haengen an
+     der Verbindung, nicht am Konto: die naechste Anmeldung schickt sie mit **ihrem** Token
+     raus. Eine Meldung von Karl kaeme dann unter dem Namen seines Bruders an. Das ist der
+     schaerfste der drei.
+   - `postfach-gelesen` — haengt an fremden Kennungen und waere danach sinnlos.
+
+   ⚠️ **Der KI-Schluessel bleibt beim Abmelden liegen, und das ist Absicht.** Er gehoert
+   zum Geraet, nicht zum Konto (steht so in den Einstellungen), und Karl beim Abmelden jedes
+   Mal den Schluessel wegzunehmen waere eine Schikane. Beim **Loeschen** geht er mit -- dort
+   steht "alle Daten dauerhaft", und dann darf nichts uebrigbleiben. */
+function kontoDatenRaeumen(auchSchluessel){
+  try{ localStorage.removeItem(MELD_KEY); }catch(e){}
+  try{ localStorage.removeItem(POST_KEY); }catch(e){}
+  DB.set('postfach-gelesen', []);
+  if(auchSchluessel) DB.set('aikey', '');
+}
 async function authSignOut(){
   if(dirty && !await cloudPush()) return false;
   if(session){ try{ await fetch(`${SUPA_URL}/auth/v1/logout`,{method:'POST',headers:authHeaders(true)}); }catch(e){} }
   clearSession();
+  kontoDatenRaeumen(false);          // Postfach und offene Meldungen gehoeren zum Konto
   programs=[neuerPlan('Mein Plan',seedPlans())]; sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null; normalizeProfile(); bindPlans();
   DB.set('programs',programs); DB.set('sessions',sessions); DB.set('profile',profile); DB.set('settings',settings); DB.set('active',null);
   setDirty(false); authMode='login'; view='home'; return true; }
@@ -4981,6 +5023,7 @@ async function deleteAccount(){
   }
   if(!dataGone && !accountGone) return 'offline';       // nichts erreicht — Konto bleibt bestehen
   clearSession(); letzteMailMerken(null);               // beim Loeschen geht auch die Adresse
+  kontoDatenRaeumen(true);                             // ... und der KI-Schluessel
 
   programs=[neuerPlan('Mein Plan',seedPlans())]; sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null; normalizeProfile(); bindPlans();
   DB.set('programs',programs); DB.set('sessions',sessions); DB.set('profile',profile); DB.set('settings',settings); DB.set('active',null);
@@ -5099,7 +5142,12 @@ function eingetragenesUebernehmen(){
 }
 function finishWorkout(){
   const nachgetragen=eingetragenesUebernehmen();
-  const entries=active.exercises.map(e=>({name:e.name||'Übung',icon:e.icon,sets:e.sets.filter(s=>s.done)})).filter(e=>e.sets.length);
+  /* 🔴 `soll` ist neu am 27.08.2026 und behebt einen Schutz, der nie greifen konnte --
+     siehe die Erklaerung bei suggest(). Es ist die Zahl der ARBEITSSAETZE, die dastanden;
+     was davon gemacht wurde, steht in `sets`. Aufwaermsaetze zaehlen nicht mit, sie sind
+     auch sonst nirgends Teil der Rechnung. */
+  const entries=active.exercises.map(e=>({name:e.name||'Übung',icon:e.icon,
+    soll:arbeit(e.sets).length, sets:e.sets.filter(s=>s.done)})).filter(e=>e.sets.length);
   /* ⚠️ Hier steht jetzt wirklich nichts — kein Haken, kein getippter Wert. Verworfen wird
      trotzdem nicht mehr stillschweigend: der Hinweis sagt, dass nichts da war, und die Einheit
      bleibt stehen, bis Karl selbst abbricht. Ein Fenster, das man wegtippen muss, ist an

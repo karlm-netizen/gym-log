@@ -4,6 +4,54 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-27
 
+### 🔍 v43 — zweite Runde Durchsehen: Trainings-Teil und Anmeldung
+
+#### 🔴 5. Ein Schutz, der nie greifen konnte
+
+In `suggest()` — der Funktion, die das Gewicht für heute vorschlägt — stand die richtige
+Absicht: **mehr Gewicht erst, wenn beim letzten Mal jeder Satz gemacht wurde.** Wer vier Sätze
+geplant und zwei geschafft hat, soll nicht auch noch hochgehen.
+
+Geprüft wurde das mit `done.length === e.sets.length`. **In einer gespeicherten Einheit sind
+aber ausschließlich gemachte Sätze** — `finishWorkout` legt nur ab, was abgehakt ist. Beide
+Zahlen waren also immer gleich, `alle` war immer `true`.
+
+➡️ **Zwei Fehler an einer Stelle:** der Zweig darunter (*„letztes Mal 2 von 4 Sätzen"*) konnte
+**nie erscheinen** — toter Text. Und der Schutz hat **nie geschützt**: wer zwei von vier
+Sätzen schaffte, bekam trotzdem mehr Gewicht vorgeschlagen, sobald diese zwei über dem Ziel
+lagen.
+
+✅ `finishWorkout` schreibt jetzt `soll` mit — die Zahl der Arbeitssätze, die dastanden.
+⚠️ Ältere Einheiten haben kein `soll` und bleiben beim alten Verhalten. Lieber wie bisher als
+eine geratene Sollzahl, die einen Vorschlag ausbremst, den es nie gab.
+🔴 **Es gab sogar eine Prüfung dafür — und sie war grün.** Sie baute eine Einheit mit einem
+nicht abgehakten Satz darin, also einen Zustand, den die App gar nicht erzeugen kann. Genau
+das Muster, das heute schon dreimal dran war: **geprüft war das Teil, nicht sein Einbau.**
+
+#### 🔴 6. Abmelden und Löschen ließen kontogebundene Daten liegen
+
+Zurückgesetzt wurden Pläne, Einheiten, Profil und Einstellungen — **daneben blieb liegen:**
+
+- **Das Postfach.** Nach dem Abmelden zählte `postfachUngelesen()` weiter; wer sich als
+  Nächster anmeldet, sieht die rote Zahl und kurz die Meldungen des Vorgängers.
+- 🔴 **Abgeschickte, aber noch nicht zugestellte Meldungen.** Die hängen an der Verbindung,
+  nicht am Konto — **die nächste Anmeldung hätte sie mit ihrem Token rausgeschickt.** Eine
+  Meldung von Karl käme unter dem Namen seines Bruders an. Der schärfste der drei.
+- Die Liste der örtlich als gelesen markierten Antworten.
+
+✅ Alle drei gehen jetzt beim Abmelden mit.
+⚠️ **Der KI-Schlüssel bleibt beim Abmelden liegen, und das ist Absicht** — er gehört zum Gerät,
+nicht zum Konto (steht so in den Einstellungen). Beim **Löschen** geht er mit: dort steht
+*„alle Daten dauerhaft"*, und dann darf nichts übrigbleiben.
+
+#### Was ich geprüft und in Ordnung gefunden habe
+
+Barcode und Foto: Produktnamen aus der offenen Lebensmittel-Datenbank sind **überall maskiert**,
+bevor sie ins Bild gehen — der einzige unmaskierte Fund landet in einem Toast, und der setzt
+`textContent`. Auch die Namen aus einem geteilten Plan-Link sind sauber.
+
+**Prüfungen: 600 → 612.** ✅ Acht Gegenproben, jede beißt.
+
 ### 🔍 v42 — erste Runde Durchsehen: vier Funde, zwei davon ernst
 
 Karls Auftrag: *„kannst du nochmal die App komplett testen — aber ich meine nicht deine Tests,
