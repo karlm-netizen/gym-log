@@ -2212,6 +2212,178 @@ window.addEventListener('error', e => {
     return gefuellt > 0 || 'der Zwischenspeicher blieb leer';
   });
 
+  // ================================================ Abgleich zwischen zwei Geraeten (v45)
+  /* \U0001f534 Karls Meldung: "habe eine Trainingseinheit auf dem Handy eingetragen, den Erfolg
+     fuer den Tag bekommen -- auf dem PC aber nicht, obwohl mir das Training dort angezeigt
+     wird." Zusammengefuehrt wurden nur Einheiten und Gewichte; alles andere im Profil kam
+     unveraendert von `basis`, und `basis` ist praktisch immer das eigene Geraet. */
+  const heute = heuteKey();
+  const blobMit = (p) => ({ programs:[], sessions:[], profile:Object.assign({xp:0}, p), settings:{} });
+
+  t('Der Haken vom anderen Geraet kommt an', () => {
+    const r = blobsZusammen(
+      blobMit({ aufgaben:{ tag:heute, fertig:{ auf:true } } }),
+      blobMit({ aufgaben:{ tag:heute, fertig:{ auf:true, train:true } } }));
+    return r.blob.profile.aufgaben.fertig.train === true || 'Trainiert fehlt weiterhin';
+  });
+  // \u26a0\ufe0f Und die XP dazu, exakt aus dem Katalog - nicht geschaetzt.
+  t('Die XP der uebernommenen Aufgabe kommen mit', () => {
+    const wert = AUFGABEN.find(a=>a.id==='train').xp;
+    const r = blobsZusammen(
+      blobMit({ xp:100, aufgaben:{ tag:heute, fertig:{ auf:true } } }),
+      blobMit({ xp:999, aufgaben:{ tag:heute, fertig:{ auf:true, train:true } } }));
+    return r.blob.profile.xp === 100 + wert || 'xp=' + r.blob.profile.xp + ', erwartet ' + (100+wert);
+  });
+  t('Eine Aufgabe, die beide kennen, wird nicht doppelt bezahlt', () => {
+    const r = blobsZusammen(
+      blobMit({ xp:100, aufgaben:{ tag:heute, fertig:{ train:true } } }),
+      blobMit({ xp:100, aufgaben:{ tag:heute, fertig:{ train:true } } }));
+    return r.blob.profile.xp === 100 || 'xp=' + r.blob.profile.xp;
+  });
+  t('Ein aelterer Tag von drueben ueberschreibt den heutigen nicht', () => {
+    const r = blobsZusammen(
+      blobMit({ aufgaben:{ tag:heute, fertig:{ auf:true } } }),
+      blobMit({ aufgaben:{ tag:'2020-01-01', fertig:{ auf:true, train:true } } }));
+    return (r.blob.profile.aufgaben.tag === heute && !r.blob.profile.aufgaben.fertig.train)
+      || JSON.stringify(r.blob.profile.aufgaben);
+  });
+  /* \U0001f534 Der schwerere Fall als der fehlende Haken: kennt das zweite Geraet die Auszahlung
+     nicht, zahlt es denselben Erfolg NOCHMAL aus. */
+  t('Ausgezahlte Erfolge kommen mit', () => {
+    const r = blobsZusammen(blobMit({ erfolge:{} }), blobMit({ erfolge:{ e1:true } }));
+    return r.blob.profile.erfolge.e1 === true || 'der Erfolg fehlt weiterhin';
+  });
+  t('Und ihre XP genau einmal', () => {
+    const wert = ERFOLGE.find(e=>e.id==='e1').xp;
+    const r = blobsZusammen(blobMit({ xp:500, erfolge:{} }), blobMit({ xp:9, erfolge:{ e1:true } }));
+    return r.blob.profile.xp === 500 + wert || 'xp=' + r.blob.profile.xp;
+  });
+  t('Ein beiden bekannter Erfolg bringt nichts dazu', () => {
+    const r = blobsZusammen(blobMit({ xp:500, erfolge:{ e1:true } }), blobMit({ xp:500, erfolge:{ e1:true } }));
+    return r.blob.profile.xp === 500 || 'xp=' + r.blob.profile.xp;
+  });
+  /* \U0001f534 Mahlzeiten sind echter Inhalt, kein Zustand. Wer am Handy eintraegt und danach
+     den PC aufmacht, hat sie bisher verloren, sobald der PC geschoben hat. */
+  t('Mahlzeiten vom anderen Geraet gehen nicht verloren', () => {
+    const r = blobsZusammen(
+      blobMit({ kcal:{ foods:[], meals:[{id:'a', date:Date.now(), kcal:500}] } }),
+      blobMit({ kcal:{ foods:[], meals:[{id:'b', date:Date.now(), kcal:700}] } }));
+    const ids = r.blob.profile.kcal.meals.map(m=>m.id).sort().join(',');
+    return ids === 'a,b' || 'uebrig: ' + ids;
+  });
+  t('Eigene Lebensmittel auch nicht', () => {
+    const r = blobsZusammen(
+      blobMit({ kcal:{ foods:[{id:'f1', name:'Quark'}], meals:[] } }),
+      blobMit({ kcal:{ foods:[{id:'f2', name:'Skyr'}],  meals:[] } }));
+    return r.blob.profile.kcal.foods.length === 2 || 'nur ' + r.blob.profile.kcal.foods.length;
+  });
+  t('Dieselbe Mahlzeit kommt nicht zweimal', () => {
+    const m = {id:'a', date:Date.now(), kcal:500};
+    const r = blobsZusammen(blobMit({ kcal:{foods:[], meals:[m]} }), blobMit({ kcal:{foods:[], meals:[m]} }));
+    return r.blob.profile.kcal.meals.length === 1 || 'zweimal drin';
+  });
+  // Ein Schritt-Eintrag je Tag, der spaetere gewinnt - dieselbe Regel wie beim Gewicht.
+  t('Schritte: ein Eintrag je Tag, der spaetere gewinnt', () => {
+    const n = Date.now();
+    const r = blobsZusammen(
+      blobMit({ kcal:{foods:[], meals:[], steps:[{date:n-3600000, n:4000}]} }),
+      blobMit({ kcal:{foods:[], meals:[], steps:[{date:n, n:9000}]} }));
+    const st = r.blob.profile.kcal.steps;
+    return (st.length === 1 && st[0].n === 9000) || JSON.stringify(st);
+  });
+  // \u26a0\ufe0f Sonst kaeme das Wiederkommen, obwohl man auf dem anderen Geraet taeglich da war.
+  t('Zuletzt-da nimmt den spaeteren Zeitpunkt', () => {
+    const n = Date.now();
+    const r = blobsZusammen(blobMit({ zuletztDa: n-20*864e5 }), blobMit({ zuletztDa: n }));
+    return r.blob.profile.zuletztDa === n || 'es blieb beim alten Zeitpunkt';
+  });
+  // \U0001f534 Der Einbau: uebernommen muss auch das Neue mitzaehlen, sonst wird nicht
+  // zurueckgeschoben und das andere Geraet erfaehrt nie davon.
+  t('Neues aus dem Essen zaehlt als uebernommen', () => {
+    const r = blobsZusammen(
+      blobMit({ kcal:{foods:[], meals:[]} }),
+      blobMit({ kcal:{foods:[], meals:[{id:'b', date:Date.now(), kcal:700}]} }));
+    return r.uebernommen >= 1 || 'uebernommen=' + r.uebernommen;
+  });
+
+  // ================================================ Admin und Seitenwechsel (v45)
+  /* \U0001f534 Karl: "meine Admin-Konsole auf dem Handy ist ausserdem weg." Die Geste hat auch
+     wieder ZUGESPERRT -- fuenfmal auf Brock getippt, waehrend sie offen war, und der Hinweis
+     dazu ist nach 1,8 Sekunden verschwunden. */
+  /* ⚠️ Verhalten pruefen, nicht Quelltext: die erste Fassung suchte nach
+     `devAdmin=!devAdmin` und fand es im KOMMENTAR, der die alte Fassung erklaert. */
+  const brockTippen = (mal) => {
+    const b = document.querySelector('#app .mascot'); if(!b) return null;
+    for(let i=0;i<mal;i++) b.click();
+    return devAdmin;
+  };
+  t('Fuenfmal tippen schliesst auf', () => {
+    const mV=view, mD=devAdmin, mS=session;
+    if(!session) session={access_token:'t'};
+    devAdmin=false; DB.set('devadmin',false);
+    view='home'; render();
+    const r = brockTippen(5);
+    view=mV; devAdmin=mD; DB.set('devadmin',mD); session=mS; render();
+    return r === true || (r === null ? 'kein Brock auf der Startseite' : 'blieb zu');
+  });
+  t('Nochmal tippen sperrt nicht wieder zu', () => {
+    const mV=view, mD=devAdmin, mS=session;
+    if(!session) session={access_token:'t'};
+    devAdmin=true; DB.set('devadmin',true);
+    view='home'; render();
+    const r = brockTippen(5);
+    view=mV; devAdmin=mD; DB.set('devadmin',mD); session=mS; render();
+    return r === true || (r === null ? 'kein Brock auf der Startseite' : 'die Geste hat zugesperrt');
+  });
+  t('Zumachen geht nur noch bewusst', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    return q.indexOf('data-admin="zu"') > -1 || 'es gibt keinen Knopf zum Zumachen';
+  });
+  t('Die goldene Nachricht ist raus', () => {
+    const mV = view; view = 'erfolge'; renderErfolge();
+    const txt = document.getElementById('app').textContent;
+    view = mV;
+    return txt.indexOf('neu freigeschaltet') === -1 || 'der Kasten steht noch da';
+  });
+  // \u26a0\ufe0f Die NEU-Markierung selbst bleibt - gestrichen war der Kasten, nicht der Hinweis.
+  t('Die NEU-Markierung am Erfolg bleibt', () => {
+    const mS = sessions, mG = profile.erfolgeGesehen, mV = view;
+    sessions = []; profile.erfolgeGesehen = null; erfolgeGesehenInit();
+    sessions = [{ id:'a1', date:Date.now(), entries:[], xp:0, pr:0 }];
+    view = 'erfolge'; renderErfolge();
+    const n = document.querySelectorAll('#app .erf-frisch').length;
+    view = mV; profile.erfolgeGesehen = mG; sessions = mS;
+    return n >= 1 || 'nichts mehr golden markiert';
+  });
+  /* Der Seitenwechsel: geprueft wird, dass die Bewegung ueberhaupt gesetzt wird und in
+     welche Richtung -- ein echter Wisch laesst sich headless nicht nachstellen. */
+  t('Nach rechts wechseln kommt von rechts herein', () => {
+    const mV = view, mS = session;
+    if(!session) session = { access_token:'t' };
+    view = 'home'; reiterZeigen('body');
+    const kl = document.getElementById('app').className;
+    view = mV; session = mS; render();
+    return /rein-r/.test(kl) || 'Klassen: ' + kl;
+  });
+  t('Zurueck kommt von links herein', () => {
+    const mV = view, mS = session;
+    if(!session) session = { access_token:'t' };
+    view = 'settings'; reiterZeigen('home');
+    const kl = document.getElementById('app').className;
+    view = mV; session = mS; render();
+    return /rein-l/.test(kl) || 'Klassen: ' + kl;
+  });
+  // \u26a0\ufe0f Derselbe Reiter darf nicht animieren - sonst zuckt es bei jedem Tipp auf den,
+  // auf dem man schon steht.
+  t('Derselbe Reiter zuckt nicht', () => {
+    const mV = view, mS = session;
+    if(!session) session = { access_token:'t' };
+    view = 'home'; reiterZeigen('home');
+    const kl = document.getElementById('app').className;
+    view = mV; session = mS; render();
+    return !/rein-/.test(kl) || 'Klassen: ' + kl;
+  });
+
   // ================================================ Das Schluessel-Fenster (v44)
   /* 🔴 `showModal()` und `closeModal()` fassen dasselbe `#modal` an. Ein Aufruf von
      dort raeumte den Schluessel-Dialog weg, und `fragKey()` gab nie eine Antwort. Wer das
@@ -2464,12 +2636,13 @@ window.addEventListener('error', e => {
   });
 
   // ================================================ Admin: Tutorials (v41)
-  t('Beide Tutorials stehen in der Admin-Konsole', () => {
+  t('Alle drei Tutorials stehen in der Admin-Konsole', () => {
     const mV = view, mD = devAdmin;
     devAdmin = true; view = 'admin'; renderAdmin();
     const q = document.getElementById('app').innerHTML;
     view = mV; devAdmin = mD;
-    const fehlt = ['tut:kcal', 'tut:comeback'].filter(x => q.indexOf(x) === -1);
+    // Drei Stueck seit dem 27.08.2026: Trainingsplan, Ernaehrung, Wiederkommen.
+    const fehlt = ['tut:plan', 'tut:kcal', 'tut:comeback'].filter(x => q.indexOf(x) === -1);
     return fehlt.length === 0 || 'fehlt in der Konsole: ' + fehlt.join(', ');
   });
   /* \u26a0\ufe0f Das Abspielen darf nichts anfassen. Wer sich das Wiederkommen ansieht, will es

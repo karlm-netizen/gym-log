@@ -4,6 +4,64 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-27
 
+### 🔴 v45 — der Abgleich hat die halbe App nicht mitgenommen
+
+**Karls Meldung:** *„Habe eine Trainingseinheit auf meinem Handy eingetragen, habe auch den
+Erfolg bekommen für den Tag — jedoch nicht auf dem PC, obwohl mir mein Training dort auch
+angezeigt wird."*
+
+🔴 **Genau so war es gebaut.** Zusammengeführt wurden **Einheiten und Gewichte**, alles andere
+im Profil kam unverändert vom eigenen Gerät. Und das eigene Gerät gewinnt praktisch immer:
+`aufgabeErledigen('auf')` hakt beim Start *Reingeschaut* ab, das ruft `save()` — damit steht
+`dirty`, **bevor der erste Abgleich überhaupt läuft**. Der Zweig `dirty ? lokal : cloud` fiel
+also immer auf die eigene Seite.
+
+**Was dabei still verlorenging:**
+
+| | |
+|---|---|
+| **Tagesaufgaben** | Karls Fall — der Haken kam nie an |
+| **Ausgezahlte Erfolge** | 🔴 das zweite Gerät zahlt denselben Erfolg **nochmal** aus |
+| **Mahlzeiten und eigene Lebensmittel** | echter Inhalt, weg sobald das andere Gerät schob |
+| **Schritte** | dito |
+| **Zuletzt hier gewesen** | das Wiederkommen wäre zu früh gekommen |
+
+⚠️ **XP wird exakt nachgetragen, nicht geschätzt.** Für jeden Erfolg und jede Aufgabe, die neu
+dazukommt, steht der Wert im Katalog — der wird addiert. Ein `Math.max` über beide Punktestände
+wäre naheliegend und **falsch**: es zählt Einheiten doppelt, die beide Seiten schon kennen.
+
+### 🔑 Die Admin-Konsole hat sich selbst zugesperrt
+
+**Karl:** *„meine Admin-Konsole auf dem Handy ist außerdem weg."*
+
+Die Geste war `devAdmin = !devAdmin` — **fünfmal auf Brock tippen hat also auch wieder
+zugesperrt.** Der Hinweis dazu ist nach 1,8 Sekunden weg, das merkt man nicht.
+➡️ Fünfmal tippen schließt jetzt nur noch **auf**. Zumachen geht über einen eigenen Knopf in
+der Konsole. **Eine Geste, die aufschließt, darf nicht zufällig auch abschließen.**
+
+### 🎞️ Der Seitenwechsel hängt jetzt am Finger
+
+Beim Wischen folgt die Seite der Bewegung (45 % des Wegs), und beim Loslassen kommt die neue
+aus der Richtung herein, in die gewischt wurde. Der Tipp auf die untere Leiste macht dasselbe —
+sonst sähe dasselbe Ziel je nach Weg anders aus.
+💡 **Am Rand wird es zäh** (18 % statt 45 %): die Seite gibt ein Stück nach und federt zurück.
+Das sagt *„da kommt nichts mehr"*, ohne einen Satz dafür zu brauchen.
+⚠️ Die Bewegung sitzt an `#app`, nicht am `body` — die untere Leiste und der Pausen-Timer
+stehen **über** den Seiten, nicht auf einer.
+⚠️ Alle Zuhörer sind `passive`, und `touchmove` entscheidet erst nach 12 px, ob es waagerecht
+gemeint war. Ein Wisch, der das Scrollen bremst, wäre schlimmer als kein Wisch.
+
+### Kleinigkeiten
+
+- **Der goldene Kasten *„1 neu freigeschaltet"* ist raus** (Karls Ansage). Die NEU-Markierung
+  am Erfolg selbst bleibt — gestrichen war der Kasten, nicht der Hinweis.
+- **Alle drei Assistenten stehen jetzt in der Admin-Konsole**: Trainingsplan, Ernährung,
+  Wiederkommen. Der Trainings-Assistent fehlte.
+
+**Prüfungen: 623 → 644.** ✅ Sieben Gegenproben, jede beißt.
+⚠️ Die Admin-Prüfung suchte zuerst im Quelltext nach `devAdmin=!devAdmin` — und fand es im
+**Kommentar, der die alte Fassung erklärt**. Sie tippt jetzt fünfmal auf Brock und sieht nach.
+
 ### 📉 v44 — die drei offenen Funde aus dem Durchsehen
 
 Karl hat zu allen dreien Ja gesagt.

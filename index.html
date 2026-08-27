@@ -279,6 +279,23 @@ setTimeout(function(){
   /* Wer Bewegung abgestellt hat, bekommt keine — das Gold traegt die Botschaft auch allein. */
   @media (prefers-reduced-motion: reduce){ nav button.hat-neu svg{animation:none} }
 
+  /* ---- Der Seitenwechsel (27.08.2026) ----
+     Karls Wunsch: "kann die Animation, wenn ich zur naechsten Seite switche, besser aussehen,
+     nach richtig ziehen z. B.?"
+     ⚠️ Die Bewegung sitzt am `#app`, nicht am `body`: die untere Leiste und der
+     Pausen-Timer duerfen NICHT mitwandern -- die stehen ueber den Seiten, nicht auf einer.
+     ⚠️ Kurz (0,22 s) und ohne Nachfedern. Eine Seite, die man zwanzigmal am Tag wechselt,
+     darf nicht jedes Mal auf eine Animation warten lassen. */
+  @keyframes blattVonRechts{ from{ transform:translateX(42px); opacity:.25 } to{ transform:none; opacity:1 } }
+  @keyframes blattVonLinks { from{ transform:translateX(-42px); opacity:.25 } to{ transform:none; opacity:1 } }
+  #app.rein-r{ animation:blattVonRechts .22s cubic-bezier(.2,.7,.3,1) }
+  #app.rein-l{ animation:blattVonLinks  .22s cubic-bezier(.2,.7,.3,1) }
+  #app.zieht{ transition:none }
+  #app.faellt-zurueck{ transition:transform .18s cubic-bezier(.2,.7,.3,1) }
+  @media (prefers-reduced-motion: reduce){
+    #app.rein-r, #app.rein-l{ animation:none }
+    #app.faellt-zurueck{ transition:none } }
+
   /* ---- Erfolgs-Symbole (27.08.2026) ----
      Derselbe Strich wie bei den Uebungsbildern. Drei Zustaende, und sie sind BEWUSST nicht
      nur ueber die Deckkraft getrennt: ein blasses Symbol und ein graues sehen bei Sonnenlicht
@@ -302,9 +319,6 @@ setTimeout(function(){
   .erf-ring-in{width:60px; height:60px; border-radius:50%; background:var(--card);
     display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.15}
   .erf-ring-in b{font-size:21px}
-  .erf-neu-hinweis{margin-top:12px; padding:8px 10px; border-radius:10px;
-    background:rgba(240,180,41,.14); border:1px solid var(--gold); color:var(--gold-txt);
-    font-size:13px; font-weight:700}
   /* Der frisch freigeschaltete Erfolg im Katalog. Nur eine Kante und ein Hauch Flaeche —
      eine kraeftig gefuellte Zeile zwischen grauen sieht aus wie "ausgewaehlt". */
   .erf-frisch{border-left:3px solid var(--gold); padding-left:9px; margin-left:-12px;
@@ -3921,7 +3935,6 @@ function renderErfolge(){
     <div class="row between" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
       <span class="tiny muted">Aus Erfolgen verdient</span>
       <span class="tiny" style="font-weight:700">${xpAusErfolgen.toLocaleString('de-DE')} von ${xpMoeglich.toLocaleString('de-DE')} XP</span></div>`;
-  if(frisch.size) h += `<div class="erf-neu-hinweis">🏅 ${frisch.size} neu freigeschaltet — unten golden markiert</div>`;
   if(alleErfolgeFrei()) h += `<div class="tiny" style="margin-top:10px;color:var(--danger)">
       ⚠️ Admin: alle Erfolge sind freigeschaltet. Das ist nur eine Anzeige — es gibt dafür keine XP.</div>`;
   h += `</div>`;
@@ -4249,6 +4262,11 @@ function renderAdmin(){
      (einmalig bzw. nach zwei Wochen Pause) -- ohne diesen Weg muesste Karl zum Ansehen die
      Bedingung faelschen, also Daten anfassen. */
   h+=`<div class="row between" style="margin:16px 4px 4px"><h2>Tutorials abspielen</h2></div><div class="card">
+      <button class="btn" style="width:100%" data-admin="tut:plan">Trainings-Assistent</button>
+      <div class="tiny muted" style="margin:6px 0 12px">Die sechs Schritte zum Trainingsplan.
+        Läuft im Betrieb nur bei einem frisch angelegten Konto.
+        ⚠️ Am Ende legt er einen <b style="color:var(--txt)">neuen Plan</b> an — zum blossen
+        Ansehen vorher abbrechen.</div>
       <button class="btn" style="width:100%" data-admin="tut:kcal">Ernährungs-Assistent</button>
       <div class="tiny muted" style="margin:6px 0 12px">Die sechs Schritte inklusive KI-Schlüssel.
         Läuft im Betrieb nur beim allerersten Öffnen des Kalorien-Teils.</div>
@@ -4258,6 +4276,8 @@ function renderAdmin(){
         <b style="color:var(--txt)">nichts an</b> — es zeichnet nur die Ansicht.</div></div>`;
   h+=`<div class="row between" style="margin:16px 4px 4px"><h2>Verlauf-Testdaten</h2></div><div class="card">
       <div class="fab-row"><button class="btn" data-admin="demo">Demo-Einheiten</button><button class="btn danger" data-admin="clearhist">Verlauf leeren</button></div></div>`;
+  h+=`<button class="btn ghost" data-admin="zu" style="width:100%;margin-top:18px;color:var(--muted)">Admin zumachen</button>
+      <div class="tiny muted" style="margin-top:6px">Wieder auf: fünfmal auf Brock auf der Startseite tippen.</div>`;
   app.innerHTML=h;
 }
 
@@ -4829,6 +4849,7 @@ function gewichteZusammen(a, b){
 // Zurueck kommt der neue Stand und wie viele Eintraege aus `dazu` uebernommen wurden.
 function blobsZusammen(basis, dazu){
   const b=JSON.parse(JSON.stringify(basis||{})), d=dazu||{};
+  let zusatz=0;                      // wie viel ausser Einheiten und Gewichten dazukam
   const s=vereinige(b.sessions, d.sessions, x=>x.id);
   // sessions liegt aufsteigend nach Datum -- renderHistory dreht die Liste zum Anzeigen um.
   b.sessions=s.liste.slice().sort((x,y)=>x.date-y.date);
@@ -4842,7 +4863,87 @@ function blobsZusammen(basis, dazu){
   const gw=gewichteZusammen(b.profile.weights, d.profile&&d.profile.weights);
   const vorher=(b.profile.weights||[]).length;
   b.profile.weights=gw;
-  return {blob:b, uebernommen: s.neu.length + Math.max(0, gw.length-vorher)};
+
+  /* ---------- Was bisher still unter den Tisch fiel (27.08.2026) ----------
+     \U0001f534 Karls Meldung: "habe eine Trainingseinheit auf dem Handy eingetragen, den Erfolg
+     fuer den Tag bekommen -- auf dem PC aber nicht, obwohl mir das Training dort angezeigt
+     wird."
+
+     Genau so war es gebaut: zusammengefuehrt wurden **Einheiten und Gewichte**, alles andere
+     im Profil kam unveraendert von `basis`. Und `basis` ist fast immer das eigene Geraet --
+     denn `aufgabeErledigen('auf')` haakt beim Start "Reingeschaut" ab, das ruft `save()`,
+     und damit steht `dirty` schon, bevor der erste Abgleich laeuft. Der Zweig
+     `dirty ? ausLokal : ausCloud` faellt also praktisch immer auf die eigene Seite.
+
+     Verloren gingen dadurch: die **Tagesaufgaben** (Karls Fall), die Liste der **ausgezahlten
+     Erfolge**, die **Mahlzeiten und eigenen Lebensmittel** und die **Schritte**.
+     \U0001f534 Die ausgezahlten Erfolge waren dabei mehr als ein fehlender Haken: kennt das
+     zweite Geraet die Auszahlung nicht, zahlt es denselben Erfolg **nochmal** aus.
+
+     \u26a0\ufe0f **XP wird exakt nachgetragen, nicht geschaetzt.** Fuer jeden Erfolg und jede
+     Aufgabe, die hier neu dazukommt, steht der Wert im Katalog -- der wird addiert. Ein
+     `Math.max` ueber beide Punktestaende waere naheliegend und falsch: es zaehlt Einheiten
+     doppelt, die beide Seiten schon kennen.                                              */
+  const dp = (d.profile && typeof d.profile==='object') ? d.profile : {};
+
+  // --- Tagesaufgaben ---
+  const aB = b.profile.aufgaben, aD = dp.aufgaben;
+  const aufgabeXP = id => { const a = AUFGABEN.find(x=>x.id===id); return a ? a.xp : 0; };
+  if(aD && aD.tag && aD.fertig){
+    if(!aB || !aB.tag || aD.tag > aB.tag){
+      /* Die andere Seite ist an einem spaeteren Tag -- hier wurde fuer den nie etwas
+         gutgeschrieben, also kommt alles davon dazu. Der aeltere Tag bleibt bezahlt. */
+      Object.keys(aD.fertig).forEach(id => { if(aD.fertig[id]) b.profile.xp += aufgabeXP(id); });
+      b.profile.aufgaben = { tag:aD.tag, fertig:Object.assign({}, aD.fertig) };
+    } else if(aD.tag === aB.tag){
+      if(!aB.fertig || typeof aB.fertig!=='object') aB.fertig = {};
+      Object.keys(aD.fertig).forEach(id => {
+        if(aD.fertig[id] && !aB.fertig[id]){ aB.fertig[id] = true; b.profile.xp += aufgabeXP(id); }
+      });
+    }
+  }
+
+  // --- Ausgezahlte Erfolge ---
+  if(dp.erfolge && typeof dp.erfolge==='object'){
+    if(!b.profile.erfolge || typeof b.profile.erfolge!=='object') b.profile.erfolge = {};
+    Object.keys(dp.erfolge).forEach(id => {
+      if(dp.erfolge[id] && !b.profile.erfolge[id]){
+        b.profile.erfolge[id] = true;
+        const e = ERFOLGE.find(x=>x.id===id); if(e) b.profile.xp += (e.xp||0);
+      }
+    });
+  }
+  // --- Schon gesehen (nur Anzeige, keine XP) ---
+  if(dp.erfolgeGesehen && typeof dp.erfolgeGesehen==='object'){
+    if(!b.profile.erfolgeGesehen || typeof b.profile.erfolgeGesehen!=='object') b.profile.erfolgeGesehen = {};
+    Object.keys(dp.erfolgeGesehen).forEach(id => { if(dp.erfolgeGesehen[id]) b.profile.erfolgeGesehen[id] = true; });
+  }
+  // --- Wann zuletzt da: der spaetere Zeitpunkt gilt, sonst kaeme das Wiederkommen zu frueh ---
+  if(typeof dp.zuletztDa === 'number')
+    b.profile.zuletztDa = Math.max(+b.profile.zuletztDa || 0, dp.zuletztDa) || dp.zuletztDa;
+
+  /* --- Essen: Mahlzeiten, eigene Lebensmittel, Schritte ---
+     \u26a0\ufe0f Das ist echter Inhalt, kein Zustand. Wer am Handy gegessen eintraegt und danach
+     den PC aufmacht, hat es bisher **verloren**, sobald der PC geschoben hat. */
+  const kB = b.profile.kcal, kD = dp.kcal;
+  if(kD && typeof kD==='object'){
+    if(!kB || typeof kB!=='object') b.profile.kcal = { foods:[], meals:[] };
+    const k = b.profile.kcal;
+    if(!Array.isArray(k.meals)) k.meals = [];
+    if(!Array.isArray(k.foods)) k.foods = [];
+    const mz = vereinige(k.meals, kD.meals, x=>x.id); k.meals = mz.liste;
+    const lm = vereinige(k.foods, kD.foods, x=>x.id); k.foods = lm.liste;
+    // Ein Schritt-Eintrag je Tag, der spaetere gewinnt -- dieselbe Regel wie beim Gewicht.
+    if(Array.isArray(kD.steps) && kD.steps.length){
+      const tag = x => new Date(x.date).toDateString(), m = new Map();
+      [].concat(Array.isArray(k.steps)?k.steps:[], kD.steps).forEach(x=>{
+        if(!x || !(x.n >= 0)) return; const kk = tag(x), a = m.get(kk);
+        if(!a || x.date > a.date) m.set(kk, x); });
+      k.steps = Array.from(m.values()).sort((x,y)=>x.date-y.date);
+    }
+    zusatz += mz.neu.length + lm.neu.length;
+  }
+  return {blob:b, uebernommen: s.neu.length + Math.max(0, gw.length-vorher) + zusatz};
 }
 // Liefert {ok,data}: ok=false heißt "konnte nicht laden" (Netz), NICHT "Konto ist leer".
 async function cloudPull(){ if(!await ensureToken()) return {ok:false,data:null};
@@ -5327,9 +5428,11 @@ document.addEventListener('click',ev=>{
     else if(cmd==='jump') profile.xp=xpForLevel(+arg);
     else if(cmd==='unlockall') settings.devUnlockAll=!settings.devUnlockAll;
     else if(cmd==='allerfolge') settings.devAllErfolge=!settings.devAllErfolge;
+    else if(cmd==='zu'){ devAdmin=false; DB.set('devadmin',false); view='settings'; render(); toast('Admin zu'); return; }
     /* ⚠️ Diese beiden kehren SOFORT zurueck: sie zeichnen eine Ansicht, statt einen Wert
        zu setzen. Das save()/render() unten wuerde sie sonst gleich wieder ueberschreiben. */
     else if(cmd==='tut'){
+      if(arg==='plan'){ startOnboard(); return; }
       if(arg==='kcal'){ startKcalOb(); return; }
       // Vorgetaeuscht, nicht gespeichert: comebackTage ist nur der Text in der Ansicht.
       comebackTage = COMEBACK_TAGE + 3; view='comeback'; render(); return; }
@@ -5342,7 +5445,12 @@ document.addEventListener('click',ev=>{
     if(p){ p.exercises.push({id:uid(),name:nm,sets:volSets(),reps:10,vol:profile.vol,eigen:true}); save(); }
     closeModal(); render(); toast(`„${nm}" angelegt`); return; }
   if(t.dataset.theme){ const lvl=levelFromXP(profile.xp).level; if(unlockedThemes(lvl).has(t.dataset.theme)){ profile.theme=t.dataset.theme; save(); applyTheme(); render(); } return; }
-  if(t.dataset.nav){ view=t.dataset.nav; render(); return; }
+  if(t.dataset.nav){
+    // Zwischen zwei Reitern mit Bewegung, sonst wie bisher -- ein Sprung aus dem Verlauf
+    // zurueck in die Einstellungen ist kein Nachbarwechsel und braucht keine Richtung.
+    if(REITER.indexOf(view) !== -1 && REITER.indexOf(t.dataset.nav) !== -1) reiterZeigen(t.dataset.nav);
+    else { view=t.dataset.nav; render(); }
+    return; }
   if(t.dataset.rest){ const r=t.dataset.rest; if(r==='skip'){ stopRest(); rest.remaining=0; paintTimer(); } else adjust(+r); return; }
   if(t.dataset.useprog){ const pr=progById(t.dataset.useprog);
     if(pr){ profile.prog=pr.id; bindPlans(); active=null; save(); render(); toast(`„${pr.name}" ist jetzt dein Plan`); } return; }
@@ -5727,8 +5835,16 @@ window.addEventListener('pagehide',flushSync);
   document.addEventListener('click',ev=>{
     if(view!=='home' || !ev.target.closest('.mascot')) return;
     const now=Date.now(); if(now-t0>1500) n=0; t0=now; n++;
-    if(n>=5){ n=0; devAdmin=!devAdmin; DB.set('devadmin',devAdmin);
-      toast(devAdmin?'Admin freigeschaltet — steht unten in den Einstellungen':'Admin deaktiviert'); }
+    /* 🔴 Frueher stand hier `devAdmin=!devAdmin` -- die Geste hat also auch WIEDER
+       ZUGESPERRT. Karl am 27.08.2026: "meine Admin-Konsole auf dem Handy ist ausserdem weg."
+       Genau so geht sie weg: fuenfmal auf Brock getippt, waehrend sie schon offen war, und
+       der Hinweis dazu ist nach 1,8 Sekunden verschwunden.
+       ⚠️ Eine Geste, die aufschliesst, darf nicht zufaellig auch abschliessen. Zumachen
+       geht jetzt nur noch bewusst, ueber den Knopf in der Konsole selbst. */
+    if(n>=5){ n=0;
+      if(devAdmin){ toast('Admin ist schon offen — steht unten in den Einstellungen'); return; }
+      devAdmin=true; DB.set('devadmin',true);
+      toast('Admin freigeschaltet — steht unten in den Einstellungen'); }
   });
 })();
 
@@ -5766,37 +5882,92 @@ window.addEventListener('pagehide',flushSync);
    ⚠️ `passive:true` -- es wird nichts abgefangen, nur zugehoert. Ein Wisch, der das
    normale Scrollen bremst, waere schlimmer als kein Wisch.                                */
 const REITER = ['home','body','erfolge','settings'];
+/* Einen Reiter zeigen -- mit der Bewegung in die Richtung, in die es geht.
+   ⚠️ Steht als eigene Funktion da, weil BEIDE Wege sie brauchen: der Wisch und der Tipp
+   auf die untere Leiste. Sonst saehe dasselbe Ziel je nach Weg anders aus. */
+function reiterZeigen(ziel){
+  const el = document.getElementById('app');
+  const von = REITER.indexOf(view), nach = REITER.indexOf(ziel);
+  if(el){ el.classList.remove('zieht','faellt-zurueck','rein-r','rein-l'); el.style.transform=''; }
+  view = ziel; render();
+  if(!el || von === -1 || nach === -1 || von === nach) return;
+  /* Das Lesen von offsetWidth erzwingt einen Neuaufbau -- ohne das startet die Animation
+     nicht neu, wenn zweimal hintereinander in dieselbe Richtung gewechselt wird. */
+  void el.offsetWidth;
+  el.classList.add(nach > von ? 'rein-r' : 'rein-l');
+}
+/* ---------- Zwischen den Reitern wischen (27.08.2026) ----------
+   Karls Ansage: "man soll auf dem Handy zwischen den einzelnen Reitern hin und her switchen
+   koennen." Und danach: es soll "nach richtig ziehen" aussehen.
+
+   ⚠️ **Nur zwischen den vier Reitern der unteren Leiste**, und nur wenn man gerade auf
+   einem davon steht. Wer in einer Einheit, im Assistenten oder in einer Unteransicht ist,
+   wischt nichts weg -- dort waere ein Wisch ein Datenverlust oder ein verlorener Platz.
+   🔴 **Drei Riegel:** nicht aus einem Eingabefeld heraus (dort wischt man Text), nicht
+   aus etwas seitlich Scrollbarem heraus (dort wischt man den Inhalt), und nicht bei offenem
+   Fenster.
+   ⚠️ Alle Zuhoerer sind `passive` -- es wird nichts abgefangen, nur zugehoert. Ein Wisch,
+   der das normale Scrollen bremst, waere schlimmer als kein Wisch. Deshalb entscheidet
+   `touchmove` auch erst nach ein paar Pixeln, ob es ueberhaupt waagerecht gemeint war:
+   solange das offen ist, wird nichts bewegt.
+   💡 **Am Rand wird es zaeh** (0,18 statt 0,45): die Seite gibt ein Stueck nach und
+   federt zurueck. Das sagt "da kommt nichts mehr", ohne einen Satz dafuer zu brauchen. */
 (function(){
   const el = document.getElementById('app'); if(!el) return;
-  let x0=0, y0=0, t0=0, laeuft=false;
+  let x0=0, y0=0, t0=0, laeuft=false, zieht=false;
   function darfWischen(ziel){
     if(window.innerWidth >= 900) return false;                       // PC: Seitenleiste
     if(document.getElementById('modal').classList.contains('show')) return false;
     if(REITER.indexOf(view) === -1) return false;
     if(ziel && ziel.closest && ziel.closest('input,textarea,select,button')) return false;
-    // Etwas, das selbst seitlich scrollt (Jahresraster im Verlauf, Chip-Reihen)
     for(let n = ziel; n && n !== el; n = n.parentElement){
       const st = getComputedStyle(n);
       if((st.overflowX === 'auto' || st.overflowX === 'scroll') && n.scrollWidth > n.clientWidth + 4) return false;
     }
     return true;
   }
+  function losslassen(){
+    el.classList.remove('zieht');
+    if(zieht){ el.classList.add('faellt-zurueck'); el.style.transform='';
+      setTimeout(()=>el.classList.remove('faellt-zurueck'), 200); }
+    laeuft=false; zieht=false;
+  }
   el.addEventListener('touchstart', e => {
-    laeuft = false;
+    laeuft = false; zieht = false;
     if(e.touches.length !== 1) return;
     if(!darfWischen(e.target)) return;
     x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now(); laeuft = true;
   }, {passive:true});
+  el.addEventListener('touchmove', e => {
+    if(!laeuft || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - x0, dy = e.touches[0].clientY - y0;
+    if(!zieht){
+      // Senkrecht gemeint? Dann ist es Scrollen, und wir halten uns raus -- endgueltig.
+      if(Math.abs(dy) > 10 && Math.abs(dy) >= Math.abs(dx)){ laeuft = false; return; }
+      if(Math.abs(dx) < 12) return;
+      zieht = true; el.classList.remove('faellt-zurueck'); el.classList.add('zieht');
+    }
+    const i = REITER.indexOf(view);
+    const amRand = (dx < 0 && i >= REITER.length-1) || (dx > 0 && i <= 0);
+    el.style.transform = 'translateX(' + (dx * (amRand ? 0.18 : 0.45)).toFixed(1) + 'px)';
+  }, {passive:true});
+  el.addEventListener('touchcancel', losslassen, {passive:true});
   el.addEventListener('touchend', e => {
-    if(!laeuft) return; laeuft = false;
-    const t = e.changedTouches && e.changedTouches[0]; if(!t) return;
-    const dx = t.clientX - x0, dy = t.clientY - y0, dt = Date.now() - t0;
-    // Waagerecht, weit genug, nicht zu langsam - sonst war es Scrollen oder ein Halten.
-    if(dt > 700 || Math.abs(dx) < 60 || Math.abs(dy) > 45 || Math.abs(dx) < Math.abs(dy) * 1.8) return;
-    const i = REITER.indexOf(view); if(i === -1) return;
+    if(!laeuft){ losslassen(); return; }
+    const t = e.changedTouches && e.changedTouches[0];
+    const dx = t ? t.clientX - x0 : 0, dy = t ? t.clientY - y0 : 0, dt = Date.now() - t0;
+    const i = REITER.indexOf(view);
+    const weit = Math.abs(dx) >= 60 && Math.abs(dy) <= 45 && Math.abs(dx) > Math.abs(dy) * 1.8;
+    // Ein kurzer, schneller Wisch zaehlt auch, wenn er nicht die vollen 60 px schafft.
+    const schnell = dt < 250 && Math.abs(dx) >= 35 && Math.abs(dx) > Math.abs(dy) * 2;
     const ziel = i + (dx < 0 ? 1 : -1);
-    if(ziel < 0 || ziel >= REITER.length) return;      // am Rand: nichts, kein Umlauf
-    view = REITER[ziel]; render();
+    if(t && dt <= 700 && (weit || schnell) && i !== -1 && ziel >= 0 && ziel < REITER.length){
+      el.classList.remove('zieht'); el.style.transform='';
+      laeuft = false; zieht = false;
+      reiterZeigen(REITER[ziel]);
+      return;
+    }
+    losslassen();
   }, {passive:true});
 })();
 
