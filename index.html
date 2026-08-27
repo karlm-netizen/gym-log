@@ -1628,6 +1628,7 @@ function render(){
   document.body.classList.remove('gate');
   document.body.classList.toggle('setup', view==='onboard');   // Assistent: untere Leiste ausblenden
   if(view!=='session') sessEdit=false;   // Bearbeiten-Modus gilt nur, solange man die Einheit ansieht
+  if(view!=='meldung') meldNeuMarkiert=null;   // beim naechsten Besuch ist nichts mehr "neu"
   // Beim Verlassen der Essen-Ansicht den halbfertigen Eintrag wegräumen — aber nicht,
   // während Barcode oder KI noch laufen (die setzen view selbst auf 'food').
   if(view!=='food'&&!foodBusy){ foodStep='list'; foodDraft=null; foodFehler=''; foodMz=''; }
@@ -3630,8 +3631,19 @@ async function pushStandZeichnen(){
     : 'Aus — Antworten siehst du nur, wenn du hier nachschaust.';
   knopf.innerHTML = `<button class="btn sm ${an?'ghost':'primary'}" data-act="push:${an?'aus':'an'}">${an?'Ausschalten':'Einschalten'}</button>`;
 }
+/* Was bei DIESEM Besuch im Postfach neu war. ⚠️ Wird beim Zeichnen sofort als gelesen
+   verbucht, bleibt aber bis zum Verlassen der Seite hervorgehoben -- sonst verschwindet die
+   Markierung im selben Moment, in dem man hinsieht, und man erfaehrt nie, WELCHE Antwort neu
+   war. Gleiche Linie wie bei den frisch freigeschalteten Erfolgen. */
+let meldNeuMarkiert = null;
 function renderMeldung(){
   const wartend = meldungenLesen(), post = postfachLesen();
+  /* 🔴 Hier wird abgehakt, nicht erst beim Tippen auf die einzelne Meldung. Die Antwort
+     steht vollstaendig auf dieser Seite -- wer hier ist, hat sie gesehen. */
+  if(meldNeuMarkiert === null) meldNeuMarkiert = [];
+  const jetztNeu = post.filter(m => m.antwort && !m.gelesen_am).map(m => m.id);
+  jetztNeu.forEach(id => { if(meldNeuMarkiert.indexOf(id) === -1) meldNeuMarkiert.push(id); });
+  jetztNeu.forEach(id => { antwortGelesen(id); });   // oertlich sofort, beim Server nebenher
   const u = umfeldSammeln();
   let h = `<div class="row between" style="margin:2px 4px 10px">
       <h2>Problem melden</h2>
@@ -3671,8 +3683,8 @@ function renderMeldung(){
   } else {
     h += `<div class="card">`;
     post.forEach(m => {
-      const neu_ = m.antwort && !m.gelesen_am;
-      h += `<div class="meld${neu_?' neu':''}" ${m.antwort?`data-meldread="${m.id}"`:''}>
+      const neu_ = m.antwort && meldNeuMarkiert.indexOf(m.id) !== -1;
+      h += `<div class="meld${neu_?' neu':''}">
         <div class="row between" style="align-items:baseline;gap:8px">
           <b>#${m.nummer||'–'}</b>
           <span class="tiny muted">${fmtDate(new Date(m.erstellt).getTime())}</span></div>
@@ -3687,6 +3699,9 @@ function renderMeldung(){
     h += `</div>`;
   }
   app.innerHTML = h;
+  /* ⚠️ setNav() laeuft in render() VOR dieser Funktion -- die rote Zahl waere sonst noch
+     die alte. Genau das hat Karl gesehen. */
+  navPunktZeichnen();
   pushStandZeichnen();
   // Nachladen, ohne die Ansicht zu blockieren — offline bleibt die Spiegelung stehen.
   // ⚠️ Verglichen wird der INHALT, nicht die Anzahl. Eine Antwort legt keine Zeile an,
@@ -4165,12 +4180,50 @@ async function postfachHolen(){
       + `?select=id,nummer,text,antwort,antwort_am,gelesen_am,erstellt`
       + `&erstellt=gte.${seit}&order=erstellt.desc`, { headers: authHeaders(true) });
     if(!r.ok) return postfachLesen();
-    const rows = await r.json();
+    const rows = gelesenLokalAnwenden(await r.json());
     postfachSchreiben(rows);
     return rows;
   }catch(e){ return postfachLesen(); }
 }
-/* Wie viele unglelesene Antworten? Das ist die rote Zahl am Zahnrad. */
+/* ---------- Gelesen bleibt gelesen (27.08.2026) ----------
+   🔴 Karls Meldung: "die rote Zahl bei den Einstellungen geht nicht weg, wenn ich den
+   Postkasten oeffne."
+
+   Dahinter steckten ZWEI Fehler uebereinander, und der zweite haette den ersten ueberlebt:
+
+   **1. Das Oeffnen hat nichts abgehakt.** Gelesen wurde eine Antwort nur, wenn man auf die
+   einzelne Meldung TIPPTE. Im Postfach steht die Antwort aber vollstaendig da -- nichts ist
+   zugeklappt. Wer sie gelesen hat, hat sie gelesen; ein zusaetzlicher Tipp auf etwas, das man
+   schon sieht, ist keine Handlung, sondern eine Huerde.
+
+   **2. Der Server hat die Marke wieder ueberschrieben.** `postfachHolen()` legt die Zeilen vom
+   Server ueber die oertliche Spiegelung. Bis die Meldung "gelesen" beim Server angekommen und
+   verbucht war, kam von dort weiter `gelesen_am: null` zurueck -- und die rote Zahl war wieder
+   da. Ohne Netz sogar dauerhaft.
+   ➡️ Deshalb merkt sich das Geraet, was es hier als gelesen betrachtet, und legt diese
+   Marke ueber jede Antwort vom Server. Die Kennung fliegt raus, sobald der Server es selbst so
+   sieht (oder die Zeile aus den 30 Tagen faellt) -- die Liste waechst also nicht mit.        */
+function gelesenLokal(){ const l = DB.get('postfach-gelesen', []); return Array.isArray(l) ? l : []; }
+function gelesenLokalMerken(id){
+  const l = gelesenLokal();
+  if(l.indexOf(id) === -1){ l.push(id); DB.set('postfach-gelesen', l.slice(-200)); }
+}
+/* ⚠️ Aendert `rows` an Ort und Stelle -- genau das ist der Zweck: was hier als gelesen
+   gilt, soll auch in der Spiegelung stehen, sonst haengt die rote Zahl am Server. */
+function gelesenLokalAnwenden(rows){
+  const l = gelesenLokal(); if(!l.length) return rows;
+  const behalten = [];
+  l.forEach(id => {
+    const m = (rows||[]).find(x => x.id === id);
+    if(!m) return;                                  // Zeile weg (aelter als 30 Tage): Kennung kann weg
+    if(m.gelesen_am) return;                        // Server weiss es selbst: Kennung kann weg
+    m.gelesen_am = new Date().toISOString();        // Server hinkt hinterher: hier gilt gelesen
+    behalten.push(id);
+  });
+  if(behalten.length !== l.length) DB.set('postfach-gelesen', behalten);
+  return rows;
+}
+/* Wie viele ungelesene Antworten? Das ist die rote Zahl am Zahnrad. */
 function postfachUngelesen(){
   return postfachLesen().filter(m => m.antwort && !m.gelesen_am).length;
 }
@@ -4220,6 +4273,7 @@ async function antwortGelesen(id){
   const l = postfachLesen();
   const m = l.find(x => x.id === id);
   if(m) { m.gelesen_am = new Date().toISOString(); postfachSchreiben(l); }
+  gelesenLokalMerken(id);   // damit die naechste Antwort vom Server sie nicht wieder aufmacht
   if(!session || !(await ensureToken())) return;
   /* ⚠️ Ueber die Funktion, nicht per PATCH: eine abgeschickte Meldung soll sich
      nicht nachtraeglich aendern lassen. gym_meldung_gelesen fasst nur gelesen_am an. */
@@ -4981,7 +5035,7 @@ function confirmTwice(key,btn,label,run){ if(armed[key]){ clearTimeout(armed[key
 if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ if((profile.theme||'system')==='system') applyTheme(); }); }
 
 document.addEventListener('click',ev=>{
-  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-planwarm],[data-libnew],[data-useprog],[data-editprog],[data-delprog],[data-shareprog],[data-moveex],[data-openex],[data-delweight],[data-skin],[data-sdel],[data-sdelex],[data-sadd],[data-delmeal],[data-meldread],[data-delfood],[data-pickfood],[data-again],[data-zielart]');
+  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-planwarm],[data-libnew],[data-useprog],[data-editprog],[data-delprog],[data-shareprog],[data-moveex],[data-openex],[data-delweight],[data-skin],[data-sdel],[data-sdelex],[data-sadd],[data-delmeal],[data-delfood],[data-pickfood],[data-again],[data-zielart]');
   if(!t) return;
   // ---- Eine abgeschlossene Einheit korrigieren (Verlauf › Bearbeiten) ----
   if(t.dataset.sdel){ const [ei,si]=t.dataset.sdel.split(':').map(Number);
@@ -4999,7 +5053,6 @@ document.addEventListener('click',ev=>{
   if(t.dataset.delweight){ const ts=+t.dataset.delweight;
     confirmTwice('dw'+ts,t,'Löschen?',()=>{ profile.weights=(profile.weights||[]).filter(x=>x.date!==ts); save(); render(); }); return; }
   // ---- Kalorien ----
-  if(t.dataset.meldread){ antwortGelesen(t.dataset.meldread).then(()=>{ if(view==='meldung') renderMeldung(); }); return; }
   if(t.dataset.delmeal){ const id=t.dataset.delmeal, k=kcalInit();
     k.meals=k.meals.filter(x=>x.id!==id); save(); render(); return; }
   // NEU: dasselbe nochmal essen. Kopiert den alten Eintrag mit heutigem Datum —

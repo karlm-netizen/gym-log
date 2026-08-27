@@ -4,6 +4,54 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-27
 
+### 🔴 v37 — die rote Zahl ging nicht weg
+
+**Karls Meldung:** *„die rote Zahl bei den Einstellungen geht nicht weg, wenn ich den Postkasten
+öffne."*
+
+🔴 **Dahinter lagen zwei Fehler übereinander — und der zweite hätte den ersten überlebt.**
+
+#### 1. Das Öffnen hat nichts abgehakt
+
+Gelesen wurde eine Antwort nur, wenn man auf die **einzelne Meldung tippte** (`data-meldread`).
+Im Postfach steht die Antwort aber **vollständig da** — nichts ist zugeklappt. Wer sie gelesen
+hat, hat sie gelesen; ein zusätzlicher Tipp auf etwas, das man schon sieht, ist keine Handlung,
+sondern eine Hürde.
+
+➡️ Abgehakt wird jetzt **beim Zeichnen der Seite**. Der tote Klick-Zweig ist raus.
+💡 **Die Markierung bleibt trotzdem stehen, solange man da ist** — sonst verschwindet sie in dem
+Moment, in dem man hinsieht, und man erfährt nie, *welche* Antwort neu war. Beim nächsten Besuch
+ist sie weg. Gleiche Linie wie bei den frisch freigeschalteten Erfolgen aus v33.
+⚠️ Eine Meldung **ohne** Antwort wird nicht abgehakt — dafür steht eine eigene Prüfung.
+
+#### 2. Der Server hat die Marke wieder überschrieben
+
+`postfachHolen()` legt die Zeilen vom Server über die örtliche Spiegelung. Bis *„gelesen"* beim
+Server angekommen und verbucht war, kam von dort weiter `gelesen_am: null` zurück — **und die
+rote Zahl war wieder da. Ohne Netz sogar dauerhaft.**
+
+➡️ Das Gerät merkt sich jetzt, was es hier als gelesen betrachtet, und legt diese Marke über
+jede Antwort vom Server. Die Kennung fliegt raus, sobald der Server es selbst so sieht oder die
+Zeile aus den 30 Tagen fällt — **die Liste wächst also nicht mit.**
+
+🔴 **Warum das der wichtigere von beiden ist:** Fehler 1 allein hätte man mit einem Tipp
+umgehen können. Fehler 2 kam auch danach zurück, und zwar ohne erkennbaren Anlass — die Zahl
+war weg und ein paar Sekunden später wieder da. Das sieht nicht nach einem Fehler aus, sondern
+nach Spuk.
+
+---
+
+**Prüfungen: 552 → 562.**
+✅ **Sieben Gegenproben:** Öffnen hakt nichts ab → 3 · Leiste nicht nachgezogen → 1 · Serverzeile
+überschreibt → 1 · Marke nie vergessen → 1 · Markierung verschwindet sofort → 1 · Besuchsliste
+nicht geleert → 1 · Meldungen ohne Antwort abgehakt → 1.
+
+🔴 **Zwei davon haben beim ersten Anlauf wieder nicht gebissen — zum dritten Mal heute
+dasselbe Muster.** Die Prüfung rief `gelesenLokalAnwenden()` direkt auf statt `postfachHolen()`,
+und die Leisten-Prüfung sah nach einer Zahl, die vorher nie gezeichnet worden war. **Geprüft
+war jeweils das Teil, nicht sein Einbau.** Beide sind jetzt echte Wege: der Abruf läuft mit
+vorgetäuschtem Server durch, und die Zahl wird erst gezeichnet und dann gesucht.
+
 ### 🎨 v36 — die Erfolge haben jetzt gezeichnete Symbole
 
 **Karls Ansage:** *„bei den Achievements SVG-Dateien benutzen."*

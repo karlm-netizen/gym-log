@@ -2101,6 +2101,128 @@ window.addEventListener('error', e => {
     return gefuellt > 0 || 'der Zwischenspeicher blieb leer';
   });
 
+  // ================================================ Postfach: gelesen bleibt gelesen (v37)
+  /* \U0001f534 Karls Meldung: "die rote Zahl bei den Einstellungen geht nicht weg, wenn ich den
+     Postkasten oeffne." Dahinter lagen ZWEI Fehler uebereinander -- und der zweite haette den
+     ersten ueberlebt, deshalb steht fuer jeden eine eigene Pruefung hier. */
+
+  const GEL_KEY = 'gymlog:postfach-gelesen';
+  const postfachSetzen = (l) => { localStorage.setItem(POST_KEY, JSON.stringify(l));
+                                  localStorage.removeItem(GEL_KEY); };
+
+  // ---- Fehler 1: das Oeffnen hat nichts abgehakt ----
+  t('Das Oeffnen des Postfachs nimmt die rote Zahl weg', () => {
+    const mV = view;
+    postfachSetzen([{id:'a', nummer:1, text:'x', antwort:'Hi', gelesen_am:null, erstellt:new Date().toISOString()}]);
+    const vorher = postfachUngelesen();
+    view = 'meldung'; renderMeldung();
+    const nachher = postfachUngelesen();
+    view = mV; postfachSetzen([]);
+    return (vorher === 1 && nachher === 0) || 'vorher=' + vorher + ' nachher=' + nachher;
+  });
+  /* 🔴 Nachgebessert, weil die Gegenprobe nicht gebissen hat: ohne das setNav() vorweg
+     war nie eine Zahl da, die haette verschwinden koennen -- die Pruefung war gruen, egal ob
+     renderMeldung() die Leiste nachzieht oder nicht. Erst wird die Zahl also GEZEICHNET. */
+  t('Auch die Zahl an der Leiste ist danach weg', () => {
+    const mV = view;
+    postfachSetzen([{id:'a', nummer:1, text:'x', antwort:'Hi', gelesen_am:null, erstellt:new Date().toISOString()}]);
+    setNav();
+    const stand = document.querySelector('#nav button[data-nav="settings"] .navpunkt');
+    if(!stand) return 'die Zahl stand vorher schon nicht da - Pruefung sagt nichts aus';
+    view = 'meldung'; renderMeldung();
+    const punkt = document.querySelector('#nav button[data-nav="settings"] .navpunkt');
+    view = mV; postfachSetzen([]);
+    return punkt === null || 'die Zahl steht noch da: ' + punkt.textContent;
+  });
+  /* \u26a0\ufe0f Sie darf aber nicht in dem Moment verschwinden, in dem man hinsieht -- sonst
+     erfaehrt man nie, WELCHE Antwort neu war. */
+  t('Die neue Antwort bleibt beim Besuch hervorgehoben', () => {
+    const mV = view;
+    postfachSetzen([{id:'a', nummer:1, text:'x', antwort:'Hi', gelesen_am:null, erstellt:new Date().toISOString()}]);
+    view = 'meldung'; renderMeldung();
+    const ersteAnsicht = document.querySelectorAll('#app .meld.neu').length;
+    renderMeldung();                       // zweites Zeichnen im selben Besuch
+    const nochDa = document.querySelectorAll('#app .meld.neu').length;
+    view = mV; postfachSetzen([]);
+    return (ersteAnsicht === 1 && nochDa === 1) || 'erst=' + ersteAnsicht + ' dann=' + nochDa;
+  });
+  t('Beim naechsten Besuch ist nichts mehr neu', () => {
+    const mV = view, mS = session;
+    postfachSetzen([{id:'a', nummer:1, text:'x', antwort:'Hi', gelesen_am:null, erstellt:new Date().toISOString()}]);
+    if(!session) session = { access_token:'test' };
+    view = 'meldung'; render();            // hin
+    view = 'home';    render();            // weg -- hier wird die Besuchsliste geleert
+    view = 'meldung'; render();            // und wieder hin
+    const neu = document.querySelectorAll('#app .meld.neu').length;
+    view = mV; session = mS; postfachSetzen([]); render();
+    return eq(neu, 0);
+  });
+  t('Eine Meldung ohne Antwort wird nicht abgehakt', () => {
+    const mV = view;
+    postfachSetzen([{id:'a', nummer:1, text:'x', antwort:null, gelesen_am:null, erstellt:new Date().toISOString()}]);
+    view = 'meldung'; renderMeldung();
+    const l = JSON.parse(localStorage.getItem(POST_KEY));
+    view = mV; postfachSetzen([]);
+    return l[0].gelesen_am == null || 'wurde abgehakt, obwohl keine Antwort da ist';
+  });
+
+  // ---- Fehler 2: der Server hat die Marke wieder ueberschrieben ----
+  /* \U0001f534 Das ist der Fehler, der den ersten ueberlebt haette. postfachHolen() legt die
+     Serverzeilen ueber die Spiegelung -- solange dort noch `gelesen_am: null` steht, waere die
+     rote Zahl sofort wieder da. Ohne Netz sogar dauerhaft. */
+  t('Eine Serverzeile macht eine gelesene Antwort nicht wieder auf', () => {
+    localStorage.removeItem(GEL_KEY);
+    gelesenLokalMerken('a');
+    const vomServer = [{id:'a', antwort:'Hi', gelesen_am:null}];
+    gelesenLokalAnwenden(vomServer);
+    localStorage.removeItem(GEL_KEY);
+    return vomServer[0].gelesen_am != null || 'der Server hat die Marke ueberschrieben';
+  });
+  /* 🔴 Und derselbe Fall einmal durch den ECHTEN Weg, nicht nur durch den Baustein.
+     Die Gegenprobe (Aufruf aus postfachHolen entfernen) liess vorher nichts umfallen -- genau
+     die Luecke, die heute schon zweimal aufgetreten ist: geprueft war das Teil, nicht sein
+     Einbau. Server und Anmeldung sind dafuer hier vorgetaeuscht. */
+  await tA('Auch der echte Abruf laesst die gelesene Antwort zu', async () => {
+    const mF = window.fetch, mE = window.ensureToken, mS = session;
+    localStorage.removeItem(GEL_KEY);
+    postfachSetzen([]);
+    gelesenLokalMerken('a');
+    session = { access_token:'test' };
+    window.ensureToken = async () => true;
+    window.fetch = async () => ({ ok:true, json: async () => [{id:'a', nummer:1, text:'x',
+      antwort:'Hi', gelesen_am:null, erstellt:new Date().toISOString()}] });
+    let offen = -1;
+    try { await postfachHolen(); offen = postfachUngelesen(); }
+    finally { window.fetch = mF; window.ensureToken = mE; session = mS;
+              localStorage.removeItem(GEL_KEY); postfachSetzen([]); }
+    return offen === 0 || 'nach dem Abruf standen wieder ' + offen + ' ungelesene da';
+  });
+  t('Weiss der Server es selbst, wird die Kennung wieder vergessen', () => {
+    localStorage.removeItem(GEL_KEY);
+    gelesenLokalMerken('a');
+    gelesenLokalAnwenden([{id:'a', antwort:'Hi', gelesen_am:'2026-08-27T10:00:00Z'}]);
+    const rest = gelesenLokal();
+    localStorage.removeItem(GEL_KEY);
+    return eq(rest.length, 0);
+  });
+  // \u26a0\ufe0f Sonst waechst die Liste mit jeder je gelesenen Antwort weiter.
+  t('Faellt die Zeile aus den 30 Tagen, geht die Kennung mit', () => {
+    localStorage.removeItem(GEL_KEY);
+    gelesenLokalMerken('uralt');
+    gelesenLokalAnwenden([{id:'b', antwort:'Hi', gelesen_am:null}]);
+    const rest = gelesenLokal();
+    localStorage.removeItem(GEL_KEY);
+    return eq(rest.length, 0);
+  });
+  t('Eine fremde Antwort wird nicht mitabgehakt', () => {
+    localStorage.removeItem(GEL_KEY);
+    gelesenLokalMerken('a');
+    const rows = [{id:'a', antwort:'Hi', gelesen_am:null}, {id:'b', antwort:'Auch', gelesen_am:null}];
+    gelesenLokalAnwenden(rows);
+    localStorage.removeItem(GEL_KEY);
+    return rows[1].gelesen_am == null || 'auch b wurde abgehakt';
+  });
+
   // ================================================ Erfolgs-Symbole (v36)
   // Karls Ansage: "bei den Achievements SVG-Dateien benutzen."
   t('Jeder Erfolg hat ein Symbol, das es auch gibt', () => {
