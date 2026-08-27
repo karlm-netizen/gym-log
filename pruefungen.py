@@ -2101,6 +2101,57 @@ window.addEventListener('error', e => {
     return gefuellt > 0 || 'der Zwischenspeicher blieb leer';
   });
 
+  // ================================================ Karls Textliste (v38)
+  /* Karl hat am 27.08.2026 zehn Erklaertexte gestrichen und vier gekuerzt. Geprueft wird
+     nicht, dass Text FEHLT -- das waere eine Pruefung, die jede spaetere Verbesserung
+     bestraft -- sondern das, was beim Streichen kaputtgehen KANN. */
+
+  /* 🔴 Der Regelkreis hatte fuer "zu wenig Wiegungen" einen eigenen Text. Faellt der
+     ersatzlos weg, ist `inhalt` undefiniert und im Bild steht das Wort "undefined". */
+  t('Bei zu wenigen Wiegungen steht kein "undefined" da', () => {
+    const mW = profile.weights, mV = view, mK = JSON.stringify(profile.kcal||null);
+    profile.weights = [{date: Date.now(), kg: 80}];        // nur EINE Wiegung
+    kcalInit(); profile.kcal.art = 'abnehmen';             // Vorhaben steht -> Regelkreis laeuft
+    view = 'body'; renderBody();
+    const txt = document.getElementById('app').textContent;
+    profile.weights = mW; if(mK !== 'null') profile.kcal = JSON.parse(mK); view = mV;
+    return txt.indexOf('undefined') === -1 || 'im Bild steht "undefined"';
+  });
+  t('Bei zu wenigen Wiegungen steht auch keine leere Karte da', () => {
+    const mW = profile.weights, mV = view, mK = JSON.stringify(profile.kcal||null);
+    profile.weights = [{date: Date.now(), kg: 80}];
+    kcalInit(); profile.kcal.art = 'abnehmen';
+    view = 'body'; renderBody();
+    const txt = document.getElementById('app').textContent;
+    profile.weights = mW; if(mK !== 'null') profile.kcal = JSON.parse(mK); view = mV;
+    return txt.indexOf('Waage und Essen im Abgleich') === -1 || 'die Ueberschrift steht noch da';
+  });
+  /* ⚠️ Der Push-Stand darf nicht ersatzlos verschwinden -- gestrichen war die
+     Erklaerung, nicht der Zustand. Sonst steht dort dauerhaft "wird geprueft ...". */
+  t('Der Push-Stand nennt weiterhin An oder Aus', () => {
+    const quelle = document.documentElement.innerHTML;
+    return /stand\.textContent = an \? 'An' : 'Aus'/.test(quelle)
+      || 'der Zustand wird nicht mehr gesetzt';
+  });
+  /* 🔴 Der Hinweis, WAS mit einer Meldung mitgeht, stand auf der Meldeseite und ist
+     gestrichen. Mitgeschickt wird es weiterhin -- also muss es auf der Datenschutz-Seite
+     stehen bleiben. Sonst waere aus einem gekuerzten Text eine verschwiegene Uebertragung
+     geworden, und das ist etwas ganz anderes. */
+  t('Was mit einer Meldung mitgeht, steht weiter im Datenschutz', () => {
+    const mV = view; view = 'privacy'; renderPrivacy();
+    const txt = document.getElementById('app').textContent;
+    view = mV;
+    const noetig = ['Fassung der App', 'Kennung deines Browsers', 'Bildschirmgröße'];
+    const fehlt = noetig.filter(n => txt.indexOf(n) === -1);
+    return fehlt.length === 0 || 'fehlt auf der Datenschutz-Seite: ' + fehlt.join(', ');
+  });
+  t('Die Erfolgs-Seite nennt weiterhin, wie viele Aufgaben offen sind', () => {
+    const mV = view; view = 'erfolge'; renderErfolge();
+    const txt = document.getElementById('app').textContent;
+    view = mV;
+    return /Aufgabe(n)? offen|Alles erledigt/.test(txt) || 'der Aufgaben-Stand ist mitgegangen';
+  });
+
   // ================================================ Postfach: gelesen bleibt gelesen (v37)
   /* \U0001f534 Karls Meldung: "die rote Zahl bei den Einstellungen geht nicht weg, wenn ich den
      Postkasten oeffne." Dahinter lagen ZWEI Fehler uebereinander -- und der zweite haette den

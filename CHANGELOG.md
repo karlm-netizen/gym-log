@@ -4,6 +4,45 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-27
 
+### ✂️ v38 — Karls Textliste: zehn Erklärungen raus, vier kürzer
+
+Karl hat eine Liste geschickt. Umgesetzt wie angegeben.
+
+**Gestrichen:** *Waage und Essen im Abgleich* samt Hinweis auf zwei Wiegungen · Barcode/Foto ·
+der Absatz unter den Tagesaufgaben · *„Diese drei geben keine XP"* · *„System folgt der
+Hell/Dunkel-Einstellung"* · *„Das geht mit …"* samt *„Deine Trainingsdaten gehen nicht mit"* ·
+der Nachsatz am Push-Stand · *„Deine Daten bleiben erhalten"*.
+
+**Gekürzt:** Wiegen · Zurücksetzen · KI-Schlüssel · Konto löschen.
+
+---
+
+**Drei Stellen, an denen Streichen mehr war als Streichen:**
+
+🔴 **1. Der Regelkreis wäre auf „undefined" gelaufen.** Der gestrichene Satz war der einzige
+Inhalt des Zweigs *zu wenig Wiegungen* — fällt er ersatzlos weg, ist `inhalt` undefiniert und
+im Bild steht das Wort. Jetzt erscheint in diesem Fall **gar keine Karte**; eine leere Karte
+mit Überschrift wäre schlechter als keine. Ein getreuer Rückbau lässt **10 Prüfungen** fallen.
+
+🔴 **2. Der Push-Stand wäre leer geblieben.** Gestrichen war die Erklärung, nicht der Zustand —
+sonst stünde dort dauerhaft *„wird geprüft …"*. Es steht jetzt **An** bzw. **Aus** da, und
+zwar in **beiden** Zweigen: „An" mit Nachsatz und „Aus" ohne wäre schief gewesen.
+
+⚠️ **3. Was mit einer Meldung mitgeht, wird weiterhin mitgeschickt.** Nur der Hinweis auf der
+Meldeseite ist weg. **Die vollständige Aufzählung steht unverändert auf der
+Datenschutz-Seite** — Fassung, Browser-Kennung, Bildschirmgröße, online/offline, Anzahl der
+Einheiten, letzter Abgleich. Dafür steht seit heute eine eigene Prüfung: aus einem gekürzten
+Text darf keine verschwiegene Übertragung werden, und das ist etwas ganz anderes als ein
+Textwunsch.
+
+💡 Beim Aufräumen fiel ein toter `umfeldSammeln()`-Aufruf in `renderMeldung()` an — er hing nur
+an der gestrichenen Anzeige. Beim Verschicken wird weiterhin frisch gesammelt.
+
+**Prüfungen: 562 → 567.** ✅ Fünf Gegenproben. Geprüft wird dabei **nicht, dass Text fehlt** —
+das wäre eine Prüfung, die jede spätere Verbesserung bestraft —, sondern das, was beim Streichen
+kaputtgehen kann: kein „undefined", keine leere Karte, der Push-Zustand steht, der Aufgaben-Stand
+steht, und die Meldedaten stehen im Datenschutz.
+
 ### 🔴 v37 — die rote Zahl ging nicht weg
 
 **Karls Meldung:** *„die rote Zahl bei den Einstellungen geht nicht weg, wenn ich den Postkasten

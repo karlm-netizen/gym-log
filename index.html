@@ -3039,11 +3039,11 @@ function renderBody(){
   // kann — die Daten liegen längst da.
   const rk=regelkreis();
   if(rk.stand!=='kein-ziel'){
-    let inhalt;
+    let inhalt = '';
+    // Zu wenig Wiegungen: gar keine Karte. Der erklaerende Satz ist am 27.08.2026 auf Karls
+    // Ansage raus -- und eine leere Karte mit Ueberschrift waere schlechter als keine.
     if(rk.stand==='zu-wenig-gewicht')
-      inhalt=`<div class="tiny muted">Für die Rückmeldung brauche ich <b style="color:var(--txt)">zwei
-        Wiegungen über mindestens eine Woche</b>. Tagesschwankungen von einem Kilo sind normal —
-        daraus eine Woche hochzurechnen gäbe Unsinn.</div>`;
+      inhalt='';
     else if(rk.stand==='zu-wenig-essen')
       inhalt=`<div class="tiny muted">Die Gewichtskurve steht, aber es fehlen Essenstage:
         <b style="color:var(--txt)">${rk.tage} von mindestens 4</b> in den letzten zwei Wochen.</div>`;
@@ -3064,8 +3064,7 @@ function renderBody(){
       <div style="margin-top:8px">➡️ <b>${rk.neuesZiel} kcal</b> am Tag würden besser passen
         <span class="muted">(${rk.korrektur>0?'−':'+'}${Math.abs(rk.korrektur)})</span></div>
       <button class="btn" style="margin-top:8px" data-act="kcalziel-uebernehmen">Auf ${rk.neuesZiel} kcal umstellen</button>`;
-    h+=`<div class="card" style="margin-top:10px">
-      <div class="tiny muted" style="margin-bottom:6px">Waage und Essen im Abgleich</div>${inhalt}</div>`;
+    if(inhalt) h+=`<div class="card" style="margin-top:10px">${inhalt}</div>`;
   }
 
   // NEU: die App misst nicht mehr nur, sie schlägt auch etwas vor.
@@ -3154,8 +3153,7 @@ function renderBody(){
                  placeholder="${cur?fmtKg(cur.kg):'z. B. 78,5'}"></div>
         <button class="btn primary" style="width:auto;padding:12px 18px" data-act="addweight">Eintragen</button>
       </div>
-      <div class="tiny muted" style="margin-top:8px">Am besten morgens, nüchtern, immer zur gleichen Zeit —
-        dann sind die Zahlen vergleichbar. Ein Eintrag pro Tag; nochmal wiegen überschreibt den heutigen Wert.</div>
+      <div class="tiny muted" style="margin-top:8px">Am besten immer morgens vor dem Essen wiegen.</div>
     </div>`;
 
   if(w.length===0){ h+=`<div class="empty">Noch nichts eingetragen.<br>Trag dein Gewicht ein, dann entsteht hier deine Kurve.</div>`;
@@ -3241,8 +3239,7 @@ function renderFood(){
       <button class="btn" data-act="food:foto">
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:5px"><path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h1.7l1.3-2h6l1.3 2h1.7A2.5 2.5 0 0 1 20 8.5v8A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5z"/><circle cx="12" cy="12.5" r="3.2"/></svg>Foto</button>
     </div>
-    <div class="tiny muted" style="text-align:center;margin-top:8px">Barcode holt die Nährwerte aus der offenen
-      Lebensmittel-Datenbank. „Foto" schätzt sie per KI — dafür braucht es einmal einen eigenen Schlüssel.</div>
+
     <div class="row between" style="margin:22px 4px 6px"><h2>Meine Lebensmittel</h2>
       <span class="tiny muted">${k.foods.length}</span></div>
     <input id="foodSearch" placeholder="Suchen oder neues eintippen…" autocomplete="off"
@@ -3626,9 +3623,7 @@ async function pushStandZeichnen(){
     knopf.innerHTML = ''; return;
   }
   const an = !!(await pushAnmeldungHolen());
-  stand.textContent = an
-    ? 'An — du wirst benachrichtigt, sobald jemand antwortet.'
-    : 'Aus — Antworten siehst du nur, wenn du hier nachschaust.';
+  stand.textContent = an ? 'An' : 'Aus';
   knopf.innerHTML = `<button class="btn sm ${an?'ghost':'primary'}" data-act="push:${an?'aus':'an'}">${an?'Ausschalten':'Einschalten'}</button>`;
 }
 /* Was bei DIESEM Besuch im Postfach neu war. ⚠️ Wird beim Zeichnen sofort als gelesen
@@ -3644,7 +3639,6 @@ function renderMeldung(){
   const jetztNeu = post.filter(m => m.antwort && !m.gelesen_am).map(m => m.id);
   jetztNeu.forEach(id => { if(meldNeuMarkiert.indexOf(id) === -1) meldNeuMarkiert.push(id); });
   jetztNeu.forEach(id => { antwortGelesen(id); });   // oertlich sofort, beim Server nebenher
-  const u = umfeldSammeln();
   let h = `<div class="row between" style="margin:2px 4px 10px">
       <h2>Problem melden</h2>
       <button class="btn sm ghost" data-nav="settings">Zurück</button></div>`;
@@ -3660,12 +3654,7 @@ function renderMeldung(){
     ${wartend.length?`<div class="tiny muted" style="margin-top:10px">⏳ ${wartend.length}
       ${wartend.length===1?'Meldung wartet':'Meldungen warten'} auf Verbindung — sie
       ${wartend.length===1?'geht':'gehen'} automatisch raus, sobald du wieder online bist.</div>`:''}
-    <div class="tiny muted" style="margin-top:12px;line-height:1.7">
-      <b style="color:var(--txt)">Das geht mit:</b> Fassung ${u.fassung} · ${u.netz} ·
-      ${u.bildschirm} · ${u.einheiten} Einheiten · Gerät.
-      <br>Ohne diese Angaben steht dort nur „geht nicht" und niemand kann etwas damit anfangen.
-      <b style="color:var(--txt)">Deine Trainingsdaten gehen nicht mit.</b>
-    </div></div>`;
+    </div>`;
 
   /* Mitteilungen. ⚠️ Der Stand wird ASYNCHRON nachgetragen (pushStand), weil
      getSubscription() ein Versprechen ist — beim Zeichnen ist er noch nicht bekannt.
@@ -3772,10 +3761,7 @@ function renderErfolge(){
         <span class="tiny" style="white-space:nowrap;color:${fertig?'var(--ok)':'var(--muted)'}">+${a.xp} XP</span></div>`;
   });
   h += `<div class="tiny muted" style="margin-top:14px;line-height:1.6">
-      ${offen ? `Noch ${offen} ${offen===1?'Aufgabe':'Aufgaben'} offen.` : 'Alles erledigt für heute.'}
-      <br><b style="color:var(--txt)">Aufgaben schieben an, sie tragen nicht.</b> Höchstens
-      ${AUFGABEN_MAX} XP am Tag — eine Einheit bringt das Zehnfache. Der Rang soll etwas
-      über dein Training sagen, nicht darüber, wie oft du die App aufmachst.</div></div>`;
+      ${offen ? `Noch ${offen} ${offen===1?'Aufgabe':'Aufgaben'} offen.` : 'Alles erledigt für heute.'}</div></div>`;
 
   // ---- Der Katalog ----
   const gruppen = [...new Set(ERFOLGE.map(e=>e.gr))];
@@ -3803,9 +3789,6 @@ function renderErfolge(){
             <i style="display:block;height:100%;width:${anteil}%;background:var(--accent)"></i></div>`}
       </div>`;
     });
-    if(g === 'Rang') h += `<div class="tiny muted" style="margin-top:12px;line-height:1.6">
-        Diese drei geben <b style="color:var(--txt)">keine XP</b> — sie werden ja in XP
-        gemessen. Ein Erfolg fürs Leveln, der Level bringt, wäre ein Kreis.</div>`;
     h += `</div>`;
   });
   app.innerHTML = h;
@@ -3836,12 +3819,11 @@ function renderSettings(){
         <button class="btn ${profile.theme==='dark'?'primary':''}" data-setbase="dark">Dunkel</button>
         <button class="btn ${profile.theme==='light'?'primary':''}" data-setbase="light">Hell</button>
       </div>
-      <div class="tiny muted" style="margin-bottom:16px">„System" folgt der Hell/Dunkel-Einstellung deines Geräts.</div>
       <div class="field" style="margin:0 0 16px"><label>Pausen-Timer (Sekunden)</label>
         <input id="restInput" type="number" inputmode="numeric" value="${settings.rest}" min="10" step="5"></div>
       <label class="tiny muted" style="display:block;margin:16px 0 6px">Zurücksetzen</label>
       <button class="btn danger" data-act="resetall">Alles zurücksetzen</button>
-      <div class="tiny muted" style="margin-top:6px">Löscht alle Trainings, Einheiten und den Fortschritt (zurück zum Start). Lade dir vorher deine Daten herunter, wenn du sie behalten willst — der Knopf steht unter Datenschutz.</div>
+      <div class="tiny muted" style="margin-top:6px">Löscht alle Trainings, Einheiten und den Fortschritt.</div>
     </div>`;
   // Schritte aus der Health-App. ⚠️ Gym-Log kann Health nicht selbst lesen (HealthKit ist
   // nativen Apps vorbehalten) — der Weg laeuft ueber die Kurzbefehle-App. Die Anleitung steht
@@ -3898,12 +3880,9 @@ function renderSettings(){
       <div class="fab-row">
         <button class="btn" data-act="setkey">${aiKey()?'Ändern':'Eintragen'}</button>
         ${aiKey()?`<button class="btn danger" data-act="delkey">Entfernen</button>`:''}</div>
-      <div class="tiny muted" style="margin-top:6px">Nötig, damit ein Foto geschätzt werden kann. Der Schlüssel
-        bleibt <b style="color:var(--txt)">nur auf diesem Gerät</b> — er wird nicht mit deinem Konto
-        synchronisiert und steckt nicht im heruntergeladenen Backup. Du holst ihn dir kostenlos auf
-        <b style="color:var(--txt)">aistudio.google.com/apikey</b> — ein Google-Konto reicht,
-        <b style="color:var(--txt)">eine Kreditkarte brauchst du nicht.</b> Im kostenlosen Kontingent
-        zahlst du für ein Foto nichts.</div>
+      <div class="tiny muted" style="margin-top:6px">Erforderlich, um Mahlzeiten per Foto zu erfassen.
+        Dafür wird ein API-Schlüssel von Google Gemini benötigt.
+        <br>Bei Fragen bitte ein Ticket öffnen.</div>
     </div>`;
   h+=`<div class="card" data-nav="privacy" style="cursor:pointer">
       <div class="row between"><div class="row" style="gap:10px">
@@ -3923,10 +3902,10 @@ function renderSettings(){
             <div class="tiny muted">${esc(session.user.email)} · ${syncState}</div></div></div>
       </div>
       <button class="btn" data-act="logout" style="color:var(--danger)">Abmelden</button>
-      <div class="tiny muted" style="margin:6px 0 16px">Deine Daten bleiben erhalten — beim nächsten Anmelden ist alles wieder da.</div>
+      <div style="margin-bottom:16px"></div>
       <button class="btn danger" data-act="delaccount">Konto löschen</button>
-      <div class="tiny muted" style="margin-top:6px">Löscht dein Konto und <b>alle</b> Daten dauerhaft — auch in der Cloud.
-        Das lässt sich nicht rückgängig machen. Wenn du sie behalten willst, lade sie vorher unter Datenschutz herunter.</div>
+      <div class="tiny muted" style="margin-top:6px">Löscht dein Konto und <b>alle</b> Daten dauerhaft.
+        Das lässt sich nicht rückgängig machen.</div>
     </div>`;
   if(devAdmin) h+=`<button class="btn ghost" data-nav="admin" style="margin-top:14px;color:var(--muted)">Admin / Test</button>`;
   app.innerHTML=h;
