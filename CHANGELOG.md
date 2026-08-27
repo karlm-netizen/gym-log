@@ -4,6 +4,60 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-27
 
+### 📉 v44 — die drei offenen Funde aus dem Durchsehen
+
+Karl hat zu allen dreien Ja gesagt.
+
+#### 1. Der Gewichtstrend nimmt jetzt alle Messungen
+
+Bis hierher rechnete er `(letzter − erster) / Tage`. **Alles dazwischen fiel weg** — bei drei
+Wochen und acht Wiegungen sechs weggeworfene Messungen. Und ausgerechnet die beiden
+empfindlichsten blieben stehen: ein schwerer Morgen am Anfang oder ein leichter am Ende kippte
+das Ergebnis komplett.
+
+⚠️ **Das war nicht egal.** Aus dieser Zahl leitet der Regelkreis eine kcal-Korrektur ab und
+bietet sie als Knopf an.
+
+➡️ Jetzt eine **Ausgleichsgerade** (kleinste Quadrate) über alle Punkte.
+
+🔴 **Und die ehrliche Zahl dazu, weil meine erste Prüfung zu viel erwartet hatte:** eine
+Ausgleichsgerade **dämpft** einen Ausreißer, sie löscht ihn nicht. Gemessen an sechs Wiegungen
+mit einem Ausreißer am Ende: **−0,252 statt −0,333 kg/Woche** — gut ein Viertel weniger, nicht
+die Hälfte. Wer den Ausreißer ganz loswerden will, braucht ein robustes Verfahren (Median der
+Steigungen); das wäre eine eigene Entscheidung.
+
+⚠️ **`von` und `bis` sind jetzt die Werte auf der Geraden**, nicht die gemessenen Randpunkte.
+Das muss so sein, sonst passt die angezeigte Spanne nicht zur Rate daneben — und ein Satz,
+dessen zwei Hälften sich widersprechen, ist schlimmer als eine ungenaue Zahl. Dafür steht eine
+eigene Prüfung.
+💡 Bei genau zwei Messungen kommt dasselbe heraus wie vorher: durch zwei Punkte geht nur eine
+Gerade. Die alten Prüfungen blieben deshalb unverändert grün.
+
+#### 2. Ein Fenster für beide Seiten
+
+Vorher: **21 Tage Gewicht gegen 14 Tage Essen.** Der Regelkreis fragt aber genau eine Sache —
+passt das, was in *diesem* Zeitraum gegessen wurde, zu dem, was die Waage im *selben* Zeitraum
+gemacht hat. Zwei Fenster können das nicht beantworten.
+
+➡️ Beide stehen jetzt auf `RK_FENSTER = 21`, als eine Konstante, damit sie nicht wieder
+auseinanderlaufen.
+💡 Nebeneffekt: Essenstage aus der dritten Woche zählen jetzt mit — wer unregelmäßig
+mitschreibt, fällt seltener in *„zu wenig Essenstage"*.
+
+#### 3. Das Schlüssel-Fenster kann nicht mehr stumm verschwinden
+
+`showModal()` und `closeModal()` fassen dasselbe `#modal` an. Ein Aufruf von dort räumte den
+Schlüssel-Dialog weg, und `fragKey()` gab **nie eine Antwort**. Wer das Foto über diesen Weg
+geschickt hat, hätte **für immer** auf *„das Bild wird angesehen"* gestarrt.
+
+➡️ Der Dialog hinterlegt jetzt, wie man ihn im Notfall abbricht; beide Wege lösen das vorher
+aus — mit `false`, denn ohne Eingabe gibt es keinen Schlüssel.
+⚠️ Die Prüfungen dazu laufen gegen eine Zeitgrenze. **Eine Prüfung darf nie das sein, was
+hängenbleibt** — ohne den Wettlauf hätte ein Rückfall den ganzen Lauf blockiert statt ihn rot
+zu machen.
+
+**Prüfungen: 612 → 623.** ✅ Sechs Gegenproben, jede beißt.
+
 ### 🔍 v43 — zweite Runde Durchsehen: Trainings-Teil und Anmeldung
 
 #### 🔴 5. Ein Schutz, der nie greifen konnte

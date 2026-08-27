@@ -2783,6 +2783,8 @@ function kcalVorschlagFuer(art){
 // ⚠️ Mindestens zwei Wiegungen ueber mindestens 7 Tage - alles darunter ist
 // Rauschen. Tagesschwankungen von 1 kg sind normal; wer daraus eine Woche
 // hochrechnet, bekommt Unsinn heraus und richtet sein Essen danach.
+// Der Zeitraum, ueber den der Regelkreis urteilt -- fuer Gewicht UND Essen derselbe.
+const RK_FENSTER = 21;
 function gewichtsTrend(tage){
   const grenze=Date.now()-tage*864e5;
   const w=weightList().filter(x=>x.date>=grenze);
@@ -2790,8 +2792,34 @@ function gewichtsTrend(tage){
   const erst=w[0], letzt=w[w.length-1];
   const spanne=(letzt.date-erst.date)/864e5;
   if(spanne<7) return null;
-  return { proWoche:(letzt.kg-erst.kg)/spanne*7, tage:Math.round(spanne), messungen:w.length,
-           von:erst.kg, bis:letzt.kg };
+  /* 🔴 Ausgleichsgerade ueber ALLE Messungen (27.08.2026, Karls Entscheidung).
+
+     Bis hierher nahm die Rechnung nur den **ersten und letzten** Punkt: `(letzt.kg-erst.kg)`.
+     Alles dazwischen fiel weg. Bei drei Wochen und acht Wiegungen sind das sechs
+     weggeworfene Messungen -- und ausgerechnet die beiden empfindlichsten bleiben stehen,
+     denn ein einzelner schwerer Morgen am Anfang oder ein leichter am Ende kippt das
+     Ergebnis komplett.
+
+     ⚠️ **Das war nicht egal.** Aus dieser Zahl leitet der Regelkreis eine
+     kcal-Korrektur ab und bietet sie als Knopf an. Bei den ueblichen ein Kilo
+     Tagesschwankung konnte der Vorschlag um mehrere hundert Kalorien danebenliegen, ohne
+     dass sich am Essen irgendetwas geaendert haette. Der Kommentar bei `kcalSchnitt` warnt
+     seit jeher vor genau diesem Rauschen -- die Trendrechnung hat es dann selbst eingeladen.
+
+     ⚠️ `von` und `bis` sind seither die Werte **auf der Geraden**, nicht die gemessenen
+     Randpunkte. Das muss so sein, sonst passt die angezeigte Spanne nicht mehr zu der
+     Rate daneben -- und ein Satz, dessen zwei Haelften sich widersprechen, ist schlimmer
+     als eine ungenaue Zahl.
+     💡 Bei genau zwei Messungen kommt dasselbe heraus wie vorher: durch zwei Punkte
+     geht nur eine Gerade. */
+  const x=w.map(p=>(p.date-erst.date)/864e5), y=w.map(p=>p.kg), n=w.length;
+  const mx=x.reduce((a,b)=>a+b,0)/n, my=y.reduce((a,b)=>a+b,0)/n;
+  let zaehler=0, nenner=0;
+  for(let i=0;i<n;i++){ zaehler+=(x[i]-mx)*(y[i]-my); nenner+=(x[i]-mx)*(x[i]-mx); }
+  const proTag = nenner ? zaehler/nenner : 0;
+  const achse  = my - proTag*mx;
+  return { proWoche:proTag*7, tage:Math.round(spanne), messungen:n,
+           von:achse, bis:achse+proTag*spanne };
 }
 
 // Die eigentliche Rueckmeldung: passt das, was auf der Waage passiert, zu dem,
@@ -2804,9 +2832,15 @@ function gewichtsTrend(tage){
 // als Wahrheit zu verkaufen.
 function regelkreis(){
   const art=zielArt(); if(!art) return {stand:'kein-ziel'};
-  const trend=gewichtsTrend(21);
+  /* ⚠️ EIN Fenster fuer beide Seiten (27.08.2026, Karls Ansage). Vorher stand hier ein
+     21-Tage-Gewichtstrend gegen einen 14-Tage-Kalorienschnitt -- verglichen wurden also zwei
+     verschiedene Zeitraeume, und begruendet war das nirgends. Der Regelkreis fragt aber
+     genau eine Sache: passt das, was in DIESEM Zeitraum gegessen wurde, zu dem, was die
+     Waage in DEMSELBEN Zeitraum gemacht hat. Zwei Fenster koennen das nicht beantworten.
+     💡 Die Zahl steht als Konstante da, damit die beiden nicht wieder auseinanderlaufen. */
+  const trend=gewichtsTrend(RK_FENSTER);
   if(!trend) return {stand:'zu-wenig-gewicht'};
-  const schnitt=kcalSchnitt(14);
+  const schnitt=kcalSchnitt(RK_FENSTER);
   if(!schnitt || schnitt.tage<4) return {stand:'zu-wenig-essen', tage:schnitt?schnitt.tage:0};
 
   const soll=ZIELE[art].proWoche, ist=trend.proWoche, abweichung=ist-soll;
@@ -3542,6 +3576,19 @@ const KEY_URL='https://aistudio.google.com/apikey';
 // 22.08.2026 passiert: Google warf ihn auf "Available regions", obwohl Deutschland auf der
 // Liste steht. Deshalb jetzt ein eigener Dialog mit Direktlink und Hilfe.
 // Gibt ein Promise<boolean> zurueck — true, wenn danach ein Schluessel gespeichert ist.
+/* 🔴 Wer beantwortet das Versprechen, wenn das Fenster von aussen verschwindet?
+   (27.08.2026, gefunden beim Durchsehen.) `showModal()` und `closeModal()` fassen dasselbe
+   `#modal` an -- ein Aufruf von dort raeumte den Schluessel-Dialog weg, und `fragKey()` gab
+   nie eine Antwort. Wer das Foto ueber diesen Weg geschickt hat (`await fragKey()` in
+   `schaetzeFoto`), haette **fuer immer** auf "das Bild wird angesehen" gestarrt.
+   ➡️ Der Dialog hinterlegt hier, wie man ihn im Notfall abbricht. Beide Wege, die das
+   Fenster ueberschreiben, loesen das vorher aus -- mit `false`, denn ohne Eingabe gibt es
+   keinen Schluessel. */
+let keyDialogAbbrechen = null;
+function keyDialogAufloesen(){
+  if(!keyDialogAbbrechen) return;
+  const ab = keyDialogAbbrechen; keyDialogAbbrechen = null; ab();
+}
 function fragKey(){
   const alt=altSchluessel();
   const m=document.getElementById('modal');
@@ -3570,7 +3617,8 @@ function fragKey(){
     </div>`;
     m.classList.add('show');
     const feld=document.getElementById('keyInput');
-    const schliessen=(wert)=>{ m.classList.remove('show'); fertig(wert); };
+    keyDialogAbbrechen = () => fertig(false);
+    const schliessen=(wert)=>{ keyDialogAbbrechen=null; m.classList.remove('show'); fertig(wert); };
     document.getElementById('keyHelp').onclick=()=>{
       const box=document.getElementById('keyHelpBox');
       box.hidden=!box.hidden;
@@ -4413,8 +4461,9 @@ async function antwortGelesen(id){
 }
 
 let toastT; function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),1800); }
-function showModal(html){ const m=document.getElementById('modal'); m.innerHTML=`<div class="modal-box">${html}<button class="btn primary" data-act="closemodal" style="margin-top:16px">Weiter</button></div>`; m.classList.add('show'); }
-function closeModal(){ document.getElementById('modal').classList.remove('show'); }
+function showModal(html){ keyDialogAufloesen();      // ein offener Schluessel-Dialog wird sonst stumm weggeraeumt
+  const m=document.getElementById('modal'); m.innerHTML=`<div class="modal-box">${html}<button class="btn primary" data-act="closemodal" style="margin-top:16px">Weiter</button></div>`; m.classList.add('show'); }
+function closeModal(){ keyDialogAufloesen(); document.getElementById('modal').classList.remove('show'); }
 
 // ---------- Daten herunterladen ----------
 // Kein Backup mehr, sondern Datenübertragbarkeit (Art. 20 DSGVO). Der Knopf sitzt

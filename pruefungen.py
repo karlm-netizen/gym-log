@@ -1094,6 +1094,88 @@ window.addEventListener('error', e => {
     return (tr && Math.abs(tr.von - 80) < 0.001) || JSON.stringify(tr);
   });
 
+  // ---------------------------------------------- Ausgleichsgerade (v44)
+  /* \U0001f534 Bis zum 27.08.2026 nahm der Trend nur den ersten und letzten Punkt. Genau die
+     beiden sind die empfindlichsten: ein schwerer Morgen am Anfang oder ein leichter am Ende
+     kippte das Ergebnis -- und daraus leitet der Regelkreis eine kcal-Korrektur ab. */
+  t('Eine saubere Reihe ergibt genau ihre Steigung', () => {
+    const n = Date.now();
+    profile.weights = [0,7,14,21].map(d => ({ date:n-(21-d)*T, kg: 80 - d*0.1 }));
+    const tr = gewichtsTrend(21);
+    return (tr && Math.abs(tr.proWoche - (-0.7)) < 0.001) || JSON.stringify(tr);
+  });
+  /* \U0001f534 Der Fall, um den es geht: das Gewicht steht, nur die LETZTE Wiegung ist ein
+     Ausreisser nach unten. Zwei Punkte haetten daraus einen Abnehm-Trend gemacht; ueber alle
+     Messungen bleibt davon fast nichts. */
+  t('Ein Ausreisser am Ende kippt den Trend nicht mehr', () => {
+    const n = Date.now();
+    profile.weights = [
+      {date:n-21*T, kg:80}, {date:n-17*T, kg:80}, {date:n-13*T, kg:80},
+      {date:n-9*T,  kg:80}, {date:n-5*T,  kg:80}, {date:n, kg:79}];
+    const tr = gewichtsTrend(21);
+    const zweiPunkte = (79-80)/21*7;                 // das alte Verfahren: -0,333 kg/Woche
+    /* ⚠️ Die Schwelle steht bei 80 %, nicht bei 50 -- und das ist keine Nachgiebigkeit,
+       sondern das ehrliche Mass. Eine Ausgleichsgerade **daempft** einen Ausreisser, sie
+       loescht ihn nicht: gemessen -0,252 statt -0,333, also gut ein Viertel weniger. Wer den
+       Ausreisser ganz loswerden will, braucht ein robustes Verfahren (Median der
+       Steigungen) -- das ist eine andere Entscheidung, nicht diese. */
+    return (tr && Math.abs(tr.proWoche) < Math.abs(zweiPunkte) * 0.8)
+      || 'proWoche=' + (tr && tr.proWoche.toFixed(3)) + ' alt waere ' + zweiPunkte.toFixed(3);
+  });
+  t('Ein Ausreisser am Anfang genauso wenig', () => {
+    const n = Date.now();
+    profile.weights = [
+      {date:n-21*T, kg:81}, {date:n-17*T, kg:80}, {date:n-13*T, kg:80},
+      {date:n-9*T,  kg:80}, {date:n-5*T,  kg:80}, {date:n, kg:80}];
+    const tr = gewichtsTrend(21);
+    const zweiPunkte = (80-81)/21*7;
+    return (tr && Math.abs(tr.proWoche) < Math.abs(zweiPunkte) * 0.8)
+      || 'proWoche=' + (tr && tr.proWoche.toFixed(3));
+  });
+  /* \u26a0\ufe0f Die angezeigte Spanne muss zur angezeigten Rate passen. Ein Satz, dessen zwei
+     Haelften sich widersprechen ("80,0 auf 79,5 kg, also -1,2 kg pro Woche"), ist schlimmer
+     als eine ungenaue Zahl. */
+  t('Angezeigte Spanne und Rate passen zusammen', () => {
+    const n = Date.now();
+    profile.weights = [
+      {date:n-21*T, kg:81}, {date:n-14*T, kg:80.2}, {date:n-7*T, kg:80.4}, {date:n, kg:79.4}];
+    const tr = gewichtsTrend(21);
+    if(!tr) return 'kein Trend';
+    const ausSpanne = (tr.bis - tr.von) / tr.tage * 7;
+    return Math.abs(ausSpanne - tr.proWoche) < 0.001
+      || 'aus der Spanne ' + ausSpanne.toFixed(3) + ', angezeigt ' + tr.proWoche.toFixed(3);
+  });
+  // \U0001f4a1 Durch zwei Punkte geht nur eine Gerade - da muss dasselbe herauskommen wie frueher.
+  t('Bei zwei Messungen bleibt es beim alten Ergebnis', () => {
+    const n = Date.now();
+    profile.weights = [{date:n-14*T, kg:80}, {date:n, kg:79}];
+    const tr = gewichtsTrend(21);
+    return (tr && Math.abs(tr.proWoche - (-0.5)) < 0.001 && Math.abs(tr.von - 80) < 0.001)
+      || JSON.stringify(tr);
+  });
+
+  // ---------------------------------------------- Ein Fenster fuer beide Seiten (v44)
+  /* \u26a0\ufe0f Der Regelkreis fragt EINE Sache: passt das, was in diesem Zeitraum gegessen
+     wurde, zu dem, was die Waage im SELBEN Zeitraum gemacht hat. Vorher standen 21 Tage
+     Gewicht gegen 14 Tage Essen. */
+  t('Gewicht und Essen werden ueber denselben Zeitraum verglichen', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const hat = q.indexOf('gewichtsTrend(RK_FENSTER)') > -1
+             && q.indexOf('kcalSchnitt(RK_FENSTER)') > -1;
+    return hat || 'die beiden Fenster laufen wieder auseinander';
+  });
+  t('Essenstage aus Woche drei zaehlen jetzt mit', () => {
+    const mK = JSON.stringify(profile.kcal || null), mW = profile.weights;
+    kcalInit();
+    // Vier Tage mit Eintraegen, alle aelter als 14 und juenger als 21 Tage.
+    profile.kcal.meals = [15,16,17,18].map((d,i) => ({ id:'m'+i, date: Date.now()-d*T,
+      name:'Test', kcal:2000, p:0, c:0, f:0 }));
+    const r = kcalSchnitt(RK_FENSTER), alt = kcalSchnitt(14);
+    if(mK !== 'null') profile.kcal = JSON.parse(mK); profile.weights = mW;
+    return (r && r.tage === 4 && alt === null)
+      || 'neu=' + JSON.stringify(r) + ' mit 14 Tagen=' + JSON.stringify(alt);
+  });
+
   t('Ohne Vorhaben kein Regelkreis', () => {
     profile.kcal = {goal:2000, foods:[], meals:[]};
     return eq(regelkreis().stand, 'kein-ziel');
@@ -2128,6 +2210,41 @@ window.addEventListener('error', e => {
     const gefuellt = planCodeCache.size;
     view = merkV; session = merkSess; render();
     return gefuellt > 0 || 'der Zwischenspeicher blieb leer';
+  });
+
+  // ================================================ Das Schluessel-Fenster (v44)
+  /* 🔴 `showModal()` und `closeModal()` fassen dasselbe `#modal` an. Ein Aufruf von
+     dort raeumte den Schluessel-Dialog weg, und `fragKey()` gab nie eine Antwort. Wer das
+     Foto ueber diesen Weg geschickt hat (`await fragKey()` in `schaetzeFoto`), haette FUER
+     IMMER auf "das Bild wird angesehen" gestarrt. */
+  await tA('Ein fremdes Fenster beendet den Schluessel-Dialog', async () => {
+    const p = fragKey();
+    showModal('irgendwas anderes');
+    // ⚠️ Mit einem Wettlauf gegen die Zeit, sonst haengt der ganze Lauf, wenn es
+    // wieder kaputtgeht -- eine Pruefung darf nie das sein, was blockiert.
+    const r = await Promise.race([p, new Promise(x => setTimeout(() => x('haengt'), 400))]);
+    closeModal();
+    return r === false || (r === 'haengt' ? 'der Dialog antwortet nie' : 'kam heraus: ' + r);
+  });
+  await tA('closeModal beendet ihn auch', async () => {
+    const p = fragKey();
+    closeModal();
+    const r = await Promise.race([p, new Promise(x => setTimeout(() => x('haengt'), 400))]);
+    return r === false || (r === 'haengt' ? 'der Dialog antwortet nie' : 'kam heraus: ' + r);
+  });
+  // ⚠️ Und der Normalfall darf davon nichts abbekommen: wer speichert, bekommt true.
+  await tA('Speichern antwortet weiterhin mit dem Schluessel', async () => {
+    const merk = DB.get('aikey','');
+    const p = fragKey();
+    document.getElementById('keyInput').value = 'AIzaPRUEFUNG';
+    document.getElementById('keySave').click();
+    const r = await Promise.race([p, new Promise(x => setTimeout(() => x('haengt'), 400))]);
+    DB.set('aikey', merk); closeModal();
+    return r === true || 'kam heraus: ' + r;
+  });
+  t('Ohne offenen Dialog tut das Aufloesen nichts', () => {
+    keyDialogAufloesen(); keyDialogAufloesen();   // darf nicht werfen
+    return true;
   });
 
   // ================================================ Aus dem Durchsehen, 2. Runde (v43)
