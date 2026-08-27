@@ -1,7 +1,7 @@
 ﻿// Gym-Log Service Worker â€” Netz zuerst (Updates erreichen den Nutzer sofort),
 // Cache nur als Offline-RÃ¼ckfall. Assets einzeln cachen, damit eine fehlende
 // Datei nicht die ganze Offline-Funktion killt (Lektion aus Dranbleiben).
-const CACHE = 'gymlog-v41';
+const CACHE = 'gymlog-v42';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-180.png',
   './icon-maskable-192.png', './icon-maskable-512.png',
   './brock.png',
@@ -24,8 +24,29 @@ self.addEventListener('activate', e => {
   );
 });
 
+/* 🔴 NUR die eigene Seite. Gefunden beim Durchsehen am 27.08.2026 -- vorher lief JEDE
+   GET-Anfrage hier durch, also auch die an Supabase. Das hatte zwei Folgen, und die zweite
+   ist die schlimmere:
+
+   1. **Die Trainingsdaten und alle Problemmeldungen lagen im Cache.** `gymlog_data?select=data`
+      ist eine GET-Anfrage -- die Antwort mit dem kompletten Datenblock wurde hier abgelegt und
+      blieb liegen. Auch nach dem Abmelden, denn das raeumt `localStorage` auf, nicht den Cache.
+
+   2. **Ohne Netz log der Abgleich sich selbst an.** `cloudPull()` unterscheidet ausdruecklich
+      "kein Netz" von "Konto ist leer" -- und zwar daran, ob die Anfrage durchgeht. Mit einer
+      gecachten Antwort ging sie IMMER durch, mit einem alten Stand aus dem Cache. Die App hat
+      dann offline gegen eine veraltete Cloud zusammengefuehrt, statt den oertlichen Stand
+      gelten zu lassen. Genau diesen Fall beschreibt der Kommentar in `cloudSyncStart()` als
+      den Datenverlust vom 24.08.2026.
+
+   ⚠️ Fremde Adressen werden jetzt gar nicht angefasst -- ohne `respondWith` macht der
+   Browser seine Sache selbst. Das gilt auch fuer Google (Foto-Schaetzung) und die
+   Lebensmittel-Datenbank.                                                                */
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  let u;
+  try { u = new URL(e.request.url); } catch (x) { return; }
+  if (u.origin !== self.location.origin) return;     // Supabase, Google, Barcode-Datenbank
   e.respondWith(
     fetch(e.request)
       .then(r => { const cp = r.clone(); caches.open(CACHE).then(c => c.put(e.request, cp)); return r; })

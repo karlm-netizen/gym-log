@@ -2101,6 +2101,84 @@ window.addEventListener('error', e => {
     return gefuellt > 0 || 'der Zwischenspeicher blieb leer';
   });
 
+  // ================================================ Aus dem Durchsehen (v42)
+  /* 🔴 Der Fund, der beim Durchsehen am peinlichsten war: das Wiederkommen stand ganz
+     am Ende der Startfolge und ueberschrieb damit jede Ansicht, die vorher gesetzt worden war
+     -- eine offene Einheit, den Assistenten, die Schritte aus dem Link. Eine Stunde nach dem
+     Einbauen gefunden, und zwar nur durch Lesen. */
+  t('Eine offene Einheit hat Vorrang vor dem Wiederkommen', () =>
+    eq(startAnsicht('workout', true, {id:'x'}), 'workout'));
+  t('Auch eine gesetzte Ansicht schlaegt das Wiederkommen', () => {
+    const fehl = ['body','onboard','plans'].filter(v => startAnsicht(v, true, null) !== v);
+    return fehl.length === 0 || 'ueberschrieben: ' + fehl.join(', ');
+  });
+  t('Steht sonst nichts an, kommt das Wiederkommen', () =>
+    eq(startAnsicht('home', true, null), 'comeback'));
+  t('Ohne Faelligkeit bleibt die Startseite stehen', () =>
+    eq(startAnsicht('home', false, null), 'home'));
+  // ⚠️ Auch auf der Startseite nicht, solange eine Einheit laeuft.
+  t('Bei laufender Einheit kommt es auch von der Startseite nicht', () =>
+    eq(startAnsicht('home', true, {id:'x'}), 'home'));
+  /* 🔴 Und der Einbau, nicht nur das Teil: die Startfolge muss die Funktion auch
+     BENUTZEN. Geprueft ueber APP_QUELLE -- den Quelltext der App ohne diese Pruefungen.
+     Ein Blick in `document.documentElement.innerHTML` faende hier sich selbst wieder. */
+  t('Die Startfolge benutzt die Entscheidung auch', () => {
+    const q = window.APP_QUELLE || '';
+    if(!q) return 'APP_QUELLE fehlt';
+    return q.indexOf('view = startAnsicht(view, comebackPruefen(), active);') > -1
+      || 'die Startfolge entscheidet an der Funktion vorbei';
+  });
+
+  // ================================================ Aus dem Durchsehen (v42)
+  /* 🔴 sw.js laeuft in dieser Seite NIE -- ein Service Worker hat eine eigene Umgebung.
+     Sein Quelltext wird als Zeichenkette hereingereicht (SW_QUELLE), also wird hier GELESEN,
+     nicht ausgefuehrt. Fuer diesen Fund reicht das: die Frage ist, ob der Riegel dasteht. */
+  t('Der Service Worker faengt nur die eigene Seite ab', () => {
+    const q = window.SW_QUELLE || '';
+    if(!q) return 'SW_QUELLE fehlt';
+    return /u\.origin\s*!==\s*self\.location\.origin/.test(q)
+      || 'kein Riegel gegen fremde Adressen im fetch-Handler';
+  });
+  t('Der Riegel steht VOR dem respondWith', () => {
+    const q = window.SW_QUELLE || '';
+    const riegel = q.indexOf('u.origin !== self.location.origin');
+    const antwort = q.indexOf('e.respondWith');
+    return (riegel > -1 && antwort > -1 && riegel < antwort)
+      || 'Riegel=' + riegel + ' respondWith=' + antwort;
+  });
+
+  /* 🔴 Zwei gleichzeitige Aufrufe duerfen den refresh_token nicht doppelt verbrauchen.
+     Supabase gibt bei jedem Auffrischen einen neuen aus; der zweite Aufruf bekaeme 400, und
+     der 4xx-Zweig wirft die Anmeldung weg. Beim Start laufen cloudSyncStart() und
+     postfachAuffrischen() nebeneinander -- genau dieser Fall. */
+  await tA('Zwei gleichzeitige Aufrufe frischen nur einmal auf', async () => {
+    const mF = window.fetch, mS = session;
+    let rufe = 0;
+    session = { access_token:'alt', refresh_token:'r1', expires_at: Date.now() - 1000,
+                username:'k', user:{ id:'u1', email:'a@b.de' } };
+    window.fetch = async () => { rufe++;
+      await new Promise(r => setTimeout(r, 20));
+      return { ok:true, status:200, json: async () => ({ access_token:'neu', refresh_token:'r2',
+               expires_in:3600, user:{ id:'u1', email:'a@b.de' } }) }; };
+    const [a, b] = await Promise.all([ensureToken(), ensureToken()]);
+    window.fetch = mF; session = mS;
+    return (rufe === 1 && a === true && b === true) || 'Aufrufe=' + rufe + ' a=' + a + ' b=' + b;
+  });
+  // ⚠️ Der Riegel muss nach einem Fehlschlag wieder aufgehen - sonst wartet der
+  // naechste Aufruf ewig auf ein Versprechen, das laengst beantwortet ist.
+  await tA('Nach einem Fehlschlag geht es beim naechsten Mal wieder', async () => {
+    const mF = window.fetch, mS = session;
+    let rufe = 0;
+    session = { access_token:'alt', refresh_token:'r1', expires_at: Date.now() - 1000,
+                username:'k', user:{ id:'u1', email:'a@b.de' } };
+    window.fetch = async () => { rufe++; throw new Error('kein Netz'); };
+    const erst = await ensureToken();
+    const zweit = await ensureToken();
+    window.fetch = mF; session = mS;
+    return (rufe === 2 && erst === false && zweit === false)
+      || 'Aufrufe=' + rufe + ' erst=' + erst + ' zweit=' + zweit;
+  });
+
   // ================================================ Wiederkommen (v41)
   /* \U0001f534 Karls Nachsatz war die eigentliche Anforderung: "natuerlich nicht direkt, wenn
      man die Website das erste Mal oeffnet -- wirklich nur nach 2 Wochen." Ein "schoen, dass
@@ -3550,7 +3628,18 @@ html = (WORK / 'index.html').read_text(encoding='utf-8')
 # glaubt, der Service Worker sei mitgeprueft.
 SW_TXT = (WORK / 'sw.js').read_text(encoding='utf-8')
 SW_BLOCK = '<script>window.SW_QUELLE = ' + json.dumps(SW_TXT) + ';</script>' + chr(10)
-(WORK / 'test.html').write_text(html + SW_BLOCK + TESTS, encoding='utf-8')
+
+# ⚠️ Und derselbe Weg fuer die App selbst. Grund (27.08.2026, dreimal an einem Abend
+# passiert): eine Pruefung, die `document.documentElement.innerHTML` durchsucht, findet dort
+# AUCH SICH SELBST -- die Pruefungen stehen ja mit im Dokument. Zweimal war eine Pruefung
+# deshalb gruen, obwohl der gepruefte Aufruf gar nicht mehr dastand, und einmal rot, obwohl
+# nichts kaputt war. APP_QUELLE ist der Quelltext OHNE die Pruefungen.
+# ⚠️ `</script>` im Text beendet das umgebende Skript-Tag, egal ob es in Anfuehrungszeichen
+# steht — der HTML-Parser sieht die Zeichenkette gar nicht. `<\/` ist in JavaScript dasselbe
+# Zeichenpaar, fuer den Parser aber kein Ende. Ohne das war APP_QUELLE schlicht nicht da.
+APP_BLOCK = ('<script>window.APP_QUELLE = ' + json.dumps(html).replace('</', r'<\/')
+             + ';</script>' + chr(10))
+(WORK / 'test.html').write_text(html + SW_BLOCK + APP_BLOCK + TESTS, encoding='utf-8')
 
 # ⚠️ Zeitbudget grosszuegig: virtuelle Zeit kostet keine echte, ein groesseres
 # Budget also nichts ausser Luft nach oben. In angel-log hat ein zu knappes

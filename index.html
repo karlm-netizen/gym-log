@@ -1085,7 +1085,8 @@ function seedPlans(){ const mk=(n,d,ex)=>({id:uid(),name:n,day:d,exercises:ex.ma
 // Seit dem 05.08. gibt es eine Ebene mehr: mehrere *Trainingsplaene*, von denen einer der aktuelle
 // ist. Ein Trainingsplan enthaelt die einzelnen Trainings (Push, Pull, Beine …).
 // `plans` zeigt immer auf die Trainings des aktuellen Plans — dasselbe Array-Objekt, damit
-// push/splice an beiden Stellen wirken. Nur beim *Ersetzen* muss setPlans() genommen werden.
+// push/splice an beiden Stellen wirken. (Eine Helferin setPlans() zum Ersetzen der ganzen
+// Liste gab es hier bis zum 27.08.2026 -- sie wurde nie aufgerufen und ist raus.)
 function neuerPlan(name,liste){ return {id:uid(), name:name||'Mein Plan', created:Date.now(), plans:liste||[]}; }
 let programs=DB.get('programs',null);
 if(!Array.isArray(programs) || !programs.length){
@@ -1135,8 +1136,6 @@ function activeProg(){
 }
 // plans zeigt auf die Trainings des aktuellen Plans — dasselbe Array, nicht eine Kopie.
 function bindPlans(){ plans=activeProg().plans; return plans; }
-// Nur fuers *Ersetzen* der ganzen Liste; einzelne push/splice wirken ueber die Referenz von selbst.
-function setPlans(arr){ const p=activeProg(); p.plans=arr; plans=arr; }
 function progById(id){ return (programs||[]).find(x=>x.id===id)||null; }
 bindPlans();
 let devAdmin=DB.get('devadmin',false);
@@ -1331,6 +1330,15 @@ function comebackPruefen(){
   profile.zuletztDa = Date.now();
   save();
   return faellig;
+}
+/* Welche Ansicht beim Start? Steht als eigene Funktion da, damit die ENTSCHEIDUNG geprueft
+   werden kann und nicht nur der Quelltext der Startfolge -- ein Blick in den eigenen Quelltext
+   findet die Pruefung sonst selbst wieder (heute zweimal passiert).
+   🔴 Reihenfolge der Vorfahrt: eine offene Einheit und alles, was vorher schon eine
+   Ansicht gesetzt hat (Assistent, Schritte aus dem Link), schlagen das Wiederkommen. Die
+   haben einen konkreten Anlass; das Wiederkommen hat nur ein Datum. */
+function startAnsicht(aktuell, wiederDa, laufend){
+  return (wiederDa && aktuell === 'home' && !laufend) ? 'comeback' : aktuell;
 }
 function renderComeback(){
   const lp = levelFromXP(profile.xp), rang = rankForLevel(lp.level);
@@ -4688,12 +4696,32 @@ function setSession(d,username){ session={ access_token:d.access_token, refresh_
     username: username || (d.user.user_metadata&&d.user.user_metadata.username) || d.user.email }; DB.set('session',session); }
 function clearSession(){ session=null; DB.set('session',null); }
 // Wichtig: Kein Rauswurf bei Netzproblemen — nur wenn der Server die Anmeldung wirklich ablehnt.
+/* 🔴 Ein Auffrischen zur Zeit. Gefunden beim Durchsehen am 27.08.2026.
+
+   Beim Start laufen `cloudSyncStart()` und `postfachAuffrischen()` nebeneinander los, und
+   beide fragen hier nach. War der Token abgelaufen (App laenger als eine Stunde zu), schickten
+   **beide** denselben `refresh_token` los. Supabase gibt bei jedem Auffrischen einen neuen aus
+   und macht den alten ungueltig -- der zweite Aufruf bekam also ein 400 zurueck, und der
+   Zweig darunter wirft bei 4xx die Anmeldung weg.
+
+   ⚠️ Das Bild fuer Karl waere gewesen: **App nach ein paar Stunden aufgemacht und
+   rausgeflogen** -- ohne erkennbaren Anlass und nicht jedes Mal, weil es am Rennen zweier
+   Anfragen haengt. Ein Fehler, den man nicht nachstellt, sondern nur liest.
+
+   ➡️ Laeuft schon eins, warten alle anderen auf DASSELBE Versprechen. */
+let tokenLaeuft = null;
 async function ensureToken(){ if(!session) return false; if(Date.now()<session.expires_at-30000) return true;
-  try{ const r=await fetch(`${SUPA_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{'apikey':SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:session.refresh_token})});
-    if(r.ok){ setSession(await r.json(), session.username); return true; }
-    if(r.status>=400&&r.status<500){ clearSession(); render(); toast('Bitte neu anmelden'); return false; }
-    setSync(false); return false; }
-  catch(e){ setSync(false); return false; } }
+  if(tokenLaeuft) return tokenLaeuft;
+  tokenLaeuft = (async () => {
+    try{ const r=await fetch(`${SUPA_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{'apikey':SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:session.refresh_token})});
+      if(r.ok){ setSession(await r.json(), session.username); return true; }
+      if(r.status>=400&&r.status<500){ clearSession(); render(); toast('Bitte neu anmelden'); return false; }
+      setSync(false); return false; }
+    catch(e){ setSync(false); return false; }
+  })();
+  /* ⚠️ Der Riegel muss auch nach einem Fehlschlag wieder aufgehen, sonst wartet der
+     naechste Aufruf ewig auf ein Versprechen, das laengst beantwortet ist. */
+  try { return await tokenLaeuft; } finally { tokenLaeuft = null; } }
 function appDataBlob(){ return {programs,plans,sessions,profile,settings}; }
 function loadBlob(d){ if(!d) return;
   // Neue Staende bringen programs mit. Aeltere (und Backups von vor dem 05.08.) nur plans —
@@ -5540,8 +5568,16 @@ else if(session && !profile.onboarded) startOnboard();   // neues Konto → erst
    ⚠️ Reihenfolge ist hier kein Schoenheitsfehler, sondern das Feature. */
 if(session){
   /* ⚠️ VOR aufgabeErledigen('auf'): die Frage "wie lange warst du weg" muss gestellt sein,
-     bevor irgendetwas den heutigen Tag stempelt. */
-  if(comebackPruefen()) view = 'comeback';
+     bevor irgendetwas den heutigen Tag stempelt.
+     🔴 Gefunden beim Durchsehen am 27.08.2026, eine Stunde nach dem Einbauen: das hier
+     stand ganz am Ende der Startfolge und hat damit **alles ueberschrieben, was vorher eine
+     Ansicht gesetzt hatte** -- eine offene Einheit (`view='workout'`), den Assistenten und die
+     Schritte aus dem Kurzbefehl-Link (`view='body'`).
+     ➡️ Alle drei haben einen konkreten Anlass; das Wiederkommen hat nur ein Datum. Es
+     kommt deshalb nur zum Zug, wenn sonst nichts ansteht.
+     ⚠️ Gefragt (und gestempelt) wird trotzdem immer -- sonst haengt es beim naechsten
+     Start noch da und springt einen an, wenn man laengst wieder drin ist. */
+  view = startAnsicht(view, comebackPruefen(), active);
   aufgabeErledigen('auf');   // Tagesaufgabe: reingeschaut
   erfolgeGesehenInit();      // muss VOR erfolgeAuszahlen laufen -- sonst gilt frisch Bezahltes als "schon gesehen"
   /* ⚠️ Rueckwirkend: beim ersten Start mit v32 wird auf einen Schlag gutgeschrieben, was

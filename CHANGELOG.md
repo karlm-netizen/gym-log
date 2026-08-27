@@ -4,6 +4,69 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-27
 
+### 🔍 v42 — erste Runde Durchsehen: vier Funde, zwei davon ernst
+
+Karls Auftrag: *„kannst du nochmal die App komplett testen — aber ich meine nicht deine Tests,
+sondern mal den Code überfliegen und gucken, ob du irgendwelche Fehler oder tote/unbegründete
+Dinge findest."*
+
+#### 🔴 1. Der Service Worker hat API-Antworten mitgecacht
+
+`fetch` griff sich **jede** GET-Anfrage — also auch die an Supabase. Zwei Folgen, und die
+zweite ist die schlimmere:
+
+1. **Trainingsdaten und Problemmeldungen lagen im Cache.** `gymlog_data?select=data` ist eine
+   GET-Anfrage; die Antwort mit dem kompletten Datenblock wurde abgelegt und blieb liegen —
+   auch nach dem Abmelden, denn das räumt `localStorage` auf, nicht den Cache.
+2. **Ohne Netz hat der Abgleich sich selbst angelogen.** `cloudPull()` unterscheidet
+   ausdrücklich *„kein Netz"* von *„Konto ist leer"* — und zwar daran, ob die Anfrage
+   durchgeht. Mit einer gecachten Antwort ging sie **immer** durch, mit einem alten Stand.
+   Die App hat dann offline gegen eine veraltete Cloud zusammengeführt, statt den örtlichen
+   Stand gelten zu lassen. **Genau diesen Fall beschreibt der Kommentar in `cloudSyncStart()`
+   als den Datenverlust vom 24.08.2026.**
+
+➡️ Der Service Worker fasst jetzt nur noch die eigene Seite an.
+
+#### 🔴 2. `ensureToken` konnte die Anmeldung wegwerfen
+
+Beim Start laufen `cloudSyncStart()` und `postfachAuffrischen()` nebeneinander los, beide
+fragen nach einem gültigen Token. War er abgelaufen (App länger als eine Stunde zu), schickten
+**beide denselben `refresh_token`**. Supabase gibt bei jedem Auffrischen einen neuen aus und
+macht den alten ungültig — der zweite Aufruf bekam ein 400, und der 4xx-Zweig wirft die
+Anmeldung weg.
+
+⚠️ **Das Bild wäre gewesen: App nach ein paar Stunden aufgemacht und rausgeflogen** — ohne
+Anlass und nicht jedes Mal, weil es am Rennen zweier Anfragen hängt. Ein Fehler, den man nicht
+nachstellt, sondern nur liest.
+➡️ Läuft schon eins, warten alle anderen auf dasselbe Versprechen. Der Riegel geht auch nach
+einem Fehlschlag wieder auf — sonst wartet der nächste Aufruf ewig.
+
+#### 🔴 3. Das Wiederkommen hat alles überschrieben (mein Fehler, eine Stunde alt)
+
+Der v41-Block stand am **Ende** der Startfolge und setzte `view='comeback'` ohne Rücksicht —
+über eine **offene Einheit**, über den Assistenten und über die Schritte aus dem
+Kurzbefehl-Link. Alle drei haben einen konkreten Anlass; das Wiederkommen hat nur ein Datum.
+➡️ Die Entscheidung steht jetzt als `startAnsicht()` da — als Funktion, damit sie prüfbar ist.
+
+#### 4. Tote Funktion `setPlans`
+
+Definiert, nie aufgerufen. Raus.
+
+---
+
+### 🛠️ Und ein Werkzeug, weil derselbe Prüf-Fehler heute dreimal kam
+
+Eine Prüfung, die `document.documentElement.innerHTML` durchsucht, findet dort **auch sich
+selbst** — die Prüfungen stehen ja mit im Dokument. Zweimal war eine deshalb grün, obwohl der
+geprüfte Aufruf gar nicht mehr dastand, einmal rot, obwohl nichts kaputt war.
+
+➡️ `window.APP_QUELLE` reicht den Quelltext der App **ohne die Prüfungen** herein.
+⚠️ Dabei gleich in die nächste Falle getreten: `</script>` in einer Zeichenkette beendet das
+umgebende Skript-Tag trotzdem — der HTML-Parser sieht die Anführungszeichen nicht. Maskiert
+als `<\/`.
+
+**Prüfungen: 590 → 600.** ✅ Sechs Gegenproben, jede beißt.
+
 ### 🎒 v41 — fünf Sachen von Karls Liste
 
 #### 1. Die Tagesaufgaben haben Symbole statt Haken
