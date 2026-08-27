@@ -2101,6 +2101,52 @@ window.addEventListener('error', e => {
     return gefuellt > 0 || 'der Zwischenspeicher blieb leer';
   });
 
+  // ================================================ Plan teilen (v35)
+  /* Karls Idee: "kann man den Link sonst verpacken? In eine Ueberschrift z.B."
+     🔴 Was mit einem Link passiert, entscheidet der Empfaenger. Discord kann ihn hinter
+     zwei Worten verstecken, WhatsApp nicht. Geprueft wird deshalb, dass die App die Formen
+     richtig BAUT -- nicht, dass ein fremdes Programm sie richtig anzeigt. */
+  t('Der Teilen-Dialog geht auf und kennt die Adresse', () => {
+    const pr = activeProg();
+    sharePlan(pr.id);
+    const m = document.getElementById('modal');
+    const offen = m.classList.contains('show');
+    const url = m.dataset.url || '';
+    const knoepfe = m.querySelectorAll('[data-act^="teile-"]').length;
+    closeModal();
+    return (offen && url.indexOf('#p=') > -1 && knoepfe >= 3)
+      || 'offen=' + offen + ' url=' + url.slice(0, 30) + ' knoepfe=' + knoepfe;
+  });
+  t('Ein Plan ohne Trainings wird nicht geteilt', () => {
+    const merk = programs;
+    programs = [{ id:'leer', name:'Leer', plans:[] }];
+    const merkProg = profile.prog; profile.prog = 'leer';
+    sharePlan('leer');
+    const offen = document.getElementById('modal').classList.contains('show');
+    closeModal(); programs = merk; profile.prog = merkProg; bindPlans();
+    return offen === false || 'Dialog ging trotzdem auf';
+  });
+  /* ⚠️ Runde und eckige Klammern im Plannamen zerreissen die Discord-Schreibweise:
+     aus `[Plan (neu)](adresse)` wird bei Discord ein halber Link und sichtbarer Rest. */
+  t('Klammern im Plannamen zerreissen den Discord-Link nicht', () => {
+    const titel = 'Plan (neu) [alt]';
+    const gebaut = `[${titel.replace(/[\[\]()]/g,'')}](https://x.y/#p=z1)`;
+    return (gebaut === '[Plan neu alt](https://x.y/#p=z1)')
+      || 'kam heraus: ' + gebaut;
+  });
+  // Die Vorschau-Karte ist das Einzige, was auch bei WhatsApp wirkt.
+  t('Die Seite bringt eine Vorschau-Karte mit', () => {
+    const noetig = ['og:title', 'og:description', 'og:image', 'og:url'];
+    const fehlt = noetig.filter(n => !document.querySelector('meta[property="' + n + '"]'));
+    return fehlt.length === 0 || 'fehlt: ' + fehlt.join(', ');
+  });
+  t('Das Vorschau-Bild steht mit voller Adresse da', () => {
+    const el = document.querySelector('meta[property="og:image"]');
+    const v = el ? el.getAttribute('content') : '';
+    // Ein relativer Pfad taugt hier nicht - der Messenger holt das Bild von aussen.
+    return /^https:\/\//.test(v) || 'og:image ist relativ: ' + v;
+  });
+
   // ================================================ Training beenden (v34)
   /* \U0001f534 Karls Meldung: "wenn ich auf Training beenden gehe, wird das Training einfach
      verworfen. Liegt es daran, dass das Training nicht komplett abgeschlossen wurde? Aber

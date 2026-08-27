@@ -5,6 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1115">
 <title>Gym-Log</title>
+<!-- ---------- Vorschau-Karte beim Verschicken (27.08.2026) ----------
+     Karls Idee: "kann man den Link sonst verpacken? In eine Ueberschrift z.B., hinter
+     einfach Gym-Log."
+
+     Das hier ist der Teil, der UEBERALL wirkt. Messenger holen sich diese Zeilen und zeigen
+     statt einer nackten Adresse eine Karte mit Symbol und Titel.
+     ⚠️ **Die Adresse verschwindet dadurch NICHT** -- WhatsApp zeigt sie weiter unter der
+     Karte, und daran kann keine Seite der Welt etwas aendern: was ein Messenger mit einem
+     Link anstellt, entscheidet der Messenger. Die Nachricht sieht nur nach etwas aus statt
+     nach hingeworfenem Text.
+     ⚠️ Die Karte ist immer dieselbe, auch bei einem Plan-Link. Der Teil nach der Raute
+     (`#p=...`) wird nie an den Server geschickt -- ein Vorschau-Dienst sieht ihn also gar
+     nicht und koennte den Plannamen nicht in den Titel schreiben. -->
+<meta name="description" content="Trainings mitschreiben, Rekorde sehen, Level steigen. Läuft offline im Browser.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Gym-Log">
+<meta property="og:title" content="Gym-Log">
+<meta property="og:description" content="Trainingsplan öffnen — Trainings mitschreiben, Rekorde sehen, Level steigen.">
+<meta property="og:image" content="https://karlm-netizen.github.io/gym-log/icon-512.png">
+<meta property="og:url" content="https://karlm-netizen.github.io/gym-log/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Gym-Log">
+<meta name="twitter:description" content="Trainingsplan öffnen — Trainings mitschreiben, Rekorde sehen, Level steigen.">
+<meta name="twitter:image" content="https://karlm-netizen.github.io/gym-log/icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <!-- Icons: Karls Entwurf vom 23.08.2026. icon.svg zeigte das ALTE Motiv und ist
      deshalb raus - sonst steht im Browser-Tab ein anderes Bild als auf dem Homescreen. -->
@@ -4284,16 +4308,60 @@ function planCodeKurz(prog){
   return planCodeCache.get(roh) || planCode(prog);
 }
 function planLink(prog){ return location.origin+location.pathname+'#p='+planCodeKurz(prog); }
+/* ---------- Plan teilen: drei Wege statt einem (27.08.2026) ----------
+   Karls Frage: "kann man den Link sonst verpacken? In eine Ueberschrift z.B."
+
+   🔴 **Kurzfassung: es haengt am Empfaenger, nicht an dieser App.** Was mit einem Link
+   passiert, entscheidet das Programm, in dem er landet:
+
+   - **Discord** kann es wirklich. `[Mein Plan](adresse)` zeigt nur die zwei Worte, die
+     Adresse ist komplett unsichtbar.
+   - **E-Mail, Notizen, Word** koennen es auch -- ueber die Zwischenablage, wenn dort neben
+     dem Text auch eine HTML-Fassung liegt.
+   - **WhatsApp kann es nicht.** Dort steht die Adresse als Text, immer. Was hilft, ist die
+     Vorschau-Karte oben im Kopf der Seite: dann sieht die Nachricht nach Gym-Log aus statt
+     nach hingeworfenem Text. Mehr ist von hier aus nicht zu machen, und ich tue nicht so.
+
+   ⚠️ Der Dialog ersetzt den direkten Griff zum Teilen-Fenster des Handys nicht -- der steht
+   als erster Knopf drin. Ein Knopf, der frueher eine Sache tat und jetzt vier anbietet, waere
+   eine Verschlechterung fuer den haeufigsten Fall.
+   ⚠️ `navigator.share` braucht eine Nutzergeste. Der Knopf IM Dialog ist eine -- deshalb geht
+   das hier auf, obwohl der Dialog dazwischensteht. */
+function kopiereReich(url, titel){
+  const html = `<a href="${esc(url)}">${esc(titel)} — Gym-Log</a>`;
+  /* ClipboardItem gibt es nicht ueberall (Firefox kann kein text/html schreiben). Faellt es
+     aus, landet wenigstens die Adresse in der Zwischenablage -- lieber schlichter als leer. */
+  try{
+    if(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+      return navigator.clipboard.write([new ClipboardItem({
+        'text/html':  new Blob([html], {type:'text/html'}),
+        'text/plain': new Blob([url],  {type:'text/plain'})
+      })]);
+    }
+  }catch(e){}
+  return navigator.clipboard.writeText(url);
+}
 function sharePlan(progId){
   const pr=(progId?progById(progId):null)||activeProg();
   if(!pr.plans||!pr.plans.length){ toast('Dieser Plan hat noch keine Trainings'); return; }
-  const url=planLink(pr), text=`„${pr.name}" — mein Trainingsplan aus Gym-Log (${pr.plans.length} Trainings)`;
-  const fallback=()=>{ (navigator.clipboard?navigator.clipboard.writeText(url):Promise.reject())
-    .then(()=>toast('Link kopiert'))
-    .catch(()=>showModal(`<div class="tiny muted">Link zum Weitergeben</div>
-      <textarea readonly style="width:100%;height:90px;margin-top:8px;background:var(--card2);border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:10px;font-size:12px">${esc(url)}</textarea>`)); };
-  if(navigator.share){ navigator.share({title:'Trainingsplan',text,url}).catch(e=>{ if(!e||e.name!=='AbortError') fallback(); }); }
-  else fallback();
+  const url=planLink(pr);
+  const text=`„${pr.name}" — mein Trainingsplan aus Gym-Log (${pr.plans.length} Trainings)`;
+  const m=document.getElementById('modal');
+  m.innerHTML=`<div class="modal-box" style="max-width:380px;text-align:left">
+    <div class="row between" style="margin-bottom:4px"><b>„${esc(pr.name)}" teilen</b>
+      <button class="del-x" data-act="closemodal" style="margin:0">✕</button></div>
+    <div class="tiny muted" style="margin-bottom:14px">${pr.plans.length} Trainings · ${url.length} Zeichen</div>
+    ${navigator.share?`<button class="btn primary" data-act="teile-app" style="width:100%">Teilen…</button>`:''}
+    <button class="btn" data-act="teile-discord" style="width:100%;margin-top:8px">Für Discord kopieren</button>
+    <div class="tiny muted" style="margin:4px 2px 0">Dort steht nur „${esc(pr.name)}" — die Adresse ist unsichtbar.</div>
+    <button class="btn" data-act="teile-reich" style="width:100%;margin-top:12px">Als Link kopieren</button>
+    <div class="tiny muted" style="margin:4px 2px 0">Für E-Mail und Notizen — fügt als anklickbares Wort ein.</div>
+    <button class="btn" data-act="teile-roh" style="width:100%;margin-top:12px">Nur die Adresse</button>
+    <div class="tiny muted" style="margin:4px 2px 0">Für WhatsApp. ⚠️ Dort zeigt WhatsApp die
+      Adresse immer als Text — das lässt sich von hier aus nicht abstellen.</div>
+    </div>`;
+  m.classList.add('show');
+  m.dataset.url=url; m.dataset.titel=pr.name; m.dataset.text=text;
 }
 // Empfangen: der Link wird beim Start gelesen, der Hash sofort entfernt (sonst haengt er beim
 // naechsten Oeffnen noch dran) und das Angebot erst nach der Anmeldung gezeigt.
@@ -4973,6 +5041,21 @@ document.addEventListener('click',ev=>{
   if(t.dataset.delex!=null){ editPlans().find(x=>x.id===editPlanId).exercises.splice(+t.dataset.delex,1); save(); render(); return; }
   const a=t.dataset.act;
   if(a==='resume'){ view='workout'; render(); }
+  else if(a==='teile-app' || a==='teile-discord' || a==='teile-reich' || a==='teile-roh'){
+    const m=document.getElementById('modal');
+    const url=m.dataset.url||'', titel=m.dataset.titel||'Trainingsplan', text=m.dataset.text||'';
+    if(a==='teile-app'){ closeModal();
+      navigator.share({title:'Trainingsplan', text, url}).catch(()=>{}); return; }
+    // ⚠️ Discord-Schreibweise. Runde Klammern IM Namen wuerden den Link zerreissen,
+    // deshalb raus -- lieber ein Name ohne Klammern als ein Link, der nicht geht.
+    const wert = a==='teile-discord' ? `[${titel.replace(/[\[\]()]/g,'')}](${url})` : url;
+    const fertig = (was)=>{ closeModal(); toast(was); };
+    if(a==='teile-reich'){ kopiereReich(url, titel).then(()=>fertig('Als Link kopiert'))
+      .catch(()=>fertig('Kopieren ging nicht')); return; }
+    (navigator.clipboard?navigator.clipboard.writeText(wert):Promise.reject())
+      .then(()=>fertig(a==='teile-discord'?'Für Discord kopiert':'Adresse kopiert'))
+      .catch(()=>fertig('Kopieren ging nicht'));
+    return; }
   else if(a==='discard'){ confirmTwice('disc',t,'Wirklich verwerfen?',()=>{ active=null; save(); endRest(); render(); }); }
   // ---- Ernaehrungs-Assistent ----
   // ---- Schritte ----

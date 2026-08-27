@@ -4,6 +4,47 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-27
 
+### 🔗 v35 — den Link verpacken, so weit es der Empfänger zulässt
+
+**Karls Idee:** *„Kann man den Link sonst verpacken? In eine Überschrift z.B., hinter einfach
+Gym-Log."*
+
+🔴 **Die ehrliche Kurzfassung: das hängt am Empfänger, nicht an dieser App.** Was mit einem
+Link passiert, entscheidet das Programm, in dem er landet. Deshalb drei Wege statt einem —
+und bei einem davon ein ausdrückliches Nein.
+
+**Discord — geht wirklich.** `[Mein Plan](adresse)` zeigt nur die zwei Worte, die Adresse ist
+komplett unsichtbar. ⚠️ Runde und eckige Klammern im Plannamen zerreißen die Schreibweise und
+werden deshalb entfernt — lieber ein Name ohne Klammern als ein Link, der nicht geht.
+
+**E-Mail, Notizen, Word — geht auch.** Beim Kopieren liegt neben dem Text eine **HTML-Fassung**
+in der Zwischenablage (`<a href="…">Mein Plan — Gym-Log</a>`). Eingefügt wird daraus ein
+anklickbares Wort. ⚠️ Firefox kann kein `text/html` in die Zwischenablage schreiben; dort
+landet die Adresse. Lieber schlichter als leer.
+
+**WhatsApp — geht nicht, und ich tue nicht so.** Dort steht die Adresse als Text, immer. Der
+Hinweis steht so auch im Dialog, statt dem Knopf einen Namen zu geben, der etwas verspricht.
+
+➡️ **Was überall wirkt, ist die Vorschau-Karte.** Die Seite hatte bisher **keine einzige**
+`og:`-Zeile — ein geteilter Link war überall nackter Text ohne Bild und ohne Titel. Jetzt holen
+sich Messenger Symbol, Titel und eine Zeile Beschreibung. Die Nachricht sieht nach Gym-Log aus
+statt nach hingeworfener Adresse.
+⚠️ **Die Karte ist immer dieselbe, auch bei einem Plan-Link.** Der Teil nach der Raute (`#p=…`)
+wird nie an den Server geschickt — ein Vorschau-Dienst sieht ihn gar nicht und könnte den
+Plannamen nicht in den Titel schreiben.
+⚠️ `og:image` steht mit **voller Adresse** da. Ein relativer Pfad taugt nicht, das Bild wird
+von außen geholt. Dafür steht eine eigene Prüfung.
+
+💡 **Der Teilen-Knopf tut nicht mehr direkt eine Sache, sondern öffnet einen Dialog** — der
+Griff zum Teilen-Fenster des Handys steht aber als **erster** Knopf drin. Ein Knopf, der früher
+eine Sache tat und jetzt vier anbietet, wäre sonst eine Verschlechterung für den häufigsten
+Fall. Oben steht auch, wie lang der Link gerade ist.
+⚠️ `navigator.share` braucht eine Nutzergeste — der Knopf **im** Dialog ist eine, deshalb geht
+das auf, obwohl der Dialog dazwischensteht.
+
+**Prüfungen: 541 → 546.** ✅ Vier Gegenproben: Karte raus → 1 · `og:image` relativ → 1 · leerer
+Plan teilbar → 1 · Dialog ohne Adresse → 1.
+
 ### 🔴 v34 — beendete Trainings gingen verloren
 
 **Karls Meldung:** *„Wenn ich auf Training beenden gehe, wird das Training einfach verworfen.
