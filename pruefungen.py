@@ -1514,6 +1514,96 @@ window.addEventListener('error', e => {
     return zahlen.every(x => x >= 0 && x <= 300) || 'Punkt ausserhalb';
   });
 
+  // ---- Beschriftung der Kurve (Karls Meldung 28.08.2026) ----
+  // ⚠️ Die vier Pruefungen darunter fassen bewusst das ERGEBNIS von lineChart an und nicht
+  // eine Hilfsfunktion. Am 27.08. sind an einem Abend dreimal Gegenproben gruen geblieben,
+  // weil sie den Baustein direkt aufriefen und seinen Einbau nie sahen.
+  t('Kurve beschriftet die Seite mit hoechstem, mittlerem und tiefstem Wert', () => {
+    const html = lineChart([70,80,90], 300, 110, {einheit:'kg'});
+    const y = (html.match(/class="chart-y[^"]*">(.*?)<\/div>/)||[])[1] || '';
+    const txt = y.replace(/<[^>]+>/g,'|').split('|').filter(Boolean);
+    return (txt.length === 3 && txt[0] === '90 kg' && txt[1] === '80' && txt[2] === '70')
+      || JSON.stringify(txt);
+  });
+  t('Kurve beschriftet unten mit erstem und letztem Datum', () => {
+    const t1 = new Date(2026,7,1).getTime(), t2 = new Date(2026,7,20).getTime();
+    const html = lineChart([70,80], 300, 110, {x:[t1,t2]});
+    const x = (html.match(/class="chart-x">(.*?)<\/div>/)||[])[1] || '';
+    const txt = x.replace(/<[^>]+>/g,'|').split('|').filter(Boolean);
+    return (txt.length === 2 && txt[0] === '01.08.' && txt[1] === '20.08.') || JSON.stringify(txt);
+  });
+  // ⚠️ Der Grund, warum ein mittleres Datum an eine ungerade Punktzahl gebunden ist: nur dann
+  // liegt der mittlere Punkt auf der Mitte der Flaeche. Faellt diese Bedingung weg, steht bei
+  // vier Punkten ein Datum bei 50 %, dessen Punkt bei 33 % sitzt -- eine stille Luege.
+  t('Gerade Punktzahl bekommt KEIN mittleres Datum', () => {
+    const ts = [0,1,2,3,4,5].map(i => new Date(2026,7,1+i).getTime());
+    const html = lineChart([1,2,3,4,5,6], 300, 110, {x:ts});
+    const x = (html.match(/class="chart-x">(.*?)<\/div>/)||[])[1] || '';
+    return eq(x.split('<span>').length - 1, 2);
+  });
+  t('Ungerade Punktzahl ab fuenf bekommt ein mittleres Datum', () => {
+    const ts = [0,1,2,3,4].map(i => new Date(2026,7,1+i).getTime());
+    const html = lineChart([1,2,3,4,5], 300, 110, {x:ts});
+    const x = (html.match(/class="chart-x">(.*?)<\/div>/)||[])[1] || '';
+    const txt = x.replace(/<[^>]+>/g,'|').split('|').filter(Boolean);
+    return (txt.length === 3 && txt[1] === '03.08.') || JSON.stringify(txt);
+  });
+  t('Ohne Zeitstempel steht unten gar nichts statt leerer Kaesten', () => {
+    return !lineChart([70,80], 300, 110).includes('chart-x') || 'leere Achse gebaut';
+  });
+  // ⚠️ Sonst stuenden bei lauter gleichen Werten drei gleiche Zahlen untereinander und
+  // taeuschten eine Spanne vor, die es nicht gibt.
+  t('Lauter gleiche Werte ergeben nur EINE Zahl an der Seite', () => {
+    const html = lineChart([80,80,80], 300, 110, {einheit:'kg'});
+    const y = (html.match(/class="chart-y[^"]*">(.*?)<\/div>/)||[])[1] || '';
+    return (y.split('<span>').length - 1 === 1 && html.includes('chart-y einer'))
+      || 'y: ' + y;
+  });
+  t('Volumen wird als ganze Zahl beschriftet, nicht mit Komma', () => {
+    const html = lineChart([1000,4820], 300, 110, {einheit:'kg', fmt:v=>Math.round(v).toLocaleString('de-DE')});
+    return html.includes('4.820 kg') || 'keine 4.820 kg: ' + html.slice(0,200);
+  });
+
+  // ---- Und der Einbau: rufen die drei Kurven in der App die Beschriftung auch auf? ----
+  // ⚠️ Genau hier war am 27.08. dreimal die Luecke. Eine beschriftete Kurve nuetzt nichts,
+  // wenn renderExDetail() sie ohne Zeitstempel aufruft.
+  t('Alle drei Kurven der App bekommen Zeitstempel mit', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    // ⚠️ Kein /lineChart\([^)]*\)/ -- die Aufrufe enthalten selbst Klammern (map(...)),
+    // die Suche braeche mitten im Aufruf ab und faende dann ueberall „kein x:".
+    const rufe = q.split('lineChart(').slice(1)
+      .map(s => s.slice(0, 160))
+      .filter(s => !s.startsWith('vals,w,h,opt'));
+    if (rufe.length !== 3) return 'erwartet 3 Aufrufe, gefunden ' + rufe.length;
+    const ohne = rufe.filter(s => s.indexOf('{x:') < 0);
+    return ohne.length === 0 || 'ohne Datum: ' + ohne.join(' // ');
+  });
+  t('Der Koerpergewichts-Verlauf zeigt Datum und Kilogramm', () => {
+    // ⚠️ Drei Huerden stehen zwischen render() und der Kurve, alle drei schweigend:
+    //    ohne `session` kommt die Anmeldeseite, ohne Kalorien-Ziel der Einrichtungs-
+    //    Assistent, und `kobErzwingen` haelt den Assistenten selbst dann oben.
+    const wVorher = profile.weights, kVorher = JSON.stringify(profile.kcal||null);
+    const sVorher = session, ezVorher = kobErzwingen;
+    session = {user:{id:'test'}, expires_at: Date.now() + 3600e3, access_token:'x'};
+    kobErzwingen = false;
+    const k = kcalInit(); k.setup = true; k.goal = 2000;
+    profile.weights = [
+      {date:new Date(2026,7,1).getTime(), kg:80},
+      {date:new Date(2026,7,10).getTime(), kg:78.5},
+      {date:new Date(2026,7,20).getTime(), kg:77}];
+    view = 'body'; render();
+    const h = app.innerHTML;
+    profile.weights = wVorher;
+    if (kVorher !== 'null') profile.kcal = JSON.parse(kVorher);
+    kobErzwingen = ezVorher; session = sVorher;
+    view = 'home'; render();
+    if (!h.includes('chart-y')) return 'keine Seitenbeschriftung';
+    if (!h.includes('chart-x')) return 'keine Beschriftung unten';
+    if (!h.includes('80 kg')) return 'hoechster Wert fehlt an der Achse';
+    if (!h.includes('01.08.') || !h.includes('20.08.')) return 'Datum fehlt unten';
+    return true;
+  });
+
   // ---- Verlauf je Uebung ----
   t('Verlauf nimmt nur abgehakte Saetze', () => {
     sessions = [{date:Date.now(), entries:[{name:'A', sets:[

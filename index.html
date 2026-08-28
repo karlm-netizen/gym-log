@@ -508,6 +508,19 @@ setTimeout(function(){
   @media (min-width: 1280px){
     #app.wrap{max-width:1120px}
   }
+
+  /* Kurve mit Beschriftung.
+     Die Zahlen stehen als HTML NEBEN dem SVG, nicht darin: das SVG wird mit
+     preserveAspectRatio="none" auf die volle Kartenbreite gezogen, Text darin waere auf
+     breiten Schirmen waagerecht mitgedehnt und damit verzerrt.
+     Die 4px Innenabstand oben/unten setzen die Mitte der ersten und letzten Zahl genau auf
+     die 10px Rand, die das SVG oben und unten haelt -- sonst zeigen die Zahlen daneben. */
+  .chart{display:grid; grid-template-columns:auto 1fr; gap:0 7px}
+  .chart-y{display:flex; flex-direction:column; justify-content:space-between; padding:4px 0;
+    text-align:right; font-size:10px; line-height:12px; color:var(--muted); white-space:nowrap}
+  .chart-y.einer{justify-content:flex-end}
+  .chart-x{grid-column:2; display:flex; justify-content:space-between; margin-top:5px;
+    font-size:10px; line-height:12px; color:var(--muted); white-space:nowrap}
 </style>
 </head>
 <body>
@@ -1256,6 +1269,8 @@ function nextTrainingDay(){ const t=todayIdx();
   return null; }
 
 function fmtDate(ts){ return new Date(ts).toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'}); }
+// Kurzform fuer die Achse unter einer Kurve -- „Fr, 28.08." waere dort dreimal zu breit.
+function fmtTag(ts){ return new Date(ts).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}); }
 function fmtTime(ts){ return new Date(ts).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}); }
 // Laufende Uhr im Training: sekundengenau, weil man ihr beim Laufen zusieht.
 function fmtClock(ms){ const t=Math.max(0,Math.floor(ms/1000)), h=Math.floor(t/3600), m=Math.floor(t%3600/60), s=t%60;
@@ -2350,18 +2365,46 @@ function exHistory(name){ const out=[];
       vol:d.reduce((a,x)=>a+(+x.weight||0)*(+x.reps||0),0), sets:d.length,
       reps:d.reduce((a,x)=>a+(+x.reps||0),0) }); });
   return out; }
-function lineChart(vals,w,h){
+// Kurve mit Beschriftung an der Seite und unten (Karls Meldung, 28.08.2026: „beim Verlauf
+// vom Gewicht stehen keine Parameter an der Seite und unten"). Vorher war es eine nackte
+// Linie -- man sah, DASS es hoch oder runter ging, aber nicht von wo nach wo.
+//   opt.x       Zeitstempel je Punkt, gleich lang wie vals -> Datum unten
+//   opt.fmt     wie ein Wert geschrieben wird (Standard: Kilogramm mit Komma)
+//   opt.einheit steht hinter der obersten Zahl, damit die Achse nicht nur Ziffern zeigt
+// ⚠️ Der waagerechte Rand ist mit 4 statt 10 knapp gehalten, damit das erste und das letzte
+// Datum praktisch ueber ihrem Punkt stehen. Ein Datum in der MITTE gibt es nur bei ungerader
+// Punktzahl -- nur dann liegt der mittlere Punkt wirklich auf der Mitte. Bei gerader Zahl
+// stuende es daneben und wuerde einen Zeitpunkt behaupten, den es nicht gibt.
+function lineChart(vals,w,h,opt){
   if(vals.length<2) return '';
-  const min=Math.min(...vals), max=Math.max(...vals), span=(max-min)||1, pad=10;
-  const pt=(v,i)=>[ pad+(w-2*pad)*i/(vals.length-1), h-pad-(h-2*pad)*((v-min)/span) ];
+  const o=opt||{}, fmtV=o.fmt||fmtKg, xs=Array.isArray(o.x)?o.x:[];
+  const min=Math.min(...vals), max=Math.max(...vals), span=(max-min)||1, pad=10, padX=4;
+  const pt=(v,i)=>[ padX+(w-2*padX)*i/(vals.length-1), h-pad-(h-2*pad)*((v-min)/span) ];
   const ps=vals.map(pt);
   const line=ps.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
   const area=line+` L${ps[ps.length-1][0].toFixed(1)} ${h-pad} L${ps[0][0].toFixed(1)} ${h-pad} Z`;
   const dots=ps.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.6" fill="var(--accent)"/>`).join('');
-  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none" style="display:block">
+  const raster=[pad,h/2,h-pad].map(y=>`<line x1="0" y1="${y}" x2="${w}" y2="${y}" stroke="var(--line)" stroke-width="1" stroke-dasharray="3 4"/>`).join('');
+  const svg=`<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none" style="display:block">
+    ${raster}
     <path d="${area}" fill="var(--accent)" opacity=".13"/>
     <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
     ${dots}</svg>`;
+  // Sind alle Werte gleich, laeuft die Linie unten -- dann steht dort auch nur EINE Zahl.
+  // Dreimal dieselbe untereinander wuerde eine Spanne vortaeuschen, die es nicht gibt.
+  const eine=(max===min);
+  const einh=o.einheit?' '+o.einheit:'';
+  const yTxt=eine ? `<span>${fmtV(min)}${einh}</span>`
+    : [max,(min+max)/2,min].map((v,i)=>`<span>${fmtV(v)}${i?'':einh}</span>`).join('');
+  let xTxt='';
+  if(xs.length===vals.length){
+    const d=i=>`<span>${fmtTag(xs[i])}</span>`;
+    xTxt = (vals.length>=5 && vals.length%2) ? d(0)+d((vals.length-1)/2)+d(vals.length-1)
+                                             : d(0)+d(vals.length-1);
+  }
+  return `<div class="chart"><div class="chart-y${eine?' einer':''}">${yTxt}</div>`
+    +`<div class="chart-plot">${svg}</div>`
+    +(xTxt?`<div class="chart-x">${xTxt}</div>`:'')+`</div>`;
 }
 function renderExDetail(){
   const name=detailExName, hist=exHistory(name);
@@ -2377,10 +2420,10 @@ function renderExDetail(){
   if(hist.length>1){
     h+=`<div class="row between" style="margin:20px 4px 6px"><h2>Gewicht</h2>
         <span class="tiny muted">${fmtKg(Math.min(...hist.map(x=>x.w)))}–${fmtKg(Math.max(...hist.map(x=>x.w)))} kg</span></div>
-      <div class="card" style="padding:10px 6px">${lineChart(hist.map(x=>x.w),300,110)}</div>`;
+      <div class="card" style="padding:10px 8px">${lineChart(hist.map(x=>x.w),300,110,{x:hist.map(x=>x.date),einheit:'kg'})}</div>`;
     h+=`<div class="row between" style="margin:18px 4px 6px"><h2>Volumen</h2>
         <span class="tiny muted">kg pro Einheit</span></div>
-      <div class="card" style="padding:10px 6px">${lineChart(hist.map(x=>x.vol),300,110)}</div>`;
+      <div class="card" style="padding:10px 8px">${lineChart(hist.map(x=>x.vol),300,110,{x:hist.map(x=>x.date),einheit:'kg',fmt:v=>Math.round(v).toLocaleString('de-DE')})}</div>`;
   } else {
     h+=`<div class="empty" style="margin-top:16px">Ab der zweiten Einheit siehst du hier eine Kurve.</div>`;
   }
@@ -3350,7 +3393,7 @@ function renderBody(){
   if(w.length>1){
     h+=`<div class="row between" style="margin:20px 4px 6px"><h2>Verlauf</h2>
         <span class="tiny muted">${fmtKg(Math.min(...w.map(x=>x.kg)))}–${fmtKg(Math.max(...w.map(x=>x.kg)))} kg</span></div>
-      <div class="card" style="padding:10px 6px">${lineChart(w.map(x=>x.kg),300,110)}</div>`;
+      <div class="card" style="padding:10px 8px">${lineChart(w.map(x=>x.kg),300,110,{x:w.map(x=>x.date),einheit:'kg'})}</div>`;
   } else {
     h+=`<div class="empty" style="margin-top:16px">Ab dem zweiten Eintrag siehst du hier eine Kurve.</div>`;
   }

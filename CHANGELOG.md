@@ -2,6 +2,40 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-08-28
+
+### 📊 v46 — die Kurven haben jetzt eine Skala
+
+**Karls Meldung:** *„beim Verlauf vom Gewicht meiner Gym-App stehen keine Parameter an der
+Seite und unten."*
+
+**Stimmt — und es galt für alle drei Kurven der App**, nicht nur für die eine: Körpergewicht,
+Übungsgewicht und Volumen laufen durch dieselbe Funktion `lineChart()`. Sie zeichnete eine
+nackte Linie. Man sah, **dass** es hoch oder runter ging, aber nicht von wo nach wo und über
+welchen Zeitraum.
+
+**Jetzt steht dort:**
+
+| | |
+|---|---|
+| **Links** | höchster Wert (mit Einheit), Mitte, tiefster Wert — auf drei gestrichelten Linien |
+| **Unten** | erstes und letztes Datum, bei ungerader Punktzahl auch das mittlere |
+
+⚠️ **Warum die Zahlen als HTML neben dem SVG stehen und nicht darin:** die Kurve wird mit
+`preserveAspectRatio="none"` auf die volle Kartenbreite gezogen. Text **im** SVG wäre auf
+breiten Schirmen waagerecht mitgedehnt worden — auf dem PC deutlich verzerrt, auf dem Handy
+kaum. Genau die Sorte Fehler, die am Prüfstand nicht auffällt.
+
+🔴 **Ein mittleres Datum gibt es nur bei ungerader Punktzahl.** Bei vier Punkten säße der
+mittlere Punkt bei 33 %, das Datum aber bei 50 % — es würde einen Zeitpunkt behaupten, den es
+nicht gibt. Eine eigene Prüfung hält das fest.
+
+💡 **Und bei lauter gleichen Werten steht links nur *eine* Zahl.** Dreimal derselbe Wert
+untereinander täuschte eine Spanne vor, die es nicht gibt.
+
+**Prüfungen 644 → 653.** Beide Gegenproben nachgezogen: die Aufrufstelle entschärft *(zwei
+Prüfungen rot)* und die Beschriftung entfernt *(sieben rot)* — nicht nur die Funktion allein.
+
 ## 2026-08-27
 
 ### 🔴 v45 — der Abgleich hat die halbe App nicht mitgenommen
