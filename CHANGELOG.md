@@ -4,6 +4,53 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-28
 
+### 🔴 v47 — der Verlauf war auf dem PC verzerrt, und die Startseite erinnert ans Wiegen
+
+**Karls Meldungen:** *„der Gewichtsverlauf ist so komisch stretched auf dem PC"* und
+*„Erinnerung auf der Startseite einmal am Tag Gewicht einzutragen."*
+
+#### Der Stretch — und warum er nur auf dem PC auffällt
+
+Die Kurve wird in einer Flaeche von 300 Einheiten gezeichnet und dann auf die Kartenbreite
+gezogen. **Am Telefon ist das gut ein Zehntel mehr, in einem 1120-px-Fenster fast das
+Dreifache** — gemessen 2,89.
+
+🔴 **Gedehnt wurde dabei nicht nur die Lage der Punkte (das ist richtig so), sondern jede
+Strichstärke.** Die Linie war an flachen Stellen dünn und an steilen dick, die Striche des
+Rasters wurden zu Balken, und **die Punkte waren Ellipsen**.
+
+✅ **Behoben mit `vector-effect="non-scaling-stroke"` an jedem Strich.**
+⚠️ **Die Punkte mussten dafür aufhören, Kreise zu sein:** eine Füllung lässt sich von der
+Dehnung nicht ausnehmen, ein Strich schon. Ein sehr kurzer Strich mit runder Kappe zeichnet
+denselben Punkt — und hält seine Form in jeder Fensterbreite.
+
+#### Die Erinnerung
+
+Eine Karte auf der Startseite mit Eingabefeld und Knopf, **solange heute nichts eingetragen
+ist**. Sie zeigt den letzten Wert mit Datum, damit man weiß, wogegen man sich misst.
+🔴 **Nach dem Eintragen verschwindet sie.** Eine Erinnerung, die nach dem Erledigen stehen
+bleibt, ist keine Erinnerung mehr.
+💡 Feld und Knopf sind dieselben wie auf der Kalorien-Seite — kein zweiter Weg ins Datum.
+
+#### ⚠️ Was hier NICHT geprüft werden kann
+
+**Wie breit der gezeichnete Punkt am Ende ist.** `getBoundingClientRect()` liefert bei
+SVG-Formen die Geometrie **ohne** Strich — ein Punkt aus reiner Kappe misst dort 0.
+✅ **Statt einer Messung, die das Falsche misst**, wird jetzt die **Ursache** gemessen (die
+Dehnung, über `getScreenCTM()`) und die **Gegenmaßnahme** geprüft (die Ausnahme an jedem
+Strich, plus: gar keine gefüllte Form mehr in der Fläche).
+
+#### 🐛 Nebenbei: eine Prüfung war zufällig rot
+
+*„Ein Ausreisser am Ende kippt den Trend nicht mehr"* fiel bei einem von vier Läufen um, **ohne
+dass sich am Code etwas geändert hatte**. Der älteste Messpunkt lag **genau auf der
+Fenstergrenze** (21 Tage bei einem 21-Tage-Fenster); zwischen dem Bauen der Liste und dem
+Rechnen vergehen Millisekunden, mal fiel er hinein, mal heraus. Fenster jetzt 22 Tage.
+
+**Prüfungen 653 → 659.** Gegenproben: die Ausnahme entfernt → 1 rot (sieben Striche benannt),
+die Erinnerung an der **Aufrufstelle** abgeschaltet → 2 rot.
+
+
 ### 📊 v46 — die Kurven haben jetzt eine Skala
 
 **Karls Meldung:** *„beim Verlauf vom Gewicht meiner Gym-App stehen keine Parameter an der

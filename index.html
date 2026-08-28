@@ -2208,6 +2208,24 @@ function renderHome(){
       ${brock}
       ${plans.length?'':`<button class="btn primary" style="margin-top:12px" data-act="ob:start">Plan einrichten</button>`}</div>`; }
 
+  // Erinnerung ans Wiegen (Karls Ansage vom 28.08.2026). ⚠️ Sie steht NUR da, solange heute
+  // nichts eingetragen ist -- eine Erinnerung, die nach dem Erledigen stehen bleibt, ist keine
+  // Erinnerung mehr, sondern Deko. Das Feld traegt dieselbe Kennung und denselben Knopf wie
+  // auf der Kalorien-Seite; beide Seiten sind nie gleichzeitig da, also gibt es keine zwei.
+  if(!gewogenHeute()){
+    const lw=lastWeight();
+    h+=`<div class="card" style="margin-top:10px">
+      <div class="row between"><b>Heute wiegen</b><span class="pill">täglich</span></div>
+      <div class="tiny muted" style="margin-top:4px">Am besten morgens vor dem Essen.${
+        lw?` Zuletzt <b style="color:var(--txt)">${fmtKg(lw.kg)} kg</b> am ${fmtDate(lw.date)}.`:''}</div>
+      <div class="row" style="gap:8px;align-items:flex-end;margin-top:10px">
+        <div class="field" style="flex:1;margin:0">
+          <input id="wInput" type="number" inputmode="decimal" step="0.1" min="20" max="500"
+                 placeholder="${lw?fmtKg(lw.kg):'z. B. 78,5'}"></div>
+        <button class="btn primary" style="width:auto;padding:12px 18px" data-act="addweight">Eintragen</button>
+      </div></div>`;
+  }
+
   h+=`<div class="card" data-nav="progs" style="cursor:pointer;margin-top:10px"><div class="row between">
       <b>Alle Trainingspläne</b><span class="muted">${programs.length} ›</span></div></div>`;
   h+='</div></div>';
@@ -2383,12 +2401,24 @@ function lineChart(vals,w,h,opt){
   const ps=vals.map(pt);
   const line=ps.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
   const area=line+` L${ps[ps.length-1][0].toFixed(1)} ${h-pad} L${ps[0][0].toFixed(1)} ${h-pad} Z`;
-  const dots=ps.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.6" fill="var(--accent)"/>`).join('');
-  const raster=[pad,h/2,h-pad].map(y=>`<line x1="0" y1="${y}" x2="${w}" y2="${y}" stroke="var(--line)" stroke-width="1" stroke-dasharray="3 4"/>`).join('');
+  // ⚠️ `vector-effect="non-scaling-stroke"` an JEDEM Strich (Karls Meldung 28.08.2026:
+  // „der Gewichtsverlauf ist so komisch stretched auf dem PC"). Die Flaeche wird mit
+  // preserveAspectRatio="none" auf die Kartenbreite gezogen -- am Telefon ist das gut ein
+  // Zehntel, auf einem 1120-px-Fenster fast das Vierfache. Ohne den Zusatz wird JEDE
+  // Strichstaerke waagerecht mitgedehnt: die Linie ist an flachen Stellen duenn und an
+  // steilen dick, die Striche des Rasters werden zu Balken.
+  // 🔴 Und die Punkte sind deshalb keine <circle> mehr: eine Kreis-FUELLUNG laesst sich
+  // nicht davon ausnehmen, sie wird zur Ellipse. Ein sehr kurzer Strich mit runder Kappe
+  // zeichnet denselben Punkt -- und eine Kappe ist Strich, gilt also die Ausnahme.
+  // ⚠️ Die 0,001 Einheiten Laenge sind Absicht und nicht null: ein Strich der Laenge null
+  // wird zwar laut Norm gezeichnet, hat aber im Browser ein leeres Rechteck -- damit koennte
+  // die Pruefung unten gar nicht nachmessen, ob der Punkt rund ist.
+  const dots=ps.map(p=>`<line x1="${p[0].toFixed(1)}" y1="${p[1].toFixed(1)}" x2="${(p[0]+0.001).toFixed(3)}" y2="${p[1].toFixed(1)}" stroke="var(--accent)" stroke-width="5.2" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`).join('');
+  const raster=[pad,h/2,h-pad].map(y=>`<line x1="0" y1="${y}" x2="${w}" y2="${y}" stroke="var(--line)" stroke-width="1" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/>`).join('');
   const svg=`<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none" style="display:block">
     ${raster}
     <path d="${area}" fill="var(--accent)" opacity=".13"/>
-    <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
     ${dots}</svg>`;
   // Sind alle Werte gleich, laeuft die Linie unten -- dann steht dort auch nur EINE Zahl.
   // Dreimal dieselbe untereinander wuerde eine Spanne vortaeuschen, die es nicht gibt.
@@ -3754,6 +3784,9 @@ async function schaetzeFoto(file){
 
 function weightList(){ return (profile.weights||[]).slice().sort((a,b)=>a.date-b.date); }
 function lastWeight(){ const w=weightList(); return w.length?w[w.length-1]:null; }
+// Fuer die Erinnerung auf der Startseite. Bewusst „heute", nicht „in den letzten 24 Stunden":
+// wer abends um 23 Uhr wiegt, soll am naechsten Morgen wieder gefragt werden.
+function gewogenHeute(){ const n=Date.now(); return (profile.weights||[]).some(x=>sameDay(x.date,n)); }
 function sameDay(a,b){ return new Date(a).toDateString()===new Date(b).toDateString(); }
 // Ein Eintrag pro Tag — nochmal wiegen am selben Tag überschreibt den alten Wert.
 function addWeight(kg){

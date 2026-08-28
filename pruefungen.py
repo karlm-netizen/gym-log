@@ -1112,7 +1112,12 @@ window.addEventListener('error', e => {
     profile.weights = [
       {date:n-21*T, kg:80}, {date:n-17*T, kg:80}, {date:n-13*T, kg:80},
       {date:n-9*T,  kg:80}, {date:n-5*T,  kg:80}, {date:n, kg:79}];
-    const tr = gewichtsTrend(21);
+    /* ⚠️ Fenster 22 statt 21, obwohl der aelteste Punkt 21 Tage alt ist. Grund: er lag
+       damit GENAU auf der Grenze (`x.date >= now - 21 Tage`). Zwischen dem Bauen der Liste
+       und dem Rechnen vergehen ein paar Millisekunden -- mal fiel er hinein, mal heraus, und
+       mit fuenf statt sechs Punkten kam -0,348 heraus statt -0,252. Die Pruefung war also
+       zufaellig rot, ohne dass sich am Code etwas geaendert hatte (gesehen am 28.08.2026). */
+    const tr = gewichtsTrend(22);
     const zweiPunkte = (79-80)/21*7;                 // das alte Verfahren: -0,333 kg/Woche
     /* ⚠️ Die Schwelle steht bei 80 %, nicht bei 50 -- und das ist keine Nachgiebigkeit,
        sondern das ehrliche Mass. Eine Ausgleichsgerade **daempft** einen Ausreisser, sie
@@ -1508,10 +1513,97 @@ window.addEventListener('error', e => {
   });
   t('Negative Werte ergeben keine NaN', () => !/NaN/.test(lineChart([-5,0,5], 300, 110)) || 'NaN');
   t('Viele Punkte bleiben im Rahmen', () => {
+    // Ueber den DOM statt ueber eine Textsuche: die Punkte sind seit v47 Striche der Laenge
+    // null, und die Rasterlinien tragen dieselben x1/y1 -- eine Textsuche wuerde beide fangen.
     const vals = Array.from({length:200}, (_,i) => Math.sin(i)*50+80);
-    const svg = lineChart(vals, 300, 110);
-    const zahlen = (svg.match(/cx="([\d.]+)"/g)||[]).map(s => +s.slice(4,-1));
+    const d = document.createElement('div');
+    d.innerHTML = lineChart(vals, 300, 110);
+    const zahlen = [...d.querySelectorAll('line[stroke-width="5.2"]')].map(l => +l.getAttribute('x1'));
+    if (zahlen.length !== 200) return 'erwartet 200 Punkte, gefunden ' + zahlen.length;
     return zahlen.every(x => x >= 0 && x <= 300) || 'Punkt ausserhalb';
+  });
+
+  // ---- Der Stretch auf dem PC (Karls Meldung 28.08.2026) ----
+  // 🔴 Die eigentliche Pruefung: nicht „steht das Attribut da", sondern „ist der Punkt
+  // rund". Gemessen wird das GEZEICHNETE Ergebnis in einem absichtlich breiten Kasten --
+  // 900 px fuer eine 300 Einheiten breite Flaeche sind fast das Dreifache in der Waagerechten.
+  // ⚠️ Was hier NICHT geprueft werden kann: wie breit der gezeichnete Punkt am Ende ist.
+  // getBoundingClientRect() liefert bei SVG-Formen die Geometrie OHNE Strich -- ein Punkt aus
+  // reiner Kappe misst dort 0. Statt einer Messung, die das Falsche misst, wird deshalb die
+  // Ursache gemessen (die Dehnung) und die Gegenmassnahme geprueft (die Ausnahme, unten).
+  t('Die Flaeche wird waagerecht wirklich gedehnt -- deshalb die Ausnahme', () => {
+    const box = document.createElement('div');
+    box.style.cssText = 'position:fixed;left:0;top:0;width:900px';
+    box.innerHTML = lineChart([70,80,75], 300, 110, {einheit:'kg'});
+    document.body.appendChild(box);
+    const m = box.querySelector('svg').getScreenCTM();
+    document.body.removeChild(box);
+    if (!m) return 'keine Abbildung';
+    const quer = m.a / m.d;   // waagerechter zu senkrechtem Massstab
+    // Ohne die Ausnahme waere JEDE Strichstaerke genau um diesen Faktor breiter als hoch --
+    // genau das hat Karl auf dem PC als „stretched" gesehen.
+    return (quer > 2) || 'erwartet deutliche Dehnung, gemessen ' + quer.toFixed(2);
+  });
+  // 🔴 Eine Fuellung laesst sich von der Dehnung nicht ausnehmen. Solange die Punkte
+  // <circle> waren, half kein Attribut -- sie wurden zu Ellipsen. Diese Pruefung haelt fest,
+  // dass in der Flaeche ueberhaupt nichts Gefuelltes mehr steht ausser dem Verlauf darunter.
+  t('Keine gefuellten Punkte mehr in der Kurve', () => {
+    const d = document.createElement('div');
+    d.innerHTML = lineChart([70,80,75], 300, 110);
+    const kreise = d.querySelectorAll('.chart-plot circle, .chart-plot ellipse, .chart-plot rect');
+    return kreise.length === 0 || kreise.length + ' gefuellte Form(en) in der Kurve';
+  });
+  t('Auch die Linie und das Raster sind von der Dehnung ausgenommen', () => {
+    const d = document.createElement('div');
+    d.innerHTML = lineChart([70,80,75], 300, 110);
+    const striche = [...d.querySelectorAll('.chart-plot line, .chart-plot path[stroke]')];
+    const ohne = striche.filter(el => el.getAttribute('vector-effect') !== 'non-scaling-stroke');
+    return ohne.length === 0
+      || ohne.length + ' Strich(e) ohne non-scaling-stroke: ' + ohne.map(e => e.tagName).join(', ');
+  });
+
+  // ---- Erinnerung ans Wiegen auf der Startseite (Karls Ansage 28.08.2026) ----
+  t('Startseite erinnert ans Wiegen, solange heute nichts eingetragen ist', () => {
+    // ⚠️ Ohne `session` zeigt render() die Anmeldeseite statt der Startseite.
+    const vorher = profile.weights, sV = session;
+    session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    profile.weights = [{date: Date.now() - 3*864e5, kg: 79}];
+    view = 'home'; render();
+    const h = app.innerHTML;
+    profile.weights = vorher; session = sV;
+    if (!h.includes('Heute wiegen')) return 'keine Erinnerung';
+    if (!h.includes('data-act="addweight"')) return 'kein Eintragen-Knopf';
+    if (!h.includes('id="wInput"')) return 'kein Eingabefeld';
+    return true;
+  });
+  // ⚠️ Der wichtigere Fall: eine Erinnerung, die nach dem Erledigen stehen bleibt, ist keine.
+  t('Nach dem Wiegen ist die Erinnerung weg', () => {
+    const vorher = profile.weights, sV = session;
+    session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    profile.weights = [{date: Date.now(), kg: 78.5}];
+    view = 'home'; render();
+    const h = app.innerHTML;
+    profile.weights = vorher; session = sV;
+    return !h.includes('Heute wiegen') || 'Erinnerung steht trotz Eintrag von heute';
+  });
+  // 🔴 Und der Einbau, nicht nur das Teil: der Knopf auf der Startseite muss denselben
+  // Weg gehen wie der auf der Kalorien-Seite. Geprueft wird mit einem echten Klick.
+  t('Eintragen von der Startseite aus traegt wirklich ein', () => {
+    const vorher = profile.weights, sV = session;
+    session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    profile.weights = [];
+    view = 'home'; render();
+    const feld = document.getElementById('wInput');
+    const knopf = document.querySelector('[data-act="addweight"]');
+    if (!feld || !knopf) { profile.weights = vorher; session = sV; return 'Feld oder Knopf fehlt'; }
+    feld.value = '77.3';
+    knopf.click();
+    const neu = profile.weights.slice();
+    const nochDa = app.innerHTML.includes('Heute wiegen');
+    profile.weights = vorher; session = sV; view = 'home'; render();
+    if (neu.length !== 1) return 'erwartet 1 Eintrag, es sind ' + neu.length;
+    if (neu[0].kg !== 77.3) return 'Wert nicht uebernommen: ' + neu[0].kg;
+    return !nochDa || 'Erinnerung stand nach dem Eintragen noch da';
   });
 
   // ---- Beschriftung der Kurve (Karls Meldung 28.08.2026) ----
