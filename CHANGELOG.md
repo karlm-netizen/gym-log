@@ -4,6 +4,55 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-29
 
+### 🏆 v52 — XP-Bestenliste auf der Erfolge-Seite
+
+**Karls Wunsch:** *„Ich will ein XP-Leaderboard bei Erfolge drinnen. Soll die 10 User mit den
+meisten XP anzeigen."*
+
+Steht zwischen den Tagesaufgaben und dem Katalog — die Aufgaben sind *heute*, der Katalog ist
+*insgesamt*, und die Liste vergleicht genau dieses Insgesamt. Platz, Name, XP; die eigene
+Zeile ist markiert.
+
+#### ⚠️ Das läuft erst, wenn Karl einmal SQL ausführt
+
+XP und Namen anderer Nutzer standen bisher **nirgends** — der eigene Datenblock `gymlog_data`
+ist per Zeilensperre auf den Eigentümer beschränkt und **bleibt es**. Es gibt deshalb eine
+neue Tabelle: **`supabase-bestenliste.sql`**, einmal im Supabase-Dashboard ausführen.
+
+💡 **Bis dahin stürzt nichts ab** — die Seite sagt, dass die Liste noch eingerichtet werden
+muss. Drei Zustände, drei Anzeigen: *noch nicht geladen* · *geladen, aber leer* · *gibt es
+serverseitig nicht*. **„Leer" und „ungeladen" zu verwechseln ist der klassische Fehler.**
+
+#### 🔴 Warum eine eigene Tabelle und keine Sicht auf `gymlog_data`
+
+Eine Sicht müsste die Zeilensperre umgehen und hätte damit Zugriff auf den **ganzen** Block:
+Trainings, Gewichte, Mahlzeiten, Meldungen. **Ein Tippfehler in der Spaltenliste, und alles
+davon steht in der Bestenliste.** Die neue Tabelle kann gar nicht mehr hergeben als das, was
+ausdrücklich hineingeschrieben wurde: Name, XP, Zeitpunkt.
+➡️ Dieselbe Lehre wie bei `email_for_username` am 24.08.
+
+**Was sich damit ändert:** jeder angemeldete Nutzer sieht Namen und XP der anderen. Das ist der
+Zweck — aber es ist eine Änderung, vorher sah niemand etwas vom anderen. **Keine
+E-Mail-Adressen**, und der Name wird am `@` abgeschnitten, falls jemand keinen Benutzernamen
+hat.
+
+⚠️ **Die Zahlen kommen von den Geräten, nicht vom Server.** Wer will, kann seinen
+Browser-Speicher ändern. Für eine Liste unter Freunden in Ordnung — es steht auch so auf der
+Seite. Serverseitig nachrechnen ginge nur, wenn der Server die Einheiten kennt, und dafür
+müsste `gymlog_data` geöffnet werden. **Der schlechtere Tausch.**
+
+#### 🐛 Ein Fund an mir selbst: eine Prüfung, die hängt statt rot zu werden
+
+Der Köder im Escaping-Test war zuerst `<img src=x onerror=alert(1)>`. Das führt den Einbruch
+wirklich vor — **und genau deshalb war es unbrauchbar**: ohne `esc()` feuert es, und ein
+`alert()` hält den Prüf-Browser an, bis die Zeitgrenze zuschlägt. **Die Gegenprobe wurde nicht
+rot, sie hing 180 Sekunden und lieferte gar kein Ergebnis.**
+➡️ **Eine Prüfung, die im Fehlerfall hängt statt rot zu werden, ist keine Prüfung.** Der Köder
+ist jetzt ein harmloses `<i>` und beweist dasselbe.
+
+**Prüfungen 671 → 680.** Gegenproben: das `split('@')` entfernen → **1 rot**; `esc()` entfernen
+→ **1 rot**; `select=*` statt Spaltenliste → **1 rot**.
+
 ### 🗑️ v51 — die Wochen-Serie ist von der Startseite runter
 
 **Karls Ansage:** *„1 Woche am Stück auf der Startseite kann raus."*

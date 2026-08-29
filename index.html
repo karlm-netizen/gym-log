@@ -1813,6 +1813,10 @@ function render(){
      Plan den alten Code ungueltig macht (der Zwischenspeicher haengt am Inhalt, nicht an der
      Kennung, und faellt deshalb von allein auf einen neuen Eintrag). */
   if(view==='progs'||view==='plans') alleplaeneVorwaermen();
+  /* ⚠️ NACH dem Zeichnen, nicht davor: bestenlisteAuffrischen() ruft am Ende selbst render(),
+     und ein render() im render() waere eine Schleife. So steht erst die Seite (mit
+     „Wird geladen …"), dann kommen die Zahlen nach. */
+  if(view==='erfolge') bestenlisteAuffrischen();
   // Geteilter Plan aus dem Link: erst anbieten, wenn jemand angemeldet ist und nicht gerade
   // im Assistenten steckt — sonst laege das Fenster ueber der Pflicht-Einrichtung.
   if(planImport && !importGezeigt && view!=='onboard'){ importGezeigt=true;
@@ -4079,6 +4083,40 @@ function renderErfolge(){
   h += `<div class="tiny muted" style="margin-top:14px;line-height:1.6">
       ${offen ? `Noch ${offen} ${offen===1?'Aufgabe':'Aufgaben'} offen.` : 'Alles erledigt für heute.'}</div></div>`;
 
+  /* ---- Bestenliste (29.08.2026, Karls Wunsch) ----
+     Steht zwischen den Tagesaufgaben und dem Katalog: die Aufgaben sind "heute", der Katalog
+     ist "insgesamt", und die Liste vergleicht genau dieses Insgesamt. */
+  h += `<div class="row between" style="margin:22px 4px 6px"><h2>Bestenliste</h2>
+      <span class="tiny muted">nach XP</span></div>`;
+  if(bestenliste === false){
+    h += `<div class="card"><div class="tiny muted" style="line-height:1.7">
+        Die Bestenliste ist noch nicht eingerichtet.<br>
+        Dafür muss <b style="color:var(--txt)">supabase-bestenliste.sql</b> einmal im
+        Supabase-Dashboard ausgeführt werden.</div></div>`;
+  } else if(bestenliste === null){
+    h += `<div class="card"><div class="tiny muted">Wird geladen …</div></div>`;
+  } else if(!bestenliste.length){
+    h += `<div class="card"><div class="tiny muted">Noch niemand drin.</div></div>`;
+  } else {
+    h += `<div class="card">`;
+    bestenliste.forEach((z,i) => {
+      const ich = session && session.user && z.user_id === session.user.id;
+      // Die ersten drei bekommen eine Farbe, der Rest die Zahl. ⚠️ Bewusst keine Medaillen-
+      // Emojis: die sehen auf jedem Geraet anders aus (dieselbe Ueberlegung wie bei v36).
+      const farbe = i===0 ? 'var(--ok)' : i<3 ? 'var(--txt)' : 'var(--muted)';
+      h += `<div class="sess"${i?' style="border-top:1px solid var(--line)"':''}>
+        <span class="row" style="gap:10px;min-width:0;align-items:center">
+          <b style="color:${farbe};width:22px;flex:0 0 auto;text-align:right">${i+1}</b>
+          <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap${
+            ich?';font-weight:700':''}">${esc(z.name)}${ich?' <span class="tiny muted">· du</span>':''}</span></span>
+        <b style="white-space:nowrap">${(+z.xp||0).toLocaleString('de-DE')}</b></div>`;
+    });
+    h += `</div>`;
+    h += `<div class="tiny muted" style="margin:6px 4px 0;line-height:1.6">
+        ⚠️ Die Zahlen kommen von den Geräten, nicht vom Server — sie sind so ehrlich wie die,
+        die sie schicken.</div>`;
+  }
+
   // ---- Der Katalog ----
   const gruppen = [...new Set(ERFOLGE.map(e=>e.gr))];
   gruppen.forEach(g => {
@@ -4597,6 +4635,67 @@ function postfachSpringen(){
   view = 'meldung'; render();
   return true;
 }
+/* ---------- XP-Bestenliste (29.08.2026) ----------
+   Karls Wunsch: die zehn mit den meisten XP, auf der Erfolge-Seite.
+
+   ⚠️ XP und Name anderer Nutzer stehen NICHT in `gymlog_data` -- der Block ist per
+   Zeilensperre auf den Eigentuemer beschraenkt und bleibt es. Es gibt deshalb eine eigene
+   Tabelle `gym_bestenliste`, in die jedes Geraet nur seine eigene Zeile schreibt: Name, XP,
+   Zeitpunkt. Mehr kann sie gar nicht hergeben. Aufbau: `supabase-bestenliste.sql`.
+
+   ⚠️ Solange dieses SQL nicht ausgefuehrt ist, antwortet Supabase mit einem Fehler. Das ist
+   kein Absturz und darf auch nicht wie einer aussehen -- die Seite sagt dann, dass die Liste
+   noch eingerichtet werden muss. `null` heisst "noch nicht geladen", `[]` heisst "geladen,
+   aber leer", `false` heisst "gibt es serverseitig nicht". Drei Zustaende, drei Anzeigen. */
+let bestenliste = null;
+let bestenlisteZuletzt = 0;
+let bestenlisteLaeuft = false;
+
+/* Die eigene Zeile hochschreiben. ⚠️ Getrennt vom Lesen, weil es auch dann passieren soll,
+   wenn gerade niemand die Erfolge-Seite ansieht -- sonst stuende in der Liste nur, wer sie
+   selbst schon einmal geoeffnet hat. */
+async function bestenlisteSchieben(){
+  if(!session || !session.user || !await ensureToken()) return false;
+  const name = (session.username || session.user.email || '').split('@')[0].slice(0,40);
+  if(!name) return false;
+  try{
+    const r = await fetch(`${SUPA_URL}/rest/v1/gym_bestenliste`, {
+      method:'POST',
+      headers:{...authHeaders(true), 'Prefer':'resolution=merge-duplicates'},
+      body: JSON.stringify([{ user_id: session.user.id, name,
+                              xp: Math.max(0, Math.round(+profile.xp || 0)),
+                              stand: new Date().toISOString() }]) });
+    return r.ok;
+  }catch(e){ return false; }
+}
+
+async function bestenlisteHolen(){
+  if(!session || !await ensureToken()) return false;
+  try{
+    const r = await fetch(`${SUPA_URL}/rest/v1/gym_bestenliste?select=user_id,name,xp&order=xp.desc&limit=10`,
+                          { headers: authHeaders(true) });
+    if(!r.ok) return false;          // Tabelle fehlt oder keine Erlaubnis
+    const rows = await r.json();
+    return Array.isArray(rows) ? rows : false;
+  }catch(e){ return null; }          // Netz weg: nicht "gibt es nicht", nur "gerade nicht"
+}
+
+/* ⚠️ Erst schieben, dann holen. Sonst sieht man beim ersten Oeffnen eine Liste, in der man
+   selbst noch fehlt -- und haelt das fuer einen Fehler. */
+async function bestenlisteAuffrischen(erzwingen){
+  if(!session || bestenlisteLaeuft) return;
+  if(!erzwingen && Date.now() - bestenlisteZuletzt < 30000) return;
+  bestenlisteLaeuft = true;
+  bestenlisteZuletzt = Date.now();
+  try{
+    await bestenlisteSchieben();
+    const rows = await bestenlisteHolen();
+    if(rows === null) return;        // Netz weg -- den alten Stand stehen lassen
+    bestenliste = rows;
+    if(view === 'erfolge') render();
+  } finally { bestenlisteLaeuft = false; }
+}
+
 async function postfachAuffrischen(){
   if(!session) return false;
   postfachZuletzt = Date.now();
@@ -5113,7 +5212,13 @@ async function cloudPush(beimSchliessen){ if(!await ensureToken()) return false;
     // Dann lieber normal senden (kommt vielleicht nicht durch) als gar nicht (kommt sicher nicht).
     if(beimSchliessen && new TextEncoder().encode(koerper).length < 60*1024) opt.keepalive=true;
     const r=await fetch(`${SUPA_URL}/rest/v1/gymlog_data`,opt);
-    setSync(r.ok); if(r.ok) setDirty(false); return r.ok; }
+    setSync(r.ok); if(r.ok) setDirty(false);
+    /* Die eigene Zeile in der Bestenliste mitziehen. ⚠️ NICHT beim Schliessen: dort laeuft
+       die Anfrage mit `keepalive`, und ein zweiter Aufruf ohne das waere ein Rennen gegen
+       den Seitenabbau, das er verliert. Die Zeile ist dann eben beim naechsten Mal aktuell --
+       eine Bestenliste, die eine Minute hinterherhinkt, ist kein Fehler. */
+    if(r.ok && !beimSchliessen) bestenlisteSchieben();
+    return r.ok; }
   catch(e){ setSync(false); return false; } }
 function scheduleSync(){ if(!session) return; setDirty(true); clearTimeout(syncT); syncT=setTimeout(cloudPush,2000); }
 // Beim Wegschalten sofort sichern, statt die 2 Sekunden abzuwarten.

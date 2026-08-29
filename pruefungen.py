@@ -3748,6 +3748,112 @@ window.addEventListener('error', e => {
   const MO = ts => wochenStart(ts);
   const vorWochen = n => { const d = new Date(MO(Date.now())); d.setDate(d.getDate() - 7*n); return d.getTime(); };
 
+  // ================================================ XP-Bestenliste (29.08.2026)
+  // Karls Wunsch: die zehn mit den meisten XP, auf der Erfolge-Seite.
+  const erfolgeSeite = () => {
+    const sV = session, bV = bestenliste;
+    session = {user:{id:'ich', email:'karl@example.com'}, username:'karl',
+               expires_at: Date.now()+3600e3, access_token:'x'};
+    return {
+      zeichne: (liste) => { bestenliste = liste; view = 'erfolge'; render(); return app.innerHTML; },
+      zurueck: () => { session = sV; bestenliste = bV; view = 'home'; render(); }
+    };
+  };
+
+  // 🔴 Drei Zustaende, drei Anzeigen. Der wichtigste ist `false`: solange das SQL nicht
+  // ausgefuehrt ist, antwortet Supabase mit einem Fehler -- und der darf nicht wie ein
+  // Absturz aussehen, sondern muss sagen, was zu tun ist.
+  t('Ohne eingerichtete Tabelle sagt die Seite, was fehlt', () => {
+    const e = erfolgeSeite();
+    const h = e.zeichne(false);
+    e.zurueck();
+    return (h.includes('noch nicht eingerichtet') && h.includes('supabase-bestenliste.sql'))
+      || 'kein Hinweis auf das fehlende SQL';
+  });
+  t('Vor dem Laden steht "Wird geladen", nicht "niemand drin"', () => {
+    const e = erfolgeSeite();
+    const h = e.zeichne(null);
+    e.zurueck();
+    if (h.includes('Noch niemand drin')) return 'leer und ungeladen werden verwechselt';
+    return h.includes('Wird geladen') || 'kein Ladehinweis';
+  });
+  t('Eine leere Liste sagt "Noch niemand drin"', () => {
+    const e = erfolgeSeite();
+    const h = e.zeichne([]);
+    e.zurueck();
+    return h.includes('Noch niemand drin') || 'keine Leer-Anzeige';
+  });
+  t('Die Bestenliste zeigt Platz, Name und XP', () => {
+    const e = erfolgeSeite();
+    const h = e.zeichne([{user_id:'a', name:'tibo', xp:42000},
+                         {user_id:'ich', name:'karl', xp:8000},
+                         {user_id:'c', name:'georg', xp:150}]);
+    e.zurueck();
+    if (!h.includes('tibo')) return 'Name fehlt';
+    if (!h.includes('42.000')) return 'XP nicht als Zahl formatiert';
+    if (h.indexOf('tibo') > h.indexOf('georg')) return 'nicht nach XP sortiert angezeigt';
+    return true;
+  });
+  // Damit man sich in einer Liste von zehn Namen selbst wiederfindet.
+  t('Die eigene Zeile ist markiert', () => {
+    const e = erfolgeSeite();
+    const h = e.zeichne([{user_id:'a', name:'tibo', xp:42000},
+                         {user_id:'ich', name:'karl', xp:8000}]);
+    e.zurueck();
+    return h.includes('· du') || 'eigene Zeile nicht erkennbar';
+  });
+  // 🔴 Die Zahl kommt vom Geraet, nicht vom Server. Das steht auf der Seite, weil eine
+  // Rangliste sonst mehr behauptet, als sie weiss.
+  t('Die Seite sagt, woher die Zahlen kommen', () => {
+    const e = erfolgeSeite();
+    const h = e.zeichne([{user_id:'a', name:'tibo', xp:42000}]);
+    e.zurueck();
+    return h.includes('von den Geräten') || 'kein Hinweis auf die Herkunft der Zahlen';
+  });
+  /* ⚠️ Namen mit spitzen Klammern duerfen die Seite nicht umbauen -- sie kommen von anderen
+     Nutzern und sind damit fremder Text, nicht eigener.
+     🔴 Der Koeder ist bewusst HARMLOS (`<i>`, kein `onerror`). Beim ersten Versuch stand
+     hier `<img src=x onerror=alert(1)>`. Das ist als Gegenprobe verlockend, weil es den
+     Einbruch wirklich vorfuehrt -- aber genau deshalb unbrauchbar: ohne esc() FEUERT es, und
+     ein alert() haelt den Pruef-Browser an, bis die Zeitgrenze zuschlaegt. Die Gegenprobe
+     wurde damit nicht rot, sondern hing 180 Sekunden und lieferte gar kein Ergebnis.
+     ➡️ Eine Pruefung, die im Fehlerfall haengt statt rot zu werden, ist keine Pruefung.
+     `<i>` beweist dasselbe: entschaerft steht `&lt;i&gt;` in der Seite, roh ein echtes Tag. */
+  t('Ein Name mit HTML darin wird entschaerft', () => {
+    const e = erfolgeSeite();
+    const h = e.zeichne([{user_id:'a', name:'<i>fremd</i>', xp:1}]);
+    e.zurueck();
+    if (h.includes('<i>fremd</i>')) return 'fremder Name landet als echtes HTML in der Seite';
+    return h.includes('&lt;i&gt;fremd') || 'der Name steht gar nicht da';
+  });
+  /* 🔴 Die Pruefung, die es wirklich wert ist: was VERLAESST das Geraet.
+     Am 24.08. gab `email_for_username` E-Mail-Adressen heraus. Eine Bestenliste ist genau
+     dieselbe Bauform -- etwas ueber andere Leute, fuer alle lesbar. Hier wird deshalb der
+     Rumpf der Anfrage gepreuft, nicht die Anzeige. */
+  t('Hochgeschickt werden nur Name, XP und Zeitpunkt', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const i = q.indexOf('async function bestenlisteSchieben');
+    if (i < 0) return 'bestenlisteSchieben fehlt';
+    const rumpf = q.slice(i, i + 1200);
+    const verboten = ['session.user.email,', 'profile.weights', 'sessions', 'appDataBlob'];
+    const drin = verboten.filter(w => rumpf.indexOf(w) >= 0);
+    if (drin.length) return 'im Rumpf steht: ' + drin.join(', ');
+    // Der Name wird aus der E-Mail abgeleitet, wenn kein Benutzername da ist -- dann aber
+    // nur der Teil VOR dem @. Ohne dieses split stuende die ganze Adresse in der Liste.
+    return rumpf.indexOf("split('@')[0]") >= 0
+      || 'ohne split am @ koennte die volle E-Mail-Adresse in der Bestenliste landen';
+  });
+  // ⚠️ Gelesen werden duerfen auch nur diese Spalten -- ein `select=*` wuerde spaeter jede
+  // neue Spalte automatisch mit herausgeben.
+  t('Gelesen wird mit ausdruecklicher Spaltenliste, nicht mit select=*', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const i = q.indexOf('gym_bestenliste?select=');
+    if (i < 0) return 'kein select auf gym_bestenliste';
+    const zeile = q.slice(i, i + 120);
+    if (zeile.indexOf('select=*') >= 0) return 'select=* statt Spaltenliste';
+    return zeile.indexOf('limit=10') >= 0 || 'kein limit=10 -- Karl wollte die Top 10';
+  });
+
   // 🗑️ Karls Ansage vom 29.08.2026: die Serie kann von der STARTSEITE raus.
   // ⚠️ Die Rechnung darunter bleibt geprueft -- nur ihre Karte ist weg. Ohne diese Pruefung
   // koennte sie bei der naechsten Aenderung an renderHome still zurueckkommen.
