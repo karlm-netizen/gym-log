@@ -1591,7 +1591,7 @@ const ERFOLGE = [
   { id:'l3',  gr:'Rang', svg:'medaille3', xp:0,    name:'Gigachad',        text:'Level 45 — der höchste Rang',            ziel:45,     ist:()=>levelFromXP(profile.xp).level },
 
   { id:'k1',  gr:'Körper', svg:'waage', xp:50,   name:'Auf die Waage',   text:'Zum ersten Mal das Gewicht eingetragen', ziel:1,      ist:()=>(profile.weights||[]).length },
-  { id:'k2',  gr:'Körper', svg:'kurve', xp:150,  name:'Dreißig Wiegen',  text:'30-mal das Gewicht eingetragen',         ziel:30,     ist:()=>(profile.weights||[]).length },
+  { id:'k2',  gr:'Körper', svg:'kurve', xp:150,  name:'Dreißigmal gewogen', text:'30-mal das Gewicht eingetragen',         ziel:30,     ist:()=>(profile.weights||[]).length },
 ];
 /* ---------- Admin: alle Erfolge freischalten (27.08.2026, Karls Wunsch) ----------
    Gleiche Linie wie `devUnlockAll` bei den Designs: zum Ansehen, nicht zum Erspielen.
@@ -4112,9 +4112,11 @@ function renderErfolge(){
         <b style="white-space:nowrap">${(+z.xp||0).toLocaleString('de-DE')}</b></div>`;
     });
     h += `</div>`;
-    h += `<div class="tiny muted" style="margin:6px 4px 0;line-height:1.6">
-        ⚠️ Die Zahlen kommen von den Geräten, nicht vom Server — sie sind so ehrlich wie die,
-        die sie schicken.</div>`;
+    /* 💡 Hier stand bis zum 29.08.2026 ein Satz darueber, dass die Zahlen von den Geraeten
+       kommen und nicht vom Server. Karls Ansage: kann geloescht werden.
+       ⚠️ An der SACHE aendert das nichts -- XP wird weiterhin auf dem Geraet gerechnet und
+       hochgeschrieben, und wer will, kann seinen Browser-Speicher aendern. Der Hinweis steht
+       weiter im Kopf von `supabase-bestenliste.sql`, damit er nicht ganz verlorengeht. */
   }
 
   // ---- Der Katalog ----

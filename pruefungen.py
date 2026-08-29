@@ -3760,6 +3760,13 @@ window.addEventListener('error', e => {
     };
   };
 
+  // ⚠️ Karls Meldung 29.08.2026: „in Erfolge steht 30 Wiegen, das ist doch kein Deutsch."
+  // Stimmt -- `Wiegen` als zaehlbare Mehrzahl gibt es nicht, eine Wiege ist ein Kinderbett.
+  t('Kein Erfolg heisst mehr "Wiegen"', () => {
+    const schlecht = ERFOLGE.filter(e => /\bWiegen\b/.test(e.name));
+    return schlecht.length === 0 || schlecht.map(e => e.name).join(', ');
+  });
+
   // 🔴 Drei Zustaende, drei Anzeigen. Der wichtigste ist `false`: solange das SQL nicht
   // ausgefuehrt ist, antwortet Supabase mit einem Fehler -- und der darf nicht wie ein
   // Absturz aussehen, sondern muss sagen, was zu tun ist.
@@ -3802,14 +3809,11 @@ window.addEventListener('error', e => {
     e.zurueck();
     return h.includes('· du') || 'eigene Zeile nicht erkennbar';
   });
-  // 🔴 Die Zahl kommt vom Geraet, nicht vom Server. Das steht auf der Seite, weil eine
-  // Rangliste sonst mehr behauptet, als sie weiss.
-  t('Die Seite sagt, woher die Zahlen kommen', () => {
-    const e = erfolgeSeite();
-    const h = e.zeichne([{user_id:'a', name:'tibo', xp:42000}]);
-    e.zurueck();
-    return h.includes('von den Geräten') || 'kein Hinweis auf die Herkunft der Zahlen';
-  });
+  /* 🗑️ Hier stand eine Pruefung darauf, dass auf der Seite steht, woher die Zahlen
+     kommen. Karl hat den Satz am 29.08.2026 streichen lassen -- damit faellt auch die
+     Pruefung. ⚠️ Festgehalten, weil es eine Zusicherung war, die ICH eingebaut hatte und
+     nicht er: die Zahlen kommen weiterhin vom Geraet, es steht nur nicht mehr in der App.
+     Der Hinweis lebt im Kopf von `supabase-bestenliste.sql` weiter. */
   /* ⚠️ Namen mit spitzen Klammern duerfen die Seite nicht umbauen -- sie kommen von anderen
      Nutzern und sind damit fremder Text, nicht eigener.
      🔴 Der Koeder ist bewusst HARMLOS (`<i>`, kein `onerror`). Beim ersten Versuch stand

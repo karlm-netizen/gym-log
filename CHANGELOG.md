@@ -4,6 +4,25 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-29
 
+### ✏️ v53 — zwei Textkorrekturen
+
+**Karls Ansagen:**
+
+1. ✅ **Der Hinweissatz unter der Bestenliste ist raus** (*„die Zahlen kommen von den Geräten,
+   nicht vom Server …"*).
+   ⚠️ **An der Sache ändert das nichts** — XP wird weiterhin auf dem Gerät gerechnet und
+   hochgeschrieben. Es steht nur nicht mehr in der App. Der Hinweis lebt im Kopf von
+   `supabase-bestenliste.sql` weiter, damit er nicht ganz verlorengeht.
+   💡 Die Prüfung darauf ist mitgegangen — sie sicherte eine Zusicherung ab, die **ich**
+   eingebaut hatte, nicht Karl.
+
+2. ✅ **„Dreißig Wiegen" heißt jetzt „Dreißigmal gewogen".** Karl: *„das ist doch kein
+   Deutsch."* Stimmt — **`Wiegen` als zählbare Mehrzahl gibt es nicht**, eine *Wiege* ist ein
+   Kinderbett. Neue Prüfung: kein Erfolg darf mehr so heißen. Gegenprobe: alten Namen
+   zurück → **1 rot**.
+
+**Prüfungen 680** *(eine gestrichen, eine dazu).*
+
 ### 🏆 v52 — XP-Bestenliste auf der Erfolge-Seite
 
 **Karls Wunsch:** *„Ich will ein XP-Leaderboard bei Erfolge drinnen. Soll die 10 User mit den
