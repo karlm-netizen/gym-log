@@ -4,6 +4,30 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-29
 
+### 🗑️ v51 — die Wochen-Serie ist von der Startseite runter
+
+**Karls Ansage:** *„1 Woche am Stück auf der Startseite kann raus."*
+
+Die Karte mit der Zahl und den Kästchen daneben ist weg. **Der linke Block „Fortschritt"
+besteht damit nur noch aus der Rang-Karte.**
+
+⚠️ **Nur von der Startseite — sonst ändert sich nichts:**
+
+| | |
+|---|---|
+| **Jahresraster im Verlauf** | bleibt — es *zeigt* dieselbe Sache, statt sie zu behaupten |
+| **Erfolge „Vier am Stück" / „Acht Wochen"** | bleiben — die hängen an `besteWochenSerie()` |
+| **Ess-Serie auf der Kalorien-Seite** | bleibt — andere Serie, andere Seite |
+
+💡 **`wochenSerie()` selbst bleibt stehen**, obwohl sie damit **keinen Aufrufer mehr in der App
+hat.** Sie ist getestet, sie meint etwas anderes als `besteWochenSerie()` (die laufende Serie
+statt der längsten je), und diese Unterscheidung ist eine Falle, die schon zweimal gelöst
+werden musste. 🔴 **Das steht so im Code** — wer sie wieder braucht, findet eine fertige
+Funktion; wer aufräumt, weiß, dass nichts daran hängt.
+
+**Prüfungen 669 → 671.** Zwei neue: dass die Karte **nicht** zurückkommt, und dass der Verlauf
+**nicht** mit weggeräumt wurde. Gegenprobe: Karte wieder einbauen → **1 rot**.
+
 ### 🎚️ v50 — ein richtiger Kippschalter
 
 **Karls Ansage:** *„ich will so einen richtigen Schalter für die beiden."*

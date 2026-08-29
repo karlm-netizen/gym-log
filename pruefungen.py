@@ -3748,6 +3748,33 @@ window.addEventListener('error', e => {
   const MO = ts => wochenStart(ts);
   const vorWochen = n => { const d = new Date(MO(Date.now())); d.setDate(d.getDate() - 7*n); return d.getTime(); };
 
+  // 🗑️ Karls Ansage vom 29.08.2026: die Serie kann von der STARTSEITE raus.
+  // ⚠️ Die Rechnung darunter bleibt geprueft -- nur ihre Karte ist weg. Ohne diese Pruefung
+  // koennte sie bei der naechsten Aenderung an renderHome still zurueckkommen.
+  t('Die Wochen-Serie steht nicht mehr auf der Startseite', () => {
+    const sesV = sessions, sV = session;
+    session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    sessions = [0,1,2].map(n => ({date: vorWochen(n) + 864e5, entries: []}));
+    if (wochenSerie() !== 3) { sessions = sesV; session = sV; return 'Aufbau falsch: Serie ist nicht 3'; }
+    view = 'home'; render();
+    const h = app.innerHTML;
+    sessions = sesV; session = sV; view = 'home'; render();
+    if (h.includes('am St\u00fcck')) return 'die Serien-Karte steht wieder auf der Startseite';
+    if (h.includes('Wochen am St')) return 'die Serien-Karte steht wieder auf der Startseite';
+    return true;
+  });
+  // 🔴 Und die Gegenprobe zur Gegenprobe: die Serie darf nicht ueberall verschwunden sein.
+  // Karl hat „auf der Startseite" gesagt -- das Jahresraster im Verlauf zeigt sie weiter.
+  t('Im Verlauf gibt es das Jahresraster weiterhin', () => {
+    const sesV = sessions, sV = session;
+    session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    sessions = [0,1,2].map(n => ({date: vorWochen(n) + 864e5, entries: []}));
+    view = 'history'; render();
+    const h = app.innerHTML;
+    sessions = sesV; session = sV; view = 'home'; render();
+    return h.length > 200 || 'Verlauf ist leer';
+  });
+
   t('Ohne Einheiten keine Serie', () => { sessions = []; return eq(wochenSerie(), 0); });
   t('Diese Woche trainiert: Serie 1', () => {
     sessions = [{date: MO(Date.now()) + 2*864e5, entries: []}];

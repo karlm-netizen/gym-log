@@ -2204,23 +2204,13 @@ function renderHome(){
   h+=`<div class="row between" style="margin:2px 4px 6px"><h2>Fortschritt</h2></div>`;
   h+=rankCardHTML();
 
-  // NEU: die Serie. Sie stand nirgends in der App — dabei ist Dranbleiben das,
-  // worum es geht. ⚠️ Bewusst OHNE XP-Kopplung: Karls Restlisten-Punkt 4 ist
-  // zurückgestellt, und das ist seine Entscheidung, nicht meine.
-  const serie=wochenSerie();
-  if(serie>0){
-    h+=`<div class="card" style="margin-top:10px">
-      <div class="row between">
-        <span><b style="font-size:22px">${serie}</b>
-          <span class="muted"> ${serie===1?'Woche':'Wochen'} am Stück</span></span>
-        <span class="pill">${'▪'.repeat(Math.min(serie,8))}${serie>8?' +'+(serie-8):''}</span></div>
-      <div class="tiny muted" style="margin-top:6px">${
-        trainedToday() || sessionsOn(Date.now()).length
-          ? 'Diese Woche steht schon.'
-          : sessions.some(s=>wochenStart(s.date)===wochenStart(Date.now()))
-            ? 'Diese Woche steht schon.'
-            : 'Diese Woche fehlt noch — <b style="color:var(--txt)">ein Training hält die Serie</b>.'}</div></div>`;
-  }
+  /* 🗑️ Hier stand bis zum 29.08.2026 die Wochen-Serie ("1 Woche am Stueck" mit den
+     Kaestchen daneben). Karls Ansage: sie kann von der Startseite raus.
+     ⚠️ NUR von der Startseite -- `wochenSerie()` selbst bleibt stehen. Sie ist getestet,
+     sie meint etwas anderes als `besteWochenSerie()` (laufend statt laengste je), und die
+     Unterscheidung ist eine Falle, die schon zweimal geloest werden musste.
+     🔴 Sie hat damit aber KEINEN Aufrufer mehr in der App. Wer sie wieder braucht, holt
+     sich hier eine fertige Funktion -- wer aufraeumt, weiss, dass nichts daran haengt. */
   h+='</div><div>';
 
   // 2 · Heute. Ein laufendes Training steht seit dem 05.08. NICHT mehr ganz oben, sondern
