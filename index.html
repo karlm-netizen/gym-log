@@ -509,6 +509,27 @@ setTimeout(function(){
     #app.wrap{max-width:1120px}
   }
 
+  /* Kippschalter (29.08.2026, Karls Ansage: "ich will so einen richtigen Schalter").
+     Vorher stand dort ein Knopf mit "Ausschalten"/"Einschalten" -- der sagt, was PASSIEREN
+     WUERDE, nicht was IST. Ein Kippschalter zeigt den Zustand selbst, und den liest man ohne
+     zu lesen.
+     ⚠️ Die Masse haengen zusammen: 28 hoch minus 2x1 Rahmen = 26 innen, Knopf 22 mit je 2 px
+     Luft. Der Weg nach rechts ist 44 innen - 22 Knopf - 2x2 Luft = 18. Wer eine Zahl aendert,
+     muss die anderen mitrechnen, sonst sitzt der Knopf schief. */
+  .schalter{position:relative; flex:0 0 auto; width:46px; height:28px; border-radius:999px;
+    background:var(--card2); border:1px solid var(--line); padding:0; cursor:pointer;
+    transition:background .18s ease, border-color .18s ease}
+  .schalter i{position:absolute; top:2px; left:2px; width:22px; height:22px; border-radius:50%;
+    background:var(--txt); display:block; transition:transform .18s ease, background .18s ease}
+  .schalter.an{background:var(--ok); border-color:var(--ok)}
+  .schalter.an i{transform:translateX(18px); background:#fff}
+  /* Tastatur: ohne das waere der Schalter nur mit der Maus als "hier bin ich" erkennbar. */
+  .schalter:focus-visible{outline:2px solid var(--ok); outline-offset:2px}
+  /* ⚠️ Wer Bewegung im System abgestellt hat, bekommt sie auch hier nicht. */
+  @media (prefers-reduced-motion: reduce){
+    .schalter, .schalter i{transition:none}
+  }
+
   /* Kurve mit Beschriftung.
      Die Zahlen stehen als HTML NEBEN dem SVG, nicht darin: das SVG wird mit
      preserveAspectRatio="none" auf die volle Kartenbreite gezogen, Text darin waere auf
@@ -4124,11 +4145,15 @@ function renderSettings(){
   [{id:'wiegen',name:'Heute wiegen',   text:'Solange für heute kein Gewicht eingetragen ist'},
    {id:'essen', name:'Essen eintragen',text:'Solange für heute keine Mahlzeit eingetragen ist'}].forEach((e,i)=>{
     const an=erinnerungAn(e.id);
+    /* ⚠️ `role="switch"` und `aria-checked` sind nicht Zierrat: ein <button> ohne Text hat
+       fuer eine Vorlesehilfe sonst gar keinen Inhalt -- der Schalter waere unsichtbar.
+       Das `aria-label` sagt, WORUM es geht, `aria-checked` sagt, WIE es steht. */
     h+=`<div class="row between" style="align-items:center;gap:10px;${i?'margin-top:14px':''}">
         <div style="min-width:0"><b>${e.name}</b>
           <div class="tiny muted">${e.text}</div></div>
-        <button class="btn sm ${an?'ghost':'primary'}" style="width:auto;white-space:nowrap"
-                data-act="erinn:${e.id}:${an?'aus':'an'}">${an?'Ausschalten':'Einschalten'}</button></div>`;
+        <button class="schalter${an?' an':''}" role="switch" aria-checked="${an}"
+                aria-label="${esc(e.name)}"
+                data-act="erinn:${e.id}:${an?'aus':'an'}"><i></i></button></div>`;
   });
   h+=`</div>`;
 

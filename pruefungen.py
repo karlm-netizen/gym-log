@@ -1663,6 +1663,54 @@ window.addEventListener('error', e => {
     return !h.includes('Essen eintragen') || 'Erinnerung steht trotz Aus';
   });
 
+  // ---- Der Kippschalter (Karls Ansage 29.08.2026) ----
+  // Vorher stand dort ein Knopf mit "Ausschalten"/"Einschalten" -- der sagt, was PASSIEREN
+  // WUERDE, nicht was IST.
+  t('Beide Erinnerungen haben einen echten Schalter, keinen Knopf mit Text', () => {
+    const eV = profile.erinnerungen, sV = session;
+    session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    profile.erinnerungen = {wiegen:true, essen:false, ts:Date.now()};
+    view = 'settings'; render();
+    const alle = [...document.querySelectorAll('[data-act^="erinn:"]')];
+    const h = app.innerHTML;
+    profile.erinnerungen = eV; session = sV;
+    if (alle.length !== 2) return 'erwartet 2 Schalter, gefunden ' + alle.length;
+    const keinSchalter = alle.filter(b => b.getAttribute('role') !== 'switch');
+    if (keinSchalter.length) return keinSchalter.length + ' ohne role="switch"';
+    // aria-checked muss den ZUSTAND spiegeln, nicht die Absicht des Klicks.
+    const anZustand = alle.map(b => b.getAttribute('aria-checked')).join(',');
+    if (anZustand !== 'true,false') return 'aria-checked: ' + anZustand;
+    if (h.includes('Ausschalten') || h.includes('Einschalten')) return 'der alte Text-Knopf ist zurueck';
+    return true;
+  });
+  // 🔴 Die eigentliche Pruefung: der Knopf muss sichtbar woanders sitzen. Ein Schalter,
+  // der in beiden Stellungen gleich aussieht, ist kein Schalter -- und genau das passiert,
+  // wenn die Klasse `an` gesetzt wird, das CSS sie aber nicht kennt (oder umgekehrt).
+  // ⚠️ Hier IST das messbar, anders als beim Punkt in der Kurve: es sind HTML-Elemente,
+  // getBoundingClientRect liefert dort die volle Kaestchen-Groesse.
+  t('Der Knopf des Schalters sitzt an und aus wirklich woanders', () => {
+    const eV = profile.erinnerungen, sV = session;
+    session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    profile.erinnerungen = {wiegen:true, essen:false, ts:Date.now()};
+    view = 'settings'; render();
+    const anS  = document.querySelector('[data-act="erinn:wiegen:aus"]');   // steht auf AN
+    const ausS = document.querySelector('[data-act="erinn:essen:an"]');     // steht auf AUS
+    if (!anS || !ausS) { profile.erinnerungen = eV; session = sV; return 'Schalter nicht gefunden'; }
+    const versatz = el => {
+      const knopf = el.querySelector('i');
+      if (!knopf) return null;
+      const a = el.getBoundingClientRect(), b = knopf.getBoundingClientRect();
+      return (a.width > 0 && b.width > 0) ? (b.left - a.left) : null;
+    };
+    const vAn = versatz(anS), vAus = versatz(ausS);
+    profile.erinnerungen = eV; session = sV;
+    if (vAn === null || vAus === null) return 'Knopf nicht gezeichnet';
+    // 18 px sind der gebaute Weg; mit 12 als Schwelle faellt jede stille Entkopplung auf,
+    // ohne dass eine kleine Masskorrektur die Pruefung rot macht.
+    return (vAn - vAus > 12)
+      || 'Versatz nur ' + (vAn - vAus).toFixed(1) + ' px (an bei ' + vAn.toFixed(1) + ', aus bei ' + vAus.toFixed(1) + ')';
+  });
+
   // 🔴 Und der Einbau, nicht nur das Teil: der Schalter in den Einstellungen muss die
   // Karte auf der Startseite auch wirklich verschwinden lassen. Geprueft mit echtem Klick.
   t('Der Schalter in den Einstellungen schaltet die Karte wirklich ab', () => {

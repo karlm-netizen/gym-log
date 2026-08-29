@@ -4,6 +4,34 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-29
 
+### 🎚️ v50 — ein richtiger Kippschalter
+
+**Karls Ansage:** *„ich will so einen richtigen Schalter für die beiden."*
+
+**Aus den zwei Knöpfen sind zwei Kippschalter geworden** — grün und rechts, wenn an; grau und
+links, wenn aus.
+
+💡 **Warum das mehr ist als Optik:** ein Knopf mit *„Ausschalten"* sagt, was **passieren
+würde**, nicht was **ist**. Man muss ihn lesen und dann gedanklich umdrehen. Ein Kippschalter
+zeigt den Zustand selbst — den liest man, ohne zu lesen.
+
+⚠️ **Ein leerer Knopf hat für eine Vorlesehilfe keinen Inhalt** — er wäre schlicht unsichtbar.
+Der Schalter trägt deshalb `role="switch"`, `aria-checked` (der Zustand) und ein `aria-label`
+(worum es geht). Wer Bewegung im System abgestellt hat, bekommt sie hier auch nicht.
+
+#### ✅ Und diesmal ist das Ergebnis wirklich messbar
+
+Beim Stretch in v47 musste der letzte Blick bei Karl bleiben — `getBoundingClientRect()` gibt
+bei SVG-Formen die Geometrie **ohne** Strich heraus. **Hier sind es HTML-Elemente**, und da
+liefert dieselbe Messung das volle Kästchen.
+
+➡️ Die Prüfung misst deshalb, **wie weit der Knopf im An- und im Aus-Zustand vom linken Rand
+sitzt**, und verlangt einen echten Versatz.
+🔴 **Das fängt beide Richtungen der stillen Entkopplung:** CSS ohne Klasse *und* Klasse ohne
+CSS. Beide Gegenproben ergaben denselben Befund — *Versatz nur 0,0 px*.
+
+**Prüfungen 667 → 669.**
+
 ### ⚖️ v49 — zwei Erinnerungen auf der Startseite, beide abschaltbar
 
 **Karls Ansagen:** *„Am besten morgens vor dem Essen. Zuletzt 103 kg am Fr., 28.08. — den Satz
