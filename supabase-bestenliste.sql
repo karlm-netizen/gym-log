@@ -29,6 +29,13 @@
 --     dann muesste `gymlog_data` geoeffnet werden, und das ist der schlechtere
 --     Tausch.
 --
+--  ⚠️ NACHTRAG 29.08.2026: die erste Fassung hatte in jeder Policy eine Zeile
+--     `to authenticated`. Karl hat damit einen Fehler bekommen. Das ist die
+--     einzige Konstruktion in dieser Datei, die in `supabase-meldungen.sql`
+--     nicht vorkommt -- also raus damit. Abgesichert wird jetzt ueber
+--     `auth.uid() is not null`, was dasselbe leistet und in diesem Projekt
+--     nachweislich funktioniert.
+--
 --  Gefahrlos wiederholbar.
 -- ============================================================================
 
@@ -48,15 +55,24 @@ alter table public.gym_bestenliste enable row level security;
 
 -- ---------------------------------------------------------------------------
 --  Lesen: jeder ANGEMELDETE Nutzer sieht die ganze Liste.
---  ⚠️ `to authenticated`, nicht `to public` -- sonst koennte jeder mit dem
---     oeffentlichen Schluessel aus dem Quelltext der App die Namen abrufen,
---     ohne ein Konto zu haben. Genau der Fehler von `email_for_username`.
+--
+--  ⚠️ `auth.uid() is not null` und NICHT `to authenticated` -- obwohl beides
+--     dasselbe absichert. Grund: `to authenticated` hat beim ersten Versuch am
+--     29.08.2026 einen Fehler geworfen, und es ist die einzige Zeile in dieser
+--     Datei, die in `supabase-meldungen.sql` (laeuft seit dem 23.08.) nicht
+--     vorkommt. Hier steht deshalb nur, was in diesem Projekt nachweislich geht.
+--
+--  ⚠️ Die Absicherung selbst bleibt: eine Anfrage ohne Anmeldung bringt kein
+--     `sub` im Token mit, `auth.uid()` ist dann NULL, und die Bedingung ist
+--     nicht erfuellt -- es kommt keine Zeile zurueck. Ohne diese Bedingung
+--     koennte jeder mit dem oeffentlichen Schluessel aus dem Quelltext der App
+--     die Namen abrufen, ohne ein Konto zu haben. Genau der Fehler von
+--     `email_for_username` am 24.08.2026.
 -- ---------------------------------------------------------------------------
 drop policy if exists "bestenliste lesen" on public.gym_bestenliste;
 create policy "bestenliste lesen"
   on public.gym_bestenliste for select
-  to authenticated
-  using (true);
+  using (auth.uid() is not null);
 
 -- ---------------------------------------------------------------------------
 --  Schreiben: ausschliesslich die eigene Zeile.
@@ -67,13 +83,11 @@ create policy "bestenliste lesen"
 drop policy if exists "eigene zeile anlegen" on public.gym_bestenliste;
 create policy "eigene zeile anlegen"
   on public.gym_bestenliste for insert
-  to authenticated
   with check (auth.uid() = user_id);
 
 drop policy if exists "eigene zeile aendern" on public.gym_bestenliste;
 create policy "eigene zeile aendern"
   on public.gym_bestenliste for update
-  to authenticated
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
@@ -82,8 +96,10 @@ create policy "eigene zeile aendern"
 
 -- ---------------------------------------------------------------------------
 --  Gegenprobe: so muss es danach aussehen.
---  Erwartet: drei Regeln (select fuer authenticated, insert + update nur eigen),
---  rowsecurity = true.
+--  Erwartet: drei Regeln, rowsecurity = true. In der Spalte `roles` steht bei
+--  allen dreien {public} -- das ist richtig so: abgesichert wird ueber `qual`
+--  bzw. `with_check`, nicht ueber die Rolle. Wer nicht angemeldet ist, hat kein
+--  `auth.uid()` und faellt an der Bedingung durch.
 -- ---------------------------------------------------------------------------
 select relrowsecurity as rls_an
   from pg_class
