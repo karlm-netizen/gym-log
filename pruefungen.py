@@ -2018,10 +2018,20 @@ window.addEventListener('error', e => {
   });
 
   // ================================================ Tagesaufgaben
-  // Der Deckel ist hier die ganze Idee: Aufgaben schieben an, sie tragen nicht. Im Vault
-  // steht seit dem 22.08. bewusst "kein XP fuers Essen" - eine Aufgabe "App geoeffnet" ist
-  // derselbe Fall, geloest ueber die Groessenordnung statt ueber ein Nein.
-  t('Aufgaben bringen hoechstens 30 XP am Tag', () => eq(AUFGABEN_MAX, 30));
+  // Der Deckel ist hier die ganze Idee: Aufgaben schieben an, sie tragen nicht.
+  // 🔴 Seit dem 29.08.2026 kommt eine zweite Regel dazu, Karls Ansage: „man kann nicht jeden
+  // Tag XP kriegen fuer wenn man was gemacht hat, weil an manchen Tagen machst du ja nichts."
+  // JEDE verbliebene Aufgabe verlangt eine Handlung -- „App geoeffnet" ist ersatzlos raus.
+  t('Aufgaben bringen hoechstens 25 XP am Tag', () => eq(AUFGABEN_MAX, 25));
+  t('Keine Aufgabe fuers blosse Oeffnen der App', () => {
+    if (AUFGABEN.some(a => a.id === 'auf')) return 'Reingeschaut steht wieder in der Liste';
+    // ⚠️ Und der Einbau, nicht nur die Liste: solange die Startfolge sie noch abhakt, gaebe
+    // es die XP weiter -- aufgabeErledigen() wuerde sie nur nicht mehr finden. Ein spaeteres
+    // Wiedereinfuegen in AUFGABEN haette den Aufruf dann still wieder scharf gestellt.
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    return q.indexOf("aufgabeErledigen('auf')") < 0
+      || 'die App hakt „Reingeschaut" immer noch ab';
+  });
   t('Eine Einheit ist ein Vielfaches aller Tagesaufgaben wert', () => {
     const einheit = sessXP(einheitMit(12, 100, 2, 2), 2);
     return einheit >= AUFGABEN_MAX * 5
@@ -2030,19 +2040,19 @@ window.addEventListener('error', e => {
   t('Eine erledigte Aufgabe gibt ihre XP', () => {
     profile.aufgaben = { tag:'', fertig:{} };
     const vorher = profile.xp;
-    const gab = aufgabeErledigen('auf');
+    const gab = aufgabeErledigen('ein');
     const delta = profile.xp - vorher;
     profile.aufgaben = { tag:'', fertig:{} }; profile.xp = vorher;
-    return (gab && delta === 5) || 'gab=' + gab + ' delta=' + delta;
+    return (gab && delta === 10) || 'gab=' + gab + ' delta=' + delta;
   });
   t('Dieselbe Aufgabe zweimal am Tag zaehlt nur einmal', () => {
     profile.aufgaben = { tag:'', fertig:{} };
     const vorher = profile.xp;
-    aufgabeErledigen('auf');
-    const nochmal = aufgabeErledigen('auf');
+    aufgabeErledigen('ein');
+    const nochmal = aufgabeErledigen('ein');
     const delta = profile.xp - vorher;
     profile.aufgaben = { tag:'', fertig:{} }; profile.xp = vorher;
-    return (nochmal === false && delta === 5) || 'nochmal=' + nochmal + ' delta=' + delta;
+    return (nochmal === false && delta === 10) || 'nochmal=' + nochmal + ' delta=' + delta;
   });
   // Der Tageswechsel wird beim LESEN geprueft, nicht per Timer - ein Timer um Mitternacht
   // liefe nur, solange die App offen ist, und die ist sie nachts nie.
@@ -3372,25 +3382,14 @@ window.addEventListener('error', e => {
     return neu * 2 <= alt || 'neu=' + neu + ' alt=' + alt + ' (Faktor ' + (alt/neu).toFixed(1) + ')';
   });
 
-  // ================================================ Tagesaufgabe "Reingeschaut" (v33)
-  // Karls Meldung: "geht nicht direkt durch, wenn man die App startet." Sie ging durch -
-  // nur eine Zeile zu spaet: gezeichnet wurde zuerst, abgehakt danach.
-  t('Reingeschaut wird abgehakt, bevor die Seite steht', () => {
-    const quelle = document.documentElement.innerHTML;
-    const abhaken = quelle.indexOf("aufgabeErledigen('auf')");
-    const zeichnen = quelle.indexOf('if(startFehler) renderAuthGate(startFehler); else render();');
-    return (abhaken > -1 && zeichnen > -1 && abhaken < zeichnen)
-      || 'abhaken=' + abhaken + ' zeichnen=' + zeichnen;
-  });
-  // 🔴 Die App wird als PWA selten wirklich geschlossen. Ohne das Nachfassen beim
-  // Zurueckkommen bliebe die Aufgabe am naechsten Morgen still offen.
-  t('Beim Zurueckkommen in die App wird nochmal abgehakt', () => {
-    const merkA = profile.aufgaben, merkX = profile.xp;
-    profile.aufgaben = { tag:'2020-01-01', fertig:{ auf:true } };   // gestern abgehakt
-    const gab = aufgabeErledigen('auf');                            // heute ist ein neuer Tag
-    profile.aufgaben = merkA; profile.xp = merkX;
-    return gab === true || 'am neuen Tag nicht erneut abgehakt';
-  });
+  // 🗑️ Hier standen bis zum 29.08.2026 zwei Pruefungen zur Tagesaufgabe „Reingeschaut"
+  // (Reihenfolge beim Start, Nachfassen beim Zurueckkommen in die App). Beide sind mit der
+  // Aufgabe weggefallen -- es gibt kein XP mehr fuers blosse Oeffnen, Karls Ansage.
+  // ⚠️ Was von ihnen BLEIBEN muss, steht jetzt oben bei „Keine Aufgabe fuers blosse
+  // Oeffnen der App": dass die Startfolge sie auch wirklich nicht mehr abhakt.
+  // 🔴 Damit diese Textsuche greifen kann, darf der Aufruf auch in KOMMENTAREN nicht mehr
+  // woertlich dastehen -- eine Textsuche unterscheidet Prosa nicht von Code. Am 29.08. war
+  // die Pruefung genau deshalb einmal rot, obwohl kein Aufruf mehr existierte.
 
   // Die Groessenordnung: rund 8.000 von 42.240 XP bis Gigachad. Fuer jeden einzelnen muss die
   // Arbeit trotzdem gemacht werden - es ist ein Bonus auf Geleistetes, keine Abkuerzung.

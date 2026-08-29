@@ -1292,22 +1292,29 @@ function zaehleRekorde(en){ let n=0; en.forEach(e=>arbeit(e.sets).forEach(s=>{ i
    Karls Ansage: "wir brauchen ein System mit Aufgaben vielleicht, z.B. ueberhaupt die App
    oeffnen."
 
-   🔴 **Der Einwand, der hier ins Produkt eingebaut ist statt zurueckgefragt zu werden.**
-   Im Vault steht seit dem 22.08. bewusst: kein XP fuers Essen, weil es Level und Rang mit
-   etwas aufblaeht, das keine Anstrengung ist -- Brocks Rang sagt dann nichts mehr ueber
-   das Training aus. Eine Aufgabe "App geoeffnet" ist genau so ein Fall.
+   🔴 **Der Einwand stand hier von Anfang an -- und meine Antwort darauf war die schwaechere.**
+   Am 26.08. hatte ich ihn ueber die GROESSENORDNUNG geloest: hoechstens 30 XP am Tag, davon
+   5 fuers blosse Oeffnen. Klein genug, um nicht zu tragen.
 
-   ➡️ Geloest ueber die GROESSENORDNUNG, nicht ueber ein Nein: hoechstens **30 XP am Tag**,
-   gegen 260-380 fuer eine Einheit. Aufgaben schieben an, sie tragen nicht. Wer nur die App
-   oeffnet, kommt auf 5 XP -- in einem Monat 150, also weniger als eine einzige Einheit.
-   ⚠️ Wuerde man sie groesser machen, waere Gigachad ohne Training erreichbar. Das ist die
-   Grenze, an der dieses Feature aufhoert.                                              */
+   🔴 **Karl am 29.08.2026:** *„man kann nicht jeden Tag XP kriegen fuer wenn man was gemacht
+   hat, weil an manchen Tagen machst du ja nichts."* **Er hat recht, und die Groessenordnung
+   war die falsche Stellschraube.** Eine kleine Belohnung fuer nichts bleibt eine Belohnung
+   fuer nichts -- sie macht nur laenger, bis es auffaellt. Wer die App 100 Tage lang nur
+   aufmacht, hatte 500 XP dafuer, dass er nichts getan hat.
+
+   ➡️ **„Reingeschaut" ist deshalb am 29.08. ersatzlos raus.** Es bleiben zwei Aufgaben,
+   und **beide verlangen eine Handlung**: etwas eintragen oder trainieren. Hoechstens
+   **25 XP am Tag** gegen 260-380 fuer eine Einheit.
+   ⚠️ **Zurueckgenommen wird nichts.** Wer die 5 XP an vergangenen Tagen bekommen hat,
+   behaelt sie -- in dieser App wird kein Punktestand rueckwirkend gekuerzt (Regel vom
+   27.08., Admin-Schalter). Es gibt sie ab heute nur nicht mehr.
+   ⚠️ Wuerde man die verbliebenen groesser machen, waere Gigachad ohne Training erreichbar.
+   Das ist die Grenze, an der dieses Feature aufhoert.                                  */
 const AUFGABEN = [
-  { id:'auf',   xp:5,  svg:'auge',   name:'Reingeschaut',   text:'Die App heute geöffnet' },
   { id:'ein',   xp:10, svg:'stift',  name:'Eingetragen',    text:'Gewicht oder eine Mahlzeit eingetragen' },
   { id:'train', xp:15, svg:'hantel', name:'Trainiert',      text:'Eine Einheit abgeschlossen' },
 ];
-const AUFGABEN_MAX = AUFGABEN.reduce((n,a)=>n+a.xp,0);   // 30 -- der Deckel steht in den Daten
+const AUFGABEN_MAX = AUFGABEN.reduce((n,a)=>n+a.xp,0);   // 25 -- der Deckel steht in den Daten
 
 function heuteKey(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 /* ⚠️ Der Tageswechsel wird beim LESEN geprueft, nicht per Timer. Ein Timer um Mitternacht
@@ -4947,8 +4954,10 @@ function blobsZusammen(basis, dazu){
 
      Genau so war es gebaut: zusammengefuehrt wurden **Einheiten und Gewichte**, alles andere
      im Profil kam unveraendert von `basis`. Und `basis` ist fast immer das eigene Geraet --
-     denn `aufgabeErledigen('auf')` haakt beim Start "Reingeschaut" ab, das ruft `save()`,
-     und damit steht `dirty` schon, bevor der erste Abgleich laeuft. Der Zweig
+     denn die Tagesaufgabe "Reingeschaut" wurde beim Start abgehakt, das ruft `save()`,
+     und damit stand `dirty` schon, bevor der erste Abgleich lief.
+     (💡 Diese Aufgabe gibt es seit dem 29.08.2026 nicht mehr -- der Ausloeser ist damit
+     weg, der Fehler war aber nie an ihr festgemacht, sondern am Zusammenfuehren selbst.) Der Zweig
      `dirty ? ausLokal : ausCloud` faellt also praktisch immer auf die eigene Seite.
 
      Verloren gingen dadurch: die **Tagesaufgaben** (Karls Fall), die Liste der **ausgezahlten
@@ -5848,18 +5857,17 @@ else if(session && !profile.onboarded) startOnboard();   // neues Konto → erst
    die Erfolgs-Seite ging, sah einen leeren Haken an einer Aufgabe, die schon erledigt war.
    ⚠️ Reihenfolge ist hier kein Schoenheitsfehler, sondern das Feature. */
 if(session){
-  /* ⚠️ VOR aufgabeErledigen('auf'): die Frage "wie lange warst du weg" muss gestellt sein,
-     bevor irgendetwas den heutigen Tag stempelt.
-     🔴 Gefunden beim Durchsehen am 27.08.2026, eine Stunde nach dem Einbauen: das hier
+  /* 🔴 Gefunden beim Durchsehen am 27.08.2026, eine Stunde nach dem Einbauen: das hier
      stand ganz am Ende der Startfolge und hat damit **alles ueberschrieben, was vorher eine
      Ansicht gesetzt hatte** -- eine offene Einheit (`view='workout'`), den Assistenten und die
      Schritte aus dem Kurzbefehl-Link (`view='body'`).
      ➡️ Alle drei haben einen konkreten Anlass; das Wiederkommen hat nur ein Datum. Es
      kommt deshalb nur zum Zug, wenn sonst nichts ansteht.
      ⚠️ Gefragt (und gestempelt) wird trotzdem immer -- sonst haengt es beim naechsten
-     Start noch da und springt einen an, wenn man laengst wieder drin ist. */
+     Start noch da und springt einen an, wenn man laengst wieder drin ist.
+     💡 Hier wurde bis zum 29.08.2026 die Tagesaufgabe "Reingeschaut" abgehakt. Die gibt
+     es nicht mehr (kein XP fuers blosse Oeffnen, Karls Ansage) -- das Wiederkommen bleibt. */
   view = startAnsicht(view, comebackPruefen(), active);
-  aufgabeErledigen('auf');   // Tagesaufgabe: reingeschaut
   erfolgeGesehenInit();      // muss VOR erfolgeAuszahlen laufen -- sonst gilt frisch Bezahltes als "schon gesehen"
   /* ⚠️ Rueckwirkend: beim ersten Start mit v32 wird auf einen Schlag gutgeschrieben, was
      laengst erfuellt war. Das ist ein Sprung, kein Aufbau -- aber die Arbeit dafuer ist
@@ -5896,13 +5904,13 @@ document.addEventListener('visibilitychange',()=>{
   // Eigene Bremse, nicht die vom Abgleich: wer auf die Mitteilung tippt, kommt SOFORT
   // zurueck in die App -- und genau dann muss die Antwort da sein, nicht 30 s spaeter.
   if(session && Date.now()-postfachZuletzt>5000) postfachAuffrischen();
-  /* 🔴 Zweite Haelfte der "Reingeschaut"-Korrektur (27.08.2026). Die App wird als PWA
-     selten wirklich geschlossen -- sie liegt im Hintergrund und kommt am naechsten Morgen
-     wieder nach vorn. Der Startblock oben laeuft dann NIE erneut, und die Tagesaufgabe
-     blieb still offen, obwohl reingeschaut wurde. Beim Zurueckkommen also nochmal.
-     ⚠️ Nur neu zeichnen, wenn wirklich etwas dazukam -- aufgabeErledigen() meldet das.
-     Ein render() bei jedem Wechsel in die App wuerde sonst laufende Eingaben wegreissen. */
-  if(session && aufgabeErledigen('auf')) render(); });
+  /* 💡 Hier stand bis zum 29.08.2026 die zweite Haelfte der "Reingeschaut"-Korrektur:
+     die App liegt als PWA im Hintergrund, der Startblock oben laeuft am naechsten Morgen
+     nie erneut, also wurde die Tagesaufgabe beim Zurueckkommen nachgeholt.
+     🔴 Mit der Aufgabe faellt auch das weg -- und mit ihm ein render() bei jedem Wechsel
+     in die App, das laufende Eingaben wegreissen konnte. Ein Grund weniger neu zu zeichnen
+     ist hier ein Gewinn, kein Verlust. */
+});
 window.addEventListener('pagehide',flushSync);
 
 // Versteckte Admin-Freischaltung: 5x auf Brock auf der Startseite tippen (nur auf Karls Gerät).

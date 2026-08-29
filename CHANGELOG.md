@@ -2,6 +2,57 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-08-29
+
+### 🔴 v48 — kein XP mehr fürs bloße Öffnen der App
+
+**Karls Ansage:** *„man kann nicht jeden Tag XP kriegen für wenn man was gemacht hat, weil an
+manchen Tagen machst du ja nichts."*
+
+**Er hat recht — und meine Antwort vom 26.08. war die schwächere.** Damals hatte ich genau
+diesen Einwand selbst erhoben und ihn über die **Größenordnung** gelöst statt über ein Nein:
+höchstens 30 XP am Tag, davon 5 fürs bloße Öffnen. Klein genug, um nicht zu tragen.
+
+🔴 **Das war die falsche Stellschraube.** Eine kleine Belohnung für nichts bleibt eine
+Belohnung für nichts — sie macht nur länger, bis es auffällt. **Wer die App 100 Tage lang nur
+aufmacht, hatte 500 XP dafür, dass er nichts getan hat.**
+
+✅ **„Reingeschaut" ist ersatzlos raus.** Es bleiben zwei Aufgaben, und **beide verlangen eine
+Handlung**:
+
+| | XP | |
+|---|---:|---|
+| ~~Reingeschaut~~ | ~~5~~ | ~~Die App heute geöffnet~~ — **entfallen** |
+| **Eingetragen** | 10 | Gewicht oder eine Mahlzeit eingetragen |
+| **Trainiert** | 15 | Eine Einheit abgeschlossen |
+
+**Deckel 30 → 25 XP am Tag**, gegen 260–380 für eine Einheit.
+
+⚠️ **Zurückgenommen wird nichts.** Wer die 5 XP an vergangenen Tagen bekommen hat, behält
+sie — in dieser App wird kein Punktestand rückwirkend gekürzt (Regel vom 27.08.).
+**Es gibt sie ab heute nur nicht mehr.**
+
+💡 **Damit beantwortet sich auch die offene Frage vom 28.08.** (*„soll das Wiegen eine
+Tagesaufgabe werden?"*): **nein, und es braucht auch keine** — Wiegen zählt bereits als
+*Eingetragen*. Eine eigene Aufgabe dafür wäre genau die Aufblähung, gegen die Karls Ansage
+sich richtet.
+
+💡 **Ein Nebeneffekt, der ein Gewinn ist:** mit der Aufgabe fällt das Nachfassen beim
+Zurückkommen in die App weg — und damit ein `render()` bei jedem Wechsel in die App, das
+laufende Eingaben wegreißen konnte.
+
+#### 🔴 Ein Fund beim Prüfen: eine Textsuche unterscheidet Prosa nicht von Code
+
+Die neue Prüfung *„Keine Aufgabe fürs bloße Öffnen"* war zuerst **rot, obwohl kein Aufruf mehr
+existierte** — sie fand `aufgabeErledigen('auf')` in drei **Kommentaren**, die die Geschichte
+erklärten. Die Erwähnungen sind umgeschrieben.
+⚠️ **Das ist kein Schönheitsfehler:** ein Aufruf, der nur noch in der Prosa steht, macht jede
+Textsuche im Quelltext blind — in beide Richtungen.
+
+**Prüfungen 659 → 658** *(zwei Prüfungen zu „Reingeschaut" sind mit dem Feature weggefallen,
+eine neue kam dazu).* Gegenproben: die Aufgabe zurück in die Liste → **2 rot**; nur die
+**Aufrufstelle** wieder scharf, Liste sauber → **1 rot**.
+
 ## 2026-08-28
 
 ### 🔴 v47 — der Verlauf war auf dem PC verzerrt, und die Startseite erinnert ans Wiegen
