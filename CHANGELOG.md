@@ -4,6 +4,51 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-29
 
+### ⚖️ v49 — zwei Erinnerungen auf der Startseite, beide abschaltbar
+
+**Karls Ansagen:** *„Am besten morgens vor dem Essen. Zuletzt 103 kg am Fr., 28.08. — den Satz
+bitte raus"*, *„den Reminder mit täglich wiegen soll man in den Einstellungen wegmachen
+können"* und *„auf der Startseite soll auch ein Reminder sein für Essen eintragen, den man
+auch einstellen kann."*
+
+#### Der Satz ist raus
+
+Er stand **jeden Tag** da und sagte **jeden Tag dasselbe**. Eine Erinnerung braucht keinen
+Ratgeber — sie braucht ein Feld und einen Knopf.
+ℹ️ **Auf der Kalorien-Seite bleibt der Hinweis stehen** — dort steht er einmal beim Eintragen,
+nicht täglich auf der Startseite.
+
+#### Zwei Erinnerungen, zwei Schalter
+
+| | erscheint | verschwindet |
+|---|---|---|
+| **Heute wiegen** | solange für heute kein Gewicht drinsteht | nach dem Eintragen |
+| **Essen eintragen** | solange für heute keine Mahlzeit drinsteht | nach der ersten Mahlzeit |
+
+Beide lassen sich in den **Einstellungen** einzeln abschalten, ganz oben — es ist die einzige
+Einstellung, die verändert, was man beim Öffnen als Erstes sieht.
+
+⚠️ **Ohne Schalter wäre eine Erinnerung eine Aufforderung, die man nicht loswird.** Das ist der
+Unterschied zwischen Erinnern und Nörgeln.
+
+🔴 **Die Essens-Karte hat bewusst kein Eingabefeld wie die Wiege-Karte.** Ein Gewicht ist eine
+Zahl, eine Mahlzeit braucht Name, Kalorien und Eiweiß — das ist eine Seite, kein Feld. Der Knopf
+geht denselben Weg wie der auf der Kalorien-Seite.
+
+#### 🔴 Die Stelle, an der es leise kaputtgegangen wäre: der Abgleich
+
+Eine neue Einstellung im Profil fällt ohne eigenes Zutun unter *„alles andere kommt von
+basis"* — also **vom eigenen Gerät**. Wer die Erinnerung am Handy ausschaltet, hätte sie am PC
+weiter, und beim nächsten Schieben käme sie am Handy zurück. **Genau die Sorte Fehler, die am
+27.08. Mahlzeiten und Tagesaufgaben verschluckt hat** (v45).
+
+✅ **Die Schalter tragen deshalb einen Zeitstempel, und die spätere Entscheidung gewinnt.**
+⚠️ **Nicht „Aus gewinnt"**, obwohl das naheliegt: dann käme man nie wieder an, solange ein
+Gerät noch das alte Aus kennt.
+
+**Prüfungen 658 → 667.** Gegenproben: den Schalter an der Karte ignorieren → **2 rot**; den
+Abgleich die Schalter nicht mitnehmen lassen → **1 rot**.
+
 ### 🔴 v48 — kein XP mehr fürs bloße Öffnen der App
 
 **Karls Ansage:** *„man kann nicht jeden Tag XP kriegen für wenn man was gemacht hat, weil an

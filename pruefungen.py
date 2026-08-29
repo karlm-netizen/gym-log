@@ -517,6 +517,31 @@ window.addEventListener('error', e => {
     const b = blob({sessions:[einheit('b', 200, 7)]});
     return eq(blobsZusammen(a, b).blob.sessions.map(x=>x.id).join(','), 'a,b');
   });
+  // ================================================ Erinnerungs-Schalter im Abgleich
+  // 🔴 Der v45-Fehler in Reinform: alles im Profil, das nicht ausdruecklich
+  // zusammengefuehrt wird, kommt von `basis` -- also vom eigenen Geraet. Eine Einstellung,
+  // die am Handy ausgeschaltet wurde, kaeme am PC nie an und beim naechsten Schieben am
+  // Handy zurueck.
+  t('Ausgeschaltete Erinnerung wandert vom anderen Geraet herueber', () => {
+    const a = blob({profile:{xp:0, weights:[], erinnerungen:{wiegen:true, essen:true, ts:100}}});
+    const b = blob({profile:{xp:0, weights:[], erinnerungen:{wiegen:false, essen:true, ts:500}}});
+    const e = blobsZusammen(a, b).blob.profile.erinnerungen;
+    return (e && e.wiegen === false) || 'wiegen=' + (e && e.wiegen);
+  });
+  // ⚠️ Entschieden wird ueber den Zeitstempel, NICHT ueber "Aus gewinnt". Sonst kaeme man
+  // nie wieder an, solange ein Geraet noch das alte Aus kennt.
+  t('Die spaetere Entscheidung gewinnt, auch wenn sie ein Einschalten ist', () => {
+    const a = blob({profile:{xp:0, weights:[], erinnerungen:{wiegen:true, essen:true, ts:900}}});
+    const b = blob({profile:{xp:0, weights:[], erinnerungen:{wiegen:false, essen:false, ts:100}}});
+    const e = blobsZusammen(a, b).blob.profile.erinnerungen;
+    return (e && e.wiegen === true && e.essen === true) || JSON.stringify(e);
+  });
+  t('Ohne Schalter auf der anderen Seite bleibt der eigene stehen', () => {
+    const a = blob({profile:{xp:0, weights:[], erinnerungen:{wiegen:false, essen:true, ts:300}}});
+    const e = blobsZusammen(a, blob({})).blob.profile.erinnerungen;
+    return (e && e.wiegen === false) || JSON.stringify(e);
+  });
+
   t('Einheit, die nur lokal steht, bleibt', () => {
     const a = blob({sessions:[einheit('a', 100, 5)]});
     return eq(blobsZusammen(a, blob({})).blob.sessions.map(x=>x.id).join(','), 'a');
@@ -1577,6 +1602,86 @@ window.addEventListener('error', e => {
     return true;
   });
   // ⚠️ Der wichtigere Fall: eine Erinnerung, die nach dem Erledigen stehen bleibt, ist keine.
+  // 🔴 Ohne Schalter waere die Erinnerung eine Aufforderung, die man nicht loswird.
+  t('Ausgeschaltet steht die Wiege-Erinnerung nicht mehr da', () => {
+    const wV = profile.weights, eV = profile.erinnerungen, sV = session;
+    session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    profile.weights = [];
+    profile.erinnerungen = {wiegen:false, essen:false, ts:Date.now()};
+    view = 'home'; render();
+    const h = app.innerHTML;
+    profile.weights = wV; profile.erinnerungen = eV; session = sV;
+    return !h.includes('Heute wiegen') || 'Erinnerung steht trotz Aus';
+  });
+  // Karls Ansage vom 29.08.: der erklaerende Satz stand jeden Tag da und sagte jeden Tag
+  // dasselbe. ⚠️ Auf der Kalorien-Seite bleibt er -- dort steht er einmal, nicht taeglich.
+  t('Kein erklaerender Satz mehr in der Wiege-Erinnerung', () => {
+    const wV = profile.weights, eV = profile.erinnerungen, sV = session;
+    session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    profile.weights = [{date: Date.now() - 3*864e5, kg: 79}];
+    profile.erinnerungen = {wiegen:true, essen:false, ts:Date.now()};
+    view = 'home'; render();
+    const h = app.innerHTML;
+    profile.weights = wV; profile.erinnerungen = eV; session = sV;
+    if (!h.includes('Heute wiegen')) return 'Erinnerung fehlt ganz';
+    if (h.includes('Am besten morgens vor dem Essen')) return 'Der Satz steht noch da';
+    if (h.includes('Zuletzt')) return 'Das Zuletzt-Gewicht steht noch da';
+    return true;
+  });
+
+  // ---- Erinnerung ans Essen (Karls Ansage 29.08.2026) ----
+  t('Startseite erinnert ans Essen, solange heute nichts eingetragen ist', () => {
+    const mV = kcalInit().meals, eV = profile.erinnerungen, sV = session;
+    session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    kcalInit().meals = [];
+    profile.erinnerungen = {wiegen:false, essen:true, ts:Date.now()};
+    view = 'home'; render();
+    const h = app.innerHTML;
+    kcalInit().meals = mV; profile.erinnerungen = eV; session = sV;
+    if (!h.includes('Essen eintragen')) return 'keine Erinnerung';
+    if (!h.includes('data-act="food:start"')) return 'kein Knopf zum Eintragen';
+    return true;
+  });
+  t('Nach einer Mahlzeit ist die Essens-Erinnerung weg', () => {
+    const mV = kcalInit().meals, eV = profile.erinnerungen, sV = session;
+    session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    kcalInit().meals = [{id:'m1', date: Date.now(), name:'Brot', kcal:200, p:8, menge:'1 Scheibe'}];
+    profile.erinnerungen = {wiegen:false, essen:true, ts:Date.now()};
+    view = 'home'; render();
+    const h = app.innerHTML;
+    kcalInit().meals = mV; profile.erinnerungen = eV; session = sV;
+    return !h.includes('Essen eintragen') || 'Erinnerung steht trotz Mahlzeit von heute';
+  });
+  t('Ausgeschaltet steht die Essens-Erinnerung nicht mehr da', () => {
+    const mV = kcalInit().meals, eV = profile.erinnerungen, sV = session;
+    session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    kcalInit().meals = [];
+    profile.erinnerungen = {wiegen:false, essen:false, ts:Date.now()};
+    view = 'home'; render();
+    const h = app.innerHTML;
+    kcalInit().meals = mV; profile.erinnerungen = eV; session = sV;
+    return !h.includes('Essen eintragen') || 'Erinnerung steht trotz Aus';
+  });
+
+  // 🔴 Und der Einbau, nicht nur das Teil: der Schalter in den Einstellungen muss die
+  // Karte auf der Startseite auch wirklich verschwinden lassen. Geprueft mit echtem Klick.
+  t('Der Schalter in den Einstellungen schaltet die Karte wirklich ab', () => {
+    const wV = profile.weights, eV = profile.erinnerungen, sV = session;
+    session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    profile.weights = [];
+    profile.erinnerungen = {wiegen:true, essen:true, ts:0};
+    view = 'settings'; render();
+    const knopf = document.querySelector('[data-act="erinn:wiegen:aus"]');
+    if (!knopf) { profile.weights = wV; profile.erinnerungen = eV; session = sV; return 'kein Schalter in den Einstellungen'; }
+    knopf.click();
+    const nachAus = erinnerungAn('wiegen');
+    view = 'home'; render();
+    const h = app.innerHTML;
+    profile.weights = wV; profile.erinnerungen = eV; session = sV; view = 'home'; render();
+    if (nachAus !== false) return 'Schalter hat nichts umgestellt';
+    return !h.includes('Heute wiegen') || 'Karte steht trotz ausgeschaltetem Schalter';
+  });
+
   t('Nach dem Wiegen ist die Erinnerung weg', () => {
     const vorher = profile.weights, sV = session;
     session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};

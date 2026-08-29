@@ -1137,6 +1137,14 @@ function normalizeProfile(){
   if(profile.rankSkin===undefined) profile.rankSkin=null;   // ausgerüsteter Rang (null = der echte)
   if(!profile.aufgaben||typeof profile.aufgaben!=='object') profile.aufgaben={tag:'',fertig:{}};  // Tagesaufgaben
   if(!profile.erfolge||typeof profile.erfolge!=='object') profile.erfolge={};              // schon ausgezahlte Erfolge
+  /* Erinnerungen auf der Startseite (29.08.2026, Karls Ansage: abschaltbar).
+     ⚠️ `ts` ist kein Schmuck: die Schalter muessen ueber den Abgleich zwischen Handy und PC
+     wandern, und ohne Zeitstempel gibt es keine Regel, welche Seite gewinnt. Wer sie am
+     Handy ausschaltet, will sie nicht am PC wiedersehen -- und umgekehrt genauso. */
+  if(!profile.erinnerungen||typeof profile.erinnerungen!=='object') profile.erinnerungen={wiegen:true,essen:true,ts:0};
+  if(typeof profile.erinnerungen.wiegen!=='boolean') profile.erinnerungen.wiegen=true;
+  if(typeof profile.erinnerungen.essen!=='boolean') profile.erinnerungen.essen=true;
+  if(typeof profile.erinnerungen.ts!=='number') profile.erinnerungen.ts=0;
   /* Welche Erfolge Karl schon GESEHEN hat -- davon haengt die goldene Zahl an der Leiste ab.
      ⚠️ Bleibt hier bewusst `null`, wenn das Feld fehlt, statt auf `{}` zu springen: `{}` hiesse
      "noch keinen gesehen", und beim ersten Start mit v33 leuchteten dann auf einen Schlag alle
@@ -2215,22 +2223,34 @@ function renderHome(){
       ${brock}
       ${plans.length?'':`<button class="btn primary" style="margin-top:12px" data-act="ob:start">Plan einrichten</button>`}</div>`; }
 
-  // Erinnerung ans Wiegen (Karls Ansage vom 28.08.2026). ⚠️ Sie steht NUR da, solange heute
-  // nichts eingetragen ist -- eine Erinnerung, die nach dem Erledigen stehen bleibt, ist keine
-  // Erinnerung mehr, sondern Deko. Das Feld traegt dieselbe Kennung und denselben Knopf wie
-  // auf der Kalorien-Seite; beide Seiten sind nie gleichzeitig da, also gibt es keine zwei.
-  if(!gewogenHeute()){
+  /* Erinnerungen (Karls Ansagen vom 28. und 29.08.2026).
+     ⚠️ Jede steht NUR da, solange die Sache heute offen ist -- eine Erinnerung, die nach dem
+     Erledigen stehen bleibt, ist keine Erinnerung mehr, sondern Deko.
+     ⚠️ Und jede laesst sich in den Einstellungen abschalten. Ohne Schalter waere sie eine
+     Aufforderung, die man nicht loswird -- der Unterschied zwischen Erinnern und Noergeln.
+     Das Feld traegt dieselbe Kennung und denselben Knopf wie auf der Kalorien-Seite; beide
+     Seiten sind nie gleichzeitig da, also gibt es keine zwei.
+     💡 Der erklaerende Satz ("Am besten morgens vor dem Essen. Zuletzt ... kg am ...") ist
+     am 29.08. auf Karls Ansage raus. Er stand jeden Tag da und sagte jeden Tag dasselbe. */
+  if(erinnerungAn('wiegen') && !gewogenHeute()){
     const lw=lastWeight();
     h+=`<div class="card" style="margin-top:10px">
       <div class="row between"><b>Heute wiegen</b><span class="pill">täglich</span></div>
-      <div class="tiny muted" style="margin-top:4px">Am besten morgens vor dem Essen.${
-        lw?` Zuletzt <b style="color:var(--txt)">${fmtKg(lw.kg)} kg</b> am ${fmtDate(lw.date)}.`:''}</div>
       <div class="row" style="gap:8px;align-items:flex-end;margin-top:10px">
         <div class="field" style="flex:1;margin:0">
           <input id="wInput" type="number" inputmode="decimal" step="0.1" min="20" max="500"
                  placeholder="${lw?fmtKg(lw.kg):'z. B. 78,5'}"></div>
         <button class="btn primary" style="width:auto;padding:12px 18px" data-act="addweight">Eintragen</button>
       </div></div>`;
+  }
+  /* Essen (29.08.2026, Karls Ansage). 🔴 Kein Eingabefeld wie beim Wiegen: eine Mahlzeit
+     braucht Name, Kalorien und Eiweiss -- das ist eine Seite, kein Feld. Der Knopf geht
+     denselben Weg wie der auf der Kalorien-Seite. */
+  if(erinnerungAn('essen') && mealsToday().length===0){
+    h+=`<div class="card" style="margin-top:10px">
+      <div class="row between"><b>Essen eintragen</b><span class="pill">täglich</span></div>
+      <div class="tiny muted" style="margin-top:4px">Heute steht noch nichts drin.</div>
+      <button class="btn primary" style="margin-top:10px" data-act="food:start">+ Essen eintragen</button></div>`;
   }
 
   h+=`<div class="card" data-nav="progs" style="cursor:pointer;margin-top:10px"><div class="row between">
@@ -3794,6 +3814,13 @@ function lastWeight(){ const w=weightList(); return w.length?w[w.length-1]:null;
 // Fuer die Erinnerung auf der Startseite. Bewusst „heute", nicht „in den letzten 24 Stunden":
 // wer abends um 23 Uhr wiegt, soll am naechsten Morgen wieder gefragt werden.
 function gewogenHeute(){ const n=Date.now(); return (profile.weights||[]).some(x=>sameDay(x.date,n)); }
+function erinnerungAn(id){ const e=profile.erinnerungen; return !e || e[id]!==false; }
+function erinnerungSetzen(id,an){
+  if(!profile.erinnerungen||typeof profile.erinnerungen!=='object') profile.erinnerungen={wiegen:true,essen:true,ts:0};
+  profile.erinnerungen[id]=!!an;
+  profile.erinnerungen.ts=Date.now();   // die spaetere Entscheidung gewinnt beim Abgleich
+  save();
+}
 function sameDay(a,b){ return new Date(a).toDateString()===new Date(b).toDateString(); }
 // Ein Eintrag pro Tag — nochmal wiegen am selben Tag überschreibt den alten Wert.
 function addWeight(kg){
@@ -4090,6 +4117,21 @@ function renderSettings(){
       <div class="row between"><div class="row" style="gap:10px">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v5h5"/><path d="M12 8v4l3 2"/></svg>
         <b>Verlauf</b></div><span class="muted">›</span></div></div>`;
+  /* Erinnerungen an-/abschalten (Karls Ansage 29.08.2026). Ganz oben, weil es die einzige
+     Einstellung ist, die veraendert, was man beim Oeffnen der App als Erstes sieht. */
+  h+=`<div class="card">
+      <label class="tiny muted" style="display:block;margin-bottom:10px">Erinnerungen auf der Startseite</label>`;
+  [{id:'wiegen',name:'Heute wiegen',   text:'Solange für heute kein Gewicht eingetragen ist'},
+   {id:'essen', name:'Essen eintragen',text:'Solange für heute keine Mahlzeit eingetragen ist'}].forEach((e,i)=>{
+    const an=erinnerungAn(e.id);
+    h+=`<div class="row between" style="align-items:center;gap:10px;${i?'margin-top:14px':''}">
+        <div style="min-width:0"><b>${e.name}</b>
+          <div class="tiny muted">${e.text}</div></div>
+        <button class="btn sm ${an?'ghost':'primary'}" style="width:auto;white-space:nowrap"
+                data-act="erinn:${e.id}:${an?'aus':'an'}">${an?'Ausschalten':'Einschalten'}</button></div>`;
+  });
+  h+=`</div>`;
+
   h+=`<div class="card">
       <label class="tiny muted" style="display:block;margin-bottom:6px">Ansicht</label>
       <div class="fab-row" style="margin-bottom:6px">
@@ -5003,6 +5045,18 @@ function blobsZusammen(basis, dazu){
     if(!b.profile.erfolgeGesehen || typeof b.profile.erfolgeGesehen!=='object') b.profile.erfolgeGesehen = {};
     Object.keys(dp.erfolgeGesehen).forEach(id => { if(dp.erfolgeGesehen[id]) b.profile.erfolgeGesehen[id] = true; });
   }
+  /* --- Erinnerungs-Schalter: die SPAETERE Entscheidung gewinnt ---
+     🔴 Ohne diesen Block faellt die Einstellung unter "alles andere im Profil kommt von
+     basis" -- also vom eigenen Geraet. Wer die Erinnerung am Handy ausschaltet, haette sie
+     am PC weiter, und beim naechsten Schieben kaeme sie am Handy zurueck. Genau die Sorte
+     Fehler, die am 27.08. Mahlzeiten und Tagesaufgaben verschluckt hat.
+     ⚠️ Entschieden ueber den Zeitstempel und NICHT ueber "Aus gewinnt": bei "Aus gewinnt"
+     kaeme man nie wieder an, solange ein Geraet noch das alte Aus kennt. */
+  if(dp.erinnerungen && typeof dp.erinnerungen==='object'){
+    const eB=b.profile.erinnerungen, eD=dp.erinnerungen;
+    if(!eB || typeof eB!=='object' || (+eD.ts||0) > (+eB.ts||0))
+      b.profile.erinnerungen = Object.assign({}, eD);
+  }
   // --- Wann zuletzt da: der spaetere Zeitpunkt gilt, sonst kaeme das Wiederkommen zu frueh ---
   if(typeof dp.zuletztDa === 'number')
     b.profile.zuletztDa = Math.max(+b.profile.zuletztDa || 0, dp.zuletztDa) || dp.zuletztDa;
@@ -5681,6 +5735,9 @@ document.addEventListener('click',ev=>{
   // sets war hier fest auf 3, waehrend der Assistent 4 gibt — jetzt beides aus volSets()
   else if(a==='addex'){ editPlans().find(x=>x.id===editPlanId).exercises.push({id:uid(),name:'',sets:volSets(),reps:10,vol:profile.vol}); save(); render(); }
   else if(a==='library'){ openLibrary(); }
+  else if(a.startsWith('erinn:')){ const teile=a.split(':');
+    erinnerungSetzen(teile[1], teile[2]==='an'); render();
+    toast(teile[2]==='an' ? 'Erinnerung eingeschaltet' : 'Erinnerung ausgeschaltet'); }
   else if(a==='addweight'){ const el=document.getElementById('wInput'); const v=el?el.value.replace(',','.'):'';
     if(addWeight(v)){ render(); toast('Eingetragen'); } else toast('Bitte ein Gewicht in kg eingeben'); }
   // ---- Kalorien: Essen eintragen ----
