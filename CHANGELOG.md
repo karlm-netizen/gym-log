@@ -2,6 +2,82 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-08-30
+
+### 🔍 v54 — die dritte Runde Durchsehen: Verlauf, Statistiken, Push-Anmeldung
+
+**Keine Ansage von Karl.** Das ist der Posten, der seit v43 als *„noch nicht durchgesehen"*
+dasteht. Drei Fehler, **keiner davon wäre durch Benutzen aufgefallen** — und alle drei geben
+eine falsche Antwort auf eine Frage, die man der App wirklich stellt.
+
+#### 1. 🏋️ Der Aufwärmsatz zählte im Übungs-Verlauf mit — überall sonst nicht
+
+`exHistory()` ging über `e.sets`, während `volume()`, `doneSets()` und `prFor()` alle durch
+`arbeit()` gehen. **Damit widersprachen sich zwei Seiten über dieselbe Einheit:** im Verlauf
+stand *„4 Sätze"*, eine Ansicht tiefer *„5"*. Die Volumen-Kurve zeigte eine andere Zahl als
+die Liste darüber.
+
+🔴 **Der teuerste Teil war nicht die Anzahl, sondern das Gewicht.** Der Aufwärmsatz ist mit
+70 % vorgeschlagen, aber eingetippt wird von Hand. Eine **100 statt 10** im Aufwärmfeld hob
+*„Bestes kg"* und *„kg seit Start"* dauerhaft an — **ohne je als Rekord aufzutauchen**, denn
+der Rekord-Weg hat die Aufwärmsätze schon immer ausgenommen. Der Fehler wäre also als
+*„die Kurve stimmt nicht"* aufgefallen, nicht als das, was er ist.
+
+#### 2. 📅 Ein Körpergewichts-Tag war im Jahresraster ein Ruhetag
+
+Das Raster rechnete nur mit `volume()` — kg × Wdh. **Klimmzüge, Liegestütze, Dips, Plank,
+Crunches: alle in der Bibliothek, alle mit Gewicht 0.** Also Volumen 0, also dieselbe Farbe
+wie ein Tag, an dem gar nichts war. Und *„X Tage trainiert"* zählte sie ebenfalls nicht.
+
+⚠️ **Das Raster beantwortet genau eine Frage** — *„bin ich drangeblieben?"* — und stand
+deshalb bewusst ganz oben im Verlauf. **Ausgerechnet für den, der ohne Hanteln trainiert,
+gab es die falsche Antwort.**
+
+➡️ **Getrennt:** ob ein Tag zählt, entscheiden jetzt die Sätze. Wie dunkel er wird,
+entscheidet weiter das Volumen. **Stufe 0 heißt ab jetzt ausschließlich „hier war nichts"** —
+vorher hieß sie beides.
+💡 Beiläufig mit raus: der Tooltip sagte *„1 Sätze"*. Derselbe Fehler wie *„Dreißig Wiegen"*
+gestern, mit eigener Prüfung dagegen.
+
+#### 3. 🔔 Die Push-Anmeldung überlebte das Abmelden — zweimal
+
+Am 27.08. wurden drei Posten gefunden, die beim Abmelden liegenblieben (Postfach, offene
+Meldungen, Gelesen-Liste). **Der vierte ist der, den `kontoDatenRaeumen()` gar nicht erreichen
+kann:** die Push-Anmeldung liegt nicht im Browser-Speicher, sondern im Gerät **und** als Zeile
+in `gym_push` — dort mit der Benutzer-id des Vorgängers.
+
+| Folge | Was passiert |
+|---|---|
+| **Das Gerät brummte weiter** | Antwortet der Bot auf Karls Meldung, klingelt das Handy des Nächsten — und im Postfach steht nichts, denn das wurde beim Abmelden absichtlich geleert. |
+| 🔴 **Der Nächste konnte Mitteilungen NIE einschalten** | `subscribe()` gibt bei gleichem Schlüssel **dieselbe `endpoint`** zurück. Das ist der Primärschlüssel von `gym_push` — das Anlegen wird damit ein *Ändern* an einer fremden Zeile, und das verbietet die Zeilensperre. |
+
+⚠️ **Und die Fehlerbehandlung machte es schlimmer:** beim Fehlschlag löst die App die Anmeldung
+im Gerät wieder auf — richtig so, sonst stünde der Schalter auf „an“ und es käme nie
+etwas. Nur war das hier **die Anmeldung des
+Vorgängers** — der war damit still abgemeldet, während seine Serverzeile stehenblieb.
+Angezeigt wurde *„später nochmal"*, und später ging es genauso wenig.
+
+✅ **Kein Text ist dabei je verlorengegangen:** der Push hat keine Nutzlast, der Satz steht
+fest in `sw.js`. Es klingelte, es stand nur nichts drin.
+
+🔧 Neu: `pushAbmelden()` ohne Toast, aufgerufen in `authSignOut()` **vor** `clearSession()`
+(das DELETE braucht das Token) und in `deleteAccount()` vor dem Löschen der Daten — dort steht
+*„alle Daten dauerhaft"*, dann darf auch nichts mehr klingeln.
+⚠️ `on delete cascade` allein reicht nicht: es greift nur, wenn das Konto wirklich verschwindet.
+Beim Ausgang `dataonly` bliebe die Zeile stehen.
+
+#### 🐛 Ein Fund an den Prüfungen selbst
+
+Die Reihenfolge-Prüfung (`pushAbmelden()` vor `clearSession()`) war zuerst **grün, obwohl sie
+nichts prüfte**: über dem Aufruf steht ein Kommentar, in dem *„vor `clearSession()`"* als
+Erklärung geschrieben steht. Die Suche fand den **Hinweis** statt des Aufrufs — und der Hinweis
+steht immer vorne.
+🔴 **Eine Prüfung, die sich am erklärenden Text festhält, ist grün, gerade wenn der Code falsch
+ist.** Der Rumpf wird jetzt vor der Suche von Kommentaren befreit. Gegenprobe: den Aufruf hinter
+`clearSession()` schieben → **1 rot**, mit der richtigen Begründung.
+
+**Prüfungen 680 → 693.** Sechs Gegenproben, zusammen 10 rot — jede genau da, wo sie hingehört.
+
 ## 2026-08-29
 
 ### ✏️ v53 — zwei Textkorrekturen

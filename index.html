@@ -2010,19 +2010,30 @@ function wochenSerie(){
    sonst sehen ein Zehn-Minuten-Durchlauf und eine schwere Einheit gleich aus.     */
 function jahresRaster(){
   if(!sessions.length) return '';
-  // Volumen je Tag einsammeln
+  /* Volumen UND Saetze je Tag einsammeln.
+     🔴 Bis zum 30.08.2026 stand hier nur das Volumen — und damit war ein reiner
+     Koerpergewichts-Tag im Raster ein Ruhetag. Klimmzuege, Liegestuetze, Dips, Plank,
+     Crunches: alle in der Bibliothek, alle mit Gewicht 0. `volume()` rechnet kg × Wdh,
+     also kommt 0 heraus, und 0 war die Farbe fuer „nichts gemacht".
+     ⚠️ Das Raster beantwortet genau eine Frage — „bin ich drangeblieben?" — und gab
+     darauf die falsche Antwort, ausgerechnet fuer den, der ohne Hanteln trainiert.
+     ➡️ Getrennt: ob ein Tag zaehlt, entscheiden die Saetze. Wie dunkel er wird,
+     entscheidet weiter das Volumen. */
   const proTag=new Map();
   sessions.forEach(s=>{
     const d=new Date(s.date); d.setHours(0,0,0,0);
-    const k=d.getTime();
-    proTag.set(k,(proTag.get(k)||0)+volume(s.entries||[]));
+    const k=d.getTime(), alt=proTag.get(k)||{vol:0,saetze:0};
+    proTag.set(k,{ vol: alt.vol+volume(s.entries||[]),
+                   saetze: alt.saetze+doneSets(s.entries||[]) });
   });
-  const werte=[...proTag.values()].filter(v=>v>0).sort((a,b)=>a-b);
+  const werte=[...proTag.values()].map(t=>t.vol).filter(v=>v>0).sort((a,b)=>a-b);
   // Schwellen ueber die eigenen Einheiten, nicht ueber feste Zahlen — 3000 kg sind
   // fuer den einen viel und fuer den anderen wenig.
   const q=p=>werte.length?werte[Math.min(werte.length-1,Math.floor(werte.length*p))]:0;
   const s1=q(0.33), s2=q(0.66);
-  const stufe=v=>!v?0:v<=s1?1:v<=s2?2:3;
+  /* ⚠️ Ein Tag mit Saetzen bekommt mindestens Stufe 1, auch bei Volumen 0. Stufe 0 heisst
+     ab jetzt ausschliesslich „an diesem Tag war nichts" — vorher hiess es beides. */
+  const stufe=t=>!t||!t.saetze&&!t.vol?0:!t.vol?1:t.vol<=s1?1:t.vol<=s2?2:3;
   // ⚠️ NICHT --accent: das ist im dunklen Design fast weiss, und ein Raster aus
   // weissen Kaestchen liest sich wie ein Fehler, nicht wie Fortschritt. --ok ist
   // das Gruen, das der Kalorienring schon benutzt — dieselbe Bedeutung, dieselbe Farbe.
@@ -2034,7 +2045,12 @@ function jahresRaster(){
   const ende=new Date(wochenStart(heute.getTime()));
   const start=new Date(ende); start.setDate(start.getDate()-52*7);
 
-  let spalten='', monate='', letzterMonat=-1;
+  /* ⚠️ `tage` wird beim Zeichnen mitgezaehlt, nicht hinterher aus `proTag`. Vorher stand
+     dort die Zahl ALLER Trainingstage seit jeher — unter einer Ueberschrift, die „Dein
+     Jahr" heisst und 53 Wochen zeigt. Solange die App keine 53 Wochen alt ist, faellt das
+     nicht auf; danach behauptet die Zahl etwas ueber Kaestchen, die gar nicht da sind.
+     Im Zaehlen an der Zeichenstelle koennen die beiden nicht auseinanderlaufen. */
+  let spalten='', monate='', letzterMonat=-1, tage=0;
   const MON=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
   for(let w=0; w<=52; w++){
     const wochenTag=new Date(start); wochenTag.setDate(wochenTag.getDate()+w*7);
@@ -2048,15 +2064,20 @@ function jahresRaster(){
     for(let d=0; d<7; d++){
       const tag=new Date(wochenTag); tag.setDate(tag.getDate()+d);
       const zukunft=tag.getTime()>heute.getTime();
-      const v=proTag.get(tag.getTime())||0;
-      zellen+=`<div title="${tag.toLocaleDateString('de-DE')}${v?' · '+v+' kg':''}"
+      const t=proTag.get(tag.getTime());
+      const st=stufe(t);
+      if(!zukunft && st) tage++;
+      /* Ohne Volumen die Saetze zeigen — sonst stuende am Koerpergewichts-Tag nur das
+         Datum, und das sieht aus wie ein leerer Tag, der aus Versehen eingefaerbt ist. */
+      const info=!t?'':t.vol?' · '+t.vol+' kg'
+        :(t.saetze?' · '+t.saetze+(t.saetze===1?' Satz':' Sätze'):'');
+      zellen+=`<div title="${tag.toLocaleDateString('de-DE')}${info}"
         style="width:11px;height:11px;border-radius:3px;background:${
-          zukunft?'transparent':farben[stufe(v)]};${zukunft?'':'box-shadow:inset 0 0 0 1px rgba(255,255,255,.03)'}"></div>`;
+          zukunft?'transparent':farben[st]};${zukunft?'':'box-shadow:inset 0 0 0 1px rgba(255,255,255,.03)'}"></div>`;
     }
     spalten+=`<div style="display:grid;grid-template-rows:repeat(7,11px);gap:3px">${zellen}</div>`;
   }
 
-  const tage=[...proTag.keys()].filter(k=>proTag.get(k)>0).length;
   return `<div class="row between" style="margin:22px 4px 6px"><h2>Dein Jahr</h2>
       <span class="tiny muted">${tage} ${tage===1?'Tag':'Tage'} trainiert</span></div>
     <div class="card" style="padding:12px 10px">
@@ -2418,9 +2439,17 @@ function renderHistory(){
 }
 
 // ---------- Verlauf einer einzelnen Übung ----------
+/* 🔴 `arbeit()` und nicht `e.sets` — gefunden beim Durchsehen am 30.08.2026. Der
+   Aufwaermsatz zaehlte hier mit, ueberall sonst nicht: `volume()`, `doneSets()` und
+   `prFor()` gehen alle durch `arbeit()`. Damit widersprachen sich zwei Seiten ueber
+   dieselbe Einheit — im Verlauf stand „4 Saetze", in der Uebung darunter „5". Und die
+   Volumen-Kurve hier zeigte eine andere Zahl als die Liste eine Ansicht darueber.
+   ⚠️ Der teuerste Teil war nicht die Anzahl, sondern `w`: der Aufwaermsatz ist mit 70 %
+   angesetzt, aber eingetippt wird von Hand. Eine 100 statt 10 im Aufwaermfeld hob das
+   „Bestes kg seit Start" an, ohne je in einem Rekord aufzutauchen. */
 function exHistory(name){ const out=[];
   sessions.forEach(s=>{ const e=s.entries.find(x=>x.name===name); if(!e) return;
-    const d=e.sets.filter(x=>x.done); if(!d.length) return;
+    const d=arbeit(e.sets).filter(x=>x.done); if(!d.length) return;
     out.push({ date:s.date, w:Math.max(...d.map(x=>+x.weight||0)),
       vol:d.reduce((a,x)=>a+(+x.weight||0)*(+x.reps||0),0), sets:d.length,
       reps:d.reduce((a,x)=>a+(+x.reps||0),0) }); });
@@ -3912,15 +3941,25 @@ async function pushEinschalten(){
   toast('Mitteilungen sind an');
   if(view==='meldung') renderMeldung();
 }
-async function pushAusschalten(){
+/* Die eigentliche Abmeldung, ohne Meldung an den Nutzer — damit sie auch dort laufen kann,
+   wo gerade gar nicht von Mitteilungen die Rede ist (beim Abmelden vom Konto).
+   ⚠️ Zuerst im Geraet, dann auf dem Server. Andersherum bliebe bei einem Netzfehler eine
+   Anmeldung im Geraet ohne Zeile auf dem Server -- der Schalter stuende auf „an" und es
+   kaeme nie etwas. Umgekehrt ist eine verwaiste Serverzeile harmlos: das Senden schlaegt
+   dann mit 410 fehl, und dafuer ist die Zeile ohnehin zum Aufraeumen vorgesehen. */
+async function pushAbmelden(){
   const sub = await pushAnmeldungHolen();
-  if(!sub){ if(view==='meldung') renderMeldung(); return; }
+  if(!sub) return false;
   const ep = sub.endpoint;
   try{ await sub.unsubscribe(); }catch{}
   try{
     await fetch(`${SUPA_URL}/rest/v1/gym_push?endpoint=eq.${encodeURIComponent(ep)}`,
       { method:'DELETE', headers: authHeaders(true) });
   }catch(e){}
+  return true;
+}
+async function pushAusschalten(){
+  await pushAbmelden();
   toast('Mitteilungen sind aus');
   if(view==='meldung') renderMeldung();
 }
@@ -5412,6 +5451,26 @@ function kontoDatenRaeumen(auchSchluessel){
 }
 async function authSignOut(){
   if(dirty && !await cloudPush()) return false;
+  /* 🔴 Gefunden beim Durchsehen am 30.08.2026 — die Push-Anmeldung war der vierte Posten in
+     der Liste oben, und der einzige, der nicht im Browser-Speicher liegt. Sie ueberlebte das
+     Abmelden gleich zweimal: als Anmeldung im Geraet und als Zeile in `gym_push`, dort mit
+     der Benutzer-id des Vorgaengers. Zwei Folgen:
+
+     1. **Das Geraet brummte weiter fuer ein Konto, das hier niemand mehr hat.** Antwortet
+        der Bot auf Karls Meldung, klingelt das Handy seines Bruders — und im Postfach steht
+        nichts, denn `kontoDatenRaeumen()` hat es gerade absichtlich geleert. (Kein Text
+        geht verloren: der Push hat keine Nutzlast, im `sw.js` steht ein fester Satz.)
+     2. **Der Naechste konnte Mitteilungen NIE einschalten.** `subscribe()` gibt bei
+        gleichem Schluessel dieselbe Anmeldung und damit dieselbe `endpoint` zurueck. Das
+        ist der Primaerschluessel von `gym_push`, das Anlegen wird also ein Aendern — und
+        das verbietet die Zeilensperre, weil die Zeile dem Vorgaenger gehoert. Die App sagte
+        dann „spaeter nochmal", obwohl es spaeter genauso wenig ginge, und loeste beim
+        Fehlschlag die Anmeldung im Geraet auf. **Damit war auch der Vorgaenger still weg.**
+
+     ⚠️ Vor `clearSession()` und vor dem `logout`-Aufruf: das DELETE braucht das Token.
+     Fehlschlag wird bewusst geschluckt — Abmelden darf daran nicht scheitern, und die
+     Anmeldung im Geraet ist dann trotzdem aufgeloest. */
+  if(session){ try{ await pushAbmelden(); }catch(e){} }
   if(session){ try{ await fetch(`${SUPA_URL}/auth/v1/logout`,{method:'POST',headers:authHeaders(true)}); }catch(e){} }
   clearSession();
   kontoDatenRaeumen(false);          // Postfach und offene Meldungen gehoeren zum Konto
@@ -5427,6 +5486,12 @@ async function deleteAccount(){
   const uidNow=session.user.id;
   let dataGone=false, accountGone=false;
   if(await ensureToken()){
+    /* ⚠️ Zuerst die Mitteilungen, dann die Daten. `gym_push` haengt zwar per
+       `on delete cascade` am Konto — aber nur, wenn das Konto wirklich verschwindet.
+       Geht `delete_own_account` schief (Ausgang 'dataonly'), bliebe die Zeile stehen, und
+       die Anmeldung im Geraet bleibt in jedem Fall bestehen. Hier steht „alle Daten
+       dauerhaft"; dann darf auch nichts mehr klingeln. */
+    try{ await pushAbmelden(); }catch(e){}
     try{ const r=await fetch(`${SUPA_URL}/rest/v1/gymlog_data?id=eq.${uidNow}`,{method:'DELETE',headers:authHeaders(true)});
       dataGone=r.ok; }catch(e){}
     try{ const r=await fetch(`${SUPA_URL}/rest/v1/rpc/delete_own_account`,{method:'POST',headers:authHeaders(true),body:'{}'});

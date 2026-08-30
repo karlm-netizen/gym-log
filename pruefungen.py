@@ -1866,6 +1866,90 @@ window.addEventListener('error', e => {
       {done:true, weight:60, reps:10},{done:true, weight:70, reps:8}]}]}];
     return eq(exHistory('A')[0].w, 70);
   });
+  /* 🔴 30.08.2026: der Aufwaermsatz zaehlte hier mit, ueberall sonst nicht. Ein
+     eingetippter Zahlendreher im Aufwaermfeld hob damit „Bestes kg" an, ohne je ein
+     Rekord zu sein -- deshalb steht er hier absichtlich SCHWERER als der Arbeitssatz.
+     Die drei Zahlen zusammen: sonst geht eine der drei still wieder kaputt. */
+  t('Verlauf laesst den Aufwaermsatz aussen vor', () => {
+    sessions = [{date:Date.now(), entries:[{name:'A', sets:[
+      {done:true, weight:100, reps:5, warm:true},
+      {done:true, weight:60,  reps:10}]}]}];
+    const h = exHistory('A')[0];
+    return (h.sets === 1 && h.w === 60 && h.vol === 600 && h.reps === 10)
+      || 'Aufwaermsatz zaehlt mit: ' + JSON.stringify(h);
+  });
+  t('Verlauf und Einheiten-Liste zaehlen dieselben Saetze', () => {
+    const en = [{name:'A', sets:[{done:true, weight:50, reps:8, warm:true},
+                                 {done:true, weight:80, reps:8},
+                                 {done:true, weight:80, reps:8}]}];
+    sessions = [{date:Date.now(), entries:en}];
+    // doneSets() steht unter der Einheit im Verlauf, exHistory().sets in der Uebung darunter.
+    return eq(exHistory('A')[0].sets, doneSets(en));
+  });
+  t('Verlauf und Einheiten-Liste zaehlen dasselbe Volumen', () => {
+    const en = [{name:'A', sets:[{done:true, weight:50, reps:8, warm:true},
+                                 {done:true, weight:80, reps:8}]}];
+    sessions = [{date:Date.now(), entries:en}];
+    return eq(exHistory('A')[0].vol, volume(en));
+  });
+
+  // ---- Jahresraster ----
+  /* 🔴 30.08.2026: das Raster kannte nur Volumen. Klimmzuege, Liegestuetze, Dips, Plank,
+     Crunches -- alle in der Bibliothek, alle mit Gewicht 0, also `volume()` = 0, also
+     dieselbe Farbe wie ein Ruhetag. Das Raster beantwortet genau EINE Frage
+     („bin ich drangeblieben?") und gab sie fuer Koerpergewichts-Training falsch. */
+  const rasterProbe = (sess) => { const v = sessions; sessions = sess;
+    const h = jahresRaster(); sessions = v; return h; };
+  const zelleHeute = (h) => {
+    const d = new Date(); d.setHours(0,0,0,0);
+    const i = h.indexOf('title="' + d.toLocaleDateString('de-DE'));
+    return i < 0 ? '' : h.slice(i, h.indexOf('></div>', i));
+  };
+  t('Ein Koerpergewichts-Tag zaehlt als trainiert', () => {
+    const h = rasterProbe([{date:Date.now(), entries:[{name:'Klimmzuege',
+      sets:[{done:true, weight:0, reps:8},{done:true, weight:0, reps:8}]}]}]);
+    return h.indexOf('1 Tag trainiert') > -1 || 'zaehlt nicht: ' + h.slice(0, 200);
+  });
+  t('Ein Koerpergewichts-Tag ist im Raster eingefaerbt', () => {
+    const h = rasterProbe([{date:Date.now(), entries:[{name:'Klimmzuege',
+      sets:[{done:true, weight:0, reps:8}]}]}]);
+    const z = zelleHeute(h);
+    if (!z) return 'die Zelle von heute war nicht zu finden';
+    // Stufe 0 ist --card2 und heisst ab jetzt ausschliesslich "hier war nichts".
+    return z.indexOf('--ok') > -1 || 'sieht aus wie ein Ruhetag: ' + z;
+  });
+  t('Ein Tag ohne Einheit bleibt die Ruhetag-Farbe', () => {
+    const h = rasterProbe([{date: Date.now() - 3*864e5, entries:[{name:'A',
+      sets:[{done:true, weight:50, reps:10}]}]}]);
+    const z = zelleHeute(h);
+    if (!z) return 'die Zelle von heute war nicht zu finden';
+    /* ⚠️ Nicht auf `--card2` pruefen: Stufe 1 ist ein color-mix AUS --ok UND --card2 und
+       enthaelt beide Namen. Der Unterschied, der zaehlt, ist allein das Gruen. */
+    return z.indexOf('--ok') < 0 || 'ein leerer Tag ist eingefaerbt: ' + z;
+  });
+  /* ⚠️ Die Zahl stand unter der Ueberschrift „Dein Jahr", zaehlte aber ALLE Tage seit
+     jeher -- also auch Kaestchen, die gar nicht gezeichnet werden. Faellt erst auf, wenn
+     die App aelter als 53 Wochen ist; dann aber dauerhaft. */
+  t('Tage trainiert zaehlt nur, was auch gezeichnet ist', () => {
+    const h = rasterProbe([
+      {date: Date.now() - 400*864e5, entries:[{name:'A', sets:[{done:true, weight:50, reps:10}]}]},
+      {date: Date.now(),             entries:[{name:'A', sets:[{done:true, weight:50, reps:10}]}]}]);
+    return h.indexOf('1 Tag trainiert') > -1 || 'zaehlt ausserhalb des Rasters mit';
+  });
+  // ⚠️ „1 Saetze" — derselbe Fehler wie „Dreissig Wiegen" am 29.08. Beim Volumen gibt es
+  // keine Mehrzahl, bei den Saetzen schon, und die Zahl 1 kommt genau am Anfang vor.
+  t('Ein einzelner Satz heisst Satz, nicht Saetze', () => {
+    const h = rasterProbe([{date:Date.now(), entries:[{name:'Plank',
+      sets:[{done:true, weight:0, reps:1}]}]}]);
+    const z = zelleHeute(h);
+    return z.indexOf('1 Satz') > -1 && z.indexOf('1 Sätze') < 0 || 'steht da: ' + z;
+  });
+  t('Zwei Einheiten an einem Tag sind ein Tag', () => {
+    const h = rasterProbe([
+      {date: Date.now(), entries:[{name:'A', sets:[{done:true, weight:50, reps:10}]}]},
+      {date: Date.now(), entries:[{name:'B', sets:[{done:true, weight:50, reps:10}]}]}]);
+    return h.indexOf('1 Tag trainiert') > -1 || 'ein Tag doppelt gezaehlt';
+  });
 
   // ---- Ausgeruesteter Rang ----
   t('Ohne Auswahl gilt der echte Rang', () => {
@@ -2808,6 +2892,52 @@ window.addEventListener('error', e => {
   t('Konto loeschen ruft es mit dem Schluessel auf', () => {
     const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
     return q.indexOf('kontoDatenRaeumen(true)') > -1 || 'deleteAccount raeumt den Schluessel nicht mit';
+  });
+  /* 🔴 Der vierte Posten, der beim Abmelden liegenblieb (30.08.2026) -- und der einzige, den
+     `kontoDatenRaeumen()` gar nicht erreichen kann: die Push-Anmeldung liegt nicht im
+     Browser-Speicher, sondern im Geraet und in `gym_push`. Folge 1: das Handy brummte
+     weiter fuer ein Konto, das hier niemand mehr hat. Folge 2, die schlimmere: `subscribe()`
+     gibt bei gleichem Schluessel DIESELBE endpoint zurueck -- der Primaerschluessel von
+     `gym_push`. Das Anlegen des Naechsten wurde damit ein Aendern an einer fremden Zeile,
+     was die Zeilensperre verbietet. Er sah „spaeter nochmal", und spaeter ging es genauso
+     wenig.
+     ⚠️ Der Service Worker laeuft in den Pruefungen nie (siehe Merkposten oben), also ist
+     hier nur der Quelltext nachzulesen. Das ist Lesen, kein Ausfuehren -- und genau deshalb
+     wird die REIHENFOLGE mitgeprueft: sie ist der Teil, den ein Blick uebersieht. */
+  /* ⚠️ Kommentare RAUS, bevor gesucht wird. Sonst prueft die Reihenfolge sich an dem Text,
+     der die Reihenfolge erklaert: in `authSignOut` steht „vor `clearSession()`" als Hinweis
+     ueber dem Aufruf -- und der Hinweis stuende vor `pushAbmelden()`, der echte Aufruf
+     dahinter. Die Pruefung waere gruen geworden, waere der Aufruf ganz unten gelandet. */
+  const rumpf = (q, name) => { const a = q.indexOf('function ' + name);
+    if (a < 0) return ''; const b = q.indexOf('\nasync function ', a + 10);
+    return q.slice(a, b < 0 ? a + 3000 : b)
+            .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, ''); };
+  t('Abmelden loest auch die Push-Anmeldung auf', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    return rumpf(q, 'authSignOut').indexOf('pushAbmelden()') > -1
+      || 'authSignOut meldet Push nicht ab';
+  });
+  t('Push wird abgemeldet, SOLANGE das Token noch gilt', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const r = rumpf(q, 'authSignOut');
+    const p = r.indexOf('pushAbmelden()'), c = r.indexOf('clearSession()');
+    if (p < 0 || c < 0) return 'einer der beiden Aufrufe fehlt';
+    // Danach ist das Token weg und das DELETE auf gym_push kaeme nie durch.
+    return p < c || 'pushAbmelden() steht hinter clearSession()';
+  });
+  t('Konto loeschen meldet Push mit ab', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    return rumpf(q, 'deleteAccount').indexOf('pushAbmelden()') > -1
+      || 'deleteAccount laesst die Push-Anmeldung stehen';
+  });
+  t('Push abmelden loest erst im Geraet, dann auf dem Server', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const r = rumpf(q, 'pushAbmelden');
+    const u = r.indexOf('.unsubscribe()'), d = r.indexOf('method:\'DELETE\'');
+    if (u < 0 || d < 0) return 'einer der beiden Schritte fehlt';
+    /* Andersherum bliebe bei einem Netzfehler eine Anmeldung im Geraet ohne Zeile auf
+       dem Server: der Schalter stuende auf „an" und es kaeme nie etwas. */
+    return u < d || 'der Server wird vor dem Geraet geraeumt';
   });
   t('Nach dem Abmelden steht keine rote Zahl mehr', () => {
     localStorage.setItem(POST_KEY, JSON.stringify([{id:'p1', antwort:'Hi', gelesen_am:null}]));
