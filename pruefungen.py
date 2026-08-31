@@ -4673,6 +4673,119 @@ window.addEventListener('error', e => {
     return a[1] === b[1] || ('App steht auf ' + a[1] + ', sw.js auf ' + b[1]);
   });
 
+  /* ================================================ Essen aus der Datenbank suchen (31.08.2026)
+     Karls Ansage: "wir brauchen eine datenbank fuer essen zum eintragen falls man keinen
+     qr code hat". Die Datenbank hing schon dran -- aber nur am Barcode. */
+  t('Kalorien kommen direkt aus energy-kcal_100g', () => {
+    const d = offNachDraft({ product_name:'Quark', nutriments:{ 'energy-kcal_100g':66,
+              proteins_100g:12, carbohydrates_100g:4, fat_100g:0.2 } });
+    return (d && d.kcal === 66 && d.p === 12 && d.c === 4 && d.f === 0) || JSON.stringify(d);
+  });
+  /* ⚠️ Nicht jedes Produkt hat Kalorien -- manche nur Kilojoule. Ohne die Umrechnung stuende
+     bei einem solchen Treffer der KJ-Wert als kcal da, also gut das Vierfache. */
+  t('Fehlt kcal, wird aus Kilojoule umgerechnet', () => {
+    const d = offNachDraft({ product_name:'X', nutriments:{ energy_100g:1000 } });
+    return (d && d.kcal === 239) || 'kcal=' + (d && d.kcal);
+  });
+  /* 🔴 Der Fall, der die Trefferliste sonst mit Sackgassen fuellt: von den Produkten mit
+     Deutschland-Kennung hatte am 22.08.2026 nur gut die Haelfte vollstaendige Naehrwerte. */
+  t('Ohne jede Naehrwertangabe kommt nichts zurueck', () => {
+    return (offNachDraft({ product_name:'X', nutriments:{} }) === null
+         && offNachDraft({ product_name:'X' }) === null) || 'es kam ein Entwurf zurueck';
+  });
+  t('Der deutsche Name schlaegt den englischen', () => {
+    const d = offNachDraft({ product_name:'Skimmed quark', product_name_de:'Magerquark',
+              nutriments:{ 'energy-kcal_100g':66 } });
+    return (d && d.name === 'Magerquark') || 'name=' + (d && d.name);
+  });
+  // Bei OFF stehen mehrere Marken in einem Feld, kommagetrennt ("Bio+, Aldi_bio").
+  t('Von mehreren Marken bleibt die erste', () => {
+    const d = offNachDraft({ product_name:'X', brands:'Bio+, Aldi_bio',
+              nutriments:{ 'energy-kcal_100g':66 } });
+    return (d && d.marke === 'Bio+') || 'marke=' + (d && d.marke);
+  });
+
+  /* 🔴 Und jetzt die Suche selbst, mit gefaelschtem `fetch`. Der Kern ist der Filter:
+     ein Treffer ohne Naehrwerte darf gar nicht erst in der Liste stehen. */
+  await tA('Treffer ohne Naehrwerte stehen nicht in der Liste', async () => {
+    const mF = window.fetch, mS = foodStep, mV = view;
+    window.fetch = async () => ({ ok:true, status:200, json: async () => ({ products:[
+      { code:'1', product_name:'Mit Werten',  nutriments:{ 'energy-kcal_100g':66 } },
+      { code:'2', product_name:'Ohne Werte',  nutriments:{} },
+      { code:'3', product_name:'Nur Joule',   nutriments:{ energy_100g:418.4 } } ] }) });
+    await dbSuche('quark');
+    const namen = dbTreffer.map(f => f.name).join('|'), schritt = foodStep;
+    window.fetch = mF; foodStep = mS; view = mV; dbTreffer = []; foodFehler = '';
+    return (namen === 'Mit Werten|Nur Joule' && schritt === 'db') || namen + ' / ' + schritt;
+  });
+  /* 💡 Der Code wird mitgenommen, obwohl niemand gescannt hat: wer den Treffer behaelt,
+     trifft ihn beim naechsten Mal sofort per Scan -- ohne Netz und ohne Suche. */
+  await tA('Der Barcode des Treffers wird mitgenommen', async () => {
+    const mF = window.fetch, mS = foodStep, mV = view;
+    window.fetch = async () => ({ ok:true, status:200, json: async () => ({ products:[
+      { code:'4260428021766', product_name:'Quark', nutriments:{ 'energy-kcal_100g':66 } } ] }) });
+    await dbSuche('quark');
+    const bc = dbTreffer[0] && dbTreffer[0].barcode;
+    window.fetch = mF; foodStep = mS; view = mV; dbTreffer = []; foodFehler = '';
+    return bc === '4260428021766' || 'barcode=' + bc;
+  });
+  /* ⚠️ Open Food Facts drosselt: beim Bauen am 31.08.2026 kamen nach wenigen Anfragen
+     hintereinander nur noch 503er. Ein 503 ist kein Netzfehler -- `fetch` wirft dabei
+     NICHT, es kommt eine gueltige Antwort mit ok:false. Ohne die Abfrage liefe die App
+     in `d.products` von einer HTML-Fehlerseite. */
+  await tA('Eine 503-Antwort wird als Fehler behandelt, nicht als leeres Ergebnis', async () => {
+    const mF = window.fetch, mS = foodStep, mV = view;
+    window.fetch = async () => ({ ok:false, status:503, json: async () => ({}) });
+    await dbSuche('quark');
+    const f = foodFehler, schritt = foodStep;
+    window.fetch = mF; foodStep = mS; view = mV; foodFehler = '';
+    return (/503/.test(f) && schritt === 'list') || 'Fehler="' + f + '" Schritt=' + schritt;
+  });
+  t('Ein einzelner Buchstabe fragt die Datenbank gar nicht erst', () => {
+    const mF = window.fetch; let rufe = 0;
+    window.fetch = async () => { rufe++; return { ok:true, json: async () => ({products:[]}) }; };
+    dbSuche('a');
+    window.fetch = mF; foodFehler = '';
+    return rufe === 0 || 'es wurde ' + rufe + 'x gefragt';
+  });
+  /* 🔴 Der Einbau: die Suche ist nur erreichbar, wenn der Knopf sie auch ausloest. */
+  t('Der Knopf unter der Liste ruft die Suche auf', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    return (q.indexOf("data-act=\"food:dbsuche\"") > -1
+         && q.indexOf("a==='food:dbsuche'") > -1
+         && q.indexOf('dbSuche(s?s.value') > -1) || 'der Weg vom Knopf zur Suche ist unterbrochen';
+  });
+  t('Ein Treffer fuehrt in den Mengen-Schritt', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const i = q.indexOf('t.dataset.dbpick');
+    if(i < 0) return 'der Treffer ist nicht anklickbar';
+    return q.slice(i, i + 220).indexOf("foodStep='menge'") > -1 || 'er landet nicht bei der Menge';
+  });
+  /* Der Barcode-Weg muss dieselbe Umwandlung benutzen -- sonst laufen die beiden Wege
+     wieder auseinander, und die Kilojoule-Umrechnung gaebe es nur noch auf einem. */
+  t('Der Barcode-Weg benutzt dieselbe Umwandlung', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    return rumpf(q, 'holeBarcode').indexOf('offNachDraft(') > -1
+      || 'holeBarcode rechnet wieder selbst';
+  });
+
+  /* ================================================ Karls Ansage vom 31.08.2026: der Satz raus
+     "Die Gewichtskurve steht, aber es fehlen Essenstage: 0 von mindestens 4 ..."
+     Dieselbe Behandlung wie der Wiegungs-Satz am 27.08.: keine Karte statt einer leeren. */
+  t('Der Satz ueber fehlende Essenstage steht nicht mehr im Quelltext', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    return q.indexOf('es fehlen Essenstage') === -1 || 'der Satz steht noch da';
+  });
+  /* ⚠️ Und der Einbau dazu: der Zweig muss leer bleiben, sonst stuende eine leere Karte da.
+     Genau davor warnt der Kommentar beim Wiegungs-Satz. */
+  t('Bei zu wenig Essenstagen bleibt die Karte ganz weg', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const i = q.indexOf("rk.stand==='zu-wenig-essen'");
+    if(i < 0) return 'der Zweig fehlt ganz';
+    const nach = q.slice(i, i + 120).replace(/\/\*[\s\S]*?\*\//g, '');
+    return /inhalt\s*=\s*''/.test(nach) || 'der Zweig setzt wieder einen Inhalt';
+  });
+
   // ================================================================ Aufraeumen
   sessions = SICHER.sessions; profile = SICHER.profile; settings = SICHER.settings;
 

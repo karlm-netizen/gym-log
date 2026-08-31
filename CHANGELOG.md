@@ -4,6 +4,75 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-08-31
 
+### 🔍 v56 — Essen suchen, wenn keine Packung da ist
+
+**Karls Ansage:** *„wir brauchen eine datenbank für essen zum eintragen falls man keinen
+qr code hat."*
+
+**Die Datenbank hing längst dran — aber nur am Barcode.** Ohne Packung (loses Obst, Kantine,
+Restaurant, oder schlicht: Verpackung schon weggeworfen) blieb genau ein Weg: alle vier
+Nährwerte von Hand abtippen. **Das ist der Weg, den man einmal geht und danach nicht mehr.**
+
+Jetzt steht unter der eigenen Liste ein Knopf: **🔍 „…" in der Datenbank suchen**. Antippen,
+Treffer wählen, Menge angeben — derselbe Schluss-Schritt wie beim Barcode.
+
+#### Drei Entscheidungen, die beim Bauen gemessen wurden
+
+⚠️ **Gesucht wird auf Knopfdruck, nicht beim Tippen.** Open Food Facts drosselt spürbar —
+beim Bauen kamen nach wenigen Anfragen hintereinander nur noch **503er**. Eine Suche bei jedem
+Tastendruck wäre eine Reihe von Fehlschlägen statt einer Antwort. **Und im Keller-Gym ist
+ohnehin kein Netz.**
+
+🔴 **Treffer ohne Nährwerte werden gar nicht erst gezeigt.** Von den Produkten mit
+Deutschland-Kennung hatte am 22.08. nur gut die Hälfte vollständige Werte. **Eine Liste, in der
+jeder zweite Eintrag in eine Fehlermeldung führt, ist schlechter als eine kurze.**
+
+💡 **Der Barcode wird mitgenommen, obwohl niemand gescannt hat.** Wer einen gefundenen Treffer
+mit *„Auch in meine Liste aufnehmen"* behält, **trifft ihn beim nächsten Mal sofort per Scan** —
+ohne Netz und ohne Suche.
+
+#### 🔧 Die Umwandlung ist jetzt geteilt
+
+`offNachDraft()` macht aus einem Open-Food-Facts-Produkt einen Entwurf — **beide Wege benutzen
+sie**, Barcode wie Suche. Vorher stand die Rechnerei nur im Barcode-Weg.
+
+⚠️ **Der Teil, der dabei am meisten wert ist: die Kilojoule-Umrechnung.** Nicht jedes Produkt
+hat `energy-kcal_100g`, manche nur `energy_100g` in Kilojoule. **Ohne die Umrechnung stünde bei
+einem solchen Treffer der kJ-Wert als kcal da — also gut das Vierfache.** Hätte die Suche ihre
+eigene Rechnung bekommen, gäbe es diesen Schutz jetzt nur auf einem der beiden Wege.
+
+#### 🗑️ Raus: der Satz über die fehlenden Essenstage
+
+**Karls Ansage: „der satz raus".** Betroffen war:
+
+> *„Die Gewichtskurve steht, aber es fehlen Essenstage: 0 von mindestens 4 in den letzten zwei
+> Wochen."*
+
+**Gleiche Behandlung wie beim Wiegungs-Satz vier Tage zuvor:** keine leere Karte, sondern gar
+keine. 💡 **Beide sagten dasselbe — *du hast zu wenig eingetragen*.** Das weiß, wer einträgt,
+ohne dass eine Karte es ihm vorrechnet; und wer es nicht tut, fängt deswegen nicht an.
+
+#### ✅ Vierzehn neue Prüfungen — 701 → 715, alle acht Gegenproben rot
+
+| Was kaputt gemacht wurde | Was rot wurde |
+|---|---|
+| Kilojoule-Umrechnung entfernt | *Fehlt kcal, wird aus Kilojoule umgerechnet* (+1 weitere) |
+| Sackgassen-Filter entfernt | *Treffer ohne Nährwerte stehen nicht in der Liste* |
+| 503-Abfrage entfernt | *Eine 503-Antwort wird als Fehler behandelt* |
+| Mindestlänge entfernt | *Ein einzelner Buchstabe fragt gar nicht erst* |
+| Barcode des Treffers weggelassen | *Der Barcode des Treffers wird mitgenommen* |
+| `holeBarcode` rechnet wieder selbst | *Der Barcode-Weg benutzt dieselbe Umwandlung* |
+| Karls Satz wieder eingebaut | *Der Satz steht nicht mehr im Quelltext* (+1 weitere) |
+| Knopf-Aktion entfernt | *Der Knopf ruft die Suche auf* |
+
+⚠️ **Eine 503-Antwort ist kein Netzfehler** — `fetch` wirft dabei **nicht**, es kommt eine
+gültige Antwort mit `ok:false`. Ohne die Abfrage liefe die App in `d.products` einer
+HTML-Fehlerseite und meldete „nichts gefunden", wo in Wahrheit gedrosselt wurde.
+
+💡 **Gegen die echte Datenbank nachgemessen** (31.08., `haferflocken`): 24 Treffer, **alle 24
+mit Nährwerten**, 0,7 s, deutsche Marken (Kölln, ja!, Crownfield).
+
+
 ### 🔔 v55 — die App sagt Bescheid, wenn eine neue Fassung bereitliegt
 
 **Karls Ansage: „ok los".** Das war der Punkt, der seit dem 27.08. als *angeboten, nicht

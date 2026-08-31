@@ -3385,9 +3385,12 @@ function renderBody(){
     // Ansage raus -- und eine leere Karte mit Ueberschrift waere schlechter als keine.
     if(rk.stand==='zu-wenig-gewicht')
       inhalt='';
+    /* Zu wenig Essenstage: auch hier keine Karte. Am 31.08.2026 auf Karls Ansage raus
+       („der Satz raus“) — genau wie vier Tage zuvor der Satz über die fehlenden Wiegungen.
+       💡 Beide sagten dasselbe: **du hast zu wenig eingetragen.** Das weiß, wer einträgt,
+       ohne dass eine Karte es ihm vorrechnet — und wer es nicht tut, fängt deswegen nicht an. */
     else if(rk.stand==='zu-wenig-essen')
-      inhalt=`<div class="tiny muted">Die Gewichtskurve steht, aber es fehlen Essenstage:
-        <b style="color:var(--txt)">${rk.tage} von mindestens 4</b> in den letzten zwei Wochen.</div>`;
+      inhalt='';
     else if(rk.stand==='passt')
       inhalt=`<div class="row between"><span><b style="color:var(--ok)">Es geht auf.</b></span>
         <span class="tiny muted">${rk.trend.tage} Tage</span></div>
@@ -3475,7 +3478,7 @@ function renderBody(){
       ${drin.length?`<div style="margin-top:8px">`+[...drin].reverse().map(m=>
         `<div class="mz-eintrag"><div style="min-width:0">
            <span>${esc(m.name)}</span>
-           <div class="tiny muted">${esc(String(m.menge))} · ${fmtTime(m.date)}${m.quelle==='foto'?' · Foto':m.quelle==='barcode'?' · Barcode':''}</div></div>
+           <div class="tiny muted">${esc(String(m.menge))} · ${fmtTime(m.date)}${m.quelle==='foto'?' · Foto':m.quelle==='barcode'?' · Barcode':m.quelle==='db'?' · Datenbank':''}</div></div>
          <span class="row" style="gap:10px;flex:0 0 auto"><b>${m.kcal} kcal</b>
          <button class="link" style="padding:0 2px;color:var(--muted)" data-delmeal="${m.id}">✕</button></span></div>`
       ).join('')+`</div>`:''}
@@ -3572,6 +3575,19 @@ function renderFood(){
     app.innerHTML=h; return;
   }
 
+  if(foodStep==='db'){
+    h+=`<div class="row between" style="margin:6px 4px 8px"><h2>Treffer für „${esc(dbFrage)}“</h2>
+        <span class="tiny muted">${dbTreffer.length}</span></div>
+      <div class="tiny muted" style="margin:-4px 4px 12px">Aus der offenen Lebensmittel-Datenbank.
+        Antippen, dann die Menge angeben.</div>`;
+    h+=dbTreffer.map((f,i)=>`<div class="lib-row" data-dbpick="${i}" style="cursor:pointer">
+        <div style="flex:1;min-width:0"><div>${esc(f.name)}</div>
+          <div class="tiny muted">${f.kcal} kcal je 100 g${f.marke?' · '+esc(f.marke):''}</div></div></div>`).join('');
+    h+=`<button class="btn ghost" style="margin-top:12px" data-act="food:new">Keiner passt — von Hand eintragen</button>
+      <button class="btn ghost" style="margin-top:8px" data-act="food:back">Zurück</button>`;
+    app.innerHTML=h; return;
+  }
+
   // Schritt 1: die drei Wege + eigene Liste
   h+=`<div class="row between" style="margin:6px 4px 8px"><h2>Essen eintragen</h2></div>
     <div class="fab-row">
@@ -3601,7 +3617,13 @@ function renderFoodList(q){
       <button class="del-x" data-delfood="${f.id}" aria-label="Lebensmittel löschen">✕</button></div>`).join('');
   if(!treffer.length) h+=`<div class="empty" style="padding:18px">${k.foods.length
       ? 'Nichts gefunden.' : 'Noch keine eigenen Lebensmittel.'}</div>`;
-  h+=`<button class="btn ghost" style="margin-top:10px" data-act="food:new">+ Neues Lebensmittel${roh?` „${esc(roh)}"`:''}</button>`;
+  /* Erst die Datenbank, dann das Abtippen: suchen kostet einen Griff, die Nährwerte von
+     der Packung abschreiben kostet fünf. Ohne Suchtext wäre der Knopf sinnlos -- dann
+     steht nur das Anlegen da, wie vorher.
+     💡 Die Reihenfolge der beiden Knöpfe ist meine Fassung, nicht Karls Ansage. */
+  if(roh) h+=`<button class="btn ghost" style="margin-top:10px" data-act="food:dbsuche">
+      🔍 „${esc(roh)}" in der Datenbank suchen</button>`;
+  h+=`<button class="btn ghost" style="margin-top:${roh?'8':'10'}px" data-act="food:new">+ Neues Lebensmittel${roh?` „${esc(roh)}"`:''}</button>`;
   el.innerHTML=h;
 }
 
@@ -3688,6 +3710,23 @@ function eigenesZuBarcode(nr){
   return kcalInit().foods.find(f=>f.barcode && String(f.barcode)===String(nr)) || null;
 }
 
+/* Ein Open-Food-Facts-Produkt in einen Entwurf. Ausgelagert am 31.08.2026, weil es die
+   Namenssuche genauso braucht wie der Barcode -- vor allem die Kalorien-Umrechnung: nicht
+   jedes Produkt hat `energy-kcal_100g`, manche nur `energy_100g` in Kilojoule.
+   ⚠️ Gibt `null` zurück, wenn keine Kalorien da sind. Ein Treffer ohne Nährwerte ist eine
+   Sackgasse -- der Barcode-Weg fängt das ab, die Suche zeigt ihn gar nicht erst an. */
+function offNachDraft(p, ersatzName){
+  const n = (p && p.nutriments) || {};
+  const kcal = n['energy-kcal_100g'] != null ? n['energy-kcal_100g']
+             : (n['energy_100g'] != null ? n['energy_100g']/4.184 : null);
+  if(kcal == null) return null;
+  return { name:(p.product_name_de||p.product_name||ersatzName||'Produkt').slice(0,60),
+    marke:(p.brands||'').split(',')[0].trim(),
+    kcal:Math.round(kcal), p:Math.round(n.proteins_100g||0),
+    c:Math.round(n.carbohydrates_100g||0), f:Math.round(n.fat_100g||0),
+    basis:'g100', menge:100 };
+}
+
 async function holeBarcode(nr){
   if(!nr || nr.length<6){ foodFehler='Das war keine gültige Barcode-Nummer.'; render(); return; }
 
@@ -3705,14 +3744,9 @@ async function holeBarcode(nr){
     const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(nr)}.json?fields=product_name,product_name_de,brands,nutriments`);
     const d=await r.json();
     if(!d || d.status===0 || !d.product) throw new Error('Das Produkt steht nicht in der Datenbank.');
-    const p=d.product, n=p.nutriments||{};
-    const kcal = n['energy-kcal_100g'] != null ? n['energy-kcal_100g']
-               : (n['energy_100g']!=null ? n['energy_100g']/4.184 : null);
-    if(kcal==null) throw new Error('Zu dem Produkt sind keine Nährwerte hinterlegt.');
-    foodDraft={ name:(p.product_name_de||p.product_name||'Produkt '+nr).slice(0,60),
-      marke:(p.brands||'').split(',')[0].trim(),
-      kcal:Math.round(kcal), p:Math.round(n.proteins_100g||0), c:Math.round(n.carbohydrates_100g||0),
-      f:Math.round(n.fat_100g||0), basis:'g100', menge:100, quelle:'barcode', barcode:String(nr) };
+    const entwurf=offNachDraft(d.product, 'Produkt '+nr);
+    if(!entwurf) throw new Error('Zu dem Produkt sind keine Nährwerte hinterlegt.');
+    foodDraft={...entwurf, quelle:'barcode', barcode:String(nr)};
     foodBusy=''; foodStep='menge'; render();
   }catch(e){
     foodBusy='';
@@ -3732,6 +3766,55 @@ async function holeBarcode(nr){
       foodFehler=(e&&e.message)||'Kein Netz oder Datenbank nicht erreichbar.';
     }
     render(); }
+}
+
+/* ---------- Suchen statt scannen (31.08.2026) ----------
+   Karls Ansage: „wir brauchen eine Datenbank für essen zum eintragen falls man keinen
+   QR-Code hat.“ Die Datenbank war längst angeschlossen -- aber **nur über den Barcode.**
+   Ohne Packung (loses Obst, Kantine, Restaurant, abgeschält und weggeworfen) blieb nur:
+   alle Nährwerte von Hand abtippen.
+
+   ⚠️ **Gesucht wird auf Knopfdruck, nicht beim Tippen.** Zwei Gründe, beide gemessen:
+   Open Food Facts drosselt spürbar (beim Bauen am 31.08. kamen nach wenigen Anfragen
+   hintereinander nur noch 503er), und im Keller-Gym ist ohnehin kein Netz. Eine Suche bei
+   jedem Tastendruck wäre dort eine Reihe von Fehlschlägen statt einer Antwort.
+
+   💡 **Die eigene Liste kommt zuerst** -- sie steht schon oben und braucht kein Netz.
+   Der Knopf zur Datenbank erscheint darunter, also genau dort, wo man merkt, dass das
+   Eigene nicht reicht. */
+let dbTreffer=[], dbFrage='';
+
+async function dbSuche(text){
+  const q=(text||'').trim();
+  if(q.length<2){ foodFehler='Gib mindestens zwei Buchstaben ein.'; render(); return; }
+  dbFrage=q; dbTreffer=[];
+  foodBusy='Suche „'+q+'“ in der Lebensmittel-Datenbank …'; foodFehler=''; view='food'; render();
+  try{
+    const u='https://world.openfoodfacts.org/cgi/search.pl?search_simple=1&action=process&json=1'
+          + '&page_size=24&fields=code,product_name,product_name_de,brands,nutriments'
+          + '&search_terms='+encodeURIComponent(q);
+    const r=await fetch(u);
+    if(!r.ok) throw new Error('Die Datenbank antwortet gerade nicht (Fehler '+r.status+').');
+    const d=await r.json();
+    /* ⚠️ Treffer ohne Nährwerte werden hier weggelassen, nicht erst beim Antippen. Von den
+       Produkten mit Deutschland-Kennung hatte am 22.08.2026 nur gut die Hälfte vollständige
+       Werte -- eine Liste, in der jeder zweite Eintrag in eine Fehlermeldung führt, ist
+       schlechter als eine kurze. */
+    dbTreffer=(d.products||[]).map(p=>{ const e=offNachDraft(p, q);
+                 return e ? {...e, barcode:String(p.code||'')} : null; })
+               .filter(Boolean);
+    foodBusy='';
+    if(!dbTreffer.length){
+      foodStep='list';
+      foodFehler='Zu „'+q+'“ steht nichts mit Nährwerten in der Datenbank. '
+               + 'Trag es einmal von Hand ein — danach steht es in deiner Liste.';
+    } else foodStep='db';
+    render();
+  }catch(e){
+    foodBusy=''; foodStep='list';
+    foodFehler=(e&&e.message)||'Kein Netz oder Datenbank nicht erreichbar.';
+    render();
+  }
 }
 
 // ---------- Foto schätzen lassen (KI) ----------
@@ -4547,7 +4630,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v55';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v56';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -5744,6 +5827,11 @@ document.addEventListener('click',ev=>{
     confirmTwice('df'+id,t,'Weg?',()=>{ k.foods=k.foods.filter(x=>x.id!==id); save(); render(); }); return; }
   if(t.dataset.pickfood){ const f=kcalInit().foods.find(x=>x.id===t.dataset.pickfood); if(!f) return;
     foodDraft={...f, basis:'g100', menge:100, quelle:'eigen'}; foodStep='menge'; foodFehler=''; render(); return; }
+  /* 💡 Der Barcode wird mitgenommen, obwohl hier keiner gescannt wurde: wer den Treffer
+     mit „Auch in meine Liste aufnehmen“ behält, trifft ihn beim nächsten Mal SOFORT per
+     Scan -- ohne Netz und ohne Suche. */
+  if(t.dataset.dbpick){ const f=dbTreffer[+t.dataset.dbpick]; if(!f) return;
+    foodDraft={...f, quelle:'db'}; foodStep='menge'; foodFehler=''; render(); return; }
   if(t.dataset.skin){ const min=+t.dataset.skin, lvl=levelFromXP(profile.xp).level;
     const r=RANKS.find(x=>x.min===min); if(!r||lvl<r.min) return;      // gesperrte Ränge bleiben gesperrt
     profile.rankSkin = (profile.rankSkin===min) ? null : min;          // nochmal tippen = wieder der echte Rang
@@ -5980,6 +6068,8 @@ document.addEventListener('click',ev=>{
   else if(a==='food:new'){ const s=document.getElementById('foodSearch');
     foodDraft=leerDraft(); foodDraft.name=s?s.value.trim():''; foodStep='new'; render(); }
   else if(a==='food:barcode'){ foodFehler=''; openScan(); }
+  else if(a==='food:dbsuche'){ const s=document.getElementById('foodSearch');
+    dbSuche(s?s.value:''); }
   else if(a==='closescan'){ stopScan(); closeModal(); }
   else if(a==='scantippen'){ stopScan(); closeModal(); nummerTippen(); }
   else if(a==='food:foto'){ foodFehler=''; const fi=document.getElementById('fotoInput');
