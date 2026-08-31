@@ -454,6 +454,17 @@ setTimeout(function(){
     padding:10px 16px; border-radius:12px; font-weight:700; z-index:60; opacity:0; transition:opacity .2s;
     pointer-events:none; max-width:88%; text-align:center}
   .toast.show{opacity:1}
+  /* ---------- Hinweis auf eine neue Fassung (31.08.2026) ----------
+     Karl hatte am 27.08. zweimal die alte Fassung vor sich, ohne es zu merken -- einmal davon
+     hat er es als Fehler gemeldet ("es sind nur 2 Tutorials da"). Der Service Worker holt
+     zwar sofort das Neue, aber ein Fenster, das schon offen steht, behaelt sein altes HTML.
+     ⚠️ Oben und nicht unten: unten sitzen schon Reiterleiste und Pausenuhr -- und die Uhr
+     laeuft genau dann, wenn am wenigsten Platz fuer etwas Drittes ist. */
+  #neufassung{position:fixed; left:0; right:0; top:0; z-index:70; max-width:520px; margin:0 auto;
+    display:none; width:100%; border:0; background:var(--accent); color:var(--bg);
+    font-weight:700; font-size:13px; text-align:center; cursor:pointer;
+    padding:9px 14px; padding-top:calc(9px + env(safe-area-inset-top))}
+  #neufassung.show{display:block}
   .modal{position:fixed; inset:0; z-index:80; background:rgba(0,0,0,.6); display:none;
     align-items:center; justify-content:center; padding:24px}
   .modal.show{display:flex}
@@ -570,6 +581,7 @@ setTimeout(function(){
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="navtxt">Einstellungen</span></button>
 </nav>
 
+<button id="neufassung" type="button">Neue Fassung ist da — tippen zum Laden</button>
 <div id="toast" class="toast"></div>
 <div id="modal" class="modal"></div>
 <!-- Fuer „Essen per Foto": capture=environment oeffnet am Handy direkt die Kamera. -->
@@ -1806,6 +1818,9 @@ function render(){
   // während Barcode oder KI noch laufen (die setzen view selbst auf 'food').
   if(view!=='food'&&!foodBusy){ foodStep='list'; foodDraft=null; foodFehler=''; foodMz=''; }
   setNav();
+  /* Ein zurueckgehaltener Fassungs-Hinweis wird hier faellig: er erscheint nicht mitten
+     im Training, sondern beim naechsten Bild danach. */
+  if(window.neueFassungPruefen) window.neueFassungPruefen();
   ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, body:renderBody, food:renderFood, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin, meldung:renderMeldung, erfolge:renderErfolge, comeback:renderComeback}[view]||renderHome)();
   syncSessionClock();
   /* Den Kurzcode fuers Teilen im Hintergrund bauen, solange noch niemand geklickt hat.
@@ -4532,7 +4547,10 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v32';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v55';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+/* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
+   die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
+   waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
 const MELD_KEY = 'gymlog:meldungen';
 const POST_KEY = 'gymlog:postfach';
 
@@ -6299,7 +6317,64 @@ function reiterZeigen(ziel){
   }, {passive:true});
 })();
 
-if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+/* ---------- Neue Fassung erkennen und anbieten (31.08.2026) ----------
+   Der Service Worker laeuft auf "Netz zuerst" und ruft `skipWaiting()` -- neue Dateien sind
+   also sofort da. **Ein Fenster, das schon offen steht, merkt davon nichts:** sein HTML ist
+   geladen, und geladen bleibt geladen. Genau das ist Karl am 27.08. zweimal passiert.
+
+   ⚠️ **Es wird NICHT von selbst neu geladen.** Ein Neuladen reisst weg, was gerade eingetippt
+   ist; die App uebt dieselbe Vorsicht schon beim Sprung ins Postfach ("laeuft ein Training,
+   bleibt sie stehen"). Der Hinweis fragt, das Laden entscheidet Karl.
+
+   ⚠️ `installed` ALLEIN genuegt als Bedingung nicht -- das ist auch der Zustand bei der
+   allerersten Installation. `navigator.serviceWorker.controller` trennt beides: den gibt es
+   nur, wenn vorher schon einer da war. Ohne die Abfrage saehe jeder neue Nutzer beim ersten
+   Start "Neue Fassung ist da". */
+/* Rein rechnerisch: soll die Leiste jetzt zu sehen sein? Ausgelagert, weil der Rest dieses
+   Blocks in den Pruefungen NIE laeuft -- die laden ueber `file://`, und dort gibt es
+   `navigator.serviceWorker` gar nicht. Als freie Funktion ist wenigstens die Entscheidung
+   nachpruefbar, samt der Ruecksicht aufs laufende Training. */
+function fassungsLeisteFaellig(wartet, ansicht){ return wartet === true && ansicht !== 'workout'; }
+
+if('serviceWorker' in navigator){
+  const leiste = document.getElementById('neufassung');
+  let fassungWartet = false;
+
+  /* Beim Zeichnen aus render() heraus: ein Hinweis, der waehrend des Trainings gekommen ist,
+     wird hier nachgeholt. */
+  window.neueFassungPruefen = () => {
+    if(fassungsLeisteFaellig(fassungWartet, view)) leiste.classList.add('show');
+  };
+
+  leiste.addEventListener('click', () => {
+    flushSync();            // erst wegschreiben, dann neu laden -- sonst kostet der Klick Daten
+    location.reload();
+  });
+
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    reg.addEventListener('updatefound', () => {
+      const neu = reg.installing;
+      if(!neu) return;
+      neu.addEventListener('statechange', () => {
+        if(neu.state === 'installed' && navigator.serviceWorker.controller){
+          fassungWartet = true;
+          window.neueFassungPruefen();
+        }
+      });
+    });
+
+    /* Von selbst sieht der Browser nur beim Navigieren nach -- eine PWA, die wochenlang im
+       Hintergrund liegt, navigiert nie. Also beim Zurueckkommen fragen, hoechstens alle
+       fuenf Minuten (dieselbe Ueberlegung wie bei der 30-Sekunden-Bremse am Abgleich). */
+    let zuletztGesucht = Date.now();
+    document.addEventListener('visibilitychange', () => {
+      if(document.visibilityState !== 'visible') return;
+      if(Date.now() - zuletztGesucht < 300000) return;
+      zuletztGesucht = Date.now();
+      reg.update().catch(()=>{});
+    });
+  }).catch(()=>{});
+}
 </script>
 </body>
 </html>

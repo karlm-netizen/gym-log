@@ -2,6 +2,75 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-08-31
+
+### 🔔 v55 — die App sagt Bescheid, wenn eine neue Fassung bereitliegt
+
+**Karls Ansage: „ok los".** Das war der Punkt, der seit dem 27.08. als *angeboten, nicht
+gebaut* dastand.
+
+**Das Problem war nie das Ausliefern, sondern das Ankommen.** Der Service Worker läuft auf
+„Netz zuerst" und ruft `skipWaiting()` — neue Dateien sind sofort da. **Ein Fenster, das schon
+offen steht, merkt davon nichts:** sein HTML ist geladen, und geladen bleibt geladen. Genau das
+ist Karl am 27.08. zweimal passiert, einmal davon hat er es als Fehler gemeldet (*„es sind nur
+2 Tutorials da"*) — **die App war nicht kaputt, sie war alt.**
+
+Jetzt erscheint oben eine Leiste: *„Neue Fassung ist da — tippen zum Laden"*.
+
+⚠️ **Sie lädt nicht von selbst neu.** Ein Neuladen reißt weg, was gerade eingetippt ist. Die
+App übt dieselbe Vorsicht schon beim Sprung ins Postfach (*„läuft ein Training, bleibt sie
+stehen"*). **Und mitten im Training erscheint sie gar nicht erst** — sie wird zurückgehalten
+und kommt beim nächsten Bild danach.
+
+💡 **Warum oben und nicht unten:** unten sitzen Reiterleiste und Pausenuhr — und die Uhr läuft
+genau dann, wenn am wenigsten Platz für etwas Drittes ist.
+
+⚠️ **Beim Zurückkommen wird nachgefragt**, höchstens alle fünf Minuten. Von selbst sieht der
+Browser nur beim Navigieren nach — **eine PWA, die wochenlang im Hintergrund liegt, navigiert
+nie.** Ohne diese Frage bliebe die Leiste bei genau dem Nutzer stumm, für den sie gebaut ist.
+
+#### 🔴 Der Fund nebenbei: `APP_FASSUNG` stand auf `v32`
+
+**22 Fassungen lang.** Die Zeile trägt seit jeher den Kommentar *„mit der Cacheversion in sw.js
+gleichziehen"* — **und genau das ist seit v32 nicht passiert.** Jede Problemmeldung, die Karl
+seit dem 27.08. geschickt hat, trug damit die falsche Nummer; wer ihr nachgegangen wäre, hätte
+im falschen Stand gesucht.
+
+💡 **Der Befund ist nicht die Zahl, sondern was sie festhielt:** ein Kommentar hält nichts fest.
+Er stand die ganze Zeit daneben und hat 22 Mal nichts bewirkt. **Eine Prüfung tut es** — die
+neue Prüfung *„APP_FASSUNG und die Cacheversion in sw.js ziehen gleich"* wird rot, sobald die
+beiden auseinanderlaufen.
+
+⚠️ **Und daran hängt mehr als die Meldenummer:** wird `sw.js` nicht hochgezählt, lädt der
+Browser den Service Worker gar nicht erst neu — dann bliebe die neue Leiste **für immer stumm,
+ohne dass irgendwo etwas rot wird.** Die Prüfung sichert also den Hinweis mit ab, nicht nur die
+Nummer.
+
+#### ✅ Acht neue Prüfungen — 693 → 701, alle fünf Gegenproben rot
+
+⚠️ **Der Melde-Weg selbst ist nicht prüfbar:** `updatefound` und `statechange` hängen an
+`navigator.serviceWorker`, und den gibt es unter `file://` gar nicht — der Prüfrahmen lädt aber
+genau so. **Deshalb ist die Entscheidung ausgelagert** (`fassungsLeisteFaellig`), damit
+wenigstens sie geprüft werden kann.
+
+Geprüft wurde jede Prüfung gegen den kaputten Fall, nicht nur gegen den heilen:
+
+| Was kaputt gemacht wurde | Was rot wurde |
+|---|---|
+| Trainings-Rücksicht entfernt | *Mitten im Training wird sie zurückgehalten* |
+| Aufrufstelle in `render()` entfernt | *render() holt einen zurückgehaltenen Hinweis nach* |
+| `sw.js` nicht hochgezählt | *APP_FASSUNG und die Cacheversion ziehen gleich* |
+| `controller`-Abfrage entfernt | *Die Erstinstallation löst keinen Hinweis aus* |
+| Reihenfolge am Klick vertauscht | *Der Klick schreibt weg, BEVOR er neu lädt* |
+
+💡 **Zwei davon prüfen den Einbau, nicht das Teil.** Die Entscheidung allein wäre wertlos, wenn
+`render()` sie nie abriefe — und die Gegenprobe entfernt deshalb die Aufrufstelle, nicht die
+Funktion.
+
+⚠️ **Was die Prüfungen nicht sagen können:** ob der Hinweis am Handy wirklich erscheint. Das
+zeigt sich erst am **übernächsten** Deploy — beim nächsten ist die Leiste selbst das Neue, und
+die alte Fassung im Fenster kennt sie noch nicht.
+
 ## 2026-08-30
 
 ### 🔍 v54 — die dritte Runde Durchsehen: Verlauf, Statistiken, Push-Anmeldung

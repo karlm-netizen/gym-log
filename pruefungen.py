@@ -4606,6 +4606,73 @@ window.addEventListener('error', e => {
     return eq(r, 'ersatz');
   });
 
+  /* ================================================ Hinweis auf eine neue Fassung (31.08.2026)
+     Karl hatte am 27.08. zweimal die alte Fassung vor sich und hat es einmal als Fehler
+     gemeldet ("es sind nur 2 Tutorials da"). Der Service Worker holt das Neue sofort --
+     aber ein Fenster, das schon offen steht, behaelt sein HTML.
+     ⚠️ **Der Melde-Weg selbst ist hier nicht pruefbar.** `updatefound` und `statechange`
+     haengen an `navigator.serviceWorker`, und den gibt es unter `file://` gar nicht.
+     Geprueft wird die ausgelagerte Entscheidung -- und der Einbau ueber APP_QUELLE. */
+  t('Wartet eine Fassung und laeuft kein Training, ist die Leiste faellig', () => {
+    return fassungsLeisteFaellig(true, 'home') === true || 'sie bliebe verborgen';
+  });
+  /* 🔴 Die Gegenprobe, um die es hier eigentlich geht: mitten im Training darf nichts
+     aufpoppen, was beim Antippen die Seite neu laedt. */
+  t('Mitten im Training wird sie zurueckgehalten', () => {
+    return fassungsLeisteFaellig(true, 'workout') === false || 'sie erscheint im Training';
+  });
+  t('Ohne wartende Fassung erscheint sie nie', () => {
+    return (fassungsLeisteFaellig(false, 'home') === false
+         && fassungsLeisteFaellig(undefined, 'home') === false) || 'sie erscheint grundlos';
+  });
+  t('Beim Start ist die Leiste da, aber unsichtbar', () => {
+    const el = document.getElementById('neufassung');
+    if(!el) return 'die Leiste fehlt im Dokument';
+    return el.classList.contains('show') === false || 'sie steht schon beim Start offen';
+  });
+  /* 🔴 Der Einbau statt nur des Teils: eine Entscheidung, die niemand abruft, ist keine. */
+  t('render() holt einen zurueckgehaltenen Hinweis nach', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    return rumpf(q, 'render').indexOf('neueFassungPruefen()') > -1
+      || 'render() fragt nicht nach';
+  });
+  /* ⚠️ Ohne `controller` in der Bedingung saehe JEDER neue Nutzer beim allerersten Start
+     "Neue Fassung ist da" -- `installed` ist auch der Zustand der Erstinstallation. */
+  t('Die Erstinstallation loest keinen Hinweis aus', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const i = q.indexOf("neu.state === 'installed'");
+    if(i < 0) return 'die Bedingung steht nicht da';
+    return q.slice(i, i + 160).indexOf('navigator.serviceWorker.controller') > -1
+      || 'installed wird ohne controller-Abfrage geglaubt';
+  });
+  /* Reihenfolge, wie beim Abmelden: erst wegschreiben, dann neu laden. Andersherum kostet
+     ein Klick auf die Leiste den zuletzt eingetippten Satz. */
+  t('Der Klick schreibt weg, BEVOR er neu laedt', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const i = q.indexOf("leiste.addEventListener('click'");
+    if(i < 0) return 'der Klick-Anschluss fehlt';
+    const r = q.slice(i, i + 400).replace(/\/\*[\s\S]*?\*\//g, '');
+    const f = r.indexOf('flushSync()'), l = r.indexOf('location.reload()');
+    if(f < 0 || l < 0) return 'einer der beiden Schritte fehlt';
+    return f < l || 'es wird neu geladen, bevor gespeichert ist';
+  });
+  /* 🔴 Und die Pruefung, die den eigentlichen Fund vom 31.08.2026 festhaelt: `APP_FASSUNG`
+     stand 22 Fassungen lang auf 'v32', waehrend sw.js schon bei 'gymlog-v54' war. Der
+     Kommentar "mit der Cacheversion in sw.js gleichziehen" stand die ganze Zeit daneben --
+     **ein Kommentar haelt nichts fest.** Jede Problemmeldung trug die falsche Nummer.
+     ⚠️ Und es haengt mehr daran als die Meldung: wird sw.js NICHT hochgezaehlt, laedt der
+     Browser den Service Worker gar nicht erst neu -- dann bleibt der Hinweis oben fuer
+     immer stumm, ohne dass irgendwo etwas rot wird. */
+  t('APP_FASSUNG und die Cacheversion in sw.js ziehen gleich', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const s = window.SW_QUELLE || ''; if(!s) return 'SW_QUELLE fehlt';
+    const a = q.match(/APP_FASSUNG\s*=\s*'(v\d+)'/);
+    const b = s.match(/CACHE\s*=\s*'gymlog-(v\d+)'/);
+    if(!a) return 'APP_FASSUNG nicht gefunden';
+    if(!b) return 'die Cacheversion in sw.js nicht gefunden';
+    return a[1] === b[1] || ('App steht auf ' + a[1] + ', sw.js auf ' + b[1]);
+  });
+
   // ================================================================ Aufraeumen
   sessions = SICHER.sessions; profile = SICHER.profile; settings = SICHER.settings;
 
