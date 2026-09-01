@@ -1849,6 +1849,153 @@ window.addEventListener('error', e => {
     return true;
   });
 
+  /* ---- Zeitraum der Gewichtskurve (Karls Ansage 01.09.2026) ----
+     „ich will das die kurve fuer das gewicht zeitlich einstellbar ist 1 woche 1 monat
+     1 jahr max". Geprueft wird beides: der Filter allein UND was in der Ansicht ankommt
+     — der Fund vom selben Tag war eine Lehre, die nur an einer von zwei Stellen
+     eingebaut war. */
+  const gwTage = n => Date.now() - n*864e5;
+  // Baut die Koerperansicht mit vorgegebenen Wiegungen und gibt ihr HTML zurueck.
+  // ⚠️ Dieselben drei schweigenden Huerden wie oben: ohne `session` kommt die
+  // Anmeldeseite, ohne Kalorien-Ziel der Einrichtungs-Assistent, und `kobErzwingen`
+  // haelt ihn selbst dann oben.
+  function koerperHtml(gewichte, fenster, klick){
+    const wV=profile.weights, kV=JSON.stringify(profile.kcal||null),
+          sV=session, ezV=kobErzwingen, fV=gwFenster;
+    session={user:{id:'test'}, expires_at:Date.now()+3600e3, access_token:'x'};
+    kobErzwingen=false;
+    const k=kcalInit(); k.setup=true; k.goal=2000;
+    profile.weights=gewichte; gwFenster=fenster||'max';
+    view='body'; render();
+    let fehlt=null;
+    if(klick){ const b=document.querySelector('[data-act="gw:fenster:'+klick+'"]');
+               if(b) b.click(); else fehlt=klick; }
+    const h=app.innerHTML, f=gwFenster;
+    profile.weights=wV; if(kV!=='null') profile.kcal=JSON.parse(kV);
+    kobErzwingen=ezV; session=sV; gwFenster=fV;
+    view='home'; render();
+    return {h:h, fenster:f, fehlt:fehlt};
+  }
+  // Punkte der gezeichneten Kurve zaehlen. ⚠️ Nicht ueber eine Textsuche: die
+  // Rasterlinien tragen dieselben x1/y1 — nur die Strichstaerke 5.2 gehoert den Punkten.
+  const kurvenPunkte = html => { const d=document.createElement('div'); d.innerHTML=html;
+    return d.querySelectorAll('.chart-plot line[stroke-width="5.2"]').length; };
+
+  t('Eine Woche nimmt nur die letzten sieben Tage', () => {
+    const vorher = profile.weights;
+    profile.weights = [{date:gwTage(40),kg:82},{date:gwTage(20),kg:80},
+                       {date:gwTage(3),kg:79},{date:gwTage(1),kg:78.5}];
+    const w = weightImFenster('woche').map(x=>x.kg);
+    profile.weights = vorher;
+    return JSON.stringify(w)==='[79,78.5]' || JSON.stringify(w);
+  });
+  t('Max nimmt alles', () => {
+    const vorher = profile.weights;
+    profile.weights = [{date:gwTage(900),kg:90},{date:gwTage(1),kg:78}];
+    const n = weightImFenster('max').length;
+    profile.weights = vorher;
+    return eq(n, 2);
+  });
+  t('Ein Jahr laesst Aelteres draussen, ein Monat auch', () => {
+    const vorher = profile.weights;
+    profile.weights = [{date:gwTage(400),kg:90},{date:gwTage(60),kg:84},
+                       {date:gwTage(2),kg:80}];
+    const j = weightImFenster('jahr').length, m = weightImFenster('monat').length;
+    profile.weights = vorher;
+    return (j===2 && m===1) || 'Jahr='+j+' Monat='+m;
+  });
+  t('Ein unbekannter Zeitraum faellt auf Max zurueck', () => {
+    const vorher = profile.weights;
+    profile.weights = [{date:gwTage(900),kg:90},{date:gwTage(1),kg:78}];
+    const n = weightImFenster('quatsch').length;
+    profile.weights = vorher;
+    return eq(n, 2);
+  });
+  /* 🔴 Die Grenze zaehlt ab HEUTE, nicht ab dem letzten Eintrag. Wer nach drei
+     Monaten Pause „1 Woche" waehlt, soll einen leeren Zeitraum sehen und nicht die
+     Woche von vor drei Monaten unter der Ueberschrift „1 Woche". */
+  t('Ein leerer Zeitraum bleibt leer und schiebt sich nicht zurueck', () => {
+    const vorher = profile.weights;
+    profile.weights = [{date:gwTage(95),kg:82},{date:gwTage(90),kg:81}];
+    const n = weightImFenster('woche').length;
+    profile.weights = vorher;
+    return eq(n, 0);
+  });
+
+  t('Vier Zeitraeume stehen ueber der Kurve, genau einer ist gewaehlt', () => {
+    const r = koerperHtml([{date:gwTage(20),kg:80},{date:gwTage(2),kg:79}]);
+    const d = document.createElement('div'); d.innerHTML = r.h;
+    const knoepfe = [...d.querySelectorAll('[data-act^="gw:fenster:"]')];
+    if(knoepfe.length !== 4) return 'erwartet 4 Knoepfe, gefunden ' + knoepfe.length;
+    const an = knoepfe.filter(b => b.classList.contains('on'));
+    if(an.length !== 1) return an.length + ' Knoepfe gleichzeitig gewaehlt';
+    return an[0].getAttribute('data-act')==='gw:fenster:max'
+      || 'gewaehlt ist ' + an[0].getAttribute('data-act');
+  });
+  /* 🔴 Die Gegenprobe zum Knopf: nicht „steht der Knopf da", sondern
+     „schneidet er die Kurve wirklich". Sieben Wiegungen, davon zwei in der letzten
+     Woche — bei „Max" muessen sieben Punkte gezeichnet sein, bei „1 Woche"
+     zwei. Ein Knopf, der nur seine eigene Farbe aendert, faellt genau hier durch. */
+  t('Ein Klick auf 1 Woche schneidet die Kurve wirklich', () => {
+    const gew = [{date:gwTage(300),kg:86},{date:gwTage(200),kg:84},
+                 {date:gwTage(100),kg:83},{date:gwTage(40),kg:81},
+                 {date:gwTage(20),kg:80},{date:gwTage(5),kg:79},
+                 {date:gwTage(1),kg:78.5}];
+    const alle = koerperHtml(gew);
+    const woche = koerperHtml(gew, 'max', 'woche');
+    if(woche.fehlt) return 'Knopf ' + woche.fehlt + ' nicht gefunden';
+    if(woche.fenster !== 'woche') return 'Klick hat den Zeitraum nicht umgestellt';
+    const a = kurvenPunkte(alle.h), b = kurvenPunkte(woche.h);
+    return (a===7 && b===2) || 'Max=' + a + ' Punkte, Woche=' + b;
+  });
+  t('Der Klick laesst den Zeitraum auch nach dem Neuzeichnen stehen', () => {
+    const gew = [{date:gwTage(300),kg:86},{date:gwTage(2),kg:79}];
+    const r = koerperHtml(gew, 'max', 'jahr');
+    const d = document.createElement('div'); d.innerHTML = r.h;
+    const an = d.querySelector('[data-act^="gw:fenster:"].on');
+    return (an && an.getAttribute('data-act')==='gw:fenster:jahr')
+      || 'gewaehlt ist ' + (an ? an.getAttribute('data-act') : 'nichts');
+  });
+  /* 🔴 Kein toter Punkt. Ein Zeitraum ohne zwei Messungen darf keine leere Karte
+     zeigen — dann sieht es aus, als sei die App kaputt. Er sagt, dass nichts da ist,
+     und nennt den naechsten Zeitraum, in dem etwas steht. */
+  t('Ein Zeitraum ohne Kurve sagt das und nennt den naechsten', () => {
+    const gew = [{date:gwTage(200),kg:84},{date:gwTage(150),kg:82}];
+    const r = koerperHtml(gew, 'max', 'woche');
+    if(kurvenPunkte(r.h) !== 0) return 'trotzdem eine Kurve gezeichnet';
+    if(!/Kein Eintrag in diesem Zeitraum/.test(r.h)) return 'kein Hinweis auf den leeren Zeitraum';
+    return /Unter .1 Jahr/.test(r.h) || 'der naechste Zeitraum wird nicht genannt';
+  });
+  t('Ein einziger Eintrag im Zeitraum sagt, dass zwei noetig sind', () => {
+    const gew = [{date:gwTage(200),kg:84},{date:gwTage(2),kg:79}];
+    const r = koerperHtml(gew, 'max', 'woche');
+    return /Nur ein Eintrag in diesem Zeitraum/.test(r.h) || 'falscher oder kein Hinweis';
+  });
+  /* 🔴 Die drei Kaesten oben zeigen weiter die ganze Geschichte, die Kurve darunter
+     nur den Zeitraum. „kg seit Start" haelt die beiden auseinander — ohne das Wort
+     liest man bei „1 Woche" die Differenz eines halben Jahres als die der Woche. */
+  t('Die Differenz sagt dazu, dass sie ab Start zaehlt', () => {
+    const r = koerperHtml([{date:gwTage(200),kg:84},{date:gwTage(2),kg:79}], 'max', 'woche');
+    if(!r.h.includes('kg seit Start')) return 'die Differenz sagt nicht, worauf sie sich bezieht';
+    return !r.h.includes('kg Differenz') || 'die alte, mehrdeutige Beschriftung steht noch da';
+  });
+  /* Die Spanne neben der Ueberschrift beschreibt die GEZEIGTE Kurve, nicht alle Daten.
+     ⚠️ Gelesen wird genau der eine Span neben „Verlauf" und nicht die ganze Seite:
+     die Liste „Eintraege" darunter zeigt weiterhin ALLE Wiegungen — dort steht die
+     90 voellig zu Recht, und eine Textsuche ueber das ganze HTML faende sie dort. */
+  t('Die Spanne neben Verlauf gilt dem gewaehlten Zeitraum', () => {
+    const gew = [{date:gwTage(300),kg:90},{date:gwTage(5),kg:79},{date:gwTage(1),kg:78}];
+    const r = koerperHtml(gew, 'max', 'woche');
+    const d = document.createElement('div'); d.innerHTML = r.h;
+    const kopf = [...d.querySelectorAll('h2')].find(x => x.textContent.trim()==='Verlauf');
+    if(!kopf) return 'keine Ueberschrift Verlauf';
+    const span = kopf.parentElement.querySelector('span.tiny.muted');
+    if(!span) return 'keine Spanne neben der Ueberschrift';
+    const txt = span.textContent;
+    if(txt.includes('90')) return 'die Spanne zeigt noch den Wert von ausserhalb: ' + txt;
+    return (txt.includes('78') && txt.includes('79')) || 'Spanne des Zeitraums fehlt: ' + txt;
+  });
+
   // ---- Verlauf je Uebung ----
   t('Verlauf nimmt nur abgehakte Saetze', () => {
     sessions = [{date:Date.now(), entries:[{name:'A', sets:[

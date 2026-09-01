@@ -4,6 +4,50 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-01
 
+### v58 — die Gewichtskurve lässt sich jetzt auf einen Zeitraum stellen
+
+Karls Ansage: „ich will das die kurve für das gewicht zeitlich einstellbar ist 1 woche
+1 monat 1 jahr max“.
+
+Über der Kurve stehen vier Knöpfe: **1 Woche · 1 Monat · 1 Jahr · Max**. Sie schneiden die
+Kurve und die Spanne daneben zu. Voreingestellt ist **Max** — dasselbe Bild wie bisher, es
+kommt also nichts weg, solange man nichts anfasst.
+
+**Drei Entscheidungen, die man nicht sieht:**
+
+⚠️ **Die Grenze zählt ab heute, nicht ab dem letzten Eintrag.** Wer sich drei Monate nicht
+gewogen hat und „1 Woche“ drückt, sieht einen leeren Zeitraum — nicht die Woche von vor drei
+Monaten unter der Überschrift „1 Woche“. Eine leere Woche ist eine Antwort; ein still
+zurückgeschobenes Fenster wäre eine falsche.
+
+⚠️ **Ein leerer Zeitraum ist kein toter Punkt.** Statt einer leeren Karte steht dort
+„Kein Eintrag in diesem Zeitraum — eine Kurve braucht zwei“ **und der nächste Zeitraum, in
+dem wirklich eine Kurve steht**, beim Namen genannt.
+
+🔴 **„kg Differenz“ heißt jetzt „kg seit Start“.** Die drei Kästen oben zeigen weiterhin die
+ganze Geschichte, die Kurve darunter nur noch den Zeitraum. Ohne das Wort „Start“ liest man
+bei „1 Woche“ die Differenz eines halben Jahres als die der Woche — zwei Zahlen übereinander,
+die sich widersprechen, und keine sagt, worauf sie sich bezieht. Die Liste „Einträge“ ganz
+unten bleibt vollständig; dort will man auch alte Werte löschen können.
+
+Der Zeitraum wird **bewusst nicht im Profil gespeichert**: das ist eine Blickrichtung, keine
+Messung. Im Profil müsste er durch `blobsZusammen` und über zwei Geräte abgeglichen werden —
+viel Maschinerie dafür, dass beim nächsten Öffnen ohnehin die volle Kurve das Richtige ist.
+
+**Zwölf neue Prüfungen** (717 → 729). Sie prüfen den Filter allein **und** was in der Ansicht
+ankommt — die Lehre vom selben Tag (v57) war eine, die nur an einer von zwei Stellen
+eingebaut war.
+
+✅ **Gegengeprüft, indem die Aufrufstelle ausgehängt wurde** (`weightImFenster` blieb dabei
+unangetastet, damit die Probe den Einbau prüft und nicht die Funktion): vier Prüfungen werden
+rot, die erste meldet genau den sichtbaren Schaden — `Max=7 Punkte, Woche=7`.
+
+**Nicht angefasst, bewusst:** die Kurve setzt ihre Punkte weiterhin **gleichmäßig
+nebeneinander**, nicht nach dem Abstand in der Zeit. Bei „1 Jahr“ sieht eine Pause von drei
+Monaten deshalb genauso breit aus wie ein Tag. Das ist so, seit es die Kurve gibt, und gilt
+für alle drei Kurven der App — es zu ändern ist eine eigene Sache und keine Zugabe zu dieser.
+
+
 ### 🔴 v57 — ein 503 beim Scannen schickte dich ins Abtippen
 
 **Gefunden vom ersten Agentenlauf über die App** (9 Funde, dieser der schwerste).

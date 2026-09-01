@@ -400,6 +400,10 @@ setTimeout(function(){
   .chip.big{padding:14px 0; font-size:17px; font-weight:800}
   .ob-grid{display:grid; grid-template-columns:repeat(5,1fr); gap:8px}
   .ob-days{display:grid; grid-template-columns:repeat(7,1fr); gap:6px}
+  /* Zeitraum-Wahl ueber der Gewichtskurve (01.09.2026). Vier gleich breite Felder statt
+     umbrechender Reihe: die vier Zeitraeume sind EINE Auswahl, kein Sortiment. */
+  .zeitwahl{display:grid; grid-template-columns:repeat(4,1fr); gap:6px}
+  .zeitwahl .chip{padding:10px 0; text-align:center; font-size:12.5px}
   .ob-days .chip{padding:11px 0; text-align:center}
   .ob-favs{display:flex; flex-wrap:wrap; gap:7px}
   .ob-favs .chip{padding:8px 11px; font-size:12.5px; font-weight:500}
@@ -3507,12 +3511,30 @@ function renderBody(){
   h+=`<div class="grid3" style="margin-top:14px">
       <div class="stat"><b>${fmtKg(first.kg)}</b><span>Start</span></div>
       <div class="stat"><b>${fmtKg(cur.kg)}</b><span>Aktuell</span></div>
-      <div class="stat"><b>${diff>0?'+':''}${fmtKg(diff)}</b><span>kg Differenz</span></div></div>`;
+      <div class="stat"><b>${diff>0?'+':''}${fmtKg(diff)}</b><span>kg seit Start</span></div></div>`;
+
+  /* ⚠️ „kg seit Start" statt „kg Differenz" (01.09.2026, zusammen mit der Zeitraum-Wahl
+     darunter). Die drei Kaesten zeigen IMMER die ganze Geschichte, die Kurve darunter nur
+     noch den gewaehlten Zeitraum. Ohne das Wort „Start" liest man bei „1 Woche" die
+     Differenz von einem halben Jahr als die der Woche — zwei Zahlen, die sich
+     widersprechen, und keine sagt, worauf sie sich bezieht. */
 
   if(w.length>1){
+    const wf = weightImFenster(gwFenster);
     h+=`<div class="row between" style="margin:20px 4px 6px"><h2>Verlauf</h2>
-        <span class="tiny muted">${fmtKg(Math.min(...w.map(x=>x.kg)))}–${fmtKg(Math.max(...w.map(x=>x.kg)))} kg</span></div>
-      <div class="card" style="padding:10px 8px">${lineChart(w.map(x=>x.kg),300,110,{x:w.map(x=>x.date),einheit:'kg'})}</div>`;
+        ${wf.length>1?`<span class="tiny muted">${fmtKg(Math.min(...wf.map(x=>x.kg)))}–${fmtKg(Math.max(...wf.map(x=>x.kg)))} kg</span>`:''}</div>
+      <div class="zeitwahl" style="margin:0 4px 8px">${GW_FENSTER.map(f=>
+        `<button class="chip ${f.id===gwFenster?'on':''}" data-act="gw:fenster:${f.id}">${f.name}</button>`).join('')}</div>`;
+    if(wf.length>1){
+      h+=`<div class="card" style="padding:10px 8px">${lineChart(wf.map(x=>x.kg),300,110,{x:wf.map(x=>x.date),einheit:'kg'})}</div>`;
+    } else {
+      /* Kein toter Punkt: der naechste Zeitraum, in dem wirklich eine Kurve steht, wird
+         gleich beim Namen genannt. `w.length>1` gilt hier oben schon, also findet die
+         Suche spaetestens bei „Max" etwas — `passt` kann nicht leer bleiben. */
+      const passt = GW_FENSTER.find(f=>weightImFenster(f.id).length>1);
+      h+=`<div class="empty" style="margin-top:4px">${wf.length?'Nur ein Eintrag':'Kein Eintrag'} in diesem Zeitraum — eine Kurve braucht zwei.${
+        passt&&passt.id!==gwFenster?`<br>Unter „${passt.name}" siehst du eine.`:''}</div>`;
+    }
   } else {
     h+=`<div class="empty" style="margin-top:16px">Ab dem zweiten Eintrag siehst du hier eine Kurve.</div>`;
   }
@@ -3961,6 +3983,35 @@ async function schaetzeFoto(file){
 }
 
 function weightList(){ return (profile.weights||[]).slice().sort((a,b)=>a.date-b.date); }
+
+/* ---------- Zeitraum der Gewichtskurve (Karls Ansage 01.09.2026) ----------
+   „ich will das die kurve fuer das gewicht zeitlich einstellbar ist 1 woche 1 monat
+   1 jahr max".
+   ⚠️ Die Reihenfolge im Feld ist die Reihenfolge auf dem Bildschirm UND die Reihenfolge,
+   in der unten der naechstgroessere Zeitraum gesucht wird — von eng nach weit. Wer hier
+   umsortiert, aendert beides.                                                        */
+const GW_FENSTER = [
+  {id:'woche', name:'1 Woche', tage:7},
+  {id:'monat', name:'1 Monat', tage:30},
+  {id:'jahr',  name:'1 Jahr',  tage:365},
+  {id:'max',   name:'Max',     tage:0}
+];
+/* Bewusst NICHT im Profil abgelegt: das ist eine Blickrichtung, keine Messung. Im Profil
+   muesste sie durch `blobsZusammen` und ueber zwei Geraete abgeglichen werden — viel
+   Maschinerie dafuer, dass beim naechsten Oeffnen ohnehin die volle Kurve die richtige
+   Voreinstellung ist. */
+let gwFenster = 'max';
+/* ⚠️ Die Grenze zaehlt ab HEUTE, nicht ab dem letzten Eintrag. „1 Woche" soll die letzte
+   Woche zeigen — auch wenn nichts darin steht. Eine leere Woche ist eine Antwort; ein
+   stillschweigend zurueckgeschobenes Fenster waere eine falsche, denn dann zeigte
+   „1 Woche" bei drei Monaten Pause die Woche von vor drei Monaten. */
+function weightImFenster(id){
+  const f = GW_FENSTER.find(x=>x.id===id) || GW_FENSTER[GW_FENSTER.length-1];
+  const w = weightList();
+  if(!f.tage) return w;
+  const grenze = Date.now() - f.tage*864e5;
+  return w.filter(x=>x.date>=grenze);
+}
 function lastWeight(){ const w=weightList(); return w.length?w[w.length-1]:null; }
 // Fuer die Erinnerung auf der Startseite. Bewusst „heute", nicht „in den letzten 24 Stunden":
 // wer abends um 23 Uhr wiegt, soll am naechsten Morgen wieder gefragt werden.
@@ -4639,7 +4690,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v57';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v58';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -6040,6 +6091,7 @@ document.addEventListener('click',ev=>{
   else if(a.startsWith('erinn:')){ const teile=a.split(':');
     erinnerungSetzen(teile[1], teile[2]==='an'); render();
     toast(teile[2]==='an' ? 'Erinnerung eingeschaltet' : 'Erinnerung ausgeschaltet'); }
+  else if(a.startsWith('gw:fenster:')){ gwFenster=a.split(':')[2]; render(); }
   else if(a==='addweight'){ const el=document.getElementById('wInput'); const v=el?el.value.replace(',','.'):'';
     if(addWeight(v)){ render(); toast('Eingetragen'); } else toast('Bitte ein Gewicht in kg eingeben'); }
   // ---- Kalorien: Essen eintragen ----
