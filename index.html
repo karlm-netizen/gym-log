@@ -3742,6 +3742,15 @@ async function holeBarcode(nr){
   foodBusy='Suche '+nr+' in der Lebensmittel-Datenbank …'; foodFehler=''; view='food'; render();
   try{
     const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(nr)}.json?fields=product_name,product_name_de,brands,nutriments`);
+    /* ⚠️ Ein 503 lässt fetch NICHT werfen — die Antwort kommt, sie ist nur leer. Ohne
+       diese Zeile rutscht eine überlastete Datenbank durch `!d.product` in die Meldung
+       „steht nicht in der Datenbank“, das Anlegen-Formular geht auf, und man tippt die
+       Nährwerte einer Packung ab, die längst erfasst ist. Nichts wird rot, nur unnötige
+       Arbeit. (Gefunden 01.09.2026: `dbSuche` prüft das seit dem 31.08., diese Stelle
+       nicht — dieselbe Lehre war nur an einer von zwei Aufrufstellen eingebaut.)
+       ⚠️ Der Wortlaut darf NICHT auf die Erkennung im catch unten passen, sonst geht das
+       Anlegen-Formular trotzdem auf. */
+    if(!r.ok) throw new Error('Die Datenbank antwortet gerade nicht (Fehler '+r.status+').');
     const d=await r.json();
     if(!d || d.status===0 || !d.product) throw new Error('Das Produkt steht nicht in der Datenbank.');
     const entwurf=offNachDraft(d.product, 'Produkt '+nr);
@@ -4630,7 +4639,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v56';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v57';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */

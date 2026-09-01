@@ -2,6 +2,34 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-09-01
+
+### 🔴 v57 — ein 503 beim Scannen schickte dich ins Abtippen
+
+**Gefunden vom ersten Agentenlauf über die App** (9 Funde, dieser der schwerste).
+
+`fetch` wirft bei einem 503 oder 429 **nicht**. Es kommt eine gültige Antwort, sie ist nur
+leer. In `holeBarcode` fehlte die Abfrage `r.ok` — die leere Antwort rutschte durch
+`!d.product` in die Meldung „Das Produkt steht nicht in der Datenbank.“
+
+Und weil der `catch`-Block **am Wortlaut der Meldung** entscheidet, wie es weitergeht, ging
+danach das Anlegen-Formular auf. **Ergebnis für den Benutzer: er tippt die vier Nährwerte
+einer Packung ab, die die Datenbank längst kennt.** Kein Fehler zu sehen, nur unnötige
+Arbeit — und Open Food Facts drosselt nach wenigen Anfragen hintereinander.
+
+⚠️ **Die Lehre gab es schon.** Am 31.08. war genau dieses `r.ok` in `dbSuche` eingebaut
+worden, nachdem beim Bauen echte 503er kamen. **Eingebaut wurde sie nur an der Stelle, an
+der sie aufgefallen war** — dieselbe Datenbank, dieselbe Drosselung, zwei Aufrufstellen,
+eine geprüft.
+
+**Zwei neue Prüfungen** (715 → 717), und beide schauen auf `foodStep`, nicht nur auf den
+Fehlertext:
+- ein 503 beim Scannen darf das Anlegen-Formular **nicht** öffnen
+- ein echtes „gibt es nicht“ muss es weiterhin öffnen, mit dem Barcode im Entwurf
+
+✅ **Gegengeprüft, indem die Zeile wieder entfernt wurde:** die Prüfung wird rot und meldet
+`Schritt=new` — also genau den Schaden, nicht nur eine fehlende Zeile.
+
 ## 2026-08-31
 
 ### 🔍 v56 — Essen suchen, wenn keine Packung da ist

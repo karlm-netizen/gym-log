@@ -4741,6 +4741,31 @@ window.addEventListener('error', e => {
     window.fetch = mF; foodStep = mS; view = mV; foodFehler = '';
     return (/503/.test(f) && schritt === 'list') || 'Fehler="' + f + '" Schritt=' + schritt;
   });
+  /* 🔴 Dieselbe Frage am zweiten Aufrufstelle — und hier ist der Schaden groesser als
+     eine Fehlermeldung. Der catch-Block in `holeBarcode` entscheidet am WORTLAUT der
+     Meldung, ob das Anlegen-Formular aufgeht. Ohne `r.ok` faellt ein 503 durch
+     `!d.product` in "steht nicht in der Datenbank" — und Karl tippt die Naehrwerte
+     einer Packung ab, die die Datenbank kennt. Nichts wird rot.
+     ⚠️ Diese Pruefung schaut deshalb auf foodStep, nicht nur auf den Fehlertext:
+     entscheidend ist, dass das Formular NICHT aufgeht. (Fund vom 01.09.2026) */
+  await tA('Ein 503 beim Scannen oeffnet nicht das Anlegen-Formular', async () => {
+    const mF = window.fetch, mS = foodStep, mV = view, mD = foodDraft;
+    window.fetch = async () => ({ ok:false, status:503, json: async () => ({}) });
+    await holeBarcode('0000000000000');
+    const f = foodFehler, schritt = foodStep;
+    window.fetch = mF; foodStep = mS; view = mV; foodDraft = mD; foodFehler = '';
+    return (schritt !== 'new' && /503/.test(f)) || 'Schritt=' + schritt + ' Fehler="' + f + '"';
+  });
+  /* Und die Gegenprobe zum Fund: der echte "gibt es nicht"-Fall muss weiter ins
+     Formular fuehren — sonst waere die Reparatur oben zu grob geraten. */
+  await tA('Ein echtes Nicht-Gefunden oeffnet das Anlegen-Formular weiterhin', async () => {
+    const mF = window.fetch, mS = foodStep, mV = view, mD = foodDraft;
+    window.fetch = async () => ({ ok:true, status:200, json: async () => ({ status:0 }) });
+    await holeBarcode('0000000000000');
+    const schritt = foodStep, bc = foodDraft && foodDraft.barcode;
+    window.fetch = mF; foodStep = mS; view = mV; foodDraft = mD; foodFehler = '';
+    return (schritt === 'new' && bc === '0000000000000') || 'Schritt=' + schritt + ' bc=' + bc;
+  });
   t('Ein einzelner Buchstabe fragt die Datenbank gar nicht erst', () => {
     const mF = window.fetch; let rufe = 0;
     window.fetch = async () => { rufe++; return { ok:true, json: async () => ({products:[]}) }; };
