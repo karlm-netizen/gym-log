@@ -5648,6 +5648,24 @@ window.addEventListener('error', e => {
     if(!header.apikey) return 'apikey fehlt';
     return !!header.Authorization || 'Authorization fehlt -- genau der 401-Fund vom 02.09.';
   }));
+  /* 🔴 Der ZWEITE Supabase-Fund vom 02.09.2026, direkt nachdem der erste
+     (Authorization fehlte) live war: Karl meldete erneut 401. Gegen Supabase getestet
+     (curl, echter Schluessel) -- die NACKTE Wurzel '/rest/v1/' verlangt einen
+     'secret'-Schluessel, unabhaengig von jeder Kopfzeile. Eine echte Tabelle geht mit
+     dem 'publishable'-Schluessel der App tadellos.
+     ⚠️ Diese Pruefung haelt die FORM fest, nicht nur den Header: das Ziel
+     muss eine echte Tabelle sein, nicht die blanke API-Wurzel -- sonst waere der Fund
+     beim naechsten Umbau wieder nur eine Kopfzeile entfernt, aber am selben Ziel. */
+  await tA('Supabase-Test zielt auf eine echte Tabelle, nicht auf die blanke API-Wurzel', async () => mitAdmin(async () => {
+    const mF = window.fetch;
+    let ziel = null;
+    window.fetch = async (u) => { ziel = String(u); return { ok:true, status:200 }; };
+    try { await adminTestVerbindung('supa'); }
+    finally { window.fetch = mF; }
+    if(!ziel) return 'kein Aufruf registriert';
+    if(/\/rest\/v1\/?['"?]?$/.test(ziel.replace(SUPA_URL,''))) return 'zielt auf die blanke Wurzel: ' + ziel;
+    return /\/rest\/v1\/[a-z_]+/.test(ziel) || ('kein Tabellenname im Ziel erkennbar: ' + ziel);
+  }));
   await tA('Google: ohne eingetragenen Schluessel wird gar nicht erst losgeschickt', async () => mitAdmin(async () => {
     const mK = DB.get('aikey',''), mF = window.fetch;
     DB.set('aikey','');

@@ -4854,14 +4854,19 @@ async function adminTestVerbindung(dienst){
         adminVerbindung.off = (d && d.product) ? {ok:true, text:'Erreicht: „'+(d.product.product_name||'Produkt')+'"'}
                                                 : {ok:false, text:'Antwort kam, aber ohne Produkt'}; }
     } else if(dienst==='supa'){
-      /* 🔴 Karls Meldung, 02.09.2026: hier stand "Antwort 401" -- obwohl Supabase
-         erreichbar war. Der Fehler lag NICHT am Netz, sondern daran, dass dieser
-         Aufruf nur 'apikey' schickte. JEDER andere Aufruf in der App (authHeaders())
-         schickt zusaetzlich 'Authorization: Bearer …' -- ohne den weist Supabase'
-         Gateway die Anfrage ab, bevor sie ueberhaupt bei PostgREST ankommt.
-         ⚠️ authHeaders(false) wiederverwenden statt eigener Kopfzeilen -- sonst ist
-         genau DAS hier wieder eine zweite, eigene Fassung derselben Lehre. */
-      const r = await fetch(SUPA_URL+'/rest/v1/', {headers:authHeaders(false)});
+      /* 🔴 Zweiter Fund zum selben Knopf, 02.09.2026: der Authorization-Header (siehe
+         oben) hat NICHT gereicht -- Karl meldete danach erneut 401. Direkt gegen
+         Supabase geprueft (curl, mit dem echten Schluessel):
+           /rest/v1/                              -> 401 "Secret API key required"
+           /rest/v1/gymlog_data?select=id&limit=1 -> 200 []
+         Die NACKTE Wurzel ist im neuen Schluessel-System extra abgeriegelt -- die
+         verlangt einen 'secret'-Schluessel, unabhaengig von jeder Kopfzeile. Der
+         Fehler lag also am ZIEL, nicht an fehlenden Headern.
+         ⚠️ Jetzt eine echte, aber leichte Tabellenabfrage -- derselbe Weg, den
+         cloudPull() & Co. laengst gehen, nur ohne Anmeldung und mit `limit=1`. RLS
+         lässt anonym ohnehin nichts zurueck ('[]') -- das ist hier gewollt: es geht
+         nur um "kommt eine Antwort", nicht um Daten. */
+      const r = await fetch(SUPA_URL+'/rest/v1/gymlog_data?select=id&limit=1', {headers:authHeaders(false)});
       adminVerbindung.supa = r.ok ? {ok:true, text:'Erreicht (Status '+r.status+')'}
                                    : {ok:false, text:'Antwort '+r.status};
     } else if(dienst==='google'){
@@ -4988,7 +4993,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.064';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.065';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */

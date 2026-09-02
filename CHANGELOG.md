@@ -4,6 +4,30 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-02
 
+### v0.065 — der Supabase-Test zielte auf die falsche Adresse
+
+Karl, direkt nach v0.064: **wieder 401.** Der Authorization-Header allein hatte nicht
+gereicht — Zeit, es nicht noch einmal zu vermuten, sondern direkt gegen Supabase zu
+testen (curl, mit dem echten Schlüssel aus dem Quelltext):
+
+```
+/rest/v1/                               -> 401 "Secret API key required"
+/rest/v1/gymlog_data?select=id&limit=1  -> 200 []
+```
+
+🔴 **Die nackte API-Wurzel ist im neuen Supabase-Schlüsselsystem extra abgeriegelt** — sie
+verlangt einen `secret`-Schlüssel, unabhängig von jeder Kopfzeile. Der `publishable`-Schlüssel
+der App (derselbe, der überall sonst funktioniert) darf sie gar nicht ansprechen. Eine echte
+Tabelle geht damit tadellos.
+
+**Der Test zielt jetzt auf `gymlog_data?select=id&limit=1`** — denselben Weg, den `cloudPull()`
+längst geht, nur ohne Anmeldung. RLS lässt anonym ohnehin nichts zurück (`[]`), das ist hier
+gewollt: es geht nur um „kommt eine Antwort", nicht um Daten.
+
+**Eine neue Prüfung hält jetzt die Form fest** (806 → 807): das Ziel muss eine echte Tabelle
+sein, nicht die blanke Wurzel — sonst wäre der nächste Umbau wieder nur eine Kopfzeile von
+demselben Fehler entfernt gewesen.
+
 ### v0.064 — der Supabase-Test im Admin-Panel hatte selbst einen Fehler
 
 Karls Meldung vom Handy, direkt nach dem ersten Ausprobieren von „Verbindung testen"
