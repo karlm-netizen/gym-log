@@ -1887,14 +1887,86 @@ window.addEventListener('error', e => {
     const txt = x.replace(/<[^>]+>/g,'|').split('|').filter(Boolean);
     return (txt.length === 2 && txt[0] === '01.08.' && txt[1] === '20.08.') || JSON.stringify(txt);
   });
-  // ⚠️ Der Grund, warum ein mittleres Datum an eine ungerade Punktzahl gebunden ist: nur dann
-  // liegt der mittlere Punkt auf der Mitte der Flaeche. Faellt diese Bedingung weg, steht bei
-  // vier Punkten ein Datum bei 50 %, dessen Punkt bei 33 % sitzt -- eine stille Luege.
-  t('Gerade Punktzahl bekommt KEIN mittleres Datum', () => {
+  /* ⚠️ DIESE REGEL IST AM 02.09.2026 ABGELOEST WORDEN, und der Grund gehoert
+     festgehalten, weil er zeigt, warum sie vorher richtig war.
+     Bis dahin sassen die Punkte gleichmaessig nebeneinander. Ein Datum in der Mitte der
+     Flaeche war deshalb nur bei ungerader Punktzahl ehrlich -- bei vier Punkten haette
+     es bei 50 % gestanden, waehrend sein Punkt bei 33 % sass. Eine stille Luege.
+     ✅ Mit der Zeitachse ist die Mitte der Flaeche immer ein echter Zeitpunkt: die
+     Mitte zwischen erstem und letztem Eintrag. Sie gehoert keinem Punkt mehr, und genau
+     deshalb stimmt sie -- unabhaengig von der Punktzahl.
+     🔴 Die alte Pruefung ist also nicht geloescht, weil sie stoerte, sondern weil
+     ihre Voraussetzung weggefallen ist. Was sie geschuetzt hat, prueft die naechste. */
+  t('Bei gerader Punktzahl nennt die Mitte den Zeitpunkt, nicht den Punkt', () => {
+    // Sechs Tage, 01.08. bis 06.08. -- die zeitliche Mitte ist der 03.08. um 12 Uhr,
+    // also der 03.08. Kein einziger Messpunkt liegt dort, und das ist der Punkt.
     const ts = [0,1,2,3,4,5].map(i => new Date(2026,7,1+i).getTime());
     const html = lineChart([1,2,3,4,5,6], 300, 110, {x:ts});
     const x = (html.match(/class="chart-x">(.*?)<\/div>/)||[])[1] || '';
-    return eq(x.split('<span>').length - 1, 2);
+    const txt = x.replace(/<[^>]+>/g,'|').split('|').filter(Boolean);
+    return (txt.length === 3 && txt[0] === '01.08.' && txt[1] === '03.08.' && txt[2] === '06.08.')
+      || JSON.stringify(txt);
+  });
+
+  /* ================================ Die Zeitachse selbst (02.09.2026)
+     🔴 Bis heute war der Abstand der Punkte die REIHENFOLGE, nicht die Zeit. Bei
+     „1 Jahr" sah eine Pause von drei Monaten aus wie ein einzelner Tag -- die Kurve
+     behauptete einen Verlauf, den es nicht gab. Betraf alle drei Kurven, seit es sie gibt.
+     ⚠️ Gemessen wird an der gezeichneten Linie, nicht an einer Hilfsfunktion:
+     dieselbe Vorsicht wie bei den vier Pruefungen darueber. */
+  /* ⚠️ Die LINIE, nicht die Flaeche. Im SVG steht die Flaeche zuerst, und sie
+     traegt zwei zusaetzliche Punkte, mit denen sie unten wieder zumacht. Beim ersten
+     Anlauf hat dieser Helfer genau die gegriffen und fuenf Punkte gemeldet, wo drei
+     sind -- die Pruefung war rot aus dem falschen Grund. */
+  const punkteX = (html) => {
+    const d = (html.match(/<path d="([^"]*)" fill="none"/)||[])[1] || '';
+    return d.split(/[ML]/).filter(Boolean).map(s => parseFloat(s.trim().split(' ')[0]));
+  };
+  t('Eine lange Pause macht ein breites Stueck Kurve', () => {
+    // Drei Punkte: 01.08., 02.08., dann ein halbes Jahr Pause bis 01.02.2027.
+    const ts = [new Date(2026,7,1).getTime(), new Date(2026,7,2).getTime(),
+                new Date(2027,1,1).getTime()];
+    const xs = punkteX(lineChart([80,81,82], 300, 110, {x:ts}));
+    if(xs.length !== 3) return 'die Linie hat ' + xs.length + ' Punkte';
+    const kurz = xs[1]-xs[0], lang = xs[2]-xs[1];
+    return lang > kurz * 20 || ('ein Tag ist ' + kurz.toFixed(1) + ' breit, ein halbes Jahr '
+      + lang.toFixed(1) + ' -- der Abstand haengt weiter an der Reihenfolge');
+  });
+  t('Gleiche Abstaende bleiben gleich breit', () => {
+    const ts = [0,1,2,3].map(i => new Date(2026,7,1+i).getTime());
+    const xs = punkteX(lineChart([80,81,82,83], 300, 110, {x:ts}));
+    if(xs.length !== 4) return 'die Linie hat ' + xs.length + ' Punkte';
+    const a = xs[1]-xs[0], b = xs[2]-xs[1], c = xs[3]-xs[2];
+    return (Math.abs(a-b) < 0.2 && Math.abs(b-c) < 0.2)
+      || ('Abstaende: ' + [a,b,c].map(v=>v.toFixed(1)).join(', '));
+  });
+  /* ⚠️ Ohne Zeitstempel gibt es nichts zu verteilen -- dann MUSS der alte,
+     gleichmaessige Abstand gelten. Sonst waere die Uebungs-Kurve kaputt, sobald jemand
+     lineChart ohne opt.x aufruft. */
+  t('Ohne Zeitstempel bleibt es beim gleichmaessigen Abstand', () => {
+    const xs = punkteX(lineChart([80,81,90,91], 300, 110, {}));
+    if(xs.length !== 4) return 'die Linie hat ' + xs.length + ' Punkte';
+    const a = xs[1]-xs[0], b = xs[2]-xs[1], c = xs[3]-xs[2];
+    return (Math.abs(a-b) < 0.2 && Math.abs(b-c) < 0.2)
+      || ('Abstaende: ' + [a,b,c].map(v=>v.toFixed(1)).join(', '));
+  });
+  /* 🔴 Und der Fall, an dem eine Zeitachse still kaputtgeht: `exHistory` folgt der
+     Reihenfolge in `sessions`, und dass die nach Datum sortiert ist, ist nirgends
+     zugesichert. Bei einem Ruecksprung wuerde die Linie zickzack laufen. Dann lieber der
+     alte Massstab -- ein falscher Abstand ist besser als eine Linie, die zurueckspringt. */
+  t('Springen die Zeitstempel zurueck, gilt wieder die Reihenfolge', () => {
+    const ts = [new Date(2026,7,10).getTime(), new Date(2026,7,1).getTime(),
+                new Date(2026,7,20).getTime()];
+    const xs = punkteX(lineChart([80,81,82], 300, 110, {x:ts}));
+    if(xs.length !== 3) return 'die Linie hat ' + xs.length + ' Punkte';
+    return (xs[0] < xs[1] && xs[1] < xs[2])
+      || ('die Linie laeuft zurueck: ' + xs.map(v=>v.toFixed(1)).join(', '));
+  });
+  t('Fallen alle Eintraege auf denselben Zeitpunkt, bricht nichts', () => {
+    const z = new Date(2026,7,1).getTime();
+    const xs = punkteX(lineChart([80,81,82], 300, 110, {x:[z,z,z]}));
+    return (xs.length === 3 && xs.every(v => isFinite(v)) && xs[0] < xs[2])
+      || ('Punkte: ' + JSON.stringify(xs));
   });
   t('Ungerade Punktzahl ab fuenf bekommt ein mittleres Datum', () => {
     const ts = [0,1,2,3,4].map(i => new Date(2026,7,1+i).getTime());
@@ -5022,6 +5094,30 @@ window.addEventListener('error', e => {
     const schritt = foodStep, bc = foodDraft && foodDraft.barcode;
     window.fetch = mF; foodStep = mS; view = mV; foodDraft = mD; foodFehler = '';
     return (schritt === 'new' && bc === '0000000000000') || 'Schritt=' + schritt + ' bc=' + bc;
+  });
+  /* 🔴 Der Rest des Fundes vom 01.09., geschlossen am 02.09.2026. Die Weiche im
+     catch hing am WORTLAUT der Fehlermeldung -- so sehr, dass die v57-Reparatur ihre
+     eigene Meldung so formulieren musste, dass sie nicht darauf passt.
+     Diese Pruefung wirft einen Fehler, den es so heute gar nicht gibt, und dessen Text
+     zufaellig den Ausdruck enthaelt. Frueher waere das Formular aufgegangen und Karl
+     haette eine Packung abgetippt, weil das Netz weg war. */
+  await tA('Ein fremder Fehler mit dem richtigen Wortlaut oeffnet nichts', async () => {
+    const mF = window.fetch, mS = foodStep, mV = view, mD = foodDraft;
+    window.fetch = async () => { throw new Error('Proxy: Host nicht in der Datenbank hinterlegt'); };
+    await holeBarcode('0000000000000');
+    const schritt = foodStep;
+    window.fetch = mF; foodStep = mS; view = mV; foodDraft = mD; foodFehler = '';
+    return schritt !== 'new' || 'das Anlegen-Formular ist trotzdem aufgegangen';
+  });
+  /* ⚠️ Und die Gegenrichtung, damit die Weiche nicht einfach zugenagelt wird:
+     der markierte Fall muss weiterhin durch. */
+  t('Die Weiche liest ein Merkmal, nicht den Text', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const i = q.indexOf('const nichtDrin');
+    if(i < 0) return 'die Weiche nicht gefunden';
+    const zeile = q.slice(i, q.indexOf(';', i));
+    if(/\.test\(/.test(zeile)) return 'sie prueft wieder den Wortlaut: ' + zeile.trim();
+    return zeile.indexOf('.art') > -1 || 'kein Merkmal am Fehler: ' + zeile.trim();
   });
   t('Ein einzelner Buchstabe fragt die Datenbank gar nicht erst', () => {
     const mF = window.fetch; let rufe = 0;

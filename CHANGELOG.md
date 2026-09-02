@@ -4,6 +4,53 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-02
 
+### v61 — die Kurven zeigen jetzt die Zeit, nicht die Reihenfolge
+
+**Beide Punkte abgeräumt, die noch bei mir lagen.**
+
+#### Die Punkte sitzen nach ihrem zeitlichen Abstand
+
+Bisher standen sie gleichmäßig nebeneinander — der Abstand war die **Reihenfolge**, nicht die
+Zeit. Bei „1 Jahr" sah eine Pause von drei Monaten aus wie ein einzelner Tag, und zwei
+Wiegungen an aufeinanderfolgenden Tagen genauso breit wie zwei mit einem halben Jahr dazwischen.
+
+🔴 **Die Kurve hat damit einen Verlauf behauptet, den es nicht gab.** Ein steiler Anstieg
+konnte in Wahrheit ein halbes Jahr gedauert haben. Das betraf **alle drei Kurven**
+(Gewicht, Übungsgewicht, Volumen) und war so, seit es sie gibt.
+
+✅ **Das mittlere Datum unten gilt jetzt immer.** Es stand vorher nur bei ungerader Punktzahl
+da — nur dann lag ein Punkt wirklich auf der Mitte. Mit der Zeitachse ist die Mitte der Fläche
+immer ein echter Zeitpunkt (die Mitte zwischen erstem und letztem Eintrag). **Sie gehört keinem
+Punkt, und genau deshalb stimmt sie.**
+
+⚠️ **Zwei Fälle fallen bewusst auf den alten Maßstab zurück:** wenn keine Zeitstempel dabei
+sind, und wenn sie zurückspringen. Die Übungs-Kurve folgt der Reihenfolge in `sessions`, und
+dass die nach Datum sortiert ist, ist nirgends zugesichert — bei einem Rücksprung liefe die
+Linie im Zickzack. **Ein falscher Abstand ist besser als eine Linie, die zurückspringt.**
+
+#### Der Fehlertext ist kein Schalter mehr
+
+Beim Barcode-Scannen entschied der Fehlerfang am **Wortlaut** der Meldung
+(`/nicht in der Datenbank|keine Nährwerte/`), ob das Anlegen-Formular aufgeht. Das hat zweimal
+Schaden angerichtet: am 01.09. rutschte ein 503 in genau diesen Wortlaut (das war v57) — und
+die Reparatur musste ihre eigene Meldung so formulieren, dass sie *nicht* darauf passt.
+
+💡 **Eine Fehlermeldung, deren Text man nicht mehr frei ändern darf, ist kein Text mehr,
+sondern ein Schalter mit Tarnkappe.** Jetzt hängt die Weiche an einem Merkmal am Fehler
+selbst; der Text darf sagen, was er will.
+
+---
+
+**Sieben neue Prüfungen (766 → 773).** Eine alte ist **abgelöst** worden, nicht gelöscht: sie
+hielt fest, dass es bei gerader Punktzahl **kein** mittleres Datum gibt. Das war unter dem
+alten Maßstab richtig — mit der Zeitachse ist ihre Voraussetzung weggefallen, und an ihrer
+Stelle steht jetzt, dass die Mitte den **Zeitpunkt** nennt und nicht einen Punkt.
+
+🔴 **Und wieder eine meiner eigenen Prüfungen im ersten Anlauf falsch:** der Helfer, der die
+Punkte aus der Kurve misst, griff den **Flächen**-Pfad statt der Linie — der hat zwei
+zusätzliche Punkte, mit denen er unten zumacht. Fünf gemeldete Punkte, wo drei sind. **Rot aus
+dem falschen Grund ist genauso wenig wert wie grün aus dem falschen Grund.**
+
 ### v60 — „Essen per Foto" hat noch nie funktioniert
 
 Karls Meldung, mit Bildschirmfoto, beim **ersten echten Foto überhaupt**:

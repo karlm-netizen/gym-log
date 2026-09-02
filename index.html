@@ -2542,14 +2542,34 @@ function exHistory(name){ const out=[];
 //   opt.fmt     wie ein Wert geschrieben wird (Standard: Kilogramm mit Komma)
 //   opt.einheit steht hinter der obersten Zahl, damit die Achse nicht nur Ziffern zeigt
 // ⚠️ Der waagerechte Rand ist mit 4 statt 10 knapp gehalten, damit das erste und das letzte
-// Datum praktisch ueber ihrem Punkt stehen. Ein Datum in der MITTE gibt es nur bei ungerader
-// Punktzahl -- nur dann liegt der mittlere Punkt wirklich auf der Mitte. Bei gerader Zahl
-// stuende es daneben und wuerde einen Zeitpunkt behaupten, den es nicht gibt.
+// Datum praktisch ueber ihrem Punkt stehen.
+// ✅ Seit dem 02.09.2026 sitzen die Punkte nach ihrem ZEITABSTAND, nicht nach ihrer
+// Reihenfolge. Die Mitte der Achse ist damit immer ein echter Zeitpunkt (die Mitte zwischen
+// erstem und letztem Eintrag) -- vorher gab es dort nur bei ungerader Punktzahl ein
+// ehrliches Datum. Ohne brauchbare Zeitstempel gilt weiter der gleichmaessige Abstand.
 function lineChart(vals,w,h,opt){
   if(vals.length<2) return '';
   const o=opt||{}, fmtV=o.fmt||fmtKg, xs=Array.isArray(o.x)?o.x:[];
   const min=Math.min(...vals), max=Math.max(...vals), span=(max-min)||1, pad=10, padX=4;
-  const pt=(v,i)=>[ padX+(w-2*padX)*i/(vals.length-1), h-pad-(h-2*pad)*((v-min)/span) ];
+  /* 🔴 Bis zum 02.09.2026 sassen die Punkte gleichmaessig nebeneinander -- der
+     Abstand war die Reihenfolge, nicht die Zeit. Bei „1 Jahr" sah eine Pause von drei
+     Monaten aus wie ein einzelner Tag, und zwei Wiegungen an aufeinanderfolgenden Tagen
+     genauso breit wie zwei mit einem halben Jahr dazwischen. **Die Kurve behauptete damit
+     einen Verlauf, den es nicht gab** -- ein steiler Anstieg konnte in Wahrheit ein halbes
+     Jahr gedauert haben. Betraf alle drei Kurven, seit es sie gibt.
+     ⚠️ Die Zeitachse gilt nur, wenn die Zeitstempel auch wirklich aufsteigend
+     sind. `exHistory` folgt der Reihenfolge in `sessions`, und die ist nirgends zugesichert
+     -- bei einer Zeitreise rutschte die Linie sonst zurueck und wuerde zum Zickzack.
+     Dann bleibt es beim alten, gleichmaessigen Abstand: falscher Massstab ist besser als
+     eine Linie, die vor- und zurueckspringt.
+     ⚠️ Und wenn alle Punkte auf denselben Zeitpunkt fallen (Spanne null), gibt es
+     nichts zu verteilen -- auch dann der alte Weg. */
+  const zeitAchse = xs.length===vals.length
+    && xs.every((z,i)=> typeof z==='number' && isFinite(z) && (i===0 || z>=xs[i-1]))
+    && (xs[xs.length-1]-xs[0]) > 0;
+  const zSpanne = zeitAchse ? (xs[xs.length-1]-xs[0]) : 0;
+  const anteil = i => zeitAchse ? (xs[i]-xs[0])/zSpanne : i/(vals.length-1);
+  const pt=(v,i)=>[ padX+(w-2*padX)*anteil(i), h-pad-(h-2*pad)*((v-min)/span) ];
   const ps=vals.map(pt);
   const line=ps.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
   const area=line+` L${ps[ps.length-1][0].toFixed(1)} ${h-pad} L${ps[0][0].toFixed(1)} ${h-pad} Z`;
@@ -2580,9 +2600,17 @@ function lineChart(vals,w,h,opt){
     : [max,(min+max)/2,min].map((v,i)=>`<span>${fmtV(v)}${i?'':einh}</span>`).join('');
   let xTxt='';
   if(xs.length===vals.length){
-    const d=i=>`<span>${fmtTag(xs[i])}</span>`;
-    xTxt = (vals.length>=5 && vals.length%2) ? d(0)+d((vals.length-1)/2)+d(vals.length-1)
-                                             : d(0)+d(vals.length-1);
+    const d=z=>`<span>${fmtTag(z)}</span>`;
+    /* ⚠️ Die mittlere Beschriftung stand frueher nur bei ungerader Punktzahl da --
+       nur dann lag ein PUNKT wirklich in der Mitte, und bei gerader Zahl haette das Datum
+       einen Zeitpunkt behauptet, den es nicht gibt.
+       ✅ Mit der Zeitachse ist das anders herum: die Mitte der Achse ist jetzt immer
+       ein echter Zeitpunkt, naemlich die Mitte zwischen erstem und letztem Eintrag. Sie
+       gehoert keinem Punkt, und genau deshalb stimmt sie. Die Punktzahl ist egal. */
+    const mitte = zeitAchse ? (xs[0]+xs[xs.length-1])/2
+                            : (vals.length%2 ? xs[(vals.length-1)/2] : null);
+    xTxt = (vals.length>=5 && mitte!=null) ? d(xs[0])+d(mitte)+d(xs[xs.length-1])
+                                           : d(xs[0])+d(xs[xs.length-1]);
   }
   return `<div class="chart"><div class="chart-y${eine?' einer':''}">${yTxt}</div>`
     +`<div class="chart-plot">${svg}</div>`
@@ -3821,6 +3849,17 @@ function offNachDraft(p, ersatzName){
     basis:'g100', menge:100 };
 }
 
+/* Ein Fehler mit Merkmal. 🔴 Bis zum 02.09.2026 entschied der `catch` unten am
+   WORTLAUT der Meldung (`/nicht in der Datenbank|keine Nährwerte/`), ob das
+   Anlegen-Formular aufgeht. Das hat zweimal Schaden angerichtet, ohne dass etwas rot wurde:
+     · Am 01.09. rutschte ein 503 in genau diesen Wortlaut -- Formular auf, Naehrwerte einer
+       Packung abgetippt, die die Datenbank kennt (v57).
+     · Und die Reparatur musste ihre eigene Meldung so formulieren, dass sie NICHT auf den
+       Ausdruck passt. Eine Fehlermeldung, deren Text man nicht mehr frei aendern darf, ist
+       kein Text mehr, sondern ein Schalter mit Tarnkappe.
+   ➡️ Jetzt haengt die Weiche an `e.art`. Der Text darf sagen, was er will. */
+function ffehler(text, art){ const e = new Error(text); e.art = art; return e; }
+
 async function holeBarcode(nr){
   if(!nr || nr.length<6){ foodFehler='Das war keine gültige Barcode-Nummer.'; render(); return; }
 
@@ -3842,18 +3881,21 @@ async function holeBarcode(nr){
        Nährwerte einer Packung ab, die längst erfasst ist. Nichts wird rot, nur unnötige
        Arbeit. (Gefunden 01.09.2026: `dbSuche` prüft das seit dem 31.08., diese Stelle
        nicht — dieselbe Lehre war nur an einer von zwei Aufrufstellen eingebaut.)
-       ⚠️ Der Wortlaut darf NICHT auf die Erkennung im catch unten passen, sonst geht das
-       Anlegen-Formular trotzdem auf. */
-    if(!r.ok) throw new Error('Die Datenbank antwortet gerade nicht (Fehler '+r.status+').');
+       ✅ Seit dem 02.09.2026 ist der Wortlaut wieder frei: die Weiche unten liest `e.art`,
+       nicht den Text. */
+    if(!r.ok) throw ffehler('Die Datenbank antwortet gerade nicht (Fehler '+r.status+').', 'server');
     const d=await r.json();
-    if(!d || d.status===0 || !d.product) throw new Error('Das Produkt steht nicht in der Datenbank.');
+    if(!d || d.status===0 || !d.product) throw ffehler('Das Produkt steht nicht in der Datenbank.', 'unbekannt');
     const entwurf=offNachDraft(d.product, 'Produkt '+nr);
-    if(!entwurf) throw new Error('Zu dem Produkt sind keine Nährwerte hinterlegt.');
+    if(!entwurf) throw ffehler('Zu dem Produkt sind keine Nährwerte hinterlegt.', 'unbekannt');
     foodDraft={...entwurf, quelle:'barcode', barcode:String(nr)};
     foodBusy=''; foodStep='menge'; render();
   }catch(e){
     foodBusy='';
-    const nichtDrin=/nicht in der Datenbank|keine Nährwerte/.test((e&&e.message)||'');
+    /* ⚠️ Nur ein ausdrücklich so markierter Fehler öffnet das Formular. Alles
+       andere -- ein 503, ein Netzabbruch, ein Fehler, den es heute noch gar nicht gibt --
+       landet im `else`, auch wenn sein Text zufällig „nicht in der Datenbank" enthält. */
+    const nichtDrin = !!(e && e.art === 'unbekannt');
     if(nichtDrin){
       // NEU: keine Sackgasse mehr. Bisher kam eine Fehlermeldung und der Weg war zu
       // Ende. Jetzt geht das Anlegen-Formular auf, MIT dem Barcode im Gepaeck — beim
@@ -4775,7 +4817,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v60';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v61';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */

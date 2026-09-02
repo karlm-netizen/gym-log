@@ -1,7 +1,7 @@
 ﻿// Gym-Log Service Worker â€” Netz zuerst (Updates erreichen den Nutzer sofort),
 // Cache nur als Offline-RÃ¼ckfall. Assets einzeln cachen, damit eine fehlende
 // Datei nicht die ganze Offline-Funktion killt (Lektion aus Dranbleiben).
-const CACHE = 'gymlog-v60';
+const CACHE = 'gymlog-v61';
 /* ⚠️ Was hier fehlt, gibt es ohne Netz nicht. Am 01.09.2026 gefunden: zxing.min.js
    (336 KB, der iPhone-Weg zum Scannen) und icon.svg standen nicht drin.
    Wie das aussah: auf Karls Gerät nie -- Chrome/Android nimmt BarcodeDetector und braucht
