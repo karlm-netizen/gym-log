@@ -5740,6 +5740,84 @@ window.addEventListener('error', e => {
     return (hatError && hatRejection) || ('error=' + hatError + ' unhandledrejection=' + hatRejection);
   });
 
+  /* ================================ Anfaenger-Frage im Assistenten (02.09.2026)
+     Karls Ansage: "sollte immer ein ganzkoerper training und nur 3 trainingstage drinne
+     haben" fuer die ersten Monate -- "natuerlich aenderbar", mit einer neuen Frage direkt
+     beim Start ("wenn man plan einrichten drueckt"). Drei Stufen: Anfaenger (seine
+     Vorgabe, < 1 Jahr) + Fortgeschritten/Erfahren (meine Ergaenzung). */
+  const mitOnboard = (fn) => {
+    const sV=session, pV=profile, prV=programs, vV=view, dV=obDraft, stV=obStep;
+    session = {user:{id:'test'}, expires_at:Date.now()+3600e3, access_token:'x'};
+    profile = {xp:0, weights:[], onboarded:true};
+    programs = [];
+    startOnboard();
+    try { return fn(); }
+    finally { session=sV; profile=pV; programs=prV; view=vV; obDraft=dV; obStep=stV; }
+  };
+  const klick = (act) => { const el=document.createElement('button'); el.dataset.act=act;
+    document.body.appendChild(el); el.dispatchEvent(new MouseEvent('click',{bubbles:true})); el.remove(); };
+
+  t('Nach "Bau ihn fuer mich" kommt zuerst die Erfahrungsfrage', () => mitOnboard(() => {
+    klick('ob:next');   // obStep 0 -> 1
+    const h = app.innerHTML;
+    return /Wie lange trainierst du schon/.test(h) || 'falscher Schritt: ' + h.slice(0,120);
+  }));
+  t('Ohne Wahl geht der Weiter-Knopf nicht auf', () => mitOnboard(() => {
+    klick('ob:next');
+    return /data-act="ob:next"[^>]*disabled/.test(app.innerHTML) || 'Weiter ist nicht gesperrt';
+  }));
+  t('"Anfaenger" setzt 3 Tage / Ganzkoerper voraus', () => mitOnboard(() => {
+    klick('ob:next');
+    obDraft.n = 5; obDraft.days = [0,1,2,3,4];   // vorher etwas anderes eingestellt
+    klick('ob:erf:anfaenger');
+    return (obDraft.n === 3 && JSON.stringify(obDraft.days.slice().sort()) === JSON.stringify(OB_DEFDAYS[3]))
+      || ('n=' + obDraft.n + ' days=' + JSON.stringify(obDraft.days));
+  }));
+  /* ⚠️ "aenderbar", Karls eigenes Wort -- die Vorauswahl darf kein Kaefig sein. */
+  t('Nach "Anfaenger" laesst sich trotzdem auf 5 Tage umstellen', () => mitOnboard(() => {
+    klick('ob:next'); klick('ob:erf:anfaenger');
+    klick('ob:n:5');
+    return eq(obDraft.n, 5);
+  }));
+  t('"Fortgeschritten" aendert die Tage nicht', () => mitOnboard(() => {
+    klick('ob:next');
+    obDraft.n = 4; obDraft.days = [0,1,3,4];
+    klick('ob:erf:fortgeschritten');
+    return (obDraft.n === 4 && JSON.stringify(obDraft.days) === JSON.stringify([0,1,3,4]))
+      || ('n=' + obDraft.n + ' days=' + JSON.stringify(obDraft.days));
+  }));
+  await tA('Anfaenger + 3 Tage baut wirklich Ganzkoerper A/B/A, nicht Push/Pull/Legs', async () => mitOnboard(() => {
+    klick('ob:next'); klick('ob:erf:anfaenger');   // n=3, Tage=OB_DEFDAYS[3] stehen jetzt
+    klick('ob:finish');                            // ob:finish prueft obStep nicht, direkt moeglich
+    const namen = programs[0].plans.map(p=>p.name);
+    return (namen.length === 3 && namen[0] === 'Ganzkörper A' && namen[1] === 'Ganzkörper B'
+            && namen[2] === 'Ganzkörper A') || JSON.stringify(namen);
+  }));
+  /* 🔴 Die Regel gilt bewusst NUR bei drei Tagen -- "nur 3 trainingstage" war Teil der
+     Ansage. Wer als Anfaenger trotzdem 5 Tage waehlt, bekommt den normalen 5er-Split,
+     keinen erfundenen Ganzkoerper-Fuenftage-Plan. */
+  await tA('Anfaenger mit 5 Tagen bekommt KEINEN Ganzkoerper-Sonderfall', async () => mitOnboard(() => {
+    klick('ob:next'); klick('ob:erf:anfaenger'); klick('ob:n:5');
+    klick('ob:finish');
+    const namen = programs[0].plans.map(p=>p.name);
+    return namen.indexOf('Ganzkörper A') === -1 || 'Ganzkörper A steht trotzdem im 5er-Plan: ' + JSON.stringify(namen);
+  }));
+  /* ⚠️ Gegen den Fund, der heute schon zweimal aufgetreten ist: dieselbe Lehre an zwei
+     Aufrufstellen. Die Zusammenfassung MUSS denselben Split zeigen wie das, was
+     ob:finish tatsaechlich baut -- beide rufen splitFuer() auf, nicht zwei eigene
+     Rechnungen. */
+  t('Die Zusammenfassung zeigt denselben Split wie das fertige Training', () => mitOnboard(() => {
+    klick('ob:next'); klick('ob:erf:anfaenger');
+    for(let i=0;i<5;i++) klick('ob:next');   // Tage -> Wochentage -> Volumen -> Favoriten -> Zusammenfassung
+    const h = app.innerHTML;
+    return (/Ganzkörper A/.test(h) && /Ganzkörper B/.test(h)) || 'Zusammenfassung zeigt nicht Ganzkörper: ' + h.slice(0,300);
+  }));
+  t('profile.erfahrung bleibt nach dem Abschluss stehen', () => mitOnboard(() => {
+    klick('ob:next'); klick('ob:erf:erfahren');
+    klick('ob:finish');
+    return eq(profile.erfahrung, 'erfahren');
+  }));
+
   // ================================================================ Aufraeumen
   sessions = SICHER.sessions; profile = SICHER.profile; settings = SICHER.settings;
 

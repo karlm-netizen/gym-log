@@ -1315,7 +1315,19 @@ const SPLITS={
  5:[['Brust','chest'],['Rücken','back'],['Schultern','shoulders'],['Arme','arms'],['Beine','legs']],             // 5er-Split
  6:[['Push A','push'],['Pull A','pull'],['Beine A','legs'],['Push B','pushB'],['Pull B','pullB'],['Beine B','legsB']]  // PPL 2x
 };
+/* Ganzkörper A/B fuer Anfaenger (02.09.2026, Karls Ansage: "sollte immer ein
+   ganzkoerper training und nur 3 trainingstage drinne haben"). ⚠️ Bewusst KEIN drittes,
+   eigenes "Ganzkörper C" -- SPLITS_ANFAENGER hat nur ZWEI Eintraege, und bei drei
+   gewaehlten Tagen greift split[i % split.length] von selbst als A/B/A. Genau die
+   Alternierung, die klassische Anfaenger-Programme (StrongLifts, Starting Strength)
+   verwenden, ohne Wochenparitaet nachhalten zu muessen.
+   ⚠️ Bewusst machine-lastiger als die anderen Splits: Latzug statt Klimmzuege, Beinpresse
+   statt Kreuzheben als Zweitvariante -- der erste Kontakt mit dem Gym soll nicht an einer
+   Uebung scheitern, die Koerperspannung voraussetzt, die noch niemand aufgebaut hat. */
+const SPLITS_ANFAENGER = [['Ganzkörper A','fullA'],['Ganzkörper B','fullB']];
 const DAYPOOL={
+ fullA:['Kniebeuge','Bankdrücken','Latzug breit','Schulterdrücken (KH)','Rumänisches Kreuzheben','Plank'],
+ fullB:['Beinpresse','Kurzhantel-Bankdrücken','Langhantelrudern','Latzug eng','Hip Thrust','Bauchpresse (Maschine)'],
  push:['Bankdrücken','Schrägbankdrücken','Schulterdrücken (KH)','Seitheben','Butterfly / Pec Deck','Trizepsdrücken (Kabel)'],
  pushB:['Kurzhantel-Bankdrücken','Schulterdrücken (LH)','Kabel-Fliegende','Seitheben am Kabel','Dips (Brust)','Überkopf-Trizepsdrücken'],
  pull:['Klimmzüge','Langhantelrudern','Latzug breit','Face Pulls','Bizeps-Curls (LH)','Hammer-Curls'],
@@ -1372,7 +1384,7 @@ function pickExercises(key){
 // Baut aus den Antworten fertige Trainings, je eins pro gewähltem Wochentag
 function buildPlans(){
   const days=(profile.days||[]).slice().sort((a,b)=>a-b);
-  const split=SPLITS[Math.min(6,Math.max(2,days.length))]||SPLITS[3];
+  const split=splitFuer(days.length, profile.erfahrung==='anfaenger');
   return days.map((d,i)=>{ const [nm,key]=split[i%split.length];
     // Aufwaermsatz aus der Wahl im Assistenten
     return { id:uid(), name:nm, day:d,
@@ -2207,25 +2219,26 @@ const OB_DEFDAYS={2:[0,3],3:[0,2,4],4:[0,1,3,4],5:[0,1,2,3,4],6:[0,1,2,3,4,5]};
 // unter „Koerper" und hat im Plan-Assistenten nichts verloren.
 const OB_SAY=[
  'Hi, ich bin <b>Brock</b>! Wie kommen wir zu deinem Plan?',
+ 'Wie lange machst du das schon?',
  'Wie oft schaffst du es pro Woche ins Gym? Sei ehrlich zu mir.',
  'Und an welchen Tagen genau? Der Rest sind deine Ruhetage.',
  'Lieber kurz und schwer — oder lang und viel? Beides ist richtig.',
  'Hast du Lieblingsübungen? Die pack ich dir nach vorn.',
  'Alles klar! Schau nochmal drüber, dann leg ich los.'
 ];
-const OB_LAST=5;                       // Zusammenfassung
+const OB_LAST=6;                       // Zusammenfassung
 let obReturn='home';                   // wohin „Abbrechen" zurückführt
 function startOnboard(){ obStep=0;
   if(view!=='onboard') obReturn=(view==='settings'||view==='plans'||view==='progs')?view:'home';
   obDraft={ n:(profile.days&&profile.days.length)||3, days:(profile.days||OB_DEFDAYS[3]).slice(),
             vol:profile.vol||'high', warm:!!profile.warmup, favs:(profile.favs||[]).slice(),
-            name:'' };
+            erfahrung: profile.erfahrung || null, name:'' };
   view='onboard'; render(); }
 // Beim allerersten Mal (frisch registriert) gibt es keinen Ausweg — danach schon.
 function obCanLeave(){ return !!profile.onboarded; }
 function renderOnboard(){
   const d=obDraft, last=OB_LAST;
-  let h=`<div class="ob-dots">${[0,1,2,3,4,5].map(i=>`<i class="${i<=obStep?'on':''}"></i>`).join('')}</div>`;
+  let h=`<div class="ob-dots">${[0,1,2,3,4,5,6].map(i=>`<i class="${i<=obStep?'on':''}"></i>`).join('')}</div>`;
   // Der Assistent ist NICHT das Tutorial — hier zeigt Brock den getragenen Rang wie ueberall sonst.
   // Beim ersten Konto ist das Couch-Potato, was zum Einstieg passt.
   h+=mascot(OB_SAY[obStep], (obStep===0||obStep===last)?'happy':'', obStep===0?96:72, equippedRank());
@@ -2241,21 +2254,36 @@ function renderOnboard(){
       die Bibliothek mit 80 Übungen hilft dabei.</span></button>
     ${obCanLeave()?`<button class="link" data-act="ob:cancel" style="width:100%;text-align:center;margin-top:12px">Abbrechen — alles so lassen</button>`:''}</div>`; }
 
+  /* Neu (02.09.2026, Karls Ansage): "sollte immer ein ganzkoerper training und nur 3
+     trainingstage drinne haben" fuer die ersten Monate — aber aenderbar, nicht erzwungen.
+     Waehlt jemand "Anfänger", werden 3 Tage / Ganzkörper A-B nur VORAUSGEWAEHLT (naechster
+     Schritt), nicht festgeschrieben — er kann dort weiterhin 2 bis 6 Tage waehlen. */
   else if(obStep===1){ h+=`<div class="card">
+    <h2 style="margin-top:0">Wie lange trainierst du schon?</h2>
+    <p class="muted tiny" style="margin-bottom:14px">Am Anfang bringt Ganzkörper mehr als ein Split — danach richten wir uns, du kannst es aber jederzeit ändern.</p>
+    <button class="ob-opt ${d.erfahrung==='anfaenger'?'on':''}" data-act="ob:erf:anfaenger">
+      <b>Anfänger</b><span>Weniger als 1 Jahr dabei.</span></button>
+    <button class="ob-opt ${d.erfahrung==='fortgeschritten'?'on':''}" data-act="ob:erf:fortgeschritten">
+      <b>Fortgeschritten</b><span>1 bis 3 Jahre.</span></button>
+    <button class="ob-opt ${d.erfahrung==='erfahren'?'on':''}" data-act="ob:erf:erfahren">
+      <b>Erfahren</b><span>Länger als 3 Jahre.</span></button>
+    ${obNav(!d.erfahrung)}</div>`; }
+
+  else if(obStep===2){ h+=`<div class="card">
     <h2 style="margin-top:0">Wie oft pro Woche?</h2>
     <p class="muted tiny" style="margin-bottom:14px">Danach richtet sich, wie dein Split aufgeteilt wird.</p>
     <div class="ob-grid">${[2,3,4,5,6].map(n=>`<button class="chip big ${d.n===n?'on':''}" data-act="ob:n:${n}">${n}×</button>`).join('')}</div>
-    <div class="tiny muted" style="margin-top:12px">${splitHint(d.n)}</div>
+    <div class="tiny muted" style="margin-top:12px">${splitHint(d.n, d.erfahrung==='anfaenger')}</div>
     ${obNav()}</div>`; }
 
-  else if(obStep===2){ h+=`<div class="card">
+  else if(obStep===3){ h+=`<div class="card">
     <h2 style="margin-top:0">An welchen Tagen?</h2>
     <p class="muted tiny" style="margin-bottom:14px">Ausgewählt = Training, Rest = Ruhetag. Du hast ${d.days.length} von ${d.n} gewählt.</p>
     <div class="ob-days">${DAYNAME.map((n,i)=>`<button class="chip ${d.days.includes(i)?'on':''}" data-act="ob:day:${i}">${n}</button>`).join('')}</div>
     ${d.days.length===0?`<div class="tiny" style="color:var(--danger);margin-top:12px">Wähle mindestens einen Tag.</div>`:''}
     ${obNav(d.days.length===0)}</div>`; }
 
-  else if(obStep===3){ h+=`<div class="card">
+  else if(obStep===4){ h+=`<div class="card">
     <h2 style="margin-top:0">Wie trainierst du lieber?</h2>
     <button class="ob-opt ${d.vol==='low'?'on':''}" data-act="ob:vol:low">
       <b>Wenig Volumen — 6–10 Wdh</b><span>3 Sätze je Übung, mehr Gewicht. Kürzere Einheiten.</span></button>
@@ -2269,7 +2297,7 @@ function renderOnboard(){
       <b>Ohne</b><span>Direkt mit dem Arbeitsgewicht anfangen.</span></button>
     ${obNav()}</div>`; }
 
-  else if(obStep===4){ h+=`<div class="card">
+  else if(obStep===5){ h+=`<div class="card">
     <h2 style="margin-top:0">Lieblingsübungen?</h2>
     <p class="muted tiny" style="margin-bottom:6px">Optional — was du hier wählst, kommt in deinen Trainings zuerst.</p>
     ${Object.keys(FAVPOOL).map(g=>`<div style="margin-top:14px">
@@ -2278,7 +2306,7 @@ function renderOnboard(){
     ${obNav()}</div>`; }
 
   else { const days=d.days.slice().sort((a,b)=>a-b);
-    const split=SPLITS[Math.min(6,Math.max(2,days.length))]||SPLITS[3];
+    const split=splitFuer(days.length, d.erfahrung==='anfaenger');
     h+=`<div class="card">
     <h2 style="margin-top:0">Passt das so?</h2>
     <div class="ob-sum">
@@ -2303,7 +2331,17 @@ function obNav(disabled){ return `<div class="fab-row" style="margin-top:18px">
 // Wenn Karl keinen Namen eintippt, benennt sich der Plan nach seinem Split.
 function splitName(n){ return ({2:'Upper/Lower',3:'Push/Pull/Legs',4:'Upper/Lower 4er',
   5:'5er-Split',6:'PPL 6er'})[n] || `${n}er-Plan`; }
-function splitHint(n){ return ({2:'Upper/Lower — Oberkörper und Unterkörper im Wechsel.',
+/* Zentrale Stelle, welcher Split zu wie vielen Tagen gehoert -- buildPlans(),
+   renderOnboard() (die Zusammenfassung) und splitHint() rufen ALLE dieselbe Funktion,
+   damit die Anfaenger-Regel nicht wie der 503-Fund vom 31.08. an nur EINER von mehreren
+   Aufrufstellen landet. */
+function splitFuer(n, anfaenger){
+  if(anfaenger && n===3) return SPLITS_ANFAENGER;
+  return SPLITS[Math.min(6,Math.max(2,n))]||SPLITS[3];
+}
+function splitHint(n, anfaenger){
+  if(anfaenger && n===3) return 'Ganzkörper A/B im Wechsel — am Anfang bringt das mehr als ein Split.';
+  return ({2:'Upper/Lower — Oberkörper und Unterkörper im Wechsel.',
   3:'Push/Pull/Legs — der Klassiker.',
   4:'Upper/Lower, zweimal die Woche mit anderen Übungen.',
   5:'Der klassische 5er-Split: Brust, Rücken, Schultern, Arme, Beine.',
@@ -4945,7 +4983,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v62';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v63';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -6508,18 +6546,24 @@ document.addEventListener('click',ev=>{
   // weil auf diesem Weg nie danach gefragt wird.
   else if(a==='ob:manual'){ profile.onboarded=true;
     save(); view='plans'; render(); toast('Du legst selbst an'); }
-  else if(a==='ob:next'){ if(obStep===1&&!obDraft.days.length) obDraft.days=(OB_DEFDAYS[obDraft.n]||OB_DEFDAYS[3]).slice();
+  else if(a==='ob:next'){ if(obStep===2&&!obDraft.days.length) obDraft.days=(OB_DEFDAYS[obDraft.n]||OB_DEFDAYS[3]).slice();
     obStep=Math.min(OB_LAST,obStep+1); renderOnboard(); }
   else if(a==='ob:back'){ if(obStep>0){ obStep--; renderOnboard(); }
     else if(obCanLeave()){ view=obReturn; render(); } }                  // frisch registriert: kein Ausstieg
   else if(a==='ob:cancel'){ if(obCanLeave()){ view=obReturn; render(); toast('Nichts geändert'); } }
+  /* ⚠️ "Anfänger" setzt 3 Tage / Ganzkörper nur VORAUS -- die Voreinstellung, änderbar,
+     die Karl am 02.09.2026 wollte. Der naechste Schritt (Tage/Woche) bleibt frei waehlbar,
+     das hier aendert nur, was dort schon angehakt ist, wenn man ankommt. */
+  else if(a&&a.startsWith('ob:erf:')){ obDraft.erfahrung=a.slice(7);
+    if(obDraft.erfahrung==='anfaenger'){ obDraft.n=3; obDraft.days=OB_DEFDAYS[3].slice(); }
+    renderOnboard(); }
   else if(a&&a.startsWith('ob:n:')){ obDraft.n=+a.slice(5); obDraft.days=(OB_DEFDAYS[obDraft.n]||OB_DEFDAYS[3]).slice(); renderOnboard(); }
   else if(a&&a.startsWith('ob:day:')){ const i=+a.slice(7), k=obDraft.days.indexOf(i);
     if(k<0) obDraft.days.push(i); else obDraft.days.splice(k,1); renderOnboard(); }
   else if(a&&a.startsWith('ob:vol:')){ obDraft.vol=a.slice(7); renderOnboard(); }
   else if(a&&a.startsWith('ob:warm:')){ obDraft.warm=a.slice(8)==='1'; renderOnboard(); }
   else if(a==='ob:finish'){ profile.days=obDraft.days.slice().sort((x,y)=>x-y); profile.vol=obDraft.vol;
-    profile.warmup=!!obDraft.warm;
+    profile.warmup=!!obDraft.warm; profile.erfahrung=obDraft.erfahrung||null;
     profile.favs=obDraft.favs.slice(); profile.onboarded=true;
     // Neuer Trainingsplan statt Ersetzen: bestehende Plaene bleiben, der neue wird der aktuelle.
     const nm=(obDraft.name||'').trim() || splitName(obDraft.days.length);

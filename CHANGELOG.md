@@ -4,6 +4,32 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-02
 
+### v63 — Anfänger bekommen Ganzkörper vorgeschlagen, nicht Push/Pull/Legs
+
+Karls Ansage: *„für anfänger im ersten halben jahr/ ersten monate zb sollte immer ein
+ganzkörper training und nur 3 Trainingstage drinne haben"*. **Änderbar, nicht erzwungen** —
+seine eigene Ergänzung dazu.
+
+**Eine neue Frage, direkt nach „Bau ihn für mich":** *„Wie lange trainierst du schon?"* —
+Anfänger (< 1 Jahr), Fortgeschritten (1–3 Jahre), Erfahren (> 3 Jahre). Die letzten beiden
+sind meine Ergänzung, Karl hat die Auswahl bewusst offengelassen.
+
+Wählst du **Anfänger**, werden 3 Tage und ein echter **Ganzkörper-Split (A/B im Wechsel)**
+nur **vorausgewählt** — im nächsten Schritt kannst du weiterhin 2 bis 6 Tage wählen, die
+Vorgabe ist kein Käfig.
+
+🔴 **Kein Push/Pull/Legs unter neuem Namen** — zwei eigene Trainingstage mit je einer
+Kniebeuge- oder Beinpressen-Variante, Bank- oder Schulterdrücken, einem Rücken-Zug und
+Rumpf, bewusst machine-lastiger als die anderen Splits (Latzug statt Klimmzüge, Beinpresse
+als Alternative zum Kreuzheben) — der erste Kontakt mit dem Gym soll nicht an einer Übung
+scheitern, die Körperspannung voraussetzt, die noch niemand aufgebaut hat. Bei 3 gewählten
+Tagen wechseln sich die zwei Tage von selbst als A/B/A ab.
+
+**9 neue Prüfungen (796 → 805)**, inklusive einer, die genau das prüft, was heute mehrfach
+schiefging: dass die **Zusammenfassung** vor dem Erstellen denselben Split zeigt wie das,
+was tatsächlich gebaut wird — beide laufen jetzt über dieselbe Funktion (`splitFuer()`),
+nicht über zwei eigene Rechnungen.
+
 ### v62 — Fehlerfang, letzte Menge, Verbindungstest, Gewicht in den Verlauf
 
 Vier Punkte aus der Ideenliste vom Nachmittag — drei davon nach Karls direkter Ansage
