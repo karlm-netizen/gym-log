@@ -4021,7 +4021,20 @@ async function schaetzeFoto(file){
       headers:{ 'content-type':'application/json', 'x-goog-api-key':aiKey() },
       body: JSON.stringify({
         model:'gemini-3.7-flash',
-        response_format:{ type:'json_schema', json_schema:{ name:'Naehrwerte', schema:{
+        /* 🔴 Am 02.09.2026 von Karl gemeldet, beim ERSTEN echten Foto -- zwoelf Tage
+           nach dem Einbau. Hier stand `type:'json_schema'` mit dem Schema in
+           `json_schema.schema`, also die Form, die OpenAI verwendet. Google antwortet
+           darauf mit 400: *"The value 'json_schema' is not supported for 'type' at
+           'response_format'"*.
+           ⚡ Bei der Interactions-API ist `type` die AUSGABEART (text, image, audio,
+           number, ...), nicht das Schema-Format. Erzwungenes JSON heisst hier:
+           type 'text' + mime_type 'application/json' + das Schema in `schema`.
+           ⚠️ Und der eigentliche Merkposten steht in der Commit-Nachricht vom
+           21.08.2026 selbst: *"Nicht geprueft: ein echtes Foto mit echtem Schluessel."*
+           Die Form war aus der Dokumentation geschrieben und nie abgeschickt worden.
+           **Keine Pruefung dieses Ordners haette das finden koennen** -- sie haetten
+           genau die falsche Form festgehalten, an die ich geglaubt habe. */
+        response_format:{ type:'text', mime_type:'application/json', schema:{
           type:'object',
           properties:{
             name:{type:'string', description:'Kurzer deutscher Name des Gerichts'},
@@ -4029,7 +4042,7 @@ async function schaetzeFoto(file){
             kcal:{type:'number'}, eiweiss:{type:'number'}, kohlenhydrate:{type:'number'}, fett:{type:'number'},
             sicher:{type:'boolean', description:'false, wenn das Essen schlecht zu erkennen ist'}
           },
-          required:['name','menge','kcal','eiweiss','kohlenhydrate','fett','sicher'] } } },
+          required:['name','menge','kcal','eiweiss','kohlenhydrate','fett','sicher'] } },
         input:[
           { type:'text', text:'Schätze für das Essen auf diesem Bild die Nährwerte der abgebildeten Portion (nicht je 100 g). Antworte auf Deutsch. Wenn kein Essen zu sehen ist, setze sicher auf false und alle Zahlen auf 0.' },
           { type:'image', mime_type:'image/jpeg', data:b64 } ]
@@ -4762,7 +4775,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v59';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v60';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */

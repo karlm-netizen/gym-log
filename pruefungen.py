@@ -5323,6 +5323,71 @@ window.addEventListener('error', e => {
     return (!!a && !!b && !!c && a !== b && b !== c && a !== c) || 'zwei Texte sind gleich';
   });
 
+  /* ================================ Essen per Foto: die Form des Aufrufs (02.09.2026)
+     🔴 Karls Meldung beim ERSTEN echten Foto, zwoelf Tage nach dem Einbau:
+     400, "The value 'json_schema' is not supported for 'type' at 'response_format'".
+     Im Quelltext stand die OpenAI-Form (type 'json_schema', Schema in json_schema.schema).
+     Google will bei der Interactions-API: type 'text' + mime_type 'application/json' +
+     das Schema in `schema` -- `type` ist dort die AUSGABEART, nicht das Schema-Format.
+
+     ⚠️ EHRLICH ZUR REICHWEITE DIESER PRUEFUNGEN: sie haetten den Fehler NICHT
+     gefunden. Sie halten fest, was in der Dokumentation steht -- und geglaubt hatte ich
+     vorher auch etwas. Was gefehlt hat, war ein einziger echter Aufruf; die
+     Commit-Nachricht vom 21.08.2026 sagt das selbst ("Nicht geprueft: ein echtes Foto
+     mit echtem Schluessel"). Was sie koennen: verhindern, dass die Form beim naechsten
+     Umbau still wieder wegrutscht. */
+  const einBild = () => new Promise(ok => {
+    const c = document.createElement('canvas'); c.width = 2; c.height = 2;
+    const x = c.getContext('2d'); x.fillStyle = '#888'; x.fillRect(0, 0, 2, 2);
+    c.toBlob(b => ok(new File([b], 'teller.jpg', {type:'image/jpeg'})), 'image/jpeg');
+  });
+  const beimFoto = async (fn) => {
+    const mF = window.fetch, mK = DB.get('aikey', ''), mS = foodStep, mV = view, mD = foodDraft;
+    let koerper = null;
+    DB.set('aikey', 'AIza-pruefung');
+    window.fetch = async (u, o) => { koerper = JSON.parse(o.body);
+      return { ok:true, status:200, json: async () => ({ steps:[{ type:'model_output',
+        content:[{ type:'text', text: JSON.stringify({ name:'Teller', menge:'ca. 300 g',
+          kcal:500, eiweiss:20, kohlenhydrate:50, fett:15, sicher:true }) }] }] }) }; };
+    try { await schaetzeFoto(await einBild()); return fn(koerper); }
+    finally { window.fetch = mF; DB.set('aikey', mK); foodStep = mS; view = mV;
+              foodDraft = mD; foodBusy = ''; foodFehler = ''; }
+  };
+
+  await tA('Das erzwungene JSON hat die Form, die Google versteht', async () =>
+    beimFoto(k => {
+      if(!k) return 'es wurde gar nichts geschickt';
+      const rf = k.response_format;
+      if(!rf) return 'response_format fehlt';
+      if(rf.type !== 'text') return "type ist '" + rf.type + "' statt 'text'";
+      if(rf.mime_type !== 'application/json') return "mime_type ist '" + rf.mime_type + "'";
+      if(!rf.schema || rf.schema.type !== 'object') return 'das Schema fehlt oder ist kein object';
+      if(rf.json_schema) return 'die alte OpenAI-Form (json_schema) steht wieder drin';
+      return true;
+    }));
+  t('Die sieben Felder stehen alle im Schema', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const noetig = ['name','menge','kcal','eiweiss','kohlenhydrate','fett','sicher'];
+    const i = q.indexOf('response_format:{');
+    if(i < 0) return 'response_format nicht gefunden';
+    const block = q.slice(i, i + 1400);
+    const fehlt = noetig.filter(f => block.indexOf(f + ':') < 0 && block.indexOf("'" + f + "'") < 0);
+    return fehlt.length === 0 || ('fehlt im Schema: ' + fehlt.join(', '));
+  });
+  /* ⚠️ Das Bild geht als `data` + `mime_type` mit, nicht als inline_data wie bei
+     der aelteren generateContent-API. Auch das war nie abgeschickt worden. */
+  await tA('Das Bild geht in der Form mit, die die Interactions-API erwartet', async () =>
+    beimFoto(k => {
+      const bild = (k.input || []).find(x => x && x.type === 'image');
+      if(!bild) return 'im input steckt kein Bild';
+      if(!bild.data) return 'das Bild hat kein Feld "data"';
+      if(bild.mime_type !== 'image/jpeg') return "mime_type ist '" + bild.mime_type + "'";
+      return true;
+    }));
+  await tA('Aus der Antwort wird der Entwurf gebaut', async () =>
+    beimFoto(() => (foodDraft && foodDraft.name === 'Teller' && foodDraft.kcal === 500
+                    && foodDraft.quelle === 'foto') || JSON.stringify(foodDraft)));
+
   // ================================================================ Aufraeumen
   sessions = SICHER.sessions; profile = SICHER.profile; settings = SICHER.settings;
 

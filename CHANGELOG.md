@@ -4,6 +4,38 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-02
 
+### v60 — „Essen per Foto" hat noch nie funktioniert
+
+Karls Meldung, mit Bildschirmfoto, beim **ersten echten Foto überhaupt**:
+
+> Die KI antwortet nicht (400): The value 'json_schema' is not supported for 'type' at
+> 'response_format'.
+
+**Im Quelltext stand die Form eines anderen Anbieters.** `response_format: {type:'json_schema',
+json_schema:{schema:…}}` ist die OpenAI-Schreibweise. Bei Googles Interactions-API ist `type`
+die **Ausgabeart** (text, image, audio, number …), nicht das Schema-Format. Richtig ist:
+
+```
+response_format: { type:'text', mime_type:'application/json', schema:{ … } }
+```
+
+Sonst ist an dem Aufruf nichts falsch — Modell, Bildübergabe (`data` + `mime_type`) und das
+Auslesen aus `steps[].type === 'model_output'` stimmen. **Es war die eine Zeile.**
+
+🔴 **Der Merkposten ist größer als der Fehler.** Der Weg über Google ist am **21.08.2026**
+eingebaut worden, und die Commit-Nachricht von damals sagt es selbst: *„Nicht geprueft: ein
+echtes Foto mit echtem Schluessel."* **Zwölf Tage später hat es der erste Benutzer gefunden.**
+Die Form war aus der Dokumentation geschrieben und nie abgeschickt worden.
+
+⚠️ **Ehrlich zu den vier neuen Prüfungen (762 → 766): sie hätten das nicht gefunden.** Sie
+halten fest, was in der Dokumentation steht — und daran hatte ich vorher auch geglaubt. Was
+gefehlt hat, war ein einziger echter Aufruf. Was sie können: verhindern, dass die Form beim
+nächsten Umbau still wieder wegrutscht.
+
+💡 **Was gut funktioniert hat:** die Fehlermeldung. Sie hat den Text des Servers wörtlich
+durchgereicht — deshalb stand auf dem Bildschirm genau die Zeile, mit der der Fehler in fünf
+Minuten zu finden war, statt „Hat nicht geklappt".
+
 ### v59 — die acht übrigen Funde des Agentenlaufs sind zu
 
 Am 01.09.2026 hat ein Agent die App nach **einer bestimmten Bauform** durchsucht: *etwas kann
