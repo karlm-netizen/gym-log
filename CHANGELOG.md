@@ -4,6 +4,20 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-02
 
+### v0.064 — der Supabase-Test im Admin-Panel hatte selbst einen Fehler
+
+Karls Meldung vom Handy, direkt nach dem ersten Ausprobieren von „Verbindung testen"
+(v62): Open Food Facts grün, **Supabase „Antwort 401"**.
+
+🔴 **Der Test schickte nur den `apikey`-Header, kein `Authorization`.** Jeder andere
+Supabase-Aufruf in der App (`authHeaders()`) schickt beide — ohne `Authorization` weist
+Supabase die Anfrage ab, bevor sie überhaupt bei den Daten ankommt. Jetzt ruft der Test
+`authHeaders(false)` auf, denselben Weg wie der Rest der App.
+
+⚠️ **Und meine eigene Prüfung dazu hätte das nicht gefangen** — sie prüfte nur, dass
+irgendein Aufruf passiert, nie welche Header dabei sind. Neue Prüfung dazu (805 → 806),
+die genau das nachmisst; Gegenprobe bestanden.
+
 ### v63 — Anfänger bekommen Ganzkörper vorgeschlagen, nicht Push/Pull/Legs
 
 Karls Ansage: *„für anfänger im ersten halben jahr/ ersten monate zb sollte immer ein

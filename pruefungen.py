@@ -5634,6 +5634,20 @@ window.addEventListener('error', e => {
     finally { window.fetch = mF; }
     return adminVerbindung.supa.ok === true || JSON.stringify(adminVerbindung.supa);
   }));
+  /* 🔴 Karls Meldung vom Handy, 02.09.2026: hier stand "Antwort 401", weil der
+     Aufruf nur 'apikey' schickte -- Supabase verlangt zusaetzlich 'Authorization'.
+     Die Pruefung darueber haette das NICHT gefangen: sie prueft nur, dass irgendein
+     fetch passiert, nicht WELCHE Header dabei sind. Genau die Bauform des Tages --
+     eine Pruefung, die grün ist, weil sie das Falsche prueft. */
+  await tA('Supabase: der Aufruf schickt Authorization mit, nicht nur apikey', async () => mitAdmin(async () => {
+    const mF = window.fetch;
+    let header = null;
+    window.fetch = async (u, o) => { header = (o && o.headers) || {}; return { ok:true, status:200 }; };
+    try { await adminTestVerbindung('supa'); }
+    finally { window.fetch = mF; }
+    if(!header.apikey) return 'apikey fehlt';
+    return !!header.Authorization || 'Authorization fehlt -- genau der 401-Fund vom 02.09.';
+  }));
   await tA('Google: ohne eingetragenen Schluessel wird gar nicht erst losgeschickt', async () => mitAdmin(async () => {
     const mK = DB.get('aikey',''), mF = window.fetch;
     DB.set('aikey','');
