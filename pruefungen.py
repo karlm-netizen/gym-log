@@ -2005,30 +2005,51 @@ window.addEventListener('error', e => {
     const ohne = rufe.filter(s => s.indexOf('{x:') < 0);
     return ohne.length === 0 || 'ohne Datum: ' + ohne.join(' // ');
   });
+  /* 🔴 Karls Ansage am 02.09.2026: „den verlauf des gewichtes kann bitte rueber in
+     die einstellungen unter verlauf". Die Kurve ist seither Teil von `renderHistory()`
+     (über `gewichtVerlaufHTML()`), nicht mehr von `renderBody()`. Die Pruefungen
+     darunter sind deshalb auf `view='history'` umgestellt.
+     ⚠️ Die drei Huerden vor dem KOERPER-Tab (Anmeldung, Kalorien-Assistent)
+     gelten fuer die Verlauf-Seite nicht -- sie war schon vorher ohne Anmeldung erreichbar
+     (der Trainingsverlauf ist es auch). Weniger Aufbau bedeutet hier nicht weniger
+     Pruefung, sondern dass die Huerde nie existiert hat. */
   t('Der Koerpergewichts-Verlauf zeigt Datum und Kilogramm', () => {
-    // ⚠️ Drei Huerden stehen zwischen render() und der Kurve, alle drei schweigend:
-    //    ohne `session` kommt die Anmeldeseite, ohne Kalorien-Ziel der Einrichtungs-
-    //    Assistent, und `kobErzwingen` haelt den Assistenten selbst dann oben.
-    const wVorher = profile.weights, kVorher = JSON.stringify(profile.kcal||null);
-    const sVorher = session, ezVorher = kobErzwingen;
+    // ⚠️ `render()` verlangt fuer JEDE Ansicht eine Sitzung (die Anmeldeseite kommt sonst
+    // zuerst) -- das ist keine Eigenheit des Koerper-Tabs. Der Kalorien-Assistent dagegen
+    // wird nur von renderBody abgefragt (kcalBraucht()) und spielt fuer renderHistory
+    // keine Rolle, deshalb bleibt kobErzwingen hier unangetastet.
+    const wVorher = profile.weights, sessVorher = sessions, sVorher = session;
     session = {user:{id:'test'}, expires_at: Date.now() + 3600e3, access_token:'x'};
-    kobErzwingen = false;
-    const k = kcalInit(); k.setup = true; k.goal = 2000;
+    sessions = [];
     profile.weights = [
       {date:new Date(2026,7,1).getTime(), kg:80},
       {date:new Date(2026,7,10).getTime(), kg:78.5},
       {date:new Date(2026,7,20).getTime(), kg:77}];
-    view = 'body'; render();
+    view = 'history'; render();
     const h = app.innerHTML;
-    profile.weights = wVorher;
-    if (kVorher !== 'null') profile.kcal = JSON.parse(kVorher);
-    kobErzwingen = ezVorher; session = sVorher;
+    profile.weights = wVorher; sessions = sessVorher; session = sVorher;
     view = 'home'; render();
     if (!h.includes('chart-y')) return 'keine Seitenbeschriftung';
     if (!h.includes('chart-x')) return 'keine Beschriftung unten';
     if (!h.includes('80 kg')) return 'hoechster Wert fehlt an der Achse';
     if (!h.includes('01.08.') || !h.includes('20.08.')) return 'Datum fehlt unten';
     return true;
+  });
+  /* ✅ Und die Gegenprobe zur Ansage selbst: im KOERPER-Tab steht die Kurve nicht
+     mehr, dort bleiben nur das Eingabefeld und der Knopf zum Verlauf. */
+  t('Im Koerper-Tab steht keine Kurve mehr, nur der Weg zum Verlauf', () => {
+    const wVorher = profile.weights, sVorher = session, ezVorher = kobErzwingen;
+    session = {user:{id:'test'}, expires_at: Date.now() + 3600e3, access_token:'x'};
+    kobErzwingen = false;
+    const k = kcalInit(); k.setup = true; k.goal = 2000;
+    profile.weights = [{date:new Date(2026,7,1).getTime(), kg:80},
+                       {date:new Date(2026,7,20).getTime(), kg:77}];
+    view = 'body'; render();
+    const h = app.innerHTML;
+    profile.weights = wVorher; session = sVorher; kobErzwingen = ezVorher;
+    view = 'home'; render();
+    if (h.includes('chart-plot')) return 'die Kurve steht noch im Koerper-Tab';
+    return /data-nav="history"/.test(h) || 'kein Weg zum Verlauf';
   });
 
   /* ---- Zeitraum der Gewichtskurve (Karls Ansage 01.09.2026) ----
@@ -2041,20 +2062,19 @@ window.addEventListener('error', e => {
   // ⚠️ Dieselben drei schweigenden Huerden wie oben: ohne `session` kommt die
   // Anmeldeseite, ohne Kalorien-Ziel der Einrichtungs-Assistent, und `kobErzwingen`
   // haelt ihn selbst dann oben.
+  /* ⚠️ Seit dem 02.09.2026 view='history' statt 'body' -- die Kurve zog in den
+     Verlauf um, die drei alten Huerden (Anmeldung, Kalorien-Assistent) gelten dort nicht. */
   function koerperHtml(gewichte, fenster, klick){
-    const wV=profile.weights, kV=JSON.stringify(profile.kcal||null),
-          sV=session, ezV=kobErzwingen, fV=gwFenster;
+    const wV=profile.weights, sessV=sessions, fV=gwFenster, sV=session;
     session={user:{id:'test'}, expires_at:Date.now()+3600e3, access_token:'x'};
-    kobErzwingen=false;
-    const k=kcalInit(); k.setup=true; k.goal=2000;
+    sessions=[];
     profile.weights=gewichte; gwFenster=fenster||'max';
-    view='body'; render();
+    view='history'; render();
     let fehlt=null;
     if(klick){ const b=document.querySelector('[data-act="gw:fenster:'+klick+'"]');
                if(b) b.click(); else fehlt=klick; }
     const h=app.innerHTML, f=gwFenster;
-    profile.weights=wV; if(kV!=='null') profile.kcal=JSON.parse(kV);
-    kobErzwingen=ezV; session=sV; gwFenster=fV;
+    profile.weights=wV; sessions=sessV; gwFenster=fV; session=sV;
     view='home'; render();
     return {h:h, fenster:f, fehlt:fehlt};
   }
@@ -2156,10 +2176,18 @@ window.addEventListener('error', e => {
   /* 🔴 Die drei Kaesten oben zeigen weiter die ganze Geschichte, die Kurve darunter
      nur den Zeitraum. „kg seit Start" haelt die beiden auseinander — ohne das Wort
      liest man bei „1 Woche" die Differenz eines halben Jahres als die der Woche. */
+  /* ⚠️ Diese Beschriftung steht seit dem 02.09.2026 NICHT mehr neben der Kurve
+     (die ist im Verlauf), sondern in den drei stillen Kaesten im Koerper-Tab selbst --
+     genau dort, wo gewogen wird. Deshalb view='body', nicht koerperHtml(). */
   t('Die Differenz sagt dazu, dass sie ab Start zaehlt', () => {
-    const r = koerperHtml([{date:gwTage(200),kg:84},{date:gwTage(2),kg:79}], 'max', 'woche');
-    if(!r.h.includes('kg seit Start')) return 'die Differenz sagt nicht, worauf sie sich bezieht';
-    return !r.h.includes('kg Differenz') || 'die alte, mehrdeutige Beschriftung steht noch da';
+    const wV=profile.weights, sV=session;
+    session={user:{id:'test'}, expires_at:Date.now()+3600e3, access_token:'x'};
+    profile.weights=[{date:gwTage(200),kg:84},{date:gwTage(2),kg:79}];
+    view='body'; render();
+    const h=app.innerHTML;
+    profile.weights=wV; session=sV; view='home'; render();
+    if(!h.includes('kg seit Start')) return 'die Differenz sagt nicht, worauf sie sich bezieht';
+    return !h.includes('kg Differenz') || 'die alte, mehrdeutige Beschriftung steht noch da';
   });
   /* Die Spanne neben der Ueberschrift beschreibt die GEZEIGTE Kurve, nicht alle Daten.
      ⚠️ Gelesen wird genau der eine Span neben „Verlauf" und nicht die ganze Seite:
@@ -5483,6 +5511,234 @@ window.addEventListener('error', e => {
   await tA('Aus der Antwort wird der Entwurf gebaut', async () =>
     beimFoto(() => (foodDraft && foodDraft.name === 'Teller' && foodDraft.kcal === 500
                     && foodDraft.quelle === 'foto') || JSON.stringify(foodDraft)));
+
+  /* ================================ Die zuletzt benutzte Menge (02.09.2026)
+     Karls Ansage: „ja aender das" zu Idee 4. Wer ein Lebensmittel aus der eigenen Liste
+     waehlt, bekommt jetzt die zuletzt eingetragene Menge vorgeschlagen statt immer 100 g.
+     Nur fuer die eigene Liste (Gramm-Basis) -- Foto-Portionen haben keine feste Menge,
+     die man wiederholen wuerde. */
+  const mitEigenemFood = (menge0, fn) => {
+    const kV = JSON.stringify(profile.kcal||null);
+    const k = kcalInit(); k.foods = [{id:'f1', name:'Quark', kcal:66, p:12, c:4, f:0,
+                                      basis:'g100', letzteMenge: menge0}];
+    save();
+    try { return fn(); }
+    finally { profile.kcal = JSON.parse(kV); save(); }
+  };
+  // Simuliert den echten Klick ueber die delegierte Auswertung in document, statt
+  // eine erfundene Funktion aufzurufen -- so laeuft derselbe Weg wie am Handy.
+  const klickPickfood = (id) => {
+    const el = document.createElement('button'); el.dataset.pickfood = id;
+    document.body.appendChild(el);
+    el.dispatchEvent(new MouseEvent('click', {bubbles:true}));
+    el.remove();
+  };
+  t('Ohne Vorgeschichte bleibt es bei 100 g', () => mitEigenemFood(undefined, () => {
+    klickPickfood('f1');
+    return eq(foodDraft && foodDraft.menge, 100);
+  }));
+  t('Beim Waehlen kommt die zuletzt benutzte Menge, nicht 100 g', () => mitEigenemFood(250, () => {
+    klickPickfood('f1');
+    return eq(foodDraft && foodDraft.menge, 250);
+  }));
+  t('Eintragen schreibt die neue Menge ans Lebensmittel zurueck', () => mitEigenemFood(100, () => {
+    addMeal({id:'f1', name:'Quark', kcal:66, p:12, c:4, f:0, basis:'g100', quelle:'eigen'}, 180);
+    return eq(kcalInit().foods.find(x=>x.id==='f1').letzteMenge, 180);
+  }));
+  /* \u26a0\ufe0f Foto-Portionen duerfen NICHT hineinschreiben -- es gibt kein `d.id`, das
+     in `k.foods` zeigen wuerde, und selbst wenn eines vorhanden waere, ist "Portionen"
+     keine Menge in Gramm. Ohne diese Pruefung koennte ein kuenftiger Umbau versehentlich
+     ein falsches Feld treffen. */
+  t('Foto-Portionen speichern keine Menge am Lebensmittel', () => mitEigenemFood(100, () => {
+    addMeal({name:'Teller', kcal:500, p:20, c:50, f:15, basis:'portion', quelle:'foto'}, 1);
+    return eq(kcalInit().foods.find(x=>x.id==='f1').letzteMenge, 100);
+  }));
+  t('Per Barcode gefundene Eigenware nimmt ebenfalls die letzte Menge', () => mitEigenemFood(150, () => {
+    const k = kcalInit(); k.foods[0].barcode = '4000000000000';
+    const eigen = eigenesZuBarcode('4000000000000');
+    return (eigen && eigen.letzteMenge === 150) || 'eigenesZuBarcode liefert: ' + JSON.stringify(eigen);
+  }));
+
+  /* ================================ Verbindung testen im Admin-Panel (02.09.2026)
+     Idee 6, aber nach Karls Ansage NICHT fuer alle Nutzer -- nur im Admin-Panel.
+     Direkte Antwort auf den Foto-Fund: ein Knopf, der wirklich abschickt, statt nur zu
+     dokumentieren, was der Aufruf angeblich tut. */
+  /* ⚠️ MUSS auf ein asynchrones fn() warten, bevor der Zustand zurueckgestellt
+     wird -- ein try/finally allein tut das NICHT: finally laeuft, sobald fn() eine
+     Promise ZURUECKGIBT, nicht wenn sie sich erfuellt. Genau das ist beim ersten Anlauf
+     passiert: adminVerbindung wurde zurueckgesetzt, WAEHREND adminTestVerbindung() noch
+     mitten in seiner eigenen Zusicherung stand -- derselbe Fehler in der Form, die heute
+     schon zweimal an anderer Stelle aufgetreten ist (Datei zurueckstellen vor statt nach
+     dem Berichten). `render()` verlangt ausserdem fuer JEDE Ansicht eine Sitzung. */
+  const mitAdmin = (fn) => {
+    const dV = devAdmin, vV = adminVerbindung, sV = session;
+    devAdmin = true; adminVerbindung = {off:null, supa:null, google:null};
+    session = {user:{id:'test'}, expires_at: Date.now() + 3600e3, access_token:'x'};
+    const wieder = () => { devAdmin = dV; adminVerbindung = vV; session = sV; };
+    const r = fn();
+    if(r && typeof r.then === 'function')
+      return r.then(v => { wieder(); return v; }, e => { wieder(); throw e; });
+    wieder(); return r;
+  };
+  t('Ohne Admin-Modus ist der Knopf gar nicht da', () => {
+    const dV = devAdmin; devAdmin = false;
+    view = 'admin'; render();
+    const h = app.innerHTML;
+    devAdmin = dV; view = 'home'; render();
+    return !h.includes('data-testverbindung') || 'die Karte steht auch ohne Admin-Modus da';
+  });
+  t('Im Admin-Panel stehen alle drei Dienste zum Testen', () => mitAdmin(() => {
+    view = 'admin'; render();
+    const h = app.innerHTML;
+    view = 'home'; render();
+    return (h.includes('data-testverbindung="off"') && h.includes('data-testverbindung="supa"')
+            && h.includes('data-testverbindung="google"')) || 'nicht alle drei Knöpfe stehen da';
+  }));
+  /* ⚠️ Und der ECHTE Klick, nicht der direkte Aufruf -- die Pruefungen darueber
+     rufen adminTestVerbindung() unmittelbar auf und pruefen damit nie, ob der Knopf im
+     Admin-Panel ueberhaupt an der Delegation haengt. Gegenprobe gemacht: ohne die Zeile
+     `if(t.dataset.testverbindung){...}` blieben alle bisherigen Pruefungen gruen. */
+  await tA('Ein Klick auf Testen loest wirklich den Aufruf aus', async () => mitAdmin(async () => {
+    view = 'admin'; render();
+    const mF = window.fetch;
+    window.fetch = async () => ({ ok:true, json: async () => ({product:{product_name:'X'}}) });
+    const btn = document.querySelector('[data-testverbindung="off"]');
+    if(!btn){ window.fetch = mF; return 'Knopf nicht im DOM'; }
+    btn.dispatchEvent(new MouseEvent('click', {bubbles:true}));
+    await new Promise(r => setTimeout(r, 0));
+    window.fetch = mF;
+    view = 'home'; render();
+    return (adminVerbindung.off && adminVerbindung.off.ok === true) || JSON.stringify(adminVerbindung.off);
+  }));
+  await tA('Open Food Facts: eine echte Antwort zeigt den Produktnamen', async () => mitAdmin(async () => {
+    const mF = window.fetch;
+    window.fetch = async () => ({ ok:true, json: async () => ({product:{product_name:'Nutella'}}) });
+    try { await adminTestVerbindung('off'); }
+    finally { window.fetch = mF; }
+    return (adminVerbindung.off.ok && /Nutella/.test(adminVerbindung.off.text)) || JSON.stringify(adminVerbindung.off);
+  }));
+  await tA('Open Food Facts: kein Netz wird als Fehler gemeldet, nicht als Absturz', async () => mitAdmin(async () => {
+    const mF = window.fetch;
+    window.fetch = async () => { throw new Error('kein Netz'); };
+    try { await adminTestVerbindung('off'); }
+    finally { window.fetch = mF; }
+    return (adminVerbindung.off && adminVerbindung.off.ok === false) || 'kein Fehler gemeldet';
+  }));
+  await tA('Supabase: eine 200er-Antwort gilt als erreicht', async () => mitAdmin(async () => {
+    const mF = window.fetch;
+    window.fetch = async () => ({ ok:true, status:200 });
+    try { await adminTestVerbindung('supa'); }
+    finally { window.fetch = mF; }
+    return adminVerbindung.supa.ok === true || JSON.stringify(adminVerbindung.supa);
+  }));
+  await tA('Google: ohne eingetragenen Schluessel wird gar nicht erst losgeschickt', async () => mitAdmin(async () => {
+    const mK = DB.get('aikey',''), mF = window.fetch;
+    DB.set('aikey','');
+    let rufe = 0;
+    window.fetch = async () => { rufe++; return {ok:true, json: async()=>({})}; };
+    try { await adminTestVerbindung('google'); }
+    finally { window.fetch = mF; DB.set('aikey', mK); }
+    return (rufe === 0 && adminVerbindung.google.ok === false)
+      || ('rufe=' + rufe + ' ' + JSON.stringify(adminVerbindung.google));
+  }));
+  /* \u26a0\ufe0f Derselbe response_format wie beim echten Foto (v60) — genau die Form, die
+     bis heute 400 zurueckgab. Testet der Admin-Knopf eine andere Form als der echte Weg,
+     waere er nur ein zweites Vertrauen auf dieselbe unbewiesene Annahme. */
+  await tA('Google: derselbe Aufruf-Aufbau wie beim echten Essens-Foto', async () => mitAdmin(async () => {
+    const mK = DB.get('aikey',''), mF = window.fetch;
+    DB.set('aikey','AIza-test');
+    let koerper = null;
+    window.fetch = async (u,o) => { koerper = JSON.parse(o.body);
+      return {ok:true, status:200, json: async()=>({steps:[{type:'model_output',
+        content:[{type:'text', text:'{"ok":true}'}]}]})}; };
+    try { await adminTestVerbindung('google'); }
+    finally { window.fetch = mF; DB.set('aikey', mK); }
+    if(!koerper) return 'es wurde nichts geschickt';
+    const rf = koerper.response_format;
+    return (rf && rf.type==='text' && rf.mime_type==='application/json')
+      || 'falsche Form: ' + JSON.stringify(rf);
+  }));
+
+  /* ================================ Ein globaler Fehlerfang (02.09.2026, Idee 1)
+     Bis heute gab es kein window.onerror und kein unhandledrejection. Jeder Fehler aus
+     einem Klick-Handler verschwand in einer Handy-Konsole, die niemand aufmacht. */
+  const mitFehlerfang = (fn) => {
+    const gV = fehlerGesehen, lV = letzterFehler;
+    fehlerGesehen = new Set(); letzterFehler = null;
+    document.getElementById('fehlerbanner').classList.remove('show');
+    try { return fn(); }
+    finally { fehlerGesehen = gV; letzterFehler = lV;
+              document.getElementById('fehlerbanner').classList.remove('show'); }
+  };
+
+  t('Ein echter Fehler zeigt die Leiste', () => mitFehlerfang(() => {
+    fehlerFangen('Testfehler XYZ', 'irgendwo.js:12');
+    const l = document.getElementById('fehlerbanner');
+    return (l.classList.contains('show') && letzterFehler && /XYZ/.test(letzterFehler.text))
+      || 'Leiste steht nicht oder Text fehlt';
+  }));
+  /* ⚠️ Genau die zwei Filter aus der Idee: bekanntes Rauschen zeigt NICHTS. Ohne diese
+     Pruefung koennte ein kuenftiger Umbau versehentlich jede Kleinigkeit anzeigen und
+     die Leiste zur Tapete machen, die niemand mehr liest. */
+  t('ResizeObserver-Rauschen zeigt nichts', () => mitFehlerfang(() => {
+    fehlerFangen('ResizeObserver loop completed with undelivered notifications.', '');
+    return !document.getElementById('fehlerbanner').classList.contains('show') || 'trotzdem angezeigt';
+  }));
+  t('Ein "Script error." ohne Zeile zeigt nichts', () => mitFehlerfang(() => {
+    fehlerFangen('Script error.', '');
+    return !document.getElementById('fehlerbanner').classList.contains('show') || 'trotzdem angezeigt';
+  }));
+  /* 🔴 Und die Gegenrichtung dazu: ein "Script error." MIT Zeile ist ein echter Fehler
+     aus dem eigenen Code (manche Browser kuerzen die Meldung, behalten aber die Zeile) --
+     der darf nicht denselben Filter treffen wie das fremde Skript ohne jede Angabe. */
+  t('Ein "Script error." MIT Zeile wird trotzdem gezeigt', () => mitFehlerfang(() => {
+    fehlerFangen('Script error.', 'index.html:42');
+    return document.getElementById('fehlerbanner').classList.contains('show') || 'wurde gefiltert';
+  }));
+  t('Dieselbe Meldung erscheint nur einmal je Sitzung', () => mitFehlerfang(() => {
+    fehlerFangen('Wiederholter Fehler', 'a.js:1');
+    document.getElementById('fehlerbanner').classList.remove('show');   // von Hand weggenommen
+    fehlerFangen('Wiederholter Fehler', 'a.js:1');                      // derselbe Fehler nochmal
+    return !document.getElementById('fehlerbanner').classList.contains('show')
+      || 'ist ein zweites Mal erschienen';
+  }));
+  t('Eine andere Meldung erscheint trotzdem', () => mitFehlerfang(() => {
+    fehlerFangen('Erster Fehler', 'a.js:1');
+    fehlerFangen('Zweiter, anderer Fehler', 'b.js:2');
+    return (letzterFehler && /Zweiter/.test(letzterFehler.text)) || 'die zweite Meldung kam nicht durch';
+  }));
+  t('"Schicken" legt eine Meldung in die Schlange', () => mitFehlerfang(() => {
+    const mL = localStorage.getItem(MELD_KEY); meldungenSchreiben([]);
+    fehlerFangen('Meldbarer Fehler', 'x.js:9');
+    const el = document.createElement('button'); el.dataset.act = 'fehlerbanner:melden';
+    document.body.appendChild(el);
+    el.dispatchEvent(new MouseEvent('click', {bubbles:true}));
+    el.remove();
+    const l = meldungenLesen();
+    const ok = l.length === 1 && /Meldbarer Fehler/.test(l[0].text);
+    if(mL === null) localStorage.removeItem(MELD_KEY); else localStorage.setItem(MELD_KEY, mL);
+    return ok || ('Schlange: ' + JSON.stringify(l));
+  }));
+  t('"Verwerfen" legt nichts in die Schlange und raeumt die Leiste weg', () => mitFehlerfang(() => {
+    const mL = localStorage.getItem(MELD_KEY); meldungenSchreiben([]);
+    fehlerFangen('Nicht gemeldeter Fehler', 'y.js:3');
+    const el = document.createElement('button'); el.dataset.act = 'fehlerbanner:weg';
+    document.body.appendChild(el);
+    el.dispatchEvent(new MouseEvent('click', {bubbles:true}));
+    el.remove();
+    const l = meldungenLesen(), zeigt = document.getElementById('fehlerbanner').classList.contains('show');
+    if(mL === null) localStorage.removeItem(MELD_KEY); else localStorage.setItem(MELD_KEY, mL);
+    return (l.length === 0 && !zeigt) || ('Schlange: ' + l.length + ' Leiste sichtbar: ' + zeigt);
+  }));
+  /* 🔴 Und der Einbau, nicht nur der Baustein: haengen die beiden Erkenner wirklich am
+     Fenster, oder gibt es sie nur als Funktion, die niemand aufruft? Textprobe wie bei
+     APP_FASSUNG. */
+  t('Beide Erkenner haengen wirklich am Fenster', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const hatError = /addEventListener\(\s*['"]error['"]/.test(q);
+    const hatRejection = /addEventListener\(\s*['"]unhandledrejection['"]/.test(q);
+    return (hatError && hatRejection) || ('error=' + hatError + ' unhandledrejection=' + hatRejection);
+  });
 
   // ================================================================ Aufraeumen
   sessions = SICHER.sessions; profile = SICHER.profile; settings = SICHER.settings;

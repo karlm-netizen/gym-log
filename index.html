@@ -477,6 +477,19 @@ setTimeout(function(){
     padding:9px 14px; padding-top:calc(9px + env(safe-area-inset-top))}
   #speicherwarnung.show{display:block}
   #neufassung.show ~ #speicherwarnung.show{top:36px}
+  /* Dieselbe Bauart, dritte Leiste: ein Fehler, den bis zum 02.09.2026 NIEMAND gefangen
+     hat -- window.onerror und unhandledrejection gab es in der ganzen App nicht (nachgesehen:
+     null Treffer in 6600 Zeilen). Grau statt Rot: kein Datenverlust wie bei speicherwarnung,
+     nur „etwas ist schiefgelaufen, wurde aber gefangen". */
+  #fehlerbanner{position:fixed; left:0; right:0; top:0; z-index:68; max-width:520px; margin:0 auto;
+    display:none; width:100%; border:0; background:var(--card2); color:var(--txt);
+    border-bottom:1px solid var(--line);
+    font-weight:600; font-size:13px; text-align:center; cursor:pointer;
+    padding:9px 14px; padding-top:calc(9px + env(safe-area-inset-top))}
+  #fehlerbanner.show{display:block}
+  #neufassung.show ~ #fehlerbanner.show{top:36px}
+  #speicherwarnung.show ~ #fehlerbanner.show{top:36px}
+  #neufassung.show ~ #speicherwarnung.show ~ #fehlerbanner.show{top:72px}
   .modal{position:fixed; inset:0; z-index:80; background:rgba(0,0,0,.6); display:none;
     align-items:center; justify-content:center; padding:24px}
   .modal.show{display:flex}
@@ -595,6 +608,7 @@ setTimeout(function(){
 
 <button id="neufassung" type="button">Neue Fassung ist da — tippen zum Laden</button>
 <button id="speicherwarnung" type="button">Speichern geht nicht — tippen</button>
+<button id="fehlerbanner" type="button">Etwas ist schiefgelaufen — tippen für Details</button>
 <div id="toast" class="toast"></div>
 <div id="modal" class="modal"></div>
 <!-- Fuer „Essen per Foto": capture=environment oeffnet am Handy direkt die Kamera. -->
@@ -2500,22 +2514,34 @@ function renderWorkout(){
 
 function renderHistory(){
   const back=`<button class="link" data-nav="settings">‹ Einstellungen</button>`;
-  if(sessions.length===0){ app.innerHTML=back+`<div class="empty">Noch keine Einheiten.<br>Starte dein erstes Training.</div>`; return; }
-  // NEU: das Jahresraster steht GANZ OBEN. Es beantwortet die Frage, mit der man
-  // den Verlauf überhaupt aufmacht („bin ich drangeblieben?"), bevor man eine
-  // einzige Zeile liest.
-  let h=back+jahresRaster()
-    +`<div class="row between" style="margin:22px 4px 4px"><h2>Einheiten</h2></div>`;
-  [...sessions].reverse().forEach(s=>{ const d=fmtDauer(s.dur); h+=`<div class="card" data-opensess="${s.id}"><div class="row between">
-    <div><div class="plan-chip"><span class="dot"></span><b>${esc(s.planName)}</b></div>
-      <div class="muted tiny" style="margin-top:4px">${fmtDate(s.date)} · ${doneSets(s.entries)} Sätze${d?` · ${d}`:''}</div></div>
-    <div style="text-align:right"><b>${volume(s.entries)}</b><div class="tiny muted">kg Vol.</div></div></div></div>`; });
-  const names=[...new Set(sessions.flatMap(s=>s.entries.map(e=>e.name)))];
-  const prs=names.map(n=>({n,pr:prFor(n)})).filter(x=>x.pr);
-  if(prs.length){ h+=`<div class="row between" style="margin:22px 4px 4px"><h2>Rekorde</h2>
-      <span class="tiny muted">antippen für Verlauf</span></div><div class="card">`;
-    prs.forEach(x=>{ h+=`<div class="sess" data-openex="${esc(x.n)}" style="cursor:pointer">
-      <span>${esc(x.n)} <span class="muted">›</span></span><b>${x.pr.w} kg${x.pr.r?' × '+x.pr.r:''}</b></div>`; }); h+=`</div>`; }
+  /* ⚠️ Ohne Training UND ohne Wiegung bräuchte diese Seite gar keinen eigenen leeren
+     Zustand mehr — GENAU EINE Aufrufstelle für gewichtVerlaufHTML() weiter unten deckt
+     beide Fälle ab (Training ja/nein), statt denselben Aufruf zweimal zu pflegen. Zwei
+     Aufrufstellen für dieselbe Lehre war schon einmal der stille Fehler vom 01.09. —
+     nur an EINER von zweien eingebaut, die andere blieb kaputt, ohne dass es auffiel. */
+  let h;
+  if(sessions.length===0){
+    h = back + `<div class="empty">Noch keine Einheiten.<br>Starte dein erstes Training.</div>`;
+  } else {
+    // NEU: das Jahresraster steht GANZ OBEN. Es beantwortet die Frage, mit der man
+    // den Verlauf überhaupt aufmacht („bin ich drangeblieben?"), bevor man eine
+    // einzige Zeile liest.
+    h = back+jahresRaster()
+      +`<div class="row between" style="margin:22px 4px 4px"><h2>Einheiten</h2></div>`;
+    [...sessions].reverse().forEach(s=>{ const d=fmtDauer(s.dur); h+=`<div class="card" data-opensess="${s.id}"><div class="row between">
+      <div><div class="plan-chip"><span class="dot"></span><b>${esc(s.planName)}</b></div>
+        <div class="muted tiny" style="margin-top:4px">${fmtDate(s.date)} · ${doneSets(s.entries)} Sätze${d?` · ${d}`:''}</div></div>
+      <div style="text-align:right"><b>${volume(s.entries)}</b><div class="tiny muted">kg Vol.</div></div></div></div>`; });
+    const names=[...new Set(sessions.flatMap(s=>s.entries.map(e=>e.name)))];
+    const prs=names.map(n=>({n,pr:prFor(n)})).filter(x=>x.pr);
+    if(prs.length){ h+=`<div class="row between" style="margin:22px 4px 4px"><h2>Rekorde</h2>
+        <span class="tiny muted">antippen für Verlauf</span></div><div class="card">`;
+      prs.forEach(x=>{ h+=`<div class="sess" data-openex="${esc(x.n)}" style="cursor:pointer">
+        <span>${esc(x.n)} <span class="muted">›</span></span><b>${x.pr.w} kg${x.pr.r?' × '+x.pr.r:''}</b></div>`; }); h+=`</div>`; }
+  }
+  // Der Gewichts-Verlauf, seit dem 02.09.2026 hier statt im Koerper-Tab (Karls Ansage).
+  // Genau EIN Aufruf, gilt für beide Zweige oben.
+  h += gewichtVerlaufHTML();
   app.innerHTML=h;
 }
 
@@ -3193,6 +3219,21 @@ function addMeal(d,menge){
   aufgabeErledigen('ein');      // Tagesaufgabe: etwas eingetragen
   k.meals.push({id:uid(),date:Date.now(),name:d.name||'Essen', mz: foodMz || mahlzeitJetzt(),
     menge:(+menge||0)+(d.basis==='portion'?'×':' g'), quelle:d.quelle||'eigen', ...w});
+  /* Zuletzt benutzte Menge (02.09.2026, Karls Ansage). Nur fuer Eintraege aus der EIGENEN
+     Liste (`d.id` zeigt in `k.foods`) und nur in Gramm — Foto-Portionen haben keine feste
+     Basismenge, die man wiederholen wuerde. Beim naechsten Antippen desselben
+     Lebensmittels steht dann nicht mehr 100 g da, sondern was zuletzt eingetragen wurde.
+     ⚠️ Bewusst NICHT in KCAL_SKALARE: das ist kein Feld von profile.kcal selbst, sondern
+     von einem EINTRAG in profile.kcal.foods — und die Liste geht schon durch `vereinige()`.
+     ⚠️ Grenze, die dabei ehrlich bleiben soll: `vereinige()` behaelt bei einer bekannten
+     Kennung die BASIS-Seite ganz, sie fuehrt Felder innerhalb eines Eintrags nicht
+     zusammen. Isst man am Handy und hat das Lebensmittel schon auf dem PC, gewinnt beim
+     naechsten Abgleich der PC-Stand — die neuere Menge vom Handy zieht dann nicht
+     automatisch nach. Kein Datenverlust, nur ein Vorschlag, der etwas hinterherhinkt. */
+  if(d.id && d.basis==='g100'){
+    const f = k.foods.find(x=>x.id===d.id);
+    if(f) f.letzteMenge = +menge || f.letzteMenge;
+  }
   save(); return w;
 }
 // ---------- Ernaehrungs-Assistent (beim allerersten Oeffnen) ----------
@@ -3619,8 +3660,31 @@ function renderBody(){
      Differenz von einem halben Jahr als die der Woche — zwei Zahlen, die sich
      widersprechen, und keine sagt, worauf sie sich bezieht. */
 
+  /* ➡️ Karls Ansage am 02.09.2026: „den verlauf des gewichtes kann bitte rueber in
+     die einstellungen unter verlauf". Hier bleibt, was man BEIM WIEGEN braucht — das Feld
+     und die drei Zahlen. Kurve, Zeitraum-Wahl und die Liste der Eintraege stehen jetzt
+     unter Einstellungen -> Verlauf, wo auch die Trainings-Geschichte steht.
+     ⚠️ Die Eintraege sind mitgewandert, nicht nur die Kurve: sie sind dieselbe
+     Sache. Kurve hier und Liste dort haette eine Sache auf zwei Seiten verteilt. */
+  h+=`<button class="btn ghost" style="margin-top:14px" data-nav="history">Verlauf ansehen ›</button>`;
+  app.innerHTML=h;
+}
+
+/* Der Gewichts-Verlauf: Kurve, Zeitraum-Wahl und alle Eintraege.
+   Steht seit dem 02.09.2026 unter Einstellungen -> Verlauf (Karls Ansage) und wird von
+   `renderHistory()` aufgerufen. Als eigene Funktion, damit die Verlauf-Seite nicht noch
+   laenger wird als sie ohnehin ist. */
+function gewichtVerlaufHTML(){
+  const w = weightList();
+  if(!w.length) return '';
+  let h = `<div class="row between" style="margin:22px 4px 4px"><h2>Gewicht</h2>
+      <span class="tiny muted">${w.length} Einträ${w.length===1?'g':'ge'}</span></div>`;
   if(w.length>1){
     const wf = weightImFenster(gwFenster);
+    /* ⚠️ „Verlauf" bleibt eine <h2>, nicht nur ein kleiner Zwischentitel — die Pruefungen
+       vom 01.09.2026 suchen genau dieses Element, um die Spanne daneben zu lesen, und
+       die Bedeutung ist dieselbe geblieben: die Spanne gilt dem GEWAEHLTEN Zeitraum, nicht
+       allen Wiegungen (die stehen weiter vollstaendig unter „Einträge"). */
     h+=`<div class="row between" style="margin:20px 4px 6px"><h2>Verlauf</h2>
         ${wf.length>1?`<span class="tiny muted">${fmtKg(Math.min(...wf.map(x=>x.kg)))}–${fmtKg(Math.max(...wf.map(x=>x.kg)))} kg</span>`:''}</div>
       <div class="zeitwahl" style="margin:0 4px 8px">${GW_FENSTER.map(f=>
@@ -3636,15 +3700,13 @@ function renderBody(){
         passt&&passt.id!==gwFenster?`<br>Unter „${passt.name}" siehst du eine.`:''}</div>`;
     }
   } else {
-    h+=`<div class="empty" style="margin-top:16px">Ab dem zweiten Eintrag siehst du hier eine Kurve.</div>`;
+    h+=`<div class="empty" style="margin-top:4px">Ab dem zweiten Eintrag siehst du hier eine Kurve.</div>`;
   }
-
   h+=`<div class="row between" style="margin:20px 4px 6px"><h2>Einträge</h2></div><div class="card">`;
   [...w].reverse().forEach(x=>{ h+=`<div class="sess"><span>${fmtDate(x.date)}</span>
       <span class="row" style="gap:10px"><b>${fmtKg(x.kg)} kg</b>
       <button class="link" style="padding:0 2px;color:var(--muted)" data-delweight="${x.date}">✕</button></span></div>`; });
-  h+=`</div>`;
-  app.innerHTML=h;
+  return h + `</div>`;
 }
 
 // ---------- Essen eintragen: Liste / neu / Menge ----------
@@ -3866,7 +3928,7 @@ async function holeBarcode(nr){
   // NEU: eigener Treffer schlaegt die Datenbank. Kein Netz, keine Wartezeit.
   const eigen=eigenesZuBarcode(nr);
   if(eigen){
-    foodDraft={...eigen, basis:'g100', menge:100, quelle:'barcode'};
+    foodDraft={...eigen, basis:'g100', menge:eigen.letzteMenge>0?eigen.letzteMenge:100, quelle:'barcode'};
     foodBusy=''; foodFehler=''; foodStep='menge'; view='food'; render();
     toast('Aus deiner Liste');
     return;
@@ -4735,6 +4797,55 @@ function renderPrivacy(){
   app.innerHTML=h;
 }
 
+/* Verbindung testen (02.09.2026, Idee 6 - Karls Ansage: nicht fuer alle, aber ins
+   Admin-Panel). Jeder Knopf macht EINEN echten Aufruf an genau den Dienst, an dem heute
+   das Essens-Foto zwoelf Tage lang gescheitert ist -- die 774 Pruefungen laufen alle ohne
+   Netz und haetten den Fehler nicht gefunden, ein wirklich abgeschickter Aufruf schon.
+   ⚠️ null = noch nicht getestet, 'laeuft' = unterwegs, sonst {ok, text}. */
+let adminVerbindung = {off:null, supa:null, google:null};
+
+async function adminTestVerbindung(dienst){
+  adminVerbindung[dienst] = 'laeuft'; render();
+  try{
+    if(dienst==='off'){
+      // Ein bekannter Barcode (Nutella) -- derselbe Weg wie holeBarcode(), nur mit
+      // fester Nummer, damit das Ergebnis nicht vom Zufall abhaengt.
+      const r = await fetch('https://world.openfoodfacts.org/api/v2/product/3017620422003.json?fields=product_name');
+      if(!r.ok){ adminVerbindung.off = {ok:false, text:'Antwort '+r.status}; }
+      else { const d = await r.json();
+        adminVerbindung.off = (d && d.product) ? {ok:true, text:'Erreicht: „'+(d.product.product_name||'Produkt')+'"'}
+                                                : {ok:false, text:'Antwort kam, aber ohne Produkt'}; }
+    } else if(dienst==='supa'){
+      // Die REST-Wurzel antwortet ohne Anmeldung, mit dem oeffentlichen Schluessel --
+      // derselbe, der schon im Quelltext steht. Kein Datenzugriff, nur „ist da".
+      const r = await fetch(SUPA_URL+'/rest/v1/', {headers:{apikey:SUPA_KEY}});
+      adminVerbindung.supa = r.ok ? {ok:true, text:'Erreicht (Status '+r.status+')'}
+                                   : {ok:false, text:'Antwort '+r.status};
+    } else if(dienst==='google'){
+      if(!aiKey()){ adminVerbindung.google = {ok:false, text:'Kein Schlüssel eingetragen'}; render(); return; }
+      // ⚠️ Verbraucht wirklich ein kleines Stueck vom Kontingent -- deshalb ein
+      // winziges 2×2-Bild und derselbe Aufruf wie beim echten Essens-Foto (v60-Form),
+      // damit der Test den ganzen Weg prueft und nicht nur, ob ein Schluessel eingetragen ist.
+      const c=document.createElement('canvas'); c.width=2; c.height=2;
+      c.getContext('2d').fillRect(0,0,2,2);
+      const b64=c.toDataURL('image/jpeg',0.5).split(',')[1];
+      const r=await fetch('https://generativelanguage.googleapis.com/v1beta/interactions',{ method:'POST',
+        headers:{ 'content-type':'application/json', 'x-goog-api-key':aiKey() },
+        body: JSON.stringify({ model:'gemini-3.7-flash',
+          response_format:{ type:'text', mime_type:'application/json', schema:{ type:'object',
+            properties:{ok:{type:'boolean'}}, required:['ok'] } },
+          input:[{type:'text', text:'Antworte nur mit {"ok":true}.'},
+                 {type:'image', mime_type:'image/jpeg', data:b64}] }) });
+      if(r.status===401||r.status===403) adminVerbindung.google = {ok:false, text:'Schlüssel wurde nicht angenommen'};
+      else if(r.status===429) adminVerbindung.google = {ok:false, text:'Kontingent gerade aufgebraucht'};
+      else if(!r.ok){ let m=''; try{ m=(await r.json()).error.message; }catch(e){}
+        adminVerbindung.google = {ok:false, text:'Antwort '+r.status+(m?': '+m:'')}; }
+      else adminVerbindung.google = {ok:true, text:'Erreicht, Bild wurde verarbeitet'};
+    }
+  }catch(e){ adminVerbindung[dienst] = {ok:false, text:'Kein Netz oder nicht erreichbar'}; }
+  render();
+}
+
 function renderAdmin(){
   if(!devAdmin){ view='settings'; return renderSettings(); }
   const lp=levelFromXP(profile.xp), rank=rankForLevel(lp.level);
@@ -4778,6 +4889,23 @@ function renderAdmin(){
       <div class="tiny muted" style="margin-top:6px">Läuft im Betrieb nach
         ${COMEBACK_TAGE} Tagen ohne Öffnen. ⚠️ Das Abspielen hier rührt
         <b style="color:var(--txt)">nichts an</b> — es zeichnet nur die Ansicht.</div></div>`;
+  /* 🔴 Direkte Antwort auf den groessten Fund des Tages: das Essens-Foto war
+     zwoelf Tage kaputt, weil der Weg nach dem Bauen nie wirklich abgeschickt wurde.
+     Ein Knopf, der einmal wirklich hinausgeht, haette das am ersten Tag gezeigt. */
+  h+=`<div class="row between" style="margin:16px 4px 4px"><h2>Verbindung testen</h2></div><div class="card">`;
+  [['off','Open Food Facts'],['supa','Supabase'],['google','Google (Essens-Foto)']].forEach(([id,name])=>{
+    const st = adminVerbindung[id];
+    h+=`<div class="row between" style="padding:6px 0">
+        <span>${name}</span>
+        <span class="row" style="gap:8px;align-items:center">
+          ${st==='laeuft' ? '<span class="tiny muted">…</span>'
+            : st ? `<span class="tiny" style="color:${st.ok?'var(--ok)':'var(--danger)'}">${esc(st.text)}</span>` : ''}
+          <button class="btn sm ghost" data-testverbindung="${id}" ${st==='laeuft'?'disabled':''}>Testen</button>
+        </span></div>`;
+  });
+  h+=`<div class="tiny muted" style="margin-top:8px">Google verbraucht dabei ein kleines Stück vom
+      Kontingent des eingetragenen Schlüssels — ein winziges Testbild, keine Kosten bei den
+      anderen beiden.</div></div>`;
   h+=`<div class="row between" style="margin:16px 4px 4px"><h2>Verlauf-Testdaten</h2></div><div class="card">
       <div class="fab-row"><button class="btn" data-admin="demo">Demo-Einheiten</button><button class="btn danger" data-admin="clearhist">Verlauf leeren</button></div></div>`;
   h+=`<button class="btn ghost" data-admin="zu" style="width:100%;margin-top:18px;color:var(--muted)">Admin zumachen</button>
@@ -4817,7 +4945,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v61';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v62';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -4837,6 +4965,70 @@ function umfeldSammeln(){
 }
 function meldungenLesen(){ try{ return JSON.parse(localStorage.getItem(MELD_KEY)||'[]'); }catch{ return []; } }
 function meldungenSchreiben(l){ try{ localStorage.setItem(MELD_KEY, JSON.stringify(l)); }catch{} }
+
+/* ============================================================================
+   Ein globaler Fehlerfang (02.09.2026, Idee 1 — Karls Ansage: „ok was können wir da machen").
+
+   🔴 Bis heute gab es in der ganzen App KEIN window.onerror und KEIN
+   unhandledrejection — nachgesehen, null Treffer in 6600 Zeilen. Jeder Fehler, der aus
+   einem Klick-Handler oder einem nicht abgefangenen `await` fliegt, verschwand in der
+   Konsole eines Handys, die niemand aufmacht. Genau die Bauform, die heute achtmal
+   aufgetreten ist: etwas ist kaputt, und nichts wird rot.
+
+   ⚠️ Bewusst KEIN allzu eifriger Fänger. Zwei Filter, beide mit einem echten Grund:
+   1. Bekanntes Rauschen wird verworfen (ResizeObserver-Warnung, ein `Script error.`
+      ohne jede Zeilennummer — das ist ein Fehler in fremdem Code, meist einer
+      Browser-Erweiterung, den die App nie beeinflussen kann).
+   2. Dieselbe Meldung erscheint höchstens EINMAL je Sitzung. Ein Fehler, der jede
+      Sekunde neu wirft (z. B. in einem Intervall), soll nicht 60 Banner in der Minute
+      auslösen — das würde die Leiste zur Tapete machen, die man nicht mehr ansieht. */
+let fehlerGesehen = new Set();
+let letzterFehler = null;
+
+function fehlerFangen(text, ort){
+  if(!text) return;
+  if(/ResizeObserver loop/.test(text)) return;
+  if(text === 'Script error.' && !ort) return;     // fremdes Skript, keine Zeile -- nichts zu zeigen
+  const kennung = text.slice(0, 200);
+  if(fehlerGesehen.has(kennung)) return;
+  fehlerGesehen.add(kennung);
+  letzterFehler = { text: text.slice(0, 2000), ort: ort || '', zeit: new Date().toISOString() };
+  const l = document.getElementById('fehlerbanner');
+  if(l) l.classList.add('show');
+  try{ console.error('gym-log: unerwarteter Fehler:', text, ort||''); }catch(e){}
+}
+
+window.addEventListener('error', e => {
+  fehlerFangen(e.error ? (e.error.message || String(e.error)) : e.message,
+               e.filename ? (e.filename.split('/').pop() + ':' + e.lineno) : '');
+});
+window.addEventListener('unhandledrejection', e => {
+  const r = e.reason;
+  fehlerFangen('Unbehandelt: ' + (r && r.message ? r.message : String(r)), '');
+});
+
+function fehlerbannerText(){
+  if(!letzterFehler) return '';
+  return '<div class="big">🔍</div><b>Etwas ist schiefgelaufen</b>'
+    + '<p style="font-size:13px;line-height:1.5;margin-top:10px;text-align:left;'
+    + 'font-family:monospace;white-space:pre-wrap;word-break:break-word;'
+    + 'background:var(--card2);border-radius:8px;padding:10px">'
+    + esc(letzterFehler.text) + (letzterFehler.ort ? '\n' + esc(letzterFehler.ort) : '') + '</p>'
+    + '<p style="font-size:13px;line-height:1.5">Nichts ist verloren gegangen — das hier ist nur'
+    + ' eine Aufzeichnung. Magst du sie schicken, damit ich nachsehen kann?</p>';
+}
+document.addEventListener('click', e => {
+  if(e.target && e.target.id === 'fehlerbanner'){
+    const m = document.getElementById('modal');
+    m.innerHTML = `<div class="modal-box" style="max-width:400px;text-align:center">
+        ${fehlerbannerText()}
+        <div class="fab-row" style="margin-top:16px">
+          <button class="btn ghost" data-act="fehlerbanner:weg">Verwerfen</button>
+          <button class="btn primary" data-act="fehlerbanner:melden">Schicken</button>
+        </div></div>`;
+    m.classList.add('show');
+  }
+});
 
 /* Legt die Meldung ins Geraet. Das Verschicken ist ein zweiter, eigener Schritt. */
 function meldungAnlegen(text){
@@ -6085,7 +6277,7 @@ function confirmTwice(key,btn,label,run){ if(armed[key]){ clearTimeout(armed[key
 if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ if((profile.theme||'system')==='system') applyTheme(); }); }
 
 document.addEventListener('click',ev=>{
-  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-planwarm],[data-libnew],[data-useprog],[data-editprog],[data-delprog],[data-shareprog],[data-moveex],[data-openex],[data-delweight],[data-skin],[data-sdel],[data-sdelex],[data-sadd],[data-delmeal],[data-delfood],[data-pickfood],[data-again],[data-zielart]');
+  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-planwarm],[data-libnew],[data-useprog],[data-editprog],[data-delprog],[data-shareprog],[data-moveex],[data-openex],[data-delweight],[data-skin],[data-sdel],[data-sdelex],[data-sadd],[data-delmeal],[data-delfood],[data-pickfood],[data-again],[data-zielart],[data-testverbindung]');
   if(!t) return;
   // ---- Eine abgeschlossene Einheit korrigieren (Verlauf › Bearbeiten) ----
   if(t.dataset.sdel){ const [ei,si]=t.dataset.sdel.split(':').map(Number);
@@ -6119,7 +6311,8 @@ document.addEventListener('click',ev=>{
   if(t.dataset.delfood){ ev.stopPropagation(); const id=t.dataset.delfood, k=kcalInit();
     confirmTwice('df'+id,t,'Weg?',()=>{ k.foods=k.foods.filter(x=>x.id!==id); save(); render(); }); return; }
   if(t.dataset.pickfood){ const f=kcalInit().foods.find(x=>x.id===t.dataset.pickfood); if(!f) return;
-    foodDraft={...f, basis:'g100', menge:100, quelle:'eigen'}; foodStep='menge'; foodFehler=''; render(); return; }
+    foodDraft={...f, basis:'g100', menge:f.letzteMenge>0?f.letzteMenge:100, quelle:'eigen'};
+    foodStep='menge'; foodFehler=''; render(); return; }
   /* 💡 Der Barcode wird mitgenommen, obwohl hier keiner gescannt wurde: wer den Treffer
      mit „Auch in meine Liste aufnehmen“ behält, trifft ihn beim nächsten Mal SOFORT per
      Scan -- ohne Netz und ohne Suche. */
@@ -6146,6 +6339,7 @@ document.addEventListener('click',ev=>{
   if(t.dataset.planwarm){ syncPlanInputs(); const p=editPlans().find(x=>x.id===editPlanId);
     if(p){ p.warmup=t.dataset.planwarm==='1'; save(); } render(); return; }
   if(t.dataset.setbase){ profile.theme=t.dataset.setbase; save(); applyTheme(); render(); return; }
+  if(t.dataset.testverbindung){ adminTestVerbindung(t.dataset.testverbindung); return; }
   if(t.dataset.admin){ const [cmd,arg]=t.dataset.admin.split(':'); const cur=levelFromXP(profile.xp).level;
     if(cmd==='xp') profile.xp=Math.max(0,profile.xp+(+arg));
     else if(cmd==='xpset') profile.xp=Math.max(0,+arg);
@@ -6221,6 +6415,21 @@ document.addEventListener('click',ev=>{
   if(t.dataset.delset!=null){ const e=active.exercises[+t.dataset.delset]; if(e.sets.length>1){ e.sets.pop(); save(); render(); } return; }
   if(t.dataset.delex!=null){ editPlans().find(x=>x.id===editPlanId).exercises.splice(+t.dataset.delex,1); save(); render(); return; }
   const a=t.dataset.act;
+  /* Der Fehlerfang-Weg: „Verwerfen" macht nur die Leiste weg, „Schicken" legt den
+     Fehler in dieselbe Melde-Schlange wie „Problem melden" -- derselbe Weg,
+     dieselbe Bremse, dieselbe Ablehnungs-Behandlung (Fund 5 vom heutigen Tag). */
+  if(a==='fehlerbanner:weg'){
+    letzterFehler=null; document.getElementById('fehlerbanner').classList.remove('show');
+    closeModal(); return; }
+  if(a==='fehlerbanner:melden'){
+    if(letzterFehler){
+      const text = 'Automatisch erkannt: ' + letzterFehler.text
+        + (letzterFehler.ort ? ' (' + letzterFehler.ort + ')' : '');
+      meldungAnlegen(text);
+      meldungenNachreichen().catch(()=>{});   // wie beim normalen Melde-Weg: nicht blockierend
+    }
+    letzterFehler=null; document.getElementById('fehlerbanner').classList.remove('show');
+    closeModal(); toast('Danke! Meldung ist raus.'); return; }
   if(a==='resume'){ view='workout'; render(); }
   else if(a==='teile-app' || a==='teile-discord' || a==='teile-reich' || a==='teile-roh'){
     const m=document.getElementById('modal');
@@ -6382,6 +6591,8 @@ document.addEventListener('click',ev=>{
     kcalInit().foods.push(f); save();
     foodDraft={...f, basis:'g100', menge:100, quelle:f.barcode?'barcode':'eigen'}; foodStep='menge'; render();
     toast(`„${f.name}" gespeichert${f.barcode?' — Barcode gemerkt':''}`); }
+  /* ⚠️ Diese Stelle bleibt bei 100 -- richtig so: das ist gerade erst ANGELEGT worden,
+     eine „letzte Menge" gibt es noch nicht. */
   else if(a==='food:merken'){ const d=foodDraft; if(!d) return;
     kcalInit().foods.push({id:uid(), name:d.name, marke:d.marke||'',
       kcal:+d.kcal||0, p:+d.p||0, c:+d.c||0, f:+d.f||0,

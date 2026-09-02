@@ -4,7 +4,55 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-02
 
-### v61 — die Kurven zeigen jetzt die Zeit, nicht die Reihenfolge
+### v62 — Fehlerfang, letzte Menge, Verbindungstest, Gewicht in den Verlauf
+
+Vier Punkte aus der Ideenliste vom Nachmittag — drei davon nach Karls direkter Ansage
+(*„ja änder das"*, *„kann aber bitte mit ins admin panel"*, *„den verlauf des gewichtes
+kann bitte rueber in die einstellungen unter verlauf"*), einer nach seinem *„ok was
+können wir da machen"*.
+
+**🚨 Ein globaler Fehlerfang.** Bis heute gab es in der ganzen App **keinen einzigen**
+`window.onerror` oder `unhandledrejection` — jeder Fehler aus einem Klick-Handler verschwand
+in einer Konsole, die niemand aufmacht. Jetzt zeigt eine dritte Leiste (grau, unter „Neue
+Fassung" und „Speichern geht nicht") *„Etwas ist schiefgelaufen — tippen für Details"*, mit
+dem Fehlertext und einem Knopf zum Schicken über denselben Melde-Weg wie *„Problem melden"*.
+Zwei Filter, damit sie nicht zur Tapete wird: bekanntes Browser-Rauschen (ResizeObserver,
+ein fremdes Skript ohne jede Zeile) zeigt nichts, und dieselbe Meldung erscheint höchstens
+einmal je Sitzung.
+
+**🥣 Die zuletzt benutzte Menge.** Wer ein Lebensmittel aus der eigenen Liste wählt, bekommt
+jetzt vorgeschlagen, was zuletzt eingetragen wurde, statt immer 250 g Quark als 100 g
+anzuzeigen. ⚠️ Ehrlich begrenzt: läuft über `vereinige()` beim Abgleich, das bei einer
+bekannten Kennung die eigene Seite ganz behält — isst du am Handy und hast das Lebensmittel
+schon auf dem PC, zieht die neuere Menge vom Handy nicht sofort nach.
+
+**🩺 „Verbindung testen" — im Admin-Panel, nicht für alle.** Drei Knöpfe, jeder schickt einen
+echten Aufruf an Open Food Facts, Supabase und Google (mit einem winzigen Testbild) und zeigt,
+was zurückkam. Direkte Antwort auf den größten Fund des Tages: das Essens-Foto war zwölf Tage
+kaputt, weil der Weg nach dem Bauen nie wirklich abgeschickt wurde.
+
+**📉 Der Gewichts-Verlauf ist umgezogen.** Kurve, Zeitraum-Wahl und alle Einträge stehen jetzt
+unter Einstellungen → Verlauf, zusammen mit der Trainings-Geschichte. Im Körper-Tab bleibt nur,
+was man beim Wiegen braucht: das Eingabefeld und die drei Kennzahlen (Start / Aktuell / kg seit
+Start).
+
+---
+
+**22 neue Prüfungen (774 → 796).** Eine alte Prüfung ist mit umgezogen und an die neue Seite
+angepasst (`view='body'` → `view='history'`), eine zweite Gegenprobe ist dazugekommen, die
+prüft, dass die Kurve im Körper-Tab **nicht mehr** steht.
+
+🔴 **Drei Funde in der eigenen Prüfarbeit, alle drei über Gegenproben aufgefallen, keiner beim
+Schreiben:**
+- Beim Verschieben der Kurve gab es kurz **zwei** Aufrufstellen für dieselbe Anzeige — eine
+  Gegenprobe blieb grün, weil sie nur die eine traf. Auf **eine** Aufrufstelle vereinheitlicht.
+- Der Testhelfer für das Admin-Panel stellte den Zustand zurück, **bevor** die asynchrone
+  Prüfung fertig war — ein `try/finally` ohne `await` auf die Promise. Repariert.
+- Dieselbe Gegenprobe zeigte einen echten Fall: entfernt man die Klick-Wache für „Verbindung
+  testen", **stürzt die Seite ab**, statt still falsch zu laufen — der Knopf hängt an derselben
+  Klick-Weiche wie alles andere, und ohne seine eigene Abfangzeile fällt er durch bis zu einer
+  Stelle, die ein Feld voraussetzt, das er nicht hat.
+ — die Kurven zeigen jetzt die Zeit, nicht die Reihenfolge
 
 **Beide Punkte abgeräumt, die noch bei mir lagen.**
 
