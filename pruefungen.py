@@ -5023,8 +5023,11 @@ window.addEventListener('error', e => {
   t('APP_FASSUNG und die Cacheversion in sw.js ziehen gleich', () => {
     const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
     const s = window.SW_QUELLE || ''; if(!s) return 'SW_QUELLE fehlt';
-    const a = q.match(/APP_FASSUNG\s*=\s*'(v\d+)'/);
-    const b = s.match(/CACHE\s*=\s*'gymlog-(v\d+)'/);
+    /* ⚠️ Ab v0.063 (02.09.2026, Beta-Schema): "v" + Zahl mit Punkt statt nur Ziffern.
+       Der Regex MUSS den Punkt mitnehmen -- sonst laese er bei 'v0.063' nur 'v0' und
+       beide Seiten waeren trotzdem "gleich", selbst wenn sw.js laengst weiter waere. */
+    const a = q.match(/APP_FASSUNG\s*=\s*'(v[\d.]+)'/);
+    const b = s.match(/CACHE\s*=\s*'gymlog-(v[\d.]+)'/);
     if(!a) return 'APP_FASSUNG nicht gefunden';
     if(!b) return 'die Cacheversion in sw.js nicht gefunden';
     return a[1] === b[1] || ('App steht auf ' + a[1] + ', sw.js auf ' + b[1]);
