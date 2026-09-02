@@ -655,6 +655,116 @@ window.addEventListener('error', e => {
     return (a.sessions.length === 1 && a.profile.xp === 5) || 'Basis wurde angefasst';
   });
 
+  /* ================================ Die Zahlen am Essen im Abgleich (Fund 2, 01.09.2026)
+     🔴 blobsZusammen fuehrte NUR die drei Listen zusammen. goal, setup, art, wochen,
+     start, startKg und schritte standen in keinem Zweig -- sie fielen unter "basis
+     gewinnt", und wenn basis gar kein kcal hatte, wurde oben ein frisches Objekt ohne
+     sie gebaut. Fuer Karl sah das aus wie ein zurueckgesetztes Handy: der
+     Einrichtungs-Assistent stand wieder da, ohne Meldung, ohne Fehler.
+     ⚠️ Dieselbe Handschrift wie der Fall vom 27.08. (Tagesaufgaben, Erfolge,
+     Mahlzeiten): repariert wurde, was gemeldet war -- das Tagesziel stand nicht auf der
+     Liste. */
+  const mitKcal = (o) => blob({profile:Object.assign({xp:0, weights:[]}, o)});
+
+  t('Das Tagesziel kommt vom anderen Geraet herueber', () => {
+    const a = mitKcal({kcal:{foods:[], meals:[]}});
+    const b = mitKcal({kcal:{foods:[], meals:[], goal:2200}});
+    return eq(blobsZusammen(a, b).blob.profile.kcal.goal, 2200);
+  });
+  /* Der schlimmere der beiden Wege: ein Stand aus der Cloud von VOR dem 23.08. hat gar
+     kein kcal. Dann baute der Abgleich {foods:[],meals:[]} -- und alles andere war weg. */
+  t('Eine Basis ganz ohne kcal verliert das Ziel nicht', () => {
+    const a = blob({profile:{xp:0, weights:[]}});
+    const b = mitKcal({kcal:{foods:[], meals:[], goal:1900, setup:true, art:'abnehmen',
+                             wochen:12, start:1000, startKg:82, schritte:true}});
+    const k = blobsZusammen(a, b).blob.profile.kcal;
+    return (k.goal === 1900 && k.setup === true && k.art === 'abnehmen' && k.wochen === 12
+            && k.start === 1000 && k.startKg === 82 && k.schritte === true)
+           || JSON.stringify(k);
+  });
+  /* ⚠️ Die Gegenrichtung, und sie ist genauso wichtig: ein Ziel, das hier schon
+     steht, darf NICHT ueberschrieben werden. Sonst kaeme das alte Ziel vom zweiten
+     Geraet zurueck, sobald es sich meldet -- ein Aendern waere nie von Dauer. */
+  t('Ein gesetztes Ziel wird nicht vom anderen Geraet ueberschrieben', () => {
+    const a = mitKcal({kcal:{foods:[], meals:[], goal:2000}});
+    const b = mitKcal({kcal:{foods:[], meals:[], goal:1500}});
+    return eq(blobsZusammen(a, b).blob.profile.kcal.goal, 2000);
+  });
+  t('Der durchlaufene Assistent kommt nicht zurueck', () => {
+    const a = mitKcal({kcal:{foods:[], meals:[]}});
+    const b = mitKcal({kcal:{foods:[], meals:[], setup:true}});
+    return eq(blobsZusammen(a, b).blob.profile.kcal.setup, true);
+  });
+  /* Der Schrittmodus ist ausdruecklich AUS -- false ist eine Entscheidung, kein fehlender
+     Wert. Eine Pruefung auf Wahrheitswert statt auf "ist da" wuerde ihn verschlucken. */
+  t('Ein ausgeschalteter Schrittmodus zaehlt als Wert', () => {
+    const a = mitKcal({kcal:{foods:[], meals:[]}});
+    const b = mitKcal({kcal:{foods:[], meals:[], schritte:false}});
+    return eq(blobsZusammen(a, b).blob.profile.kcal.schritte, false);
+  });
+  /* 🔴 Die Pruefung, die den Fund ueberdauern soll. Die drei Faelle darueber halten
+     die heutigen Felder fest -- diese hier haelt die FORM fest: wer morgen ein neues
+     Feld in profile.kcal schreibt und es nicht in KCAL_SKALARE eintraegt, wird rot.
+     Ohne sie waere das hier in einem halben Jahr wieder derselbe Fund mit einem anderen
+     Feldnamen. Gebaut wie die APP_FASSUNG-Pruefung: Quelltext gegen Quelltext. */
+  t('Jedes Feld in profile.kcal wird im Abgleich behandelt', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const listen = ['foods','meals','steps'];   // die drei werden einzeln vereinigt
+    const gefunden = new Set();
+    const quelle = q.replace(/\/\*[\s\S]*?\*\//g, '');
+    let m; const re = /\bk\.([a-zA-Z][a-zA-Z0-9]*)\s*=[^=]/g;
+    while((m = re.exec(quelle))) gefunden.add(m[1]);
+    const fehlt = Array.from(gefunden).filter(f =>
+      listen.indexOf(f) < 0 && KCAL_SKALARE.indexOf(f) < 0);
+    return fehlt.length === 0
+      || ('nicht im Abgleich: ' + fehlt.join(', ') + ' -- in KCAL_SKALARE eintragen');
+  });
+
+  /* ================================ Speichern, das nicht geht (Fund 3, 01.09.2026)
+     🔴 DB.set war der einzige Schreiber ohne try/catch -- und der einzige, an dem
+     Trainingsdaten haengen. save() schreibt fuenf Schluessel und ruft DANACH
+     scheduleSync(): wirft der zweite, steht der erste, die drei danach fehlen, und der
+     Abgleich lief nie. Auf dem Bildschirm sah alles richtig aus.
+     ⚠️ Diese Pruefungen ersetzen localStorage.setItem durch einen Werfer. Sie
+     pruefen NICHT, dass nichts passiert, sondern dass save() durchlaeuft UND Karl es
+     sieht -- ein stilles catch wuerde den Absturz verhindern und den Verlust behalten. */
+  const mitKaputtemSpeicher = (fn) => {
+    const echt = Storage.prototype.setItem;
+    const merk = speicherKaputt;
+    const leiste = document.getElementById('speicherwarnung');
+    Storage.prototype.setItem = function(){ throw new DOMException('voll', 'QuotaExceededError'); };
+    try { return fn(); }
+    finally { Storage.prototype.setItem = echt;
+              speicherKaputt = merk;
+              if(leiste) leiste.classList.remove('show'); }
+  };
+
+  t('Ein voller Speicher wirft save() nicht aus der Bahn', () => mitKaputtemSpeicher(() => {
+    try { save(); } catch(e) { return 'save() hat geworfen: ' + e; }
+    return true;
+  }));
+  t('Ein voller Speicher zeigt die rote Leiste', () => mitKaputtemSpeicher(() => {
+    save();
+    const l = document.getElementById('speicherwarnung');
+    return (l && l.classList.contains('show')) || 'die Leiste bleibt unsichtbar';
+  }));
+  /* ⚠️ Der Abgleich muss WEITERLAUFEN, wenn das Geraet nichts behaelt -- dann ist
+     die Cloud der einzige Ort, an dem der Satz noch ankommen kann. Frueher wurde
+     scheduleSync() uebersprungen, weil die Ausnahme vorher aus dem Klick-Handler flog. */
+  t('Trotz vollem Speicher wird noch abgeglichen', () => mitKaputtemSpeicher(() => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const i = q.indexOf('function save(){');
+    if(i < 0) return 'save() nicht gefunden';
+    const r = q.slice(i, i + 700).replace(/\/\*[\s\S]*?\*\//g, '');
+    return r.indexOf('scheduleSync()') > r.indexOf('speicherWarnen')
+      || 'scheduleSync() steht nicht mehr hinter der Warnung';
+  }));
+  t('Geht der Speicher wieder, meldet DB.set das auch', () => {
+    return DB.set('pruefwert', {a:1}) === true || 'DB.set meldet false, obwohl es ging';
+  });
+  t('Ein voller Speicher meldet sich als false, nicht als Ausnahme',
+    () => mitKaputtemSpeicher(() => eq(DB.set('pruefwert', {a:1}), false)));
+
   // ================================================================ Passwort vergessen
   /* Eingebaut am 24.08.2026, uebernommen von angel-log (v57-v59). Bis dahin gab es keinen
      Weg zurueck: wer sein Passwort vergass, war endgueltig ausgesperrt. Karl ist genau das
@@ -4958,6 +5068,261 @@ window.addEventListener('error', e => {
     return /inhalt\s*=\s*''/.test(nach) || 'der Zweig setzt wieder einen Inhalt';
   });
 
+  /* ================================ Die Bestenliste und das Netz (Fund 4, 01.09.2026)
+     Der Vertrag steht seit jeher im Quelltext: null = noch nicht geladen, [] = leer,
+     false = gibt es serverseitig nicht. Gebrochen hat ihn die ERSTE ZEILE --
+     `ensureToken()` gibt auch bei Netzfehler und 5xx false zurueck.
+     Auf dem Bildschirm stand dann "Die Bestenliste ist noch nicht eingerichtet" samt
+     Verweis auf supabase-bestenliste.sql: keine ausbleibende Antwort, sondern eine
+     falsche Arbeitsanweisung.
+     🔴 Die alten Pruefungen reichten false, null und [] direkt ans Zeichnen --
+     sie pruefen, dass jeder Zustand richtig ANGEZEIGT wird, nie welchen Zustand
+     bestenlisteHolen tatsaechlich LIEFERT. Das Teil war geprueft, der Einbau nicht. */
+  const mitServer = async (antwort, fn) => {
+    const mF = window.fetch, mE = window.ensureToken, mS = session;
+    session = { access_token:'test', user:{id:'u1'} };
+    window.ensureToken = async () => true;
+    window.fetch = typeof antwort === 'function' ? antwort : (async () => antwort);
+    try { return await fn(); }
+    finally { window.fetch = mF; window.ensureToken = mE; session = mS; }
+  };
+
+  await tA('Kein Netz heisst "gerade nicht", nicht "gibt es nicht"', async () =>
+    mitServer(async () => { throw new Error('kein Netz'); },
+      async () => eq(await bestenlisteHolen(), null)));
+  await tA('Ein ueberlasteter Server heisst nicht "nicht eingerichtet"', async () =>
+    mitServer({ ok:false, status:503, json: async () => ({}) },
+      async () => eq(await bestenlisteHolen(), null)));
+  /* ⚠️ Und die Gegenrichtung: 404 heisst wirklich "die Tabelle fehlt". Ohne diese
+     Pruefung koennte man Fund 4 "reparieren", indem man nie mehr false liefert -- dann
+     saehe niemand mehr, dass das SQL fehlt. */
+  await tA('Fehlt die Tabelle wirklich, sagt es das auch', async () =>
+    mitServer({ ok:false, status:404, json: async () => ({}) },
+      async () => eq(await bestenlisteHolen(), false)));
+  await tA('Eine abgelaufene Anmeldung leert die Liste nicht', async () => {
+    const mE = window.ensureToken, mS = session;
+    session = { access_token:'test', user:{id:'u1'} };
+    window.ensureToken = async () => false;
+    try { return eq(await bestenlisteHolen(), null); }
+    finally { window.ensureToken = mE; session = mS; }
+  });
+  await tA('Antwortet der Server, kommt die Liste durch', async () =>
+    mitServer({ ok:true, status:200, json: async () => [{user_id:'a', name:'Karl', xp:5}] },
+      async () => { const r = await bestenlisteHolen();
+        return (Array.isArray(r) && r.length === 1) || JSON.stringify(r); }));
+
+  /* ================================ Die Melde-Schlange (Fund 5, 01.09.2026)
+     🔴 Eine dauerhaft abgewiesene Meldung blieb vorn stehen und alles dahinter kam
+     nie mehr los. Genau die Sackgasse, vor der der Kommentar beim Stapelversand warnt --
+     der Umbau auf Einzelversand hat die Nachbarn befreit, den Kopf nicht.
+     Fuer Karl sah es so aus: "Danke! Meldung ist raus.", ein Fehler-Toast fuer 1,8
+     Sekunden, und danach kam nie wieder etwas in Discord an. */
+  const mitSchlange = async (eintraege, antwort, fn) => {
+    const mF = window.fetch, mE = window.ensureToken, mS = session;
+    const mL = localStorage.getItem(MELD_KEY);
+    session = { access_token:'test', user:{id:'u1'} };
+    window.ensureToken = async () => true;
+    meldungenSchreiben(eintraege);
+    DB.set(MELD_ABGELEHNT, []);
+    window.fetch = antwort;
+    try { return await fn(); }
+    finally { window.fetch = mF; window.ensureToken = mE; session = mS;
+              DB.set(MELD_ABGELEHNT, []);
+              if(mL === null) localStorage.removeItem(MELD_KEY);
+              else localStorage.setItem(MELD_KEY, mL); }
+  };
+  const meld = (id) => ({ id, text:'x'+id, umfeld:{}, erstellt:new Date().toISOString() });
+
+  await tA('Eine abgewiesene Meldung blockiert die naechsten nicht', async () =>
+    mitSchlange([meld('a'), meld('b'), meld('c')],
+      async (u, o) => { const koerper = JSON.parse(o.body);
+        return koerper.id === 'a' ? { ok:false, status:400, text: async () => 'kaputt' }
+                                  : { ok:true, status:201, text: async () => '' }; },
+      async () => {
+        try { await meldungenNachreichen(); } catch(e) {}
+        const rest = meldungenLesen();
+        return rest.length === 0 || ('es liegen noch ' + rest.length + ' in der Schlange: '
+          + rest.map(x=>x.id).join(','));
+      }));
+  await tA('Die abgewiesene Meldung geht nicht verloren', async () =>
+    mitSchlange([meld('a'), meld('b')],
+      async (u, o) => JSON.parse(o.body).id === 'a'
+        ? { ok:false, status:400, text: async () => 'kaputt' }
+        : { ok:true, status:201, text: async () => '' },
+      async () => {
+        try { await meldungenNachreichen(); } catch(e) {}
+        const w = abgelehnteLesen();
+        return (w.length === 1 && w[0].id === 'a' && w[0].status === 400) || JSON.stringify(w);
+      }));
+  await tA('Der Fehler wird gesagt, nicht verschluckt', async () =>
+    mitSchlange([meld('a')],
+      async () => ({ ok:false, status:400, text: async () => 'kaputt' }),
+      async () => {
+        try { await meldungenNachreichen(); return 'es kam kein Fehler heraus'; }
+        catch(e) { return /abgewiesen/.test(String(e.message||e))
+          || ('unerwarteter Text: ' + e.message); }
+      }));
+  /* ⚠️ Ein 5xx ist etwas anderes: der Server ist nur gerade ueberlastet. Da MUSS
+     alles liegenbleiben -- sonst wuerfe eine Wartung die ganze Schlange weg. */
+  await tA('Eine Serverwartung wirft die Schlange nicht weg', async () =>
+    mitSchlange([meld('a'), meld('b')],
+      async () => ({ ok:false, status:503, text: async () => 'wartung' }),
+      async () => {
+        try { await meldungenNachreichen(); } catch(e) {}
+        return eq(meldungenLesen().length, 2);
+      }));
+  await tA('Die Bremse laesst die Meldung liegen', async () =>
+    mitSchlange([meld('a')],
+      async () => ({ ok:false, status:400, text: async () => 'GYM_BREMSE:7' }),
+      async () => {
+        try { await meldungenNachreichen(); } catch(e) { return 'die Bremse kam als Fehler'; }
+        return (meldungenLesen().length === 1 && abgelehnteLesen().length === 0)
+          || 'die gebremste Meldung wurde beiseitegelegt';
+      }));
+  /* 🔴 Die zweite Haelfte von Fund 5, und sie ist eine Handregel: das Wort muss
+     woertlich mit supabase-meldungen.sql uebereinstimmen. Wird es dort umformuliert,
+     gilt die Drosselung hier als harter Fehler -- und die Schlange steht.
+     Gebaut wie die APP_FASSUNG-Pruefung: Quelltext gegen Quelltext. */
+  t('GYM_BREMSE steht wortgleich in der Datenbank', () => {
+    const sql = (window.SQL_QUELLEN || {})['supabase-meldungen.sql'];
+    if(!sql) return 'supabase-meldungen.sql nicht hereingereicht';
+    return sql.indexOf(GYM_BREMSE) !== -1
+      || ('die App sucht nach "' + GYM_BREMSE + '", im SQL steht das nicht');
+  });
+
+  /* ================================ Fragen, die nicht gestellt werden konnten (Fund 6)
+     🔴 supaRPC gab bei Netzfehler, 404, 403 und bei einer echten Antwort `null`
+     dasselbe zurueck. Am Namens-Test hing daran mehr, als es aussieht: `null !== true`,
+     also lief die Registrierung weiter -- egal ob der Name frei war oder ob niemand
+     gefragt werden konnte. */
+  const mitRPC = async (antwort, fn) => {
+    const mF = window.fetch;
+    window.fetch = typeof antwort === 'function' ? antwort : (async () => antwort);
+    try { return await fn(); } finally { window.fetch = mF; }
+  };
+  await tA('Kein Netz ist keine Antwort', async () =>
+    mitRPC(async () => { throw new Error('weg'); },
+      async () => eq(await supaRPC('username_taken', {uname:'x'}), RPC_FEHLER)));
+  await tA('Eine fehlende Funktion ist keine Antwort', async () =>
+    mitRPC({ ok:false, status:404, json: async () => ({}) },
+      async () => eq(await supaRPC('username_taken', {uname:'x'}), RPC_FEHLER)));
+  await tA('Eine echte Antwort kommt durch', async () =>
+    mitRPC({ ok:true, status:200, json: async () => true },
+      async () => eq(await supaRPC('username_taken', {uname:'x'}), true)));
+  /* ⚠️ Bewusst KEIN Abbruch: die Funktion koennte in der Datenbank schlicht
+     fehlen, und dann kaeme niemand mehr ins Konto. Geprueft wird deshalb, dass die
+     Registrierung weiterlaeuft -- und dass sie es nicht STILL tut. */
+  await tA('Ein nicht erreichbarer Namens-Test stoppt die Anmeldung nicht', async () => {
+    let gesagt = '';
+    const mF = window.fetch, mT = window.toast;
+    window.toast = (m) => { gesagt = m; };
+    let rufe = 0;
+    window.fetch = async () => { rufe++;
+      if(rufe === 1) return { ok:false, status:404, json: async () => ({}) };   // der Namens-Test
+      return { ok:false, status:400, json: async () => ({msg:'signup aus'}) };  // die Registrierung selbst
+    };
+    let fehler = '';
+    try { await authSignUp('karl', 'k@x.de', 'geheim'); }
+    catch(e) { fehler = String(e); }
+    finally { window.fetch = mF; window.toast = mT; }
+    if(/vergeben/.test(fehler)) return 'die Registrierung wurde als "Name vergeben" abgewiesen';
+    return /geprüft/.test(gesagt) || ('es wurde nichts gesagt (toast: "' + gesagt + '")');
+  });
+
+  /* ================================ Aufgerufen, aber nirgends angelegt (Funde 6 und 9)
+     🔴 Zwei Datenbank-Funktionen standen in KEINER .sql dieses Ordners:
+     `username_taken` und `delete_own_account`. Wer das Supabase-Projekt aus diesen
+     Dateien neu aufsetzt, bekommt eine Installation, in der Konten grundsaetzlich nur
+     halb geloescht werden -- und nichts im Repo verraet, dass eine Datei fehlt.
+     Ein RPC-Name ist eine Zeichenkette, die sonst niemand prueft. */
+  t('Jede aufgerufene Datenbank-Funktion ist auch angelegt', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const sql = Object.values(window.SQL_QUELLEN || {}).join('\n');
+    if(!sql) return 'keine .sql hereingereicht';
+    const namen = new Set();
+    let m;
+    const re1 = /rest\/v1\/rpc\/([a-z_][a-z0-9_]*)/g;
+    while((m = re1.exec(q))) namen.add(m[1]);
+    const re2 = /supaRPC\(\s*'([a-z_][a-z0-9_]*)'/g;
+    while((m = re2.exec(q))) namen.add(m[1]);
+    const fehlt = Array.from(namen).filter(n =>
+      !(new RegExp('create\\s+(or\\s+replace\\s+)?function\\s+(public\\.)?' + n + '\\b')).test(sql));
+    return fehlt.length === 0
+      || ('wird gerufen, aber nirgends angelegt: ' + fehlt.join(', '));
+  });
+
+  /* ================================ Was ohne Netz da ist (Fund 7, 01.09.2026)
+     🔴 zxing.min.js (336 KB, der iPhone-Weg zum Scannen) stand nicht in der
+     Vorlade-Liste. Auf Karls Geraet faellt das nie auf -- Chrome/Android nimmt
+     BarcodeDetector. Es trifft genau eine Person: frische Installation, iPhone, erster
+     Scan im Keller-Gym. Der meldet "das Scannen geht nicht", und hier ist nichts
+     nachzustellen.
+     ⚠️ sw.js LAEUFT in den Pruefungen nie -- gelesen wird sein Quelltext. */
+  /* ⚠️ Diese Pruefung war beim ersten Anlauf GRUEN, obwohl zxing.min.js aus der
+     Liste heraus war: sie suchte im ganzen sw.js -- und der Dateiname stand auch im
+     Kommentar darueber. Jetzt wird nur die Liste selbst durchsucht.
+     🔴 Dritter Fall dieser Bauform an einem Tag, diesmal an mir selbst. */
+  const assetsListe = () => {
+    const s = window.SW_QUELLE || '';
+    return (s.match(/const ASSETS = \[[\s\S]*?\];/) || [''])[0];
+  };
+  t('Der Barcode-Leser ist offline da', () => {
+    const liste = assetsListe(); if(!liste) return 'ASSETS-Liste nicht gefunden';
+    return liste.indexOf('zxing.min.js') !== -1 || 'zxing.min.js fehlt in ASSETS';
+  });
+  /* 🔴 Und die Pruefung, die den Fund ueberdauert: nicht der eine Dateiname,
+     sondern die FORM. Alles, was index.html unter './...' nachlaedt, muss in der
+     Vorlade-Liste stehen -- sonst wandert derselbe Fehler beim naechsten Bild weiter. */
+  t('Alles Nachgeladene steht in der Vorlade-Liste', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const liste = assetsListe(); if(!liste) return 'ASSETS-Liste nicht gefunden';
+    const dateien = new Set();
+    /* ⚠️ Der Punkt MITTEN im Namen ist der Grund, warum das hier beim ersten Anlauf
+       nichts fand: `zxing.min.js` heisst nicht `zxing` + Endung. Ein Zeichenvorrat ohne
+       Punkt hat ausgerechnet die eine Datei uebersehen, um die es ging. */
+    let m; const re = /['"`]\.\/([A-Za-z0-9_.\-]+\.(?:js|png|svg|webmanifest))['"`]/g;
+    while((m = re.exec(q))) dateien.add(m[1]);
+    const fehlt = Array.from(dateien).filter(f => liste.indexOf("'./" + f + "'") < 0);
+    return fehlt.length === 0
+      || ('wird nachgeladen, ist aber nicht vorgeladen: ' + fehlt.join(', '));
+  });
+
+  /* ================================ Der kaputte Plan-Link (Fund 8, 01.09.2026)
+     🔴 Der Fehlerfang war leer, und die Adresse war vorher schon bereinigt: ein
+     abgeschnittener Link machte GAR NICHTS, und Neuladen brachte auch nichts mehr.
+     Drei Faelle sahen fuer Karl identisch aus -- Link kaputt, Empfaenger hat eine alte
+     Fassung, oder Plan-Teilen geht grundsaetzlich nicht. */
+  const mitLink = (hash, fn) => {
+    const mH = location.hash, mP = planImport, mF = planImportFehler, mG = importFehlerGezeigt;
+    location.hash = hash; planImport = null; planImportFehler = ''; importFehlerGezeigt = false;
+    try { return fn(); }
+    finally { location.hash = mH; planImport = mP; planImportFehler = mF;
+              importFehlerGezeigt = mG; }
+  };
+  t('Ein zerrissener Link bleibt nicht stumm', () => mitLink('#p=xTOTALKAPUTT', () => {
+    leseImportAusLink();
+    return planImportFehler !== '' || 'es wurde nichts gemerkt';
+  }));
+  /* ⚠️ Der zweite Teil des Fundes, und der wiegt schwerer als die Meldung: solange
+     der Link in der Adresse steht, ist Neuladen ein echter zweiter Versuch. Vorher war
+     er weg, BEVOR ueberhaupt entpackt wurde. */
+  t('Ein misslungener Link bleibt in der Adresse stehen', () => mitLink('#p=xTOTALKAPUTT', () => {
+    leseImportAusLink();
+    return /p=/.test(location.hash) || 'die Adresse wurde trotzdem geraeumt';
+  }));
+  t('Ein gelungener Link wird aus der Adresse geraeumt', () => {
+    const code = planCode(activeProg());
+    return mitLink('#p=' + code, () => {
+      leseImportAusLink();
+      return (!!planImport && !/p=/.test(location.hash))
+        || ('planImport=' + !!planImport + ' hash=' + location.hash.slice(0, 20));
+    });
+  });
+  t('Die drei Faelle bekommen drei verschiedene Texte', () => {
+    const a = importFehlerText('alt'), b = importFehlerText('leer'), c = importFehlerText('kaputt');
+    return (!!a && !!b && !!c && a !== b && b !== c && a !== c) || 'zwei Texte sind gleich';
+  });
+
   // ================================================================ Aufraeumen
   sessions = SICHER.sessions; profile = SICHER.profile; settings = SICHER.settings;
 
@@ -4981,6 +5346,14 @@ html = (WORK / 'index.html').read_text(encoding='utf-8')
 SW_TXT = (WORK / 'sw.js').read_text(encoding='utf-8')
 SW_BLOCK = '<script>window.SW_QUELLE = ' + json.dumps(SW_TXT) + ';</script>' + chr(10)
 
+# Und derselbe Weg fuer die .sql-Dateien (02.09.2026, Funde 6 und 9). Die App ruft
+# Datenbank-Funktionen ueber ihren Namen -- eine Zeichenkette, die niemand prueft. Zwei
+# davon standen in keiner .sql dieses Ordners, und beide Male ist die Folge still: 404,
+# und die App macht daraus "Name ist frei" bzw. "halb geloescht". Hier kommt der Text
+# herein, damit die Pruefung Aufruf gegen Definition halten kann.
+SQL_TXT = {f.name: f.read_text(encoding='utf-8') for f in sorted(WORK.glob('supabase-*.sql'))}
+SQL_BLOCK = '<script>window.SQL_QUELLEN = ' + json.dumps(SQL_TXT) + ';</script>' + chr(10)
+
 # ⚠️ Und derselbe Weg fuer die App selbst. Grund (27.08.2026, dreimal an einem Abend
 # passiert): eine Pruefung, die `document.documentElement.innerHTML` durchsucht, findet dort
 # AUCH SICH SELBST -- die Pruefungen stehen ja mit im Dokument. Zweimal war eine Pruefung
@@ -4991,7 +5364,7 @@ SW_BLOCK = '<script>window.SW_QUELLE = ' + json.dumps(SW_TXT) + ';</script>' + c
 # Zeichenpaar, fuer den Parser aber kein Ende. Ohne das war APP_QUELLE schlicht nicht da.
 APP_BLOCK = ('<script>window.APP_QUELLE = ' + json.dumps(html).replace('</', r'<\/')
              + ';</script>' + chr(10))
-(WORK / 'test.html').write_text(html + SW_BLOCK + APP_BLOCK + TESTS, encoding='utf-8')
+(WORK / 'test.html').write_text(html + SW_BLOCK + SQL_BLOCK + APP_BLOCK + TESTS, encoding='utf-8')
 
 # ⚠️ Zeitbudget grosszuegig: virtuelle Zeit kostet keine echte, ein groesseres
 # Budget also nichts ausser Luft nach oben. In angel-log hat ein zu knappes

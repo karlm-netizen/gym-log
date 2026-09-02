@@ -2,6 +2,99 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-09-02
+
+### v59 — die acht übrigen Funde des Agentenlaufs sind zu
+
+Am 01.09.2026 hat ein Agent die App nach **einer bestimmten Bauform** durchsucht: *etwas kann
+monatelang falsch sein, ohne dass irgendwo etwas rot wird.* Neun Funde, einer (der 503 beim
+Barcode) wurde noch am selben Abend als v57 repariert. **Hier sind die restlichen acht.**
+
+Karls Ansage: *„ja mach die weg heute wird gym log gemacht"*.
+
+**Nichts davon ist auf dem Bildschirm zu sehen — das ist der Punkt.** Jeder einzelne Fall war
+ein Fehler, der wie ein normaler Zustand aussah.
+
+---
+
+**🔴 Das Kalorien-Tagesziel überlebte den Abgleich nicht.** `blobsZusammen` führte nur die drei
+Listen (Mahlzeiten, Lebensmittel, Schritte) zusammen. **Ziel, Assistenten-Haken, Zielart,
+Wochen, Startdatum, Startgewicht und Schrittmodus standen in keinem Zweig** — sie fielen unter
+„das eigene Gerät gewinnt", und wenn die Gegenseite gar kein `kcal` hatte (ein Cloud-Stand von
+vor dem 23.08.), wurde ein frisches Objekt ohne sie gebaut. **Für dich sah das aus wie ein
+zurückgesetztes Handy:** der Einrichtungs-Assistent stand wieder da.
+Die Regel ist bewusst eng — übernommen wird nur, was auf der eigenen Seite **fehlt**. Ein Ziel,
+das schon steht, wird nicht überschrieben; sonst käme das alte Ziel vom zweiten Gerät zurück,
+sobald es sich meldet. Der Assistenten-Haken ist die Ausnahme und geht ODER: einmal durch ist
+durch.
+*Der Fund davor war derselbe (27.08., Tagesaufgaben und Mahlzeiten) — repariert wurde damals,
+was gemeldet war. Das Tagesziel stand nicht auf der Liste.*
+
+**🔴 `DB.set` war der einzige Schreiber ohne Fehlerfang** — ausgerechnet der für Pläne,
+Einheiten und Profil. `save()` schreibt fünf Schlüssel und ruft **danach** den Abgleich: warf
+der zweite (Speicher voll, privater Modus), stand der erste, die drei danach fehlten, und in
+die Cloud ging gar nichts. **Auf dem Bildschirm sah alles richtig aus** — der Wert stand ja in
+der Variablen. Weg war er erst nach dem nächsten Neuladen.
+Jetzt meldet `DB.set` zurück, ob es geklappt hat, `save()` läuft in jedem Fall durch, **der
+Abgleich in die Cloud läuft weiter** (dann ist sie der einzige Ort, an dem der Satz noch
+ankommt) — und oben erscheint eine **rote Leiste, die stehen bleibt**. Bewusst kein Toast: der
+ist nach 1,8 Sekunden weg, und wer gerade eine Wiederholung eintippt, sieht ihn nicht.
+
+**🟡 „Kein Empfang" wurde als „Die Bestenliste ist noch nicht eingerichtet" angezeigt** — samt
+Verweis auf `supabase-bestenliste.sql`. Das ist keine ausbleibende Antwort, das ist eine
+**falsche Arbeitsanweisung**: du setzt dich an SQL, das längst richtig ist. Ursache war die
+erste Zeile — die Token-Prüfung gibt auch bei Netzfehler und bei jedem 5xx `false` zurück, und
+`false` heißt hier „gibt es serverseitig nicht". Jetzt heißt `false` nur noch **404**, alles
+andere ist „gerade nicht" und lässt den alten Stand stehen.
+
+**🟡 Eine abgewiesene Meldung verstopfte die Warteschlange für immer.** Sie blieb vorn stehen,
+und alles dahinter kam nie mehr los — bei einem wiederholbaren Fehler dauerhaft. Du sahst
+„Danke! Meldung ist raus.", danach 1,8 Sekunden einen Fehler, und dann kam nie wieder etwas an.
+Jetzt wird zwischen **4xx** (der Server nimmt sie nie an → beiseite legen, der Rest kommt
+durch, und du bekommst es gesagt) und **5xx** (nur gerade überlastet → alles bleibt liegen)
+unterschieden. Die beiseitegelegten Meldungen sind nicht weg, sie stehen im Gerät.
+Dazu: das Wort `GYM_BREMSE` wird jetzt gegen `supabase-meldungen.sql` gehalten. Wird es dort je
+umformuliert, gilt die Drosselung als harter Fehler — und die Schlange steht.
+
+**🟡 Ein nicht erreichbarer Namens-Test hieß „Name ist frei".** Netzfehler, 404, 403 und eine
+echte Antwort kamen alle als `null` zurück. Jetzt gibt es einen dritten Wert für **„konnte
+nicht fragen"**, und die Registrierung sagt es. *Sie bricht bewusst nicht ab* — die Funktion
+könnte in der Datenbank schlicht fehlen, und dann käme niemand mehr in ein Konto.
+
+**🟡 Der Barcode-Leser war das Einzige, was nicht offline funktionierte.** `zxing.min.js`
+(336 KB, der iPhone-Weg zum Scannen) und `icon.svg` standen nicht in der Vorlade-Liste. Auf
+Karls Gerät fällt das nie auf — Chrome/Android nimmt einen eingebauten Weg. Es trifft genau
+eine Person: frische Installation, iPhone, erster Scan im Keller-Gym.
+
+**🟡 Ein kaputter Plan-Link machte gar nichts — und ließ sich nicht wiederholen.** Der
+Fehlerfang war leer, und das `#p=…` wurde aus der Adresse geräumt, **bevor** entpackt wurde:
+danach half auch Neuladen nicht mehr. Drei Fälle sahen identisch aus (Link abgeschnitten,
+Empfänger hat eine alte Fassung, Teilen geht grundsätzlich nicht). Jetzt wird die Adresse erst
+geräumt, wenn der Plan wirklich dasteht, und es erscheint ein Hinweis, der die drei Fälle
+auseinanderhält.
+
+**🟢 Zwei Datenbank-Funktionen standen in keiner `.sql` dieses Ordners** (`username_taken`,
+`delete_own_account`). Wer das Supabase-Projekt aus diesen Dateien neu aufsetzt, bekommt eine
+Installation, in der Konten grundsätzlich nur halb gelöscht werden. Neu:
+**`supabase-funktionen.sql`**.
+⚠️ Die Datei ist aus den Aufrufen in `index.html` geschrieben, **nicht aus der laufenden
+Datenbank ausgelesen**. Vor dem Ausführen vergleichen — was live steht, gilt.
+
+---
+
+**33 neue Prüfungen (729 → 762)**, und drei davon prüfen nicht einen Fall, sondern die **Form**:
+
+- Ein neues Feld in `profile.kcal`, das niemand in den Abgleich einträgt, wird rot.
+- Eine Datenbank-Funktion, die gerufen, aber in keiner `.sql` angelegt wird, wird rot.
+- Eine Datei, die `index.html` nachlädt und die nicht vorgeladen wird, wird rot.
+
+**Jede Reparatur ist gegengeprüft** — ausgehängt und nachgesehen, ob die Prüfung rot wird und
+dabei den *Schaden* nennt, nicht die fehlende Zeile.
+🔴 **Dabei ist eine meiner eigenen Prüfungen durchgefallen:** die zum Barcode-Leser war grün,
+obwohl die Datei aus der Liste heraus war — sie suchte im ganzen `sw.js`, und der Dateiname
+stand auch im Kommentar darüber. Die zweite fand ihn nicht, weil `zxing.min.js` einen Punkt
+mitten im Namen hat. **Beide repariert; ohne die Gegenprobe wären sie grün geblieben.**
+
 ## 2026-09-01
 
 ### v58 — die Gewichtskurve lässt sich jetzt auf einen Zeitraum stellen

@@ -469,6 +469,14 @@ setTimeout(function(){
     font-weight:700; font-size:13px; text-align:center; cursor:pointer;
     padding:9px 14px; padding-top:calc(9px + env(safe-area-inset-top))}
   #neufassung.show{display:block}
+  /* Dieselbe Leiste wie oben, nur in Rot: sie meldet, dass das Geraet nichts mehr
+     behaelt. Sie sitzt darunter, damit sich beide nicht verdecken. */
+  #speicherwarnung{position:fixed; left:0; right:0; top:0; z-index:69; max-width:520px; margin:0 auto;
+    display:none; width:100%; border:0; background:var(--danger); color:#fff;
+    font-weight:700; font-size:13px; text-align:center; cursor:pointer;
+    padding:9px 14px; padding-top:calc(9px + env(safe-area-inset-top))}
+  #speicherwarnung.show{display:block}
+  #neufassung.show ~ #speicherwarnung.show{top:36px}
   .modal{position:fixed; inset:0; z-index:80; background:rgba(0,0,0,.6); display:none;
     align-items:center; justify-content:center; padding:24px}
   .modal.show{display:flex}
@@ -586,6 +594,7 @@ setTimeout(function(){
 </nav>
 
 <button id="neufassung" type="button">Neue Fassung ist da — tippen zum Laden</button>
+<button id="speicherwarnung" type="button">Speichern geht nicht — tippen</button>
 <div id="toast" class="toast"></div>
 <div id="modal" class="modal"></div>
 <!-- Fuer „Essen per Foto": capture=environment oeffnet am Handy direkt die Kamera. -->
@@ -595,7 +604,20 @@ setTimeout(function(){
 "use strict";
 const DB = {
   get(k,def){ try{ const v=JSON.parse(localStorage.getItem('gymlog:'+k)); return v==null?def:v; }catch(e){ return def; } },
-  set(k,v){ localStorage.setItem('gymlog:'+k, JSON.stringify(v)); }
+  /* 🔴 Bis zum 02.09.2026 ohne try/catch -- als einziger Schreiber der App, und
+     ausgerechnet fuer Plaene, Einheiten und Profil. Die vier Nebensachen
+     (meldungenSchreiben, postfachSchreiben, letzteMailMerken, bremseSchreiben) waren
+     alle abgesichert.
+     Was passierte: `save()` schreibt fuenf Schluessel nacheinander und ruft DANACH
+     scheduleSync(). Wirft der zweite (Speicher voll, Safari mit gesperrtem
+     Seitenspeicher), steht der erste schon, die restlichen drei nicht, und der Abgleich
+     lief nie. Auf dem Bildschirm sah alles richtig aus -- der Wert stand ja in der
+     Variablen. Weg war er erst nach dem naechsten Neuladen.
+     ⚠️ Der Rueckgabewert ist der Punkt, nicht das catch: nur so kann `save()`
+     ueberhaupt merken, dass etwas fehlt. Ein stilles catch haette den Absturz
+     verhindert und den Datenverlust behalten. */
+  set(k,v){ try{ localStorage.setItem('gymlog:'+k, JSON.stringify(v)); return true; }
+            catch(e){ return false; } }
 };
 const uid=()=>Math.random().toString(36).slice(2,9);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -1221,7 +1243,42 @@ const SUPA_KEY='sb_publishable_7UvOL7KzzgJK6om8OwUsSg_usOMz92l';
 const PRIVACY_OWNER='Karl Fangmeyer (privat betriebene App)';
 const PRIVACY_CONTACT='karlm.fangmeyer@gmail.com';
 const PRIVACY_STAND='24. August 2026';   // bei jeder inhaltlichen Aenderung mit hochziehen
-function save(){ DB.set('programs',programs); DB.set('sessions',sessions); DB.set('active',active); DB.set('settings',settings); DB.set('profile',profile); scheduleSync(); }
+function save(){
+  const paare = {programs, sessions, active, settings, profile};
+  const nicht = Object.keys(paare).filter(k => !DB.set(k, paare[k]));
+  /* ⚠️ scheduleSync() laeuft AUCH nach einem Fehlschlag -- die Cloud ist dann der
+     einzige Ort, an dem der Satz noch ankommen kann. Frueher wurde sie uebersprungen,
+     weil die Ausnahme vorher aus dem Klick-Handler flog. */
+  if(nicht.length) speicherWarnen(nicht);
+  scheduleSync();
+}
+/* Zeigt eine Leiste, die stehen bleibt. Bewusst kein toast(): der ist nach 1,8 Sekunden
+   weg, und wer gerade eine Wiederholung eintippt, sieht ihn nicht. Solange die Leiste
+   steht, weiss Karl, dass das Geraet nichts mehr behaelt. */
+let speicherKaputt = false;
+function speicherWarnen(schluessel){
+  const erstesMal = !speicherKaputt;
+  speicherKaputt = true;
+  const l = document.getElementById('speicherwarnung');
+  if(l) l.classList.add('show');
+  /* Nur beim ersten Mal ins Protokoll. Wer weitertrainiert, ruft save() im Sekundentakt --
+     hundert gleiche Zeilen wuerden die eine interessante zudecken. */
+  if(erstesMal){ try{ console.warn('gym-log: konnte nicht speichern:', schluessel.join(', ')); }catch(e){} }
+}
+/* Was die Leiste sagt, wenn man sie antippt. Der Text nennt beides: was gerade gilt
+   (Cloud ja, Geraet nein) und was zu tun ist. */
+function speicherWarnungText(){
+  return '<div class="big">\u26a0\ufe0f</div><b>Dieses Ger\u00e4t speichert gerade nicht</b>'
+    + '<p style="font-size:13px;line-height:1.5;margin-top:10px">Deine Eintr\u00e4ge stehen auf dem '
+    + 'Bildschirm, aber nicht im Ger\u00e4t \u2014 nach dem n\u00e4chsten Neuladen sind sie weg.</p>'
+    + '<p style="font-size:13px;line-height:1.5">Meistens ist der Speicher voll oder der Browser '
+    + 'l\u00e4sst ihn nicht zu (privater Modus). <b>Wenn du angemeldet bist, geht der Abgleich in die '
+    + 'Cloud trotzdem weiter</b> \u2014 lade die App erst neu, wenn oben der Haken f\u00fcr den '
+    + 'Abgleich steht.</p>';
+}
+document.addEventListener('click', e => {
+  if(e.target && e.target.id === 'speicherwarnung') showModal(speicherWarnungText());
+});
 
 let view='home', editPlanId=null, editProgId=null, detailSessionId=null, detailExName=null;
 // Welchen Trainingsplan man gerade bearbeitet. Kann ein anderer sein als der aktuelle —
@@ -1841,7 +1898,12 @@ function render(){
   if(planImport && !importGezeigt && view!=='onboard'){ importGezeigt=true;
     // Ein unerwartetes Format darf nicht die ganze Ansicht mitreissen.
     if(planImport && Array.isArray(planImport.p) && planImport.p.length){ try{ zeigeImport(); }catch(e){ planImport=null; } }
-    else planImport=null; } }
+    else planImport=null; }
+  /* Derselbe Haken fuer den Fehlschlag: nicht waehrend der Einrichtung, nicht zweimal.
+     ⚠️ Der Hinweis ist die einzige Stelle, an der ein kaputter Link ueberhaupt
+     sichtbar wird -- vorher ging die App einfach auf, als waere nichts gewesen. */
+  if(planImportFehler && !importFehlerGezeigt && view!=='onboard'){
+    importFehlerGezeigt=true; try{ zeigeImportFehler(); }catch(e){ planImportFehler=''; } } }
 
 // ---------- Laufzeit der Einheit ----------
 // Eigener Ticker statt render() im Sekundentakt: ein Neuzeichnen wuerde die Eingabefelder
@@ -2674,6 +2736,16 @@ function renderRang(){
 //   foods  eigene Lebensmittel [{id,name,marke,kcal,p,c,f}] — Werte immer je 100 g
 //   meals  Eintraege [{id,date,name,menge,kcal,p,c,f,quelle}] — Werte schon ausgerechnet,
 //          damit ein spaeter geaendertes Lebensmittel die Vergangenheit nicht umschreibt.
+/* Alles in profile.kcal, was KEINE Liste ist. Steht hier, weil zwei Stellen es
+   brauchen: kcalInit legt es an, blobsZusammen fuehrt es zusammen.
+   🔴 Am 01.09.2026 gefunden: blobsZusammen kannte diese Felder gar nicht. Beim
+   Abgleich mit einem Geraet, dessen Stand aelter ist als der 23.08., wurde
+   `b.profile.kcal` neu gebaut -- und das Tagesziel war weg. Ohne Meldung: fuer
+   Karl stand einfach der Einrichtungs-Assistent wieder da.
+   ⚠️ Wer hier ein Feld dazunimmt, muss nichts weiter tun -- die Pruefung
+   `kcal-felder-vollstaendig` haelt diese Liste gegen den Quelltext und wird rot,
+   sobald irgendwo ein `k.neuesFeld=` steht, das hier fehlt. */
+const KCAL_SKALARE = ['goal','setup','art','wochen','start','startKg','schritte'];
 function kcalInit(){
   if(!profile.kcal || typeof profile.kcal!=='object') profile.kcal={};
   const k=profile.kcal;
@@ -4690,7 +4762,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v58';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v59';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -4719,11 +4791,22 @@ function meldungAnlegen(text){
   meldungenSchreiben(l);
   return l.length;
 }
+/* 🔴 Die Zeichenkette muss WOERTLICH mit supabase-meldungen.sql uebereinstimmen
+   (`raise exception 'GYM_BREMSE:%'`). Wird sie dort je umformuliert, gilt die Drosselung
+   hier als harter Fehler -- und die Schlange steht. Die Pruefung
+   `GYM_BREMSE steht wortgleich in der Datenbank` haelt beides zusammen. */
+const GYM_BREMSE = 'GYM_BREMSE';
+/* Meldungen, die der Server dauerhaft abgelehnt hat. Sie sind AUS der Schlange raus --
+   sonst kaeme nie wieder eine durch -- gehen aber nicht verloren. */
+const MELD_ABGELEHNT = 'meldungen-abgelehnt';
+function abgelehnteLesen(){ const l = DB.get(MELD_ABGELEHNT, []); return Array.isArray(l) ? l : []; }
+
 async function meldungenNachreichen(){
   if(!session || !(await ensureToken())) return 0;
   const l = meldungenLesen();
   if(!l.length) return 0;
-  let durch = 0;
+  let durch = 0;                 // wie viele vorn in der Schlange erledigt sind
+  const abgelehnt = [];          // was der Server nie annehmen wird
   for(const m of l){
     let r;
     try{
@@ -4735,11 +4818,32 @@ async function meldungenNachreichen(){
     const txt = await r.text().catch(()=>'');
     /* Die Bremse ist kein Fehler, sondern eine Auskunft: "spaeter nochmal".
        Die Meldung bleibt liegen und geht beim naechsten Abgleich mit. */
-    if(txt.indexOf('GYM_BREMSE') !== -1) break;
-    meldungenSchreiben(l.slice(durch));       // erst nach dem OK aus der Schlange nehmen
-    throw new Error('Melden fehlgeschlagen ('+r.status+')');
+    if(txt.indexOf(GYM_BREMSE) !== -1) break;
+    /* 🔴 Gefunden am 01.09.2026. Vorher stand hier ein `throw` -- und die
+       fehlgeschlagene Meldung blieb auf Platz `durch` in der Schlange stehen. Bei einem
+       wiederholbaren Fehler (400, eine RLS-Regel, ein Feld, das der Trigger nicht mag)
+       schlug sie beim naechsten Mal wieder fehl, und **jede spaetere Meldung stand
+       dahinter** -- fuer immer. Genau die Sackgasse, vor der der Kommentar beim
+       Stapelversand warnt; der Umbau auf Einzelversand hat die Nachbarn befreit, den
+       Kopf nicht.
+       ⚠️ Ein 5xx ist etwas anderes als ein 4xx: der Server ist nur gerade
+       ueberlastet. Da wird abgebrochen und beim naechsten Mal weitergemacht -- sonst
+       wuerfe eine Wartung die ganze Schlange weg. */
+    if(r.status >= 500) break;
+    abgelehnt.push({ id:m.id, text:m.text, erstellt:m.erstellt,
+                     status:r.status, grund:String(txt).slice(0,200),
+                     abgelehnt_am:new Date().toISOString() });
+    durch++;                     // raus aus der Schlange, damit der Rest durchkommt
   }
   meldungenSchreiben(l.slice(durch));
+  if(abgelehnt.length){
+    DB.set(MELD_ABGELEHNT, abgelehnteLesen().concat(abgelehnt).slice(-20));
+    /* ⚠️ Der Fehler wird GEWORFEN, aber erst hier: die uebrigen Meldungen sind
+       da schon raus. Vorher hat der throw mitten in der Schleife beides verhindert. */
+    throw new Error(abgelehnt.length === 1
+      ? 'Eine Meldung wurde abgewiesen (Fehler ' + abgelehnt[0].status + ') und liegt beiseite.'
+      : abgelehnt.length + ' Meldungen wurden abgewiesen und liegen beiseite.');
+  }
   return durch;
 }
 
@@ -4871,12 +4975,24 @@ async function bestenlisteSchieben(){
   }catch(e){ return false; }
 }
 
+/* 🔴 Gefunden am 01.09.2026: die erste Zeile hat den Vertrag darueber gebrochen.
+   `ensureToken()` gibt auch bei Netzfehler und bei jedem 5xx `false` zurueck -- damit
+   wurde aus "kein Empfang" ein `false`, und `false` heisst hier "die Tabelle gibt es
+   serverseitig nicht". Auf dem Bildschirm stand dann: **"Die Bestenliste ist noch nicht
+   eingerichtet"** samt Verweis auf supabase-bestenliste.sql.
+   ⚠️ Das ist schlimmer als eine ausbleibende Antwort -- es ist eine falsche
+   Arbeitsanweisung. Karl setzt sich an SQL, das laengst richtig ist.
+   ➡️ Jetzt heisst `false` nur noch, was es heissen soll: **404**, die Tabelle
+   ist wirklich nicht da. Alles andere (kein Netz, 5xx, Drosselung, abgelaufene Anmeldung)
+   ist `null` = "gerade nicht", und der alte Stand bleibt stehen. */
 async function bestenlisteHolen(){
-  if(!session || !await ensureToken()) return false;
+  if(!session) return null;                 // nicht angemeldet -- keine Aussage ueber den Server
+  if(!await ensureToken()) return null;     // Token/Netz -- "gerade nicht", nicht "gibt es nicht"
   try{
     const r = await fetch(`${SUPA_URL}/rest/v1/gym_bestenliste?select=user_id,name,xp&order=xp.desc&limit=10`,
                           { headers: authHeaders(true) });
-    if(!r.ok) return false;          // Tabelle fehlt oder keine Erlaubnis
+    if(r.status === 404) return false;      // die Tabelle fehlt -- das SQL ist wirklich nicht gelaufen
+    if(!r.ok) return null;                  // 5xx, Drosselung, sonstiges: nur gerade nicht
     const rows = await r.json();
     return Array.isArray(rows) ? rows : false;
   }catch(e){ return null; }          // Netz weg: nicht "gibt es nicht", nur "gerade nicht"
@@ -5118,7 +5234,7 @@ function sharePlan(progId){
 }
 // Empfangen: der Link wird beim Start gelesen, der Hash sofort entfernt (sonst haengt er beim
 // naechsten Oeffnen noch dran) und das Angebot erst nach der Anmeldung gezeigt.
-let planImport=null, importGezeigt=false;
+let planImport=null, importGezeigt=false, planImportFehler='', importFehlerGezeigt=false;
 /* Aus dem gepackten v3-Format zurueck in die Form, mit der zeigeImport() und
    importierePlan() seit jeher arbeiten. ⚠️ Die beiden bleiben damit unangetastet -- ein
    neues Link-Format soll nicht bis in die Uebernahme durchschlagen. */
@@ -5135,27 +5251,56 @@ function v3ZuPlan(a){
   }).filter(x=>x.e.length);
   return { name:(a[1]||'Geteilter Plan'), p, verloren };
 }
+/* 🔴 Am 01.09.2026 gefunden, und der Fund hatte zwei Haelften:
+   1. Der Fehlerfang war LEER. Ein von WhatsApp abgeschnittener oder beim Kopieren
+      zerrissener Link lief in atob, DecompressionStream oder JSON.parse auf einen Fehler --
+      und die App ging auf, als haette man sie normal gestartet. Kein Angebot, kein Hinweis.
+      Drei Faelle sahen identisch aus: Link kaputt, Empfaenger hat eine alte Fassung, oder
+      Plan-Teilen geht grundsaetzlich nicht.
+   2. Der Beweis war vorher schon weg. `history.replaceState` raeumte das `#p=...` aus der
+      Adresszeile, BEVOR entpackt wurde -- danach half auch Neuladen nicht mehr.
+   ➡️ Jetzt wird die Adresse erst geraeumt, wenn der Plan wirklich dasteht. Geht es
+   schief, bleibt der Link stehen (Neuladen ist damit ein echter zweiter Versuch) und es
+   erscheint ein Hinweis, der die drei Faelle auseinanderhaelt. */
 function leseImportAusLink(){
   const m=/[#&]p=([A-Za-z0-9\-_]+)/.exec(location.hash||''); if(!m) return;
   const code=m[1];
-  try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){}
+  const hashWeg = () => { try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){} };
+  const misslungen = (grund) => { planImport=null; planImportFehler=grund; if(session) render(); };
   /* ⚠️ Ein gepackter Link faengt mit 'z' an. Entpacken geht nur asynchron -- deshalb ist
      planImport hier zunaechst leer und wird nachgereicht. render() zeigt das Angebot, sobald
      es steht; wer in der Zwischenzeit schon in der App ist, sieht es einen Wimpernschlag
      spaeter aufgehen. Frueher als der Anmeldeschirm ist es ohnehin nie. */
   if(code[0]==='z'){
-    if(typeof DecompressionStream !== 'function') return;   // zu alter Browser: kein Angebot, aber auch kein Absturz
+    if(typeof DecompressionStream !== 'function'){ misslungen('alt'); return; }
     entpacke(code.slice(1))
       .then(txt=>{ const p=v3ZuPlan(JSON.parse(txt));
-        if(p && p.p.length){ planImport=p; if(session) render(); } })
-      .catch(()=>{});
+        if(p && p.p.length){ planImport=p; hashWeg(); if(session) render(); }
+        else misslungen('leer'); })
+      .catch(()=> misslungen('kaputt'));
     return;
   }
   try{ const d=JSON.parse(b64dec(code));
     // v1 waren nur Trainings ohne Plan-Namen, v2 bringt den Namen mit. Beides annehmen.
-    if(d && (d.v===1||d.v===2) && Array.isArray(d.p) && d.p.length)
-      planImport={name:(d.name||'Geteilter Plan'), p:d.p.slice(0,10)};
-  }catch(e){ planImport=null; }
+    if(d && (d.v===1||d.v===2) && Array.isArray(d.p) && d.p.length){
+      planImport={name:(d.name||'Geteilter Plan'), p:d.p.slice(0,10)}; hashWeg(); }
+    else misslungen('leer');
+  }catch(e){ misslungen('kaputt'); }
+}
+/* Die drei Faelle beim Namen. Ausgelagert, damit die Pruefung den Text pruefen kann,
+   ohne ein Fenster aufzumachen. */
+function importFehlerText(grund){
+  if(grund === 'alt') return 'Dein Browser ist zu alt für diesen Link. Bitte den Absender, '
+    + 'den Plan noch einmal zu teilen — die App schickt dann die lange Fassung.';
+  if(grund === 'leer') return 'In dem Link steckt kein Training. Wahrscheinlich war der Plan '
+    + 'leer, als er geteilt wurde.';
+  return 'Der Link ist unterwegs abgeschnitten worden — das passiert beim Weiterleiten oft. '
+    + 'Lass ihn dir noch einmal schicken, am besten als reinen Text.';
+}
+function zeigeImportFehler(){
+  showModal('<div class="big">\u26a0\ufe0f</div><b>Der geteilte Plan lässt sich nicht öffnen</b>'
+    + '<p style="font-size:13px;line-height:1.5;margin-top:10px">'
+    + esc(importFehlerText(planImportFehler)) + '</p>');
 }
 function zeigeImport(){
   const liste=planImport.p.map(p=>`<div class="row between" style="padding:5px 0;border-bottom:1px solid var(--line)">
@@ -5217,7 +5362,15 @@ function setSync(ok){ const s= ok?'Cloud aktiv':'Offline — wird nachgeholt';
   if(s!==syncState){ syncState=s; if(view==='settings'&&session) renderSettings(); } }
 function authHeaders(withToken){ return {'apikey':SUPA_KEY,'Content-Type':'application/json',
   'Authorization':'Bearer '+((withToken&&session&&session.access_token)?session.access_token:SUPA_KEY)}; }
-async function supaRPC(fn,args){ try{ const r=await fetch(`${SUPA_URL}/rest/v1/rpc/${fn}`,{method:'POST',headers:authHeaders(false),body:JSON.stringify(args)}); return r.ok?await r.json():null; }catch(e){ return null; } }
+/* 🔴 Gefunden am 01.09.2026: die Funktion gab bei Netzfehler, 404, 403 UND bei
+   einer echten Antwort `null` dasselbe zurueck. Am Namens-Test hing daran mehr, als es
+   aussieht -- `null !== true`, also lief die Registrierung weiter, egal ob der Name frei
+   war oder ob niemand gefragt werden konnte. Zwei Konten mit demselben Namen faellt erst
+   in der Bestenliste auf, und dann weiss niemand, seit wann.
+   ➡️ Jetzt gibt es einen dritten Wert: RPC_FEHLER heisst **"konnte nicht
+   fragen"** und ist von jeder echten Antwort unterscheidbar. `null` bleibt eine Antwort. */
+const RPC_FEHLER = Symbol('rpc-fehler');
+async function supaRPC(fn,args){ try{ const r=await fetch(`${SUPA_URL}/rest/v1/rpc/${fn}`,{method:'POST',headers:authHeaders(false),body:JSON.stringify(args)}); return r.ok?await r.json():RPC_FEHLER; }catch(e){ return RPC_FEHLER; } }
 function setSession(d,username){ session={ access_token:d.access_token, refresh_token:d.refresh_token,
     expires_at:Date.now()+((d.expires_in||3600)*1000), user:{id:d.user.id,email:d.user.email},
     username: username || (d.user.user_metadata&&d.user.user_metadata.username) || d.user.email }; DB.set('session',session); }
@@ -5396,6 +5549,24 @@ function blobsZusammen(basis, dazu){
         if(!a || x.date > a.date) m.set(kk, x); });
       k.steps = Array.from(m.values()).sort((x,y)=>x.date-y.date);
     }
+    /* --- Die Zahlen am Essen: Ziel, Zielplan, Schrittmodus ---
+       🔴 Gefunden am 01.09.2026. Bis dahin kamen von hier NUR die drei Listen
+       herueber; goal, setup, art, wochen, start, startKg und schritte standen in
+       keinem Zweig. Zwei Wege, auf denen das Ziel verschwand:
+         1. Hat `basis` gar kein kcal (ein Stand aus der Cloud von vor dem 23.08.),
+            wurde oben ein frisches `{foods:[],meals:[]}` gebaut -- ohne Ziel.
+         2. Haben beide Seiten kcal, gewinnt `basis` stillschweigend. Wer das Ziel
+            am Handy gesetzt hat und danach den PC schiebt, hatte es nicht mehr.
+       ⚠️ Die Regel ist bewusst ENG: uebernommen wird nur, was auf der
+       Basis-Seite fehlt. Ein Ziel, das hier schon steht, wird nicht ueberschrieben --
+       sonst kaeme das alte Ziel vom zweiten Geraet zurueck, sobald es sich meldet.
+       ⚠️ `setup` ist die Ausnahme und geht ODER: wer den Assistenten einmal
+       durchlaufen hat, soll ihn nie wieder sehen, egal von welchem Geraet aus. */
+    KCAL_SKALARE.forEach(f => {
+      if(f === 'setup'){ if(kD.setup) k.setup = true; return; }
+      if((k[f] === undefined || k[f] === null) && kD[f] !== undefined && kD[f] !== null)
+        k[f] = kD[f];
+    });
     zusatz += mz.neu.length + lm.neu.length;
   }
   return {blob:b, uebernommen: s.neu.length + Math.max(0, gw.length-vorher) + zusatz};
@@ -5547,7 +5718,14 @@ function rueckkehrAusMail(){
 async function authSignUp(username,email,password){ username=(username||'').trim(); email=(email||'').trim();
   if(!username||!email||!password) throw 'Bitte Username, E-Mail und Passwort ausfüllen.';
   if(password.length<6) throw 'Passwort mind. 6 Zeichen.';
-  if(await supaRPC('username_taken',{uname:username})===true) throw 'Username ist schon vergeben.';
+  const frei = await supaRPC('username_taken',{uname:username});
+  if(frei === true) throw 'Username ist schon vergeben.';
+  /* ⚠️ Konnte nicht gefragt werden -- und das wird GESAGT, statt es als "Name ist
+     frei" durchzuwinken. Bewusst kein Abbruch: die Funktion koennte in der Datenbank
+     schlicht fehlen (sie stand bis zum 02.09.2026 in keiner .sql dieses Ordners), und
+     dann kaeme niemand mehr ins Konto. Lieber ein Hinweis, den Karl sieht, als eine
+     Sperre, die er nicht aufheben kann. */
+  if(frei === RPC_FEHLER) toast('Der Name konnte gerade nicht geprüft werden.');
   const r=await fetch(`${SUPA_URL}/auth/v1/signup`,{method:'POST',headers:{'apikey':SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password,data:{username}})});
   const d=await r.json(); if(!r.ok) throw d.msg||d.error_description||d.error||'Registrierung fehlgeschlagen.';
   if(!d.access_token) throw 'Konto erstellt. Falls E-Mail-Bestätigung aktiv ist: E-Mail bestätigen, dann anmelden.';

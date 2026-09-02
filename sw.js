@@ -1,9 +1,19 @@
 ﻿// Gym-Log Service Worker â€” Netz zuerst (Updates erreichen den Nutzer sofort),
 // Cache nur als Offline-RÃ¼ckfall. Assets einzeln cachen, damit eine fehlende
 // Datei nicht die ganze Offline-Funktion killt (Lektion aus Dranbleiben).
-const CACHE = 'gymlog-v58';
+const CACHE = 'gymlog-v59';
+/* ⚠️ Was hier fehlt, gibt es ohne Netz nicht. Am 01.09.2026 gefunden: zxing.min.js
+   (336 KB, der iPhone-Weg zum Scannen) und icon.svg standen nicht drin.
+   Wie das aussah: auf Karls Gerät nie -- Chrome/Android nimmt BarcodeDetector und braucht
+   ZXing gar nicht. Es traf genau eine Person: jemanden mit frischer Installation auf dem
+   iPhone, der zum ersten Mal im Keller-Gym scannt. Der meldet "das Scannen geht nicht",
+   und auf Karls Gerät ist nichts nachzustellen.
+   🔴 Die Liste wird von der Prüfung "Alles Nachgeladene steht in der Vorlade-Liste"
+   gegen index.html gehalten -- ein neues Bild oder Skript wird dort rot, nicht erst beim
+   nächsten Kellerbesuch. */
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-180.png',
-  './icon-maskable-192.png', './icon-maskable-512.png',
+  './icon-maskable-192.png', './icon-maskable-512.png', './icon.svg',
+  './zxing.min.js',
   './brock.png',
   './brock-1.png', './brock-2.png', './brock-3.png', './brock-4.png', './brock-5.png',
   './brock-6.png', './brock-7.png', './brock-8.png', './brock-9.png'];
