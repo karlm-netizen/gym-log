@@ -351,7 +351,7 @@ setTimeout(function(){
      🔴 Und er ist seit derselben Ansage der EINZIGE Weg ins Essen-Eintragen (der
      allgemeine Knopf ist weg). Ein zu kleines Ziel ist damit nicht mehr nur unschoen,
      sondern die einzige Tuer. */
-  .mz{padding:14px}
+  .mz{padding:16px 14px}
   .mz.trenn{border-top:1px solid var(--line)}
   /* Der jetzt faellige Block bekommt eine Kante statt einer Flaeche - eine gefuellte
      Zeile zwischen drei leeren sieht aus wie "ausgewaehlt", und ausgewaehlt ist hier
@@ -369,14 +369,14 @@ setTimeout(function(){
      weisse Schrift auf weissem Grund. */
   .mz-plus{width:44px; height:44px; flex:0 0 auto; border-radius:99px; cursor:pointer;
     border:1px solid rgba(0,0,0,.14); background:#fff; color:#111;
-    font-size:24px; line-height:1; display:inline-flex; align-items:center; justify-content:center;
-    transition:transform .08s, background .12s; font-weight:600;
+    line-height:0; display:inline-flex; align-items:center; justify-content:center;
+    transition:transform .08s, background .12s;
     box-shadow:0 1px 2px rgba(0,0,0,.18)}
   .mz-plus:active{transform:scale(.94); background:#e9e9e9}
   /* Die Eintraege standen auf 6 px Luft und 14 px Schrift -- zusammen mit dem Datum
      darunter waren das drei Zeilen in der Hoehe von zweien. */
-  .mz-eintrag{display:flex; justify-content:space-between; align-items:center; gap:10px;
-    padding:9px 0 9px 48px; font-size:14.5px; line-height:1.45}
+  .mz-eintrag{display:flex; justify-content:space-between; align-items:center; gap:12px;
+    padding:11px 0 11px 50px; font-size:14.5px; line-height:1.5}
   .mz-eintrag + .mz-eintrag{border-top:1px solid var(--line)}
 
   /* Die Ess-Serie (23.08.2026). Grau, solange sie bei 0 steht — siehe flammeHTML(). */
@@ -1478,31 +1478,36 @@ function zaehleRekorde(en){ let n=0; en.forEach(e=>arbeit(e.sets).forEach(s=>{ i
    fuer nichts -- sie macht nur laenger, bis es auffaellt. Wer die App 100 Tage lang nur
    aufmacht, hatte 500 XP dafuer, dass er nichts getan hat.
 
-   ➡️ **„Reingeschaut" ist deshalb am 29.08. ersatzlos raus.** Es bleiben zwei Aufgaben,
-   und **beide verlangen eine Handlung**: etwas eintragen oder trainieren. Hoechstens
-   **25 XP am Tag** gegen 260-380 fuer eine Einheit.
-   ⚠️ **Zurueckgenommen wird nichts.** Wer die 5 XP an vergangenen Tagen bekommen hat,
-   behaelt sie -- in dieser App wird kein Punktestand rueckwirkend gekuerzt (Regel vom
-   27.08., Admin-Schalter). Es gibt sie ab heute nur nicht mehr.
-   ⚠️ Wuerde man die verbliebenen groesser machen, waere Gigachad ohne Training erreichbar.
-   Das ist die Grenze, an der dieses Feature aufhoert.                                  */
-/* ➡️ Aufgeteilt am 03.09.2026 (Karls Ansage: „split the Eingetragen section into
-   Mahlzeit and Gewicht"). Vorher war es EINE Aufgabe zu 10 XP, die beides abdeckte --
-   wer nur wog, hatte sie schon erledigt und sah nicht mehr, dass das Essen noch fehlt.
-   🔴 **5 + 5 statt 10 + 10, und das ist eine Abwaegung, keine Kleinigkeit.** Der
-   Tagesdeckel liegt bei 25 XP (siehe der Block darueber: „wuerde man die verbliebenen
-   groesser machen, waere Gigachad ohne Training erreichbar"). Zwei Aufgaben zu je 10 XP
-   haetten ihn auf 35 gehoben und die Rangleiter ohne eine einzige Trainingseinheit
-   erreichbar gemacht. So bleibt der Deckel bei 25: wer beides eintraegt, bekommt genau
-   die 10 XP von vorher -- nur eben in zwei Schritten sichtbar.
-   ⚠️ Der Preis, ehrlich benannt: wer nur EINES von beiden macht, bekommt 5 statt 10 XP.
-   Zurueckgenommen wird nichts (Regel vom 27.08.), es gilt ab heute. */
+   ➡️ **„Reingeschaut" war vom 29.08. bis zum 03.09.2026 draussen** -- Karls Ansage damals:
+   *„man kann nicht jeden Tag XP kriegen fuer wenn man was gemacht hat, weil an manchen Tagen
+   machst du ja nichts."*
+   ✅ **Am 03.09.2026 hat Karl es zurueckgeholt und die Werte selbst gesetzt:**
+   Gewicht 10 · Mahlzeit 10 · taeglich reinschauen 5. **Deckel damit 25 -> 40 XP.**
+
+   🔴 **Der alte Einwand daneben stand ohne Zahl da** („waere Gigachad ohne Training
+   erreichbar"). Nachgerechnet am 03.09., mit `xpForLevel(45)`:
+
+     Level 45 (Gigachad) braucht                       42.240 XP
+     ohne Training, alte Regel (10/Tag)   4.224 Tage = 11,6 Jahre
+     ohne Training, neue Regel (25/Tag)   1.690 Tage =  4,6 Jahre
+     mit taeglichem Training (40/Tag)     1.056 Tage =  2,9 Jahre
+
+   ➡️ **Die Sorge war ueberzogen.** Wer 4,6 Jahre lang jeden Tag die App aufmacht und wiegt,
+   ohne ein einziges Mal zu trainieren, ist kein Schlupfloch -- das ist laenger, als es diese
+   App gibt. **Eine Grenze, die nie ausgerechnet wurde, war eine Vermutung, keine Grenze.**
+   ⚠️ Was bleibt: eine Einheit gibt 260-380 XP. Training ist weiter der Hauptweg, um ein
+   Vielfaches -- und das ist der Punkt, auf den es ankam.
+   ⚠️ Zurueckgenommen wird nichts (Regel vom 27.08.): die 5 XP der letzten fuenf Tage kommen
+   niemandem nachtraeglich aufs Konto, es gilt ab heute.                                   */
+/* ➡️ Aufgeteilt am 03.09.2026 in Mahlzeit und Gewicht (Karls Ansage). Vorher war es EINE
+   Aufgabe, die beides abdeckte -- wer nur wog, sah nicht mehr, dass das Essen noch fehlt. */
 const AUFGABEN = [
-  { id:'mahlzeit', xp:5,  svg:'stift',  name:'Mahlzeit',  text:'Eine Mahlzeit eingetragen' },
-  { id:'gewicht',  xp:5,  svg:'stift',  name:'Gewicht',   text:'Gewicht eingetragen' },
-  { id:'train',    xp:15, svg:'hantel', name:'Trainiert', text:'Eine Einheit abgeschlossen' },
+  { id:'auf',      xp:5,  svg:'auge',   name:'Reingeschaut', text:'Die App heute geöffnet' },
+  { id:'mahlzeit', xp:10, svg:'stift',  name:'Mahlzeit',     text:'Eine Mahlzeit eingetragen' },
+  { id:'gewicht',  xp:10, svg:'waage',  name:'Gewicht',      text:'Gewicht eingetragen' },
+  { id:'train',    xp:15, svg:'hantel', name:'Trainiert',    text:'Eine Einheit abgeschlossen' },
 ];
-const AUFGABEN_MAX = AUFGABEN.reduce((n,a)=>n+a.xp,0);   // 25 -- der Deckel steht in den Daten
+const AUFGABEN_MAX = AUFGABEN.reduce((n,a)=>n+a.xp,0);   // 40 -- der Deckel steht in den Daten
 
 function heuteKey(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 /* ⚠️ Der Tageswechsel wird beim LESEN geprueft, nicht per Timer. Ein Timer um Mitternacht
@@ -2120,8 +2125,27 @@ function rankCardHTML(){
 // Mit Rang die Stufe aus RANKS. Hoehe kommt aus .mon{height:auto}, die Blaetter haben je ein
 // eigenes Seitenverhaeltnis und wuerden von einer festen Hoehe verzerrt.
 function brockSrc(rank){ return (rank&&rank.img) || 'brock.png'; }
+/* 🔴 Nachgemessen am 03.09.2026, nachdem Karl „fix image aspect ratios and distortion"
+   gemeldet hat -- und es war messbar, nicht Geschmack. Die neun Brock-Bilder haben
+   **verschiedene Seitenverhaeltnisse**:
+
+     brock-3   189 x 256   0,738  (hochkant)
+     brock-5   256 x 224   1,143  (quer)
+
+   Vorher stand nur `width="${size}"` da, die Hoehe kam aus `height:auto`. Bei 64 px
+   Breite wurde Brock je nach Rang **56 bis 87 px hoch** -- ein Unterschied von 55 %.
+   ➡️ Jetzt eine feste Box `size x size` mit `object-fit:contain`. Damit ist er immer
+   gleich gross, egal welcher Rang, und die Karte springt beim Rangwechsel nicht mehr.
+   ⚠️ **`contain`, nicht `cover`** (Karl hatte `cover` vorgeschlagen): `cover` fuellt die
+   Box und schneidet dafuer ab -- bei einer Figur mit Kopf und Fuessen waere genau das
+   der Schaden, den es zu vermeiden gilt. `contain` verzerrt ebenfalls nichts, laesst aber
+   nichts weg.
+   💡 `width`/`height` stehen zusaetzlich als Attribute da: der Browser haelt den Platz
+   schon vor dem Laden frei, sonst ruckt das Layout nach. */
 function monster(size,mood,rank){ size=size||86;
-  return `<img class="mon" src="${brockSrc(rank)}" width="${size}" alt="" aria-hidden="true">`; }
+  return `<img class="mon" src="${brockSrc(rank)}" width="${size}" height="${size}"`
+       + ` style="width:${size}px;height:${size}px;object-fit:contain"`
+       + ` alt="" aria-hidden="true">`; }
 // Brock im Abzeichen-Kasten: gesperrte Raenge als Silhouette, damit die Stufe erkennbar bleibt,
 // aber noch etwas zu holen ist. Mittelgrau statt schwarz — reines Schwarz verschwand im
 // dunklen Design vollstaendig. brightness(0) macht alles schwarz, invert(.55) hebt es auf Grau.
@@ -3535,17 +3559,23 @@ function renderBody(){
      daneben stuende er sonst links und die Karte saehe halb leer aus.
      💡 Der Ring wird dabei etwas groesser: er hat die Breite geerbt, die Brock frei
      gemacht hat, und ist jetzt das einzige Bild in seiner Karte. */
-  let h=`<div class="card brock-oben">
-      <div class="row" style="gap:12px;align-items:center">
-        ${monster(64,'',equippedRank())}
-        <div class="bubble kcal-bubble" style="margin:0;flex:1">${brockEssenSay(s.kcal, zt)}</div>
-      </div></div>
-    <div class="row between" style="margin:14px 4px 6px"><h2>Heute</h2>
+  /* ➡️ Reihenfolge am 03.09.2026 zum zweiten Mal an einem Abend geaendert (Karls Ansage:
+     „place the Flame icon, Heute label and daily kcal goal above the Brok mascot").
+     Erst zog Brock nach ganz oben, jetzt steht die Kopfzeile wieder darueber.
+     💡 Das ist stimmiger als die erste Fassung: die Zeile traegt die Flamme (Ess-Serie)
+     und das Tagesziel -- zwei Zahlen, die zum Ring darunter gehoeren, nicht zu Brock.
+     Brock sitzt jetzt zwischen Kopfzeile und Ring und kommentiert genau das. */
+  let h=`<div class="row between" style="margin:2px 4px 8px"><h2>Heute</h2>
       <div class="row" style="gap:8px;align-items:center">
         ${flammeHTML(serie, rekord)}
         <button class="btn sm ghost link" data-act="kcalgoal">${zt>0?zt+' kcal Ziel':'Ziel setzen'}</button>
       </div></div>
-    <div class="card">
+    <div class="card brock-oben">
+      <div class="row" style="gap:12px;align-items:center">
+        ${monster(64,'',equippedRank())}
+        <div class="bubble kcal-bubble" style="margin:0;flex:1">${brockEssenSay(s.kcal, zt)}</div>
+      </div></div>
+    <div class="card" style="margin-top:10px">
       <div class="row" style="gap:12px;align-items:center;justify-content:center">
         ${kcalRing(s.kcal, zt)}
       </div>
@@ -3672,16 +3702,9 @@ function renderBody(){
         : `bringen <b style="color:var(--txt)">${tipp.eiweiss} g</b> davon`}, bei ${tipp.kcal} kcal.</div></div>`;
   }
 
-  // NEU: der Wochenschnitt. Ein einzelner Tag sagt fast nichts — was zaehlt, ist die
-  // Linie ueber die Woche. ⚠️ Gerechnet wird nur ueber Tage MIT Eintrag.
-  if(schnitt){
-    h+=`<div class="card" style="margin-top:10px">
-      <div class="row between"><span class="tiny muted">Schnitt der letzten 7 Tage</span>
-        <b>${schnitt.schnitt} kcal</b></div>
-      <div class="tiny muted" style="margin-top:4px">über ${schnitt.tage} ${schnitt.tage===1?'Tag':'Tage'} mit Eintrag${
-        zielSchnitt>0 ? ` · Ziel ${zielSchnitt} kcal${schrittModus()?' im Schnitt':''}, also <b style="color:var(--txt)">${
-          schnitt.schnitt>zielSchnitt?'+':''}${schnitt.schnitt-zielSchnitt}</b>` : ''}</div></div>`;
-  }
+  /* ➡️ Der Wochenschnitt („Schnitt der letzten 7 Tage") ist am 03.09.2026 auf Karls Ansage
+     entfallen. `kcalWoche()` und `zielSchnitt` bleiben stehen -- der Regelkreis weiter
+     unten rechnet mit denselben Zahlen weiter, nur die eigene Karte ist weg. */
 
   /* ➡️ Zwei Ansagen von Karl am 03.09.2026, die zusammen eine sind:
      · *„ich will bitte das man sein essen nur noch ueber die einzelnen button bei
@@ -3718,7 +3741,7 @@ function renderBody(){
           </div>
         </div>
         <button class="mz-plus" data-act="food:start:${mz.id}"
-          aria-label="Zu ${mz.name} eintragen">+</button>
+          aria-label="Zu ${mz.name} eintragen">${PLUS_SVG}</button>
       </div>
       ${ziel?zielBalken(sum, ziel, 'var(--ok)'):''}
       ${drin.length?`<div style="margin-top:8px">`+[...drin].reverse().map(m=>
@@ -3761,13 +3784,31 @@ function renderBody(){
      Differenz von einem halben Jahr als die der Woche — zwei Zahlen, die sich
      widersprechen, und keine sagt, worauf sie sich bezieht. */
 
-  /* ➡️ Karls Ansage am 02.09.2026: „den verlauf des gewichtes kann bitte rueber in
-     die einstellungen unter verlauf". Hier bleibt, was man BEIM WIEGEN braucht — das Feld
-     und die drei Zahlen. Kurve, Zeitraum-Wahl und die Liste der Eintraege stehen jetzt
-     unter Einstellungen -> Verlauf, wo auch die Trainings-Geschichte steht.
-     ⚠️ Die Eintraege sind mitgewandert, nicht nur die Kurve: sie sind dieselbe
-     Sache. Kurve hier und Liste dort haette eine Sache auf zwei Seiten verteilt. */
-  h+=`<button class="btn ghost" style="margin-top:14px" data-nav="history">Verlauf ansehen ›</button>`;
+  /* ➡️ Die Kurve steht seit dem 03.09.2026 wieder HIER, wo gewogen wird -- nicht mehr im
+     Verlauf. Sie war am 02.09. dorthin gewandert und an dem Abend versehentlich ganz
+     geloescht worden; Karls Ansage („nicht im Verlauf") meinte den Ort, nicht die Sache.
+     ⚠️ Im Verlauf bleiben die **Eintraege** (die Liste mit Datum und kg). Kurve beim
+     Wiegen, Liste beim Nachschlagen -- das ist die Trennung, die Karl beschrieben hat. */
+  if(w.length>1){
+    const wf = weightImFenster(gwFenster);
+    h+=`<div class="row between" style="margin:20px 4px 6px"><h2>Verlauf</h2>
+        ${wf.length>1?`<span class="tiny muted">${fmtKg(Math.min(...wf.map(x=>x.kg)))}–${fmtKg(Math.max(...wf.map(x=>x.kg)))} kg</span>`:''}</div>
+      <div class="zeitwahl" style="margin:0 4px 8px">${GW_FENSTER.map(f=>
+        `<button class="chip ${f.id===gwFenster?'on':''}" data-act="gw:fenster:${f.id}">${f.name}</button>`).join('')}</div>`;
+    if(wf.length>1){
+      h+=`<div class="card" style="padding:10px 8px">${lineChart(wf.map(x=>x.kg),300,110,{x:wf.map(x=>x.date),einheit:'kg'})}</div>`;
+    } else {
+      /* Kein toter Punkt: der naechste Zeitraum, in dem wirklich eine Kurve steht, wird
+         gleich beim Namen genannt. `w.length>1` gilt hier oben schon, also findet die
+         Suche spaetestens bei „Max" etwas. */
+      const passt = GW_FENSTER.find(f=>weightImFenster(f.id).length>1);
+      h+=`<div class="empty" style="margin-top:4px">${wf.length?'Nur ein Eintrag':'Kein Eintrag'} in diesem Zeitraum — eine Kurve braucht zwei.${
+        passt&&passt.id!==gwFenster?`<br>Unter „${passt.name}" siehst du eine.`:''}</div>`;
+    }
+  } else {
+    h+=`<div class="empty" style="margin-top:4px">Ab dem zweiten Eintrag siehst du hier eine Kurve.</div>`;
+  }
+  h+=`<button class="btn ghost" style="margin-top:14px" data-nav="history">Alle Eintragungen ansehen ›</button>`;
   app.innerHTML=h;
 }
 
@@ -3904,6 +3945,16 @@ function istFavorit(f){ return !!(f && f.fav); }
 /* Ein Zurueck-Pfeil, ueberall derselbe (03.09.2026). `attr` ist das, was den Klick
    auffaengt -- meist `data-nav="..."`, bei den zwei Verlauf-Seiten `data-act="backhist"`.
    `wohin` steht nur im aria-label, nicht auf dem Bildschirm. */
+/* 🔴 Das Plus als SVG statt als Schriftzeichen (03.09.2026, Karls Ansage „center the +
+   icons"). Am CSS lag es nicht -- `align-items:center` stand schon da. Ein „+" ist eine
+   **Glyphe**, und die sitzt in ihrer em-Box nicht mittig: sie richtet sich an der
+   Schriftlinie aus, sitzt dadurch je nach Schriftart etwas zu hoch und wandert mit jeder
+   Schriftart, die der Browser einsetzt. Zwei Striche als SVG haben diesen Bezug nicht --
+   sie sind in ihrer Box exakt mittig und bleiben es. */
+const PLUS_SVG = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none"`
+  + ` stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"`
+  + ` style="display:block"><path d="M12 5v14M5 12h14"/></svg>`;
+
 function zurueckPfeil(attr, wohin){
   return `<button class="zurueck" ${attr} aria-label="Zurück${wohin?' zu '+wohin:''}">`
     + `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor"`
@@ -4376,6 +4427,37 @@ function weightList(){ return (profile.weights||[]).slice().sort((a,b)=>a.date-b
    ⚠️ Die Reihenfolge im Feld ist die Reihenfolge auf dem Bildschirm UND die Reihenfolge,
    in der unten der naechstgroessere Zeitraum gesucht wird — von eng nach weit. Wer hier
    umsortiert, aendert beides.                                                        */
+/* ---------- Zeitraum der Gewichtskurve ----------
+   🔴 Am 03.09.2026 einmal geloescht und am selben Abend zurueckgeholt. Karls Ansage war
+   *„die kurve fuer gewicht soll nicht im verlauf stehen, nur der gewicht verlauf an sich,
+   die eintragungen"* -- gemeint war **verschieben**, nicht wegwerfen: die Kurve gehoert
+   dorthin, wo gewogen wird, und im Verlauf stehen nur die Eintragungen. Ich hatte den
+   Satz als „Kurve weg" gelesen. Karls Korrektur kam als Fehlermeldung zurueck
+   (*„the Weight Progress Chart is missing"*).
+   💡 Der Unterschied im Satz ist ein einziges Wort: „nicht im Verlauf" sagt, wo sie NICHT
+   hingehoert -- nicht, dass es sie nicht geben soll. */
+const GW_FENSTER = [
+  {id:'woche', name:'1 Woche', tage:7},
+  {id:'monat', name:'1 Monat', tage:30},
+  {id:'jahr',  name:'1 Jahr',  tage:365},
+  {id:'max',   name:'Max',     tage:0}
+];
+/* Bewusst NICHT im Profil abgelegt: das ist eine Blickrichtung, keine Messung. Im Profil
+   muesste sie durch `blobsZusammen` und ueber zwei Geraete abgeglichen werden — viel
+   Maschinerie dafuer, dass beim naechsten Oeffnen ohnehin die volle Kurve die richtige
+   Voreinstellung ist. */
+let gwFenster = 'max';
+/* ⚠️ Die Grenze zaehlt ab HEUTE, nicht ab dem letzten Eintrag. „1 Woche" soll die letzte
+   Woche zeigen — auch wenn nichts darin steht. Eine leere Woche ist eine Antwort; ein
+   stillschweigend zurueckgeschobenes Fenster waere eine falsche, denn dann zeigte
+   „1 Woche" bei drei Monaten Pause die Woche von vor drei Monaten. */
+function weightImFenster(id){
+  const f = GW_FENSTER.find(x=>x.id===id) || GW_FENSTER[GW_FENSTER.length-1];
+  const w = weightList();
+  if(!f.tage) return w;
+  const grenze = Date.now() - f.tage*864e5;
+  return w.filter(x=>x.date>=grenze);
+}
 function lastWeight(){ const w=weightList(); return w.length?w[w.length-1]:null; }
 // Fuer die Erinnerung auf der Startseite. Bewusst „heute", nicht „in den letzten 24 Stunden":
 // wer abends um 23 Uhr wiegt, soll am naechsten Morgen wieder gefragt werden.
@@ -4626,7 +4708,9 @@ function renderErfolge(){
   h += `</div>`;
 
   // ---- Tagesaufgaben ----
-  const offen = aufgabenOffen();
+  /* ⚠️ `aufgabenOffen()` wird hier seit dem 03.09.2026 nicht mehr gelesen -- der Satz
+     „Noch X Aufgaben offen." ist auf Karls Ansage entfallen. Die Funktion selbst bleibt:
+     sie beantwortet eine sinnvolle Frage und wird geprueft. */
   h += `<div class="card">
     <div class="row between" style="align-items:baseline">
       <b>Heute</b>
@@ -4641,8 +4725,11 @@ function renderErfolge(){
             <div class="tiny muted">${esc(a.text)}</div></div></div>
         <span class="tiny" style="white-space:nowrap;color:${fertig?'var(--ok)':'var(--muted)'}">+${a.xp} XP</span></div>`;
   });
-  h += `<div class="tiny muted" style="margin-top:14px;line-height:1.6">
-      ${offen ? `Noch ${offen} ${offen===1?'Aufgabe':'Aufgaben'} offen.` : 'Alles erledigt für heute.'}</div></div>`;
+  /* ➡️ Der Zaehler „Noch X Aufgaben offen." ist am 03.09.2026 auf Karls Ansage entfallen.
+     Er stand unter einer Liste, in der jede Zeile ihren Stand schon selbst zeigt (Symbol
+     grau oder farbig, XP grau oder gruen) -- und die Kopfzeile nennt „X von 40 XP".
+     Dieselbe Auskunft ein drittes Mal, in Worten. */
+  h += `</div>`;
 
   // ---- Der Katalog ----
   const gruppen = [...new Set(ERFOLGE.map(e=>e.gr))];
@@ -5136,7 +5223,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.066';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.068';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -6838,6 +6925,7 @@ document.addEventListener('click',ev=>{
   else if(a==='sessedit'){ const s=sessions.find(x=>x.id===detailSessionId);
     if(s&&sessEdit) sessRecalc(s);        // was noch im Feld stand, ist ueber 'change' schon drin
     sessEdit=!sessEdit; render(); }
+  else if(a.startsWith('gw:fenster:')){ gwFenster=a.split(':')[2]; render(); }
   else if(a==='backhist'){ view='history'; render(); }
   else if(a==='delsess'){ confirmTwice('ds',t,'Einheit löschen?',()=>{ sessions=sessions.filter(x=>x.id!==detailSessionId); save(); view='history'; render(); }); }
   else if(a==='closemodal'){ closeModal(); }
@@ -6925,9 +7013,14 @@ if(session){
      kommt deshalb nur zum Zug, wenn sonst nichts ansteht.
      ⚠️ Gefragt (und gestempelt) wird trotzdem immer -- sonst haengt es beim naechsten
      Start noch da und springt einen an, wenn man laengst wieder drin ist.
-     💡 Hier wurde bis zum 29.08.2026 die Tagesaufgabe "Reingeschaut" abgehakt. Die gibt
-     es nicht mehr (kein XP fuers blosse Oeffnen, Karls Ansage) -- das Wiederkommen bleibt. */
+     💡 Hier wird die Tagesaufgabe "Reingeschaut" abgehakt -- vom 29.08. bis zum 03.09.2026
+     gab es sie nicht, seit Karls Ansage an dem Abend wieder (5 XP).
+     ⚠️ NACH comebackPruefen(), nicht davor: das Wiederkommen fragt `zuletztDa` ab, und
+     `aufgabeErledigen` ruft `save()`. Andersherum liefe der Speichervorgang zwischen Frage
+     und Stempel -- unschaedlich, aber die Reihenfolge Frage/Stempel ist hier schon einmal
+     schiefgegangen und steht deshalb ausdruecklich fest. */
   view = startAnsicht(view, comebackPruefen(), active);
+  aufgabeErledigen('auf');
   erfolgeGesehenInit();      // muss VOR erfolgeAuszahlen laufen -- sonst gilt frisch Bezahltes als "schon gesehen"
   /* ⚠️ Rueckwirkend: beim ersten Start mit v32 wird auf einen Schlag gutgeschrieben, was
      laengst erfuellt war. Das ist ein Sprung, kein Aufbau -- aber die Arbeit dafuer ist

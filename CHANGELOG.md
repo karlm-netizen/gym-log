@@ -4,6 +4,84 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-03
 
+### v0.068 — die Kurve ist zurück, und bei den Bildern war wirklich etwas kaputt
+
+🔴 **Ein Fehler von mir, den Karl gemeldet hat:** *„The Weight Progress Chart is missing."*
+
+Seine Ansage von vorhin lautete *„die kurve für gewicht soll nicht im verlauf stehen, nur der
+gewicht verlauf an sich, die eintragungen"* — **gemeint war verschieben, nicht wegwerfen.**
+Ich hatte den Satz als „Kurve weg" gelesen und sie samt Zeitraum-Wahl und elf Prüfungen
+gelöscht. **Der Unterschied im Satz ist ein einziges Wort:** „nicht im Verlauf" sagt, wo sie
+nicht hingehört — nicht, dass es sie nicht geben soll.
+
+✅ **Zurückgeholt** (aus `778f9ac`), und zwar dorthin, wo gewogen wird: **in den Körper-Tab**,
+mit der Zeitraum-Wahl. **Im Verlauf stehen weiterhin nur die Eintragungen.** Kurve beim
+Wiegen, Liste beim Nachschlagen.
+⚠️ **818 Prüfungen waren grün, als die Kurve fehlte.** Gemerkt hat es Karl, nicht der
+Prüfstand — es gab keine Prüfung dafür, dass die Kurve überhaupt irgendwo steht. Jetzt gibt
+es eine.
+
+#### 🖼️ Die Bilder — nachgemessen, nicht geschätzt
+
+Karl: *„fix image aspect ratios and distortion."* Die neun Brock-Bilder:
+
+```
+brock-3   189 x 256   0,738  (hochkant)
+brock-5   256 x 224   1,143  (quer)
+```
+
+🔴 **`monster()` setzte nur die Breite**, die Höhe kam aus `height:auto`. Bei 64 px Breite war
+Brock **je nach Rang 56 bis 87 px hoch — 55 % Unterschied.** Die Karte sprang beim
+Rangwechsel, und er wirkte mal groß, mal geduckt.
+✅ **Feste Box `size × size` mit `object-fit:contain`**, dazu `width`/`height` als Attribute,
+damit der Browser den Platz vor dem Laden freihält.
+⚠️ **`contain`, nicht `cover`** — Karl hatte `cover` vorgeschlagen. `cover` füllt die Box und
+**schneidet dafür ab**; bei einer Figur mit Kopf und Füßen wäre genau das der Schaden.
+
+#### Und der Rest vom Abend
+
+- ⬆️ **Kopfzeile über Brock** — Flamme, „Heute" und das Tagesziel stehen wieder oben,
+  Brock darunter. *(Zweite Änderung an derselben Stelle an einem Abend; die jetzige ist die
+  stimmigere: die Zeile trägt zwei Zahlen, die zum Ring gehören, nicht zu Brock.)*
+- ➕ **Das Plus in den Mahlzeiten-Knöpfen ist ein SVG geworden.** Am CSS lag es nicht —
+  `align-items:center` stand schon da. **Ein „+" ist eine Glyphe** und sitzt an der
+  Schriftlinie, nicht mittig in ihrer Box. Zwei Striche als SVG haben diesen Bezug nicht.
+- 📏 **Mehr Luft** in den Mahlzeiten-Blöcken (16 px statt 14, Einträge 11 statt 9).
+- 🗑️ **Der 7-Tage-Schnitt hat keine eigene Karte mehr** (Karls Ansage). Die Rechnung dahinter
+  bleibt — der Regelkreis weiter unten arbeitet damit.
+
+---
+
+### v0.067 — Karls XP-Werte, und eine Grenze, die nie ausgerechnet worden war
+
+**Karls Ansage:** Gewicht **+10**, Mahlzeit **+10**, täglich reinschauen **+5**.
+Deckel damit **25 → 40 XP.**
+
+⚠️ **Das Reinschauen war seit dem 29.08. draußen** — auf Karls eigene Ansage damals:
+*„man kann nicht jeden Tag XP kriegen für wenn man was gemacht hat, weil an manchen Tagen
+machst du ja nichts."* Er hat es an diesem Abend zurückgeholt.
+✅ **Die Prüfung von damals hat dabei getan, wofür sie da war:** der Umbau lief **rot**, statt
+still durchzugehen. *Eine umgedrehte Entscheidung soll auffallen.*
+
+🔴 **Der Einwand im Quelltext stand seit Wochen ohne Zahl da** — *„wüürde man die verbliebenen
+größer machen, wäre Gigachad ohne Training erreichbar."* Nachgerechnet mit `xpForLevel(45)`:
+
+| | | |
+|---|---|---|
+| **Level 45 (Gigachad)** | | **42.240 XP** |
+| ohne Training, alte Regel | 10/Tag | 4.224 Tage = **11,6 Jahre** |
+| ohne Training, neue Regel | 25/Tag | 1.690 Tage = **4,6 Jahre** |
+| mit täglichem Training | 40/Tag | 1.056 Tage = **2,9 Jahre** |
+
+➡️ **Die Sorge war überzogen.** Wer 4,6 Jahre lang jeden Tag die App aufmacht und wiegt, ohne
+ein einziges Mal zu trainieren, ist kein Schlupfloch — das ist länger, als es diese App gibt.
+Eine Einheit gibt weiterhin **260–380 XP**; Training bleibt der Hauptweg um ein Vielfaches.
+💡 **Eine Grenze, die nie ausgerechnet wurde, war eine Vermutung, keine Grenze.**
+
+- 🗑️ **Der Zähler „Noch X Aufgaben offen." ist weg** (Karls Ansage). Er stand unter einer
+  Liste, in der jede Zeile ihren Stand schon selbst zeigt — und die Kopfzeile nennt
+  „X von 40 XP". Dieselbe Auskunft ein drittes Mal, in Worten.
+
 ### v0.066 — die Suche hakte, und zehn Sachen an der Ernährung
 
 **Karls Meldung, die alles andere überwog:** *„gerade hatte ich einen fehler als ich was

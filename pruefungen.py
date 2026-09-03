@@ -2025,16 +2025,17 @@ window.addEventListener('error', e => {
   // ---- Und der Einbau: rufen die drei Kurven in der App die Beschriftung auch auf? ----
   // ⚠️ Genau hier war am 27.08. dreimal die Luecke. Eine beschriftete Kurve nuetzt nichts,
   // wenn renderExDetail() sie ohne Zeitstempel aufruft.
-  t('Beide Kurven der App bekommen Zeitstempel mit', () => {
+  t('Alle drei Kurven der App bekommen Zeitstempel mit', () => {
     const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
     // ⚠️ Kein /lineChart\([^)]*\)/ -- die Aufrufe enthalten selbst Klammern (map(...)),
     // die Suche braeche mitten im Aufruf ab und faende dann ueberall „kein x:".
     const rufe = q.split('lineChart(').slice(1)
       .map(s => s.slice(0, 160))
       .filter(s => !s.startsWith('vals,w,h,opt'));
-    /* ⚠️ Zwei, nicht mehr drei (03.09.2026): die Gewichtskurve ist auf Karls Ansage
-       ganz entfallen, uebrig sind die zwei Kurven der Uebungs-Historie. */
-    if (rufe.length !== 2) return 'erwartet 2 Aufrufe, gefunden ' + rufe.length;
+    /* ⚠️ Wieder drei (03.09.2026 abends): die Gewichtskurve war an diesem Abend kurz
+       geloescht und ist zurueck -- im Koerper-Tab, wo gewogen wird. Dazu die zwei
+       Kurven der Uebungs-Historie. */
+    if (rufe.length !== 3) return 'erwartet 3 Aufrufe, gefunden ' + rufe.length;
     const ohne = rufe.filter(s => s.indexOf('{x:') < 0);
     return ohne.length === 0 || 'ohne Datum: ' + ohne.join(' // ');
   });
@@ -2070,9 +2071,13 @@ window.addEventListener('error', e => {
     if (!h.includes('80 kg') || !h.includes('77 kg')) return 'Kilogramm fehlen';
     return true;
   });
-  /* ✅ Und die Gegenprobe zur Ansage selbst: im KOERPER-Tab steht die Kurve nicht
-     mehr, dort bleiben nur das Eingabefeld und der Knopf zum Verlauf. */
-  t('Im Koerper-Tab steht keine Kurve mehr, nur der Weg zum Verlauf', () => {
+  /* ➡️ Am 03.09.2026 zum zweiten Mal umgedreht -- und diesmal ist es die richtige Runde.
+     Karls Ansage („die kurve soll nicht im verlauf stehen") meinte den ORT, nicht die
+     Sache: die Kurve gehoert dorthin, wo gewogen wird. Sie stand hier bis zum 02.09.,
+     zog dann in den Verlauf, wurde am 03.09. versehentlich ganz geloescht und ist jetzt
+     zurueck im Koerper-Tab.
+     ⚠️ Geprueft wird beides: die Kurve ist hier UND der Weg zu den Eintragungen auch. */
+  t('Im Koerper-Tab steht die Kurve, dazu der Weg zu den Eintragungen', () => {
     const wVorher = profile.weights, sVorher = session, ezVorher = kobErzwingen;
     session = {user:{id:'test'}, expires_at: Date.now() + 3600e3, access_token:'x'};
     kobErzwingen = false;
@@ -2083,8 +2088,9 @@ window.addEventListener('error', e => {
     const h = app.innerHTML;
     profile.weights = wVorher; session = sVorher; kobErzwingen = ezVorher;
     view = 'home'; render();
-    if (h.includes('chart-plot')) return 'die Kurve steht noch im Koerper-Tab';
-    return /data-nav="history"/.test(h) || 'kein Weg zum Verlauf';
+    if (!h.includes('chart-plot')) return 'die Kurve fehlt im Koerper-Tab';
+    if (!h.includes('gw:fenster:')) return 'die Zeitraum-Wahl fehlt';
+    return /data-nav="history"/.test(h) || 'kein Weg zu den Eintragungen';
   });
 
   /* ---- Der Zeitraum der Gewichtskurve ist am 03.09.2026 entfallen ----
@@ -2528,7 +2534,37 @@ window.addEventListener('error', e => {
   // 🔴 Seit dem 29.08.2026 kommt eine zweite Regel dazu, Karls Ansage: „man kann nicht jeden
   // Tag XP kriegen fuer wenn man was gemacht hat, weil an manchen Tagen machst du ja nichts."
   // JEDE verbliebene Aufgabe verlangt eine Handlung -- „App geoeffnet" ist ersatzlos raus.
-  t('Aufgaben bringen hoechstens 25 XP am Tag', () => eq(AUFGABEN_MAX, 25));
+  /* ➡️ 25 -> 40 am 03.09.2026, Karls Werte: Reingeschaut 5 · Mahlzeit 10 · Gewicht 10 ·
+     Trainiert 15. Die Zahl steht hier als eigene Pruefung, damit ein Verschieben der
+     Werte auffaellt und nicht stillschweigend durchgeht. */
+  t('Aufgaben bringen hoechstens 40 XP am Tag', () => eq(AUFGABEN_MAX, 40));
+  t('Die vier Aufgaben tragen Karls Werte', () => {
+    const soll = { auf:5, mahlzeit:10, gewicht:10, train:15 };
+    const ist = {}; AUFGABEN.forEach(a => ist[a.id] = a.xp);
+    for(const k in soll) if(ist[k] !== soll[k]) return k + ' gibt ' + ist[k] + ' statt ' + soll[k];
+    return AUFGABEN.length === 4 || AUFGABEN.length + ' Aufgaben statt vier';
+  });
+  /* 🔴 Die Aufgabe fuers Oeffnen war vom 29.08. bis 03.09.2026 draussen und ist auf Karls
+     Ansage zurueck. Geprueft wird nicht nur, dass sie in der Liste steht -- sondern dass
+     der Start sie auch abhakt. Genau daran hing es damals: die Aufrufstelle. */
+  t('Das Oeffnen hakt Reingeschaut ab', () => {
+    const aV = profile.aufgaben, xV = profile.xp;
+    profile.aufgaben = { tag:'', fertig:{} };
+    const vorher = profile.xp;
+    aufgabeErledigen('auf');
+    const delta = profile.xp - vorher, fertig = aufgabeFertig('auf');
+    profile.aufgaben = aV; profile.xp = xV;
+    return (fertig && delta === 5) || 'fertig=' + fertig + ' delta=' + delta;
+  });
+  t('Der Start ruft das Abhaken wirklich auf', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    /* ⚠️ An der Quelle geprueft und nicht ueber einen echten Start: der Start setzt die
+       ganze App neu auf. Gesucht wird der Aufruf in der Startfolge, nicht irgendwo. */
+    const i = q.indexOf('startAnsicht(view, comebackPruefen()');
+    if(i < 0) return 'die Startfolge sieht anders aus als erwartet';
+    return q.slice(i, i + 300).indexOf("aufgabeErledigen('auf')") >= 0
+      || 'der Start hakt Reingeschaut nicht ab';
+  });
   /* 🔴 Die Gegenprobe zur Aufteilung vom 03.09.2026: „Mahlzeit" und „Gewicht" sind zwei
      eigene Aufgaben, und die eine abzuhaken laesst die andere offen. Vorher war es eine
      Aufgabe, die beides abdeckte -- wer wog, sah nicht mehr, dass das Essen fehlt. */
@@ -2545,14 +2581,21 @@ window.addEventListener('error', e => {
     profile.aufgaben = aV; profile.xp = xV;
     return (mOffen && gFertig) || 'Mahlzeit offen=' + mOffen + ' Gewicht fertig=' + gFertig;
   });
-  t('Keine Aufgabe fuers blosse Oeffnen der App', () => {
-    if (AUFGABEN.some(a => a.id === 'auf')) return 'Reingeschaut steht wieder in der Liste';
-    // ⚠️ Und der Einbau, nicht nur die Liste: solange die Startfolge sie noch abhakt, gaebe
-    // es die XP weiter -- aufgabeErledigen() wuerde sie nur nicht mehr finden. Ein spaeteres
-    // Wiedereinfuegen in AUFGABEN haette den Aufruf dann still wieder scharf gestellt.
+  /* ➡️ Diese Pruefung stand vom 29.08. bis zum 03.09.2026 andersherum da: sie verlangte,
+     dass es KEINE Aufgabe fuers blosse Oeffnen gibt (Karls Ansage damals). Am 03.09. hat
+     Karl sie zurueckgeholt und den Wert selbst gesetzt.
+     ✅ **Sie hat dabei getan, wofuer sie da war** -- der Umbau lief rot, statt still
+     durchzugehen. Eine umgedrehte Entscheidung soll auffallen, nicht durchrutschen.
+     ⚠️ Geprueft wird weiterhin BEIDES -- Liste und Aufrufstelle. Eine Aufgabe, die in
+     AUFGABEN steht, aber nirgends abgehakt wird, waere eine Zeile ohne Wirkung: sie
+     stuende dauerhaft grau da und niemand wuesste warum. */
+  t('Reingeschaut steht in der Liste und wird auch abgehakt', () => {
+    const a = AUFGABEN.find(x => x.id === 'auf');
+    if (!a) return 'Reingeschaut fehlt in der Liste';
+    if (a.xp !== 5) return 'Reingeschaut gibt ' + a.xp + ' statt 5 XP';
     const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
-    return q.indexOf("aufgabeErledigen('auf')") < 0
-      || 'die App hakt „Reingeschaut" immer noch ab';
+    return q.indexOf("aufgabeErledigen('auf')") >= 0
+      || 'die App hakt „Reingeschaut" nirgends ab';
   });
   t('Eine Einheit ist ein Vielfaches aller Tagesaufgaben wert', () => {
     const einheit = sessXP(einheitMit(12, 100, 2, 2), 2);
@@ -2565,7 +2608,7 @@ window.addEventListener('error', e => {
     const gab = aufgabeErledigen('mahlzeit');
     const delta = profile.xp - vorher;
     profile.aufgaben = { tag:'', fertig:{} }; profile.xp = vorher;
-    return (gab && delta === 5) || 'gab=' + gab + ' delta=' + delta;
+    return (gab && delta === 10) || 'gab=' + gab + ' delta=' + delta;
   });
   t('Dieselbe Aufgabe zweimal am Tag zaehlt nur einmal', () => {
     profile.aufgaben = { tag:'', fertig:{} };
@@ -2574,7 +2617,7 @@ window.addEventListener('error', e => {
     const nochmal = aufgabeErledigen('mahlzeit');
     const delta = profile.xp - vorher;
     profile.aufgaben = { tag:'', fertig:{} }; profile.xp = vorher;
-    return (nochmal === false && delta === 5) || 'nochmal=' + nochmal + ' delta=' + delta;
+    return (nochmal === false && delta === 10) || 'nochmal=' + nochmal + ' delta=' + delta;
   });
   // Der Tageswechsel wird beim LESEN geprueft, nicht per Timer - ein Timer um Mitternacht
   // liefe nur, solange die App offen ist, und die ist sie nachts nie.
@@ -3559,11 +3602,17 @@ window.addEventListener('error', e => {
     const fehlt = noetig.filter(n => txt.indexOf(n) === -1);
     return fehlt.length === 0 || 'fehlt auf der Datenschutz-Seite: ' + fehlt.join(', ');
   });
-  t('Die Erfolgs-Seite nennt weiterhin, wie viele Aufgaben offen sind', () => {
+  /* ➡️ Umgedreht am 03.09.2026 (Karls Ansage: den Zaehler entfernen). Bis dahin verlangte
+     diese Pruefung genau den Satz, der jetzt weg soll -- sie haette den Umbau rot gemeldet.
+     ⚠️ Geprueft wird jetzt beides: der Satz ist weg UND der Stand ist trotzdem ablesbar
+     (die Kopfzeile „X von 40 XP"). Nur „ist weg" waere auch gruen, wenn die ganze Karte
+     verschwunden waere. */
+  t('Der Aufgaben-Zaehler ist weg, der Stand steht trotzdem da', () => {
     const mV = view; view = 'erfolge'; renderErfolge();
     const txt = document.getElementById('app').textContent;
     view = mV;
-    return /Aufgabe(n)? offen|Alles erledigt/.test(txt) || 'der Aufgaben-Stand ist mitgegangen';
+    if(/Aufgaben? offen/.test(txt)) return 'der Zaehler steht noch da';
+    return /von \d+ XP/.test(txt) || 'der Tagesstand ist gar nicht mehr ablesbar';
   });
 
   // ================================================ Postfach: gelesen bleibt gelesen (v37)
@@ -4430,6 +4479,41 @@ window.addEventListener('error', e => {
     return (h.includes('von 160 g') && h.includes('Trainingstag')) || 'kein erhoehtes Ziel';
   });
   t('Der Eiweissbalken ist da', () => bauen().includes('border-radius:99px') || 'kein Balken');
+  /* 🔴 Die neun Brock-Bilder haben verschiedene Seitenverhaeltnisse (189x256 bis 256x224).
+     Ohne feste Hoehe war Brock je nach Rang 56 bis 87 px hoch -- 55 % Unterschied, und die
+     Karte sprang beim Rangwechsel. Geprueft wird, dass Breite UND Hoehe gesetzt sind. */
+  t('Brock hat eine feste Box, unabhaengig vom Rang', () => {
+    const a = monster(64, '', RANKS[0]);
+    const b = monster(64, '', RANKS[RANKS.length-1]);
+    const d = document.createElement('div');
+    for(const html of [a, b]){
+      d.innerHTML = html;
+      const img = d.querySelector('img');
+      const st = img.getAttribute('style') || '';
+      if(!/width:64px/.test(st) || !/height:64px/.test(st)) return 'keine feste Box: ' + st;
+      if(!/object-fit:contain/.test(st)) return 'kein object-fit:contain: ' + st;
+      if(!img.getAttribute('height')) return 'das height-Attribut fehlt (Layout ruckt beim Laden)';
+    }
+    return true;
+  });
+  /* ⚠️ `contain`, nicht `cover`: `cover` fuellt die Box und schneidet dafuer ab -- bei
+     einer Figur mit Kopf und Fuessen waere genau das der Schaden. */
+  t('Brock wird nicht beschnitten', () => {
+    const st = (monster(64, '', RANKS[0]).match(/style="([^"]*)"/) || [])[1] || '';
+    return st.indexOf('object-fit:cover') < 0 || 'cover schneidet die Figur an';
+  });
+  /* Das Plus ist ein SVG, kein Schriftzeichen -- eine Glyphe sitzt an der Schriftlinie
+     und damit nicht mittig in ihrer Box (Karls „center the + icons"). */
+  t('Das Plus in den Mahlzeiten-Knoepfen ist ein SVG', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    if(q.indexOf('PLUS_SVG') < 0) return 'kein PLUS_SVG';
+    const i = q.indexOf('class="mz-plus"');
+    if(i < 0) return 'kein Mahlzeiten-Knopf';
+    const knopf = q.slice(i, i + 260);
+    if(/>\+</.test(knopf)) return 'das Plus steht noch als Schriftzeichen da';
+    return knopf.indexOf('PLUS_SVG') >= 0 || 'der Knopf benutzt das SVG nicht';
+  });
+
   /* ---- Zurueck-Pfeile (03.09.2026, Karls Ansage) ----
      „replace all small text-based back links, use a back-arrow icon only, increase the
      tap target." Geprueft wird an der Quelle, weil die acht Stellen ueber die ganze App
@@ -4463,12 +4547,29 @@ window.addEventListener('error', e => {
   });
 
   /* ---- Karls Ansagen vom 03.09.2026 an der Kalorien-Ansicht ---- */
-  t('Brock steht oben, vor der Ueberschrift Heute', () => {
+  /* ➡️ Zweimal an einem Abend geaendert: erst zog Brock ganz nach oben, dann sollte die
+     Kopfzeile (Flamme + „Heute" + Tagesziel) wieder darueber. Beides Karls Ansage.
+     Geprueft wird die Reihenfolge Kopfzeile -> Brock -> Ring, alle drei auf einmal --
+     eine einzelne Position sagt nichts darueber, ob die Folge stimmt. */
+  t('Reihenfolge: Kopfzeile, dann Brock, dann der Ring', () => {
     const h = bauen();
-    const pBrock = h.indexOf('brock-oben'), pHeute = h.indexOf('<h2>Heute</h2>');
-    if(pBrock < 0) return 'Brock steht nicht mehr in der Ansicht';
+    const pHeute = h.indexOf('<h2>Heute</h2>');
+    const pBrock = h.indexOf('brock-oben');
+    const pRing  = h.indexOf('<svg viewBox="0 0 130 130"');
     if(pHeute < 0) return 'keine Ueberschrift Heute';
-    return pBrock < pHeute || 'Brock steht noch unter der Ueberschrift';
+    if(pBrock < 0) return 'Brock fehlt';
+    if(pRing  < 0) return 'der Ring fehlt';
+    if(pHeute > pBrock) return 'die Kopfzeile steht unter Brock';
+    return pBrock < pRing || 'Brock steht unter dem Ring';
+  });
+  /* 🔴 Die Flamme und das Tagesziel muessen MIT nach oben -- sie sind der Grund, warum
+     die Zeile dort steht. Eine Ueberschrift ohne die zwei Zahlen waere nur ein Wort. */
+  t('Flamme und Tagesziel stehen in der Kopfzeile ueber Brock', () => {
+    const h = bauen();
+    const pBrock = h.indexOf('brock-oben');
+    const kopf = h.slice(0, pBrock);
+    if(kopf.indexOf('kcalgoal') < 0) return 'das Tagesziel steht nicht ueber Brock';
+    return kopf.indexOf('flamme') >= 0 || 'die Flamme steht nicht ueber Brock';
   });
   /* 🔴 Die Gegenprobe: Brock ist EINMAL da, nicht zweimal. Beim Umzug bleibt leicht die
      alte Stelle stehen -- zwei Figuren waeren auf dem Bildschirm sofort zu sehen, in
@@ -4495,7 +4596,17 @@ window.addEventListener('error', e => {
     if(!m) return 'keine Breite gefunden';
     return (+m[1]) >= 44 || 'nur ' + m[1] + ' px breit';
   });
-  t('Wochenschnitt steht in der Ansicht', () => bauen().includes('Schnitt der letzten 7 Tage') || 'fehlt');
+  /* ➡️ Umgedreht am 03.09.2026 (Karls Ansage: den 7-Tage-Block entfernen). Die Karte ist
+     weg -- die Rechnung dahinter (`kcalSchnitt`) nicht, der Regelkreis weiter unten
+     arbeitet damit weiter. Deshalb wird hier nur die Anzeige geprueft. */
+  t('Der 7-Tage-Schnitt hat keine eigene Karte mehr',
+    () => !bauen().includes('Schnitt der letzten 7 Tage') || 'die Karte steht noch da');
+  t('Der Regelkreis rechnet trotzdem weiter mit dem Schnitt', () => {
+    const r = kcalSchnitt(7);
+    /* ⚠️ Der Aufruf muss gehen, egal ob gerade Daten da sind -- `null` ist eine gueltige
+       Antwort (keine Tage mit Eintrag), ein Absturz waere es nicht. */
+    return (r === null || typeof r.schnitt === 'number') || 'kcalSchnitt gibt ' + JSON.stringify(r);
+  });
   /* Die „Nochmal"-Liste ist am 03.09.2026 entfallen (Favoriten stehen jetzt in der
      Essen-Ansicht). Was hier bleibt, ist die Gegenprobe zur zweiten Ansage desselben
      Tages: der allgemeine Eintrag-Knopf ist weg, eingetragen wird nur ueber die
