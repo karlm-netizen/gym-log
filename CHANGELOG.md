@@ -2,6 +2,101 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-09-03
+
+### v0.066 — die Suche hakte, und zehn Sachen an der Ernährung
+
+**Karls Meldung, die alles andere überwog:** *„gerade hatte ich einen fehler als ich was
+gesucht habe, als ich dann nochmal gesucht habe hat es sofort funktioniert … guck mal woran
+das lag, das ist schlecht, davon können leute in zukunft genervt sein, sonst muss es länger
+laden."*
+
+🔴 **Nachgemessen, nicht geraten.** Fünf Anfragen an die alte Suche von Open Food Facts
+(`cgi/search.pl`), von diesem Rechner aus:
+
+```
+Versuch 1: FEHLER 503 nach 348 ms      Versuch 4: HTTP 200 nach 698 ms
+Versuch 2: FEHLER 503 nach  35 ms      Versuch 5: FEHLER 503 nach  56 ms
+Versuch 3: FEHLER 503 nach  43 ms
+```
+
+**Vier von fünf abgelehnt.** Es ist keine Drosselung nach Anzahl — dann wären die späteren
+dran gewesen, nicht die ersten. Die alte Perl-Suche lehnt unter Last zufällig ab, und ein
+zweiter Versuch geht oft sofort durch. Genau Karls Erlebnis.
+
+➡️ **Zwei Änderungen, in dieser Reihenfolge:**
+
+1. **Der neue Suchdienst `search.openfoodfacts.org` ist jetzt der erste Weg.** Nachgemessen:
+   **6 von 6 Anfragen durch, 240–400 ms.**
+2. **Wer trotzdem scheitert, wird wiederholt** — erst der neue Weg noch einmal, dann die alte
+   Suche als Ausweichweg. Karls Handel („sonst muss es länger laden") ist damit angenommen:
+   im schlechten Fall bis zu ~1,5 s mehr, dafür keine Fehlermeldung, die beim zweiten Tippen
+   von selbst verschwindet.
+
+⚠️ **Die zwei Wege liefern verschiedene Formen** — der neue nennt die Trefferliste `hits` und
+`brands` ein **Array**, die alte `products` und einen String. Ohne Weiche hätte `.split` mitten
+in `.map()` geworfen und die **ganze Trefferliste wäre leer geblieben**: ein Fehlschlag, der wie
+„nichts gefunden" aussieht. Dieselbe Bauform wie der Fund vom 01.09.
+
+---
+
+### Ernährung: der Weg zum Eintragen ist jetzt einer
+
+- 🔴 **Eingetragen wird nur noch über die Mahlzeiten-Knöpfe** (Frühstück, Mittag, …). Der
+  allgemeine Knopf „+ Essen eintragen" ist weg — auch der auf der Startseite, der führt jetzt
+  zu den Mahlzeiten. **Damit steht die Zuordnung fest, bevor etwas eingetragen wird**; vorher
+  wurde sie aus der Uhrzeit geraten.
+- ⭐ **Favoriten statt „Nochmal".** Die Liste der zuletzt gegessenen Sachen ist raus, dafür hat
+  jedes eigene Lebensmittel einen Stern. Favoriten stehen oben, unter einer eigenen Zeile.
+  **Der Unterschied ist nicht die Anzeige, sondern wer entscheidet** — „Nochmal" riet aus dem
+  Verlauf, ein Favorit steht, bis er weggeklickt wird.
+- 🖐️ **Der Mahlzeiten-Knopf war 32×32 px** und ist jetzt **44×44** — Apples Mindestmaß für
+  alles, was ein Daumen trifft. Er ist seit heute die einzige Tür, da zählt das doppelt.
+  Dazu mehr Luft in den Blöcken und 14,5 px statt 14 px Schrift (Karl: *„die schrift dort und
+  der button sehen so ein bisschen gequetscht aus"*).
+- ⚪ **Die Mahlzeiten-Knöpfe sind weiß**, in beiden Themen — fest `#fff`, nicht die Kartenfarbe.
+- 🧍 **Brock steht oben**, in eigener Karte über „Heute", mit seiner Sprechblase daneben.
+  Der Ring rückt dafür in die Mitte seiner Karte.
+- ✅ **Ein großer „Fertig"-Knopf unten** in der Essen-Ansicht, dazu ist „Eintragen" beim
+  Mengenschritt größer geworden. Vorher führte nur das kleine „‹ Kalorien" oben links zurück.
+
+### Erfolge, Verlauf, Navigation
+
+- 📉 **Die Gewichtskurve ist raus.** Im Verlauf stehen nur noch die Eintragungen (Karls Ansage).
+  Mit ihr sind `GW_FENSTER`, `gwFenster` und `weightImFenster()` gegangen — samt der elf
+  Prüfungen für die Zeitraum-Wahl. **Prüfungen für gelöschten Code laufen entweder rot oder,
+  schlimmer, grün gegen eine Attrappe.**
+- 🏆 **Die Bestenliste steht ganz unten**, hinter dem Katalog. Nebenbei repariert: sie lädt aus
+  dem Netz und war der einzige Block, der später nachwuchs — mittendrin schob er beim
+  Eintreffen alles darunter nach unten, während man las.
+- 🥇 **Neuer Erfolg: „Hundertmal gewogen"** (100 Eintragungen, 400 XP), mit eigenem Symbol.
+  Weil `addWeight()` den heutigen Wert überschreibt statt einen zweiten anzulegen, sind
+  100 Einträge auch 100 verschiedene Tage — nicht zu erschleichen.
+- 📋 **Die Tagesaufgabe „Eingetragen" ist zwei Aufgaben geworden: „Mahlzeit" und „Gewicht".**
+  🔴 **5 + 5 XP statt 10 + 10, und das ist eine Abwägung:** der Tagesdeckel liegt bei 25 XP,
+  damit die Rangleiter nicht ohne Training erreichbar wird. Zwei Aufgaben à 10 hätten ihn auf
+  35 gehoben. **Wer beides einträgt, bekommt genau die 10 XP von vorher** — nur in zwei
+  Schritten sichtbar. Wer nur eines macht, bekommt 5 statt 10.
+- ⬅️ **Alle acht Zurück-Links sind ein einheitlicher Pfeil geworden** — Icon statt Text,
+  44×44 statt rund 20 px hoch. Das Ziel steht weiter im `aria-label`.
+
+### Geprüft
+
+**773 → 810 Prüfungen.** Neu darunter: der einzelne Fehlschlag, der wiederholt wird (Karls
+Fall — die bisherige 503-Prüfung deckte nur den Dauerfehler ab), beide Antwortformen, die
+Reihenfolge der Suchwege, Brocks Platz, die Knopfgrößen, die getrennten Tagesaufgaben und
+der neue Erfolg in **beide** Richtungen (bei 99 zu, bei 100 auf).
+
+🔴 **Gegenprobe gemacht, und sie hat einen eigenen Fund gebracht.** Testweise ausgebaut:
+der Wiederholversuch, Brocks neuer Platz, die Bestenliste. Alle drei Prüfungen wurden rot —
+aber beim ersten Anlauf blieb die Bestenlisten-Prüfung grün, **weil die Gegenprobe selbst
+falsch war** (der Block landete noch weiter hinten statt vorn). Beinahe hätte ich eine
+funktionierende Prüfung als Attrappe verworfen.
+⚠️ **Und eine echte Attrappe kam dabei heraus:** die Prüfung *„Brock steht links vom Ring"*
+prüfte nur, dass er im HTML **vor** dem Ring steht — nach dem Umzug nach oben blieb sie grün,
+obwohl Brock gar nicht mehr neben dem Ring sitzt. **Der Name sagte etwas anderes als der
+Inhalt.** Umbenannt und geschärft.
+
 ## 2026-09-02
 
 ### v0.065 — der Supabase-Test zielte auf die falsche Adresse

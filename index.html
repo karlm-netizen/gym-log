@@ -155,6 +155,23 @@ setTimeout(function(){
   .btn.primary:active{filter:brightness(.9)}
   .btn.ghost{background:transparent}
   .btn.sm{width:auto; padding:8px 12px; font-size:13px}
+  /* Der Abschluss-Knopf (03.09.2026, Karls Ansage „am besten einen grossen fertig button
+     unten"). Deutlich hoeher als ein normaler Knopf, damit er am Ende einer langen Seite
+     ohne Zielen zu treffen ist. */
+  .btn.gross{padding:18px 14px; font-size:17px; border-radius:14px}
+  /* Favoriten-Stern (03.09.2026). 40x40 Trefferflaeche bei 20 px Zeichen -- er sitzt
+     direkt neben dem Loesch-Kreuz, und die beiden duerfen sich nicht verwechseln lassen. */
+  .fav-stern{width:40px; height:40px; flex:0 0 auto; display:inline-flex; align-items:center;
+    justify-content:center; background:none; border:0; cursor:pointer; font-size:20px;
+    line-height:1; color:var(--muted); padding:0}
+  .fav-stern.an{color:#f59e0b}
+  .fav-stern:active{transform:scale(.9)}
+  /* Brock oben: etwas flacher als eine normale Karte -- er ist eine Begruessung,
+     kein Datenblock, und darf der Ueberschrift „Heute" nicht die Schau stehlen. */
+  .brock-oben{padding:12px 14px}
+  .brock-oben .bubble{margin:0}
+  .listen-kopf{font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+    color:var(--muted); padding:14px 4px 6px}
   .btn.danger{color:var(--danger)}
   .iconbtn{width:40px;height:40px;flex:0 0 40px; display:grid; place-items:center;
     background:var(--card2); border:1px solid var(--line); border-radius:12px; color:var(--muted)}
@@ -327,20 +344,39 @@ setTimeout(function(){
     border-radius:99px; white-space:nowrap; letter-spacing:.4px}
 
   /* Mahlzeiten-Bloecke (23.08.2026, nach Karls Vorlage) */
-  .mz{padding:12px 14px}
+  /* ➡️ „die schrift dort und der button sehen so ein bisschen gequetscht aus"
+     (Karl, 03.09.2026). Nachgemessen war es kein Gefuehl, sondern eine Zahl: der
+     Plus-Knopf war **32x32 px**. Apple nennt 44x44 als Mindestmass fuer alles, was ein
+     Daumen treffen soll, Google 48x48 -- der Knopf lag unter beidem.
+     🔴 Und er ist seit derselben Ansage der EINZIGE Weg ins Essen-Eintragen (der
+     allgemeine Knopf ist weg). Ein zu kleines Ziel ist damit nicht mehr nur unschoen,
+     sondern die einzige Tuer. */
+  .mz{padding:14px}
   .mz.trenn{border-top:1px solid var(--line)}
   /* Der jetzt faellige Block bekommt eine Kante statt einer Flaeche - eine gefuellte
      Zeile zwischen drei leeren sieht aus wie "ausgewaehlt", und ausgewaehlt ist hier
      nichts. Es ist ein Hinweis, keine Auswahl. */
   .mz.jetzt{box-shadow:inset 3px 0 0 var(--ok)}
-  .mz-icon{font-size:22px; width:34px; height:34px; border-radius:99px; background:var(--card2);
+  .mz-icon{font-size:23px; width:38px; height:38px; border-radius:99px; background:var(--card2);
     display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto}
-  .mz-plus{width:32px; height:32px; flex:0 0 auto; border-radius:99px; cursor:pointer;
-    border:1px solid var(--line); background:var(--card2); color:var(--txt);
-    font-size:20px; line-height:1; display:inline-flex; align-items:center; justify-content:center}
-  .mz-plus:active{transform:scale(.94)}
+  /* 44x44 als Trefferflaeche, aber der Kreis sieht mit einem ruhigeren Rahmen aus als
+     vorher -- gewachsen ist das Ziel, nicht die Lautstaerke. */
+  /* ➡️ Weiss (03.09.2026, Karls Ansage: „meal selection buttons to white background").
+     🔴 Fest `#fff` und nicht `var(--card2)`: der Knopf soll in BEIDEN Themen weiss sein.
+     Im hellen Thema hebt ihn der Rahmen von der Karte ab, im dunklen ist er der einzige
+     helle Punkt der Seite -- was hier richtig ist, weil er seit derselben Ansage der
+     einzige Weg ins Essen-Eintragen ist. Das Plus wird dafuer dunkel, sonst stuende
+     weisse Schrift auf weissem Grund. */
+  .mz-plus{width:44px; height:44px; flex:0 0 auto; border-radius:99px; cursor:pointer;
+    border:1px solid rgba(0,0,0,.14); background:#fff; color:#111;
+    font-size:24px; line-height:1; display:inline-flex; align-items:center; justify-content:center;
+    transition:transform .08s, background .12s; font-weight:600;
+    box-shadow:0 1px 2px rgba(0,0,0,.18)}
+  .mz-plus:active{transform:scale(.94); background:#e9e9e9}
+  /* Die Eintraege standen auf 6 px Luft und 14 px Schrift -- zusammen mit dem Datum
+     darunter waren das drei Zeilen in der Hoehe von zweien. */
   .mz-eintrag{display:flex; justify-content:space-between; align-items:center; gap:10px;
-    padding:6px 0 6px 44px; font-size:14px}
+    padding:9px 0 9px 48px; font-size:14.5px; line-height:1.45}
   .mz-eintrag + .mz-eintrag{border-top:1px solid var(--line)}
 
   /* Die Ess-Serie (23.08.2026). Grau, solange sie bei 0 steht — siehe flammeHTML(). */
@@ -371,6 +407,18 @@ setTimeout(function(){
   .sess{display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid var(--line)}
   .sess:last-child{border-bottom:none}
   .link{color:var(--accent); background:none; font-weight:600; font-size:14px; padding:4px}
+  /* ➡️ Einheitlicher Zurueck-Pfeil (03.09.2026, Karls Ansage: „replace all small
+     text-based back links, use a back-arrow icon only, increase the tap target").
+     Vorher waren es acht Textlinks („‹ Einstellungen", „‹ Kalorien", „‹ Verlauf" …) in
+     14 px Schrift mit 4 px Polsterung -- eine Trefferflaeche von rund 20 px Hoehe.
+     🔴 Das Ziel steht weiter im `aria-label`: sichtbar ist nur der Pfeil, aber wer die
+     Seite vorgelesen bekommt, hoert weiterhin, wohin er zurueckgeht. Ein Pfeil ohne
+     jede Beschriftung heisst dort nur „Schaltflaeche". */
+  .zurueck{width:44px; height:44px; margin:0 0 4px -8px; flex:0 0 auto; padding:0;
+    display:inline-flex; align-items:center; justify-content:center;
+    background:none; border:0; color:var(--accent); cursor:pointer; border-radius:99px;
+    transition:transform .08s, background .12s}
+  .zurueck:active{transform:scale(.92); background:var(--card2)}
   .del-x{color:var(--muted); background:none; font-size:20px; padding:4px 8px}
   .empty{text-align:center; color:var(--muted); padding:30px 10px}
   .ex-ico{flex:0 0 auto; display:grid; place-items:center; background:var(--card2); border:1px solid var(--line); border-radius:10px; color:var(--txt)}
@@ -1438,9 +1486,21 @@ function zaehleRekorde(en){ let n=0; en.forEach(e=>arbeit(e.sets).forEach(s=>{ i
    27.08., Admin-Schalter). Es gibt sie ab heute nur nicht mehr.
    ⚠️ Wuerde man die verbliebenen groesser machen, waere Gigachad ohne Training erreichbar.
    Das ist die Grenze, an der dieses Feature aufhoert.                                  */
+/* ➡️ Aufgeteilt am 03.09.2026 (Karls Ansage: „split the Eingetragen section into
+   Mahlzeit and Gewicht"). Vorher war es EINE Aufgabe zu 10 XP, die beides abdeckte --
+   wer nur wog, hatte sie schon erledigt und sah nicht mehr, dass das Essen noch fehlt.
+   🔴 **5 + 5 statt 10 + 10, und das ist eine Abwaegung, keine Kleinigkeit.** Der
+   Tagesdeckel liegt bei 25 XP (siehe der Block darueber: „wuerde man die verbliebenen
+   groesser machen, waere Gigachad ohne Training erreichbar"). Zwei Aufgaben zu je 10 XP
+   haetten ihn auf 35 gehoben und die Rangleiter ohne eine einzige Trainingseinheit
+   erreichbar gemacht. So bleibt der Deckel bei 25: wer beides eintraegt, bekommt genau
+   die 10 XP von vorher -- nur eben in zwei Schritten sichtbar.
+   ⚠️ Der Preis, ehrlich benannt: wer nur EINES von beiden macht, bekommt 5 statt 10 XP.
+   Zurueckgenommen wird nichts (Regel vom 27.08.), es gilt ab heute. */
 const AUFGABEN = [
-  { id:'ein',   xp:10, svg:'stift',  name:'Eingetragen',    text:'Gewicht oder eine Mahlzeit eingetragen' },
-  { id:'train', xp:15, svg:'hantel', name:'Trainiert',      text:'Eine Einheit abgeschlossen' },
+  { id:'mahlzeit', xp:5,  svg:'stift',  name:'Mahlzeit',  text:'Eine Mahlzeit eingetragen' },
+  { id:'gewicht',  xp:5,  svg:'stift',  name:'Gewicht',   text:'Gewicht eingetragen' },
+  { id:'train',    xp:15, svg:'hantel', name:'Trainiert', text:'Eine Einheit abgeschlossen' },
 ];
 const AUFGABEN_MAX = AUFGABEN.reduce((n,a)=>n+a.xp,0);   // 25 -- der Deckel steht in den Daten
 
@@ -1658,6 +1718,10 @@ const ERFOLG_SVG = {
   medaille3: `<path d="M17 5l5 13M31 5l-5 13"/><circle cx="24" cy="31" r="12"/><path class="ma" d="M24 22.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>`,
   waage:    `<path d="M24 8v6"/><path d="M9 14h30"/><path d="M9 14L4 28h10z"/><path d="M39 14l5 14H34z"/><path class="ma" d="M24 14v24"/><path d="M16 42h16"/>`,
   kurve:    `<path d="M8 6v36h36"/><path class="ma" d="M13 34l8-9 7 5 13-15"/><path d="M41 15h-7M41 15v7"/>`,
+  /* Die Waage im Kranz -- fuer die 100 Wiegungen (03.09.2026). Bewusst nicht noch eine
+     Krone: die traegt schon „Hundert Einheiten" im Trainingsteil, und zwei gleiche
+     Symbole in einem Katalog lesen sich als derselbe Erfolg. */
+  waagekranz:`<path d="M24 10v5"/><path d="M13 15h22"/><path d="M13 15L9 25h8z"/><path d="M35 15l4 10h-8z"/><path class="ma" d="M24 15v19"/><path d="M18 37h12"/><path class="ma" d="M11 30c-3 6-1 12 3 15M37 30c3 6 1 12-3 15"/>`,
 };
 /* Ein Symbol in der passenden Stimmung: offen = grau, geschafft = normal, frisch = golden. */
 function erfolgSvg(e, zustand, size){
@@ -1691,6 +1755,14 @@ const ERFOLGE = [
 
   { id:'k1',  gr:'Körper', svg:'waage', xp:50,   name:'Auf die Waage',   text:'Zum ersten Mal das Gewicht eingetragen', ziel:1,      ist:()=>(profile.weights||[]).length },
   { id:'k2',  gr:'Körper', svg:'kurve', xp:150,  name:'Dreißigmal gewogen', text:'30-mal das Gewicht eingetragen',         ziel:30,     ist:()=>(profile.weights||[]).length },
+  /* ➡️ 03.09.2026, Karls Ansage: ein Erfolg fuer 100 Wiegungen.
+     ⚠️ Gezaehlt werden EINTRAEGE, nicht Tage -- aber `addWeight()` ueberschreibt den
+     heutigen Wert, statt einen zweiten anzulegen (eine Wiegung pro Tag). Damit sind
+     100 Eintraege auch 100 verschiedene Tage, und der Erfolg laesst sich nicht durch
+     zehnmal Wiegen an einem Nachmittag erschleichen.
+     💡 400 XP: dieselbe Stufe wie „Vier am Stueck" im Dranbleiben-Teil. 100 Tage wiegen
+     ist Ausdauer, keine Leistung -- und die wird hier ungefaehr so bezahlt. */
+  { id:'k3',  gr:'Körper', svg:'waagekranz', xp:400,  name:'Hundertmal gewogen', text:'100-mal das Gewicht eingetragen',      ziel:100,    ist:()=>(profile.weights||[]).length },
 ];
 /* ---------- Admin: alle Erfolge freischalten (27.08.2026, Karls Wunsch) ----------
    Gleiche Linie wie `devUnlockAll` bei den Designs: zum Ansehen, nicht zum Erspielen.
@@ -2419,7 +2491,7 @@ function renderHome(){
     h+=`<div class="card" style="margin-top:10px">
       <div class="row between"><b>Essen eintragen</b><span class="pill">täglich</span></div>
       <div class="tiny muted" style="margin-top:4px">Heute steht noch nichts drin.</div>
-      <button class="btn primary" style="margin-top:10px" data-act="food:start">+ Essen eintragen</button></div>`;
+      <button class="btn primary" style="margin-top:10px" data-nav="body">Zu den Mahlzeiten</button></div>`;
   }
 
   h+=`<div class="card" data-nav="progs" style="cursor:pointer;margin-top:10px"><div class="row between">
@@ -2432,7 +2504,7 @@ function renderHome(){
 const ICON_TEILEN='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
 function renderProgs(){
   const akt=activeProg();
-  let h=`<button class="link" data-nav="home">‹ Trainieren</button>
+  let h=`${zurueckPfeil('data-nav="home"', 'Trainieren')}
     <div class="row between" style="margin:6px 4px 8px"><h2>Alle Trainingspläne</h2></div>`;
   programs.forEach(pr=>{
     const ist=pr.id===akt.id, tage=(pr.plans||[]).filter(x=>x.day!=null).length;
@@ -2458,7 +2530,7 @@ function renderProgs(){
 
 function renderPlans(){
   const pr=editProg(), ist=pr.id===activeProg().id;
-  let h=`<button class="link" data-nav="progs">‹ Alle Trainingspläne</button>
+  let h=`${zurueckPfeil('data-nav="progs"', 'Alle Trainingspläne')}
     <div class="row between" style="margin:6px 4px 6px"><h2>${esc(pr.name)}</h2>
       <button class="iconbtn" data-shareprog="${pr.id}" aria-label="Trainingsplan teilen" title="Trainingsplan teilen">${ICON_TEILEN}</button></div>
     <div class="field" style="margin:0 0 12px"><label>Name des Trainingsplans</label>
@@ -2551,7 +2623,7 @@ function renderWorkout(){
 }
 
 function renderHistory(){
-  const back=`<button class="link" data-nav="settings">‹ Einstellungen</button>`;
+  const back=`${zurueckPfeil('data-nav="settings"', 'Einstellungen')}`;
   /* ⚠️ Ohne Training UND ohne Wiegung bräuchte diese Seite gar keinen eigenen leeren
      Zustand mehr — GENAU EINE Aufrufstelle für gewichtVerlaufHTML() weiter unten deckt
      beide Fälle ab (Training ja/nein), statt denselben Aufruf zweimal zu pflegen. Zwei
@@ -2682,7 +2754,7 @@ function lineChart(vals,w,h,opt){
 }
 function renderExDetail(){
   const name=detailExName, hist=exHistory(name);
-  let h=`<button class="link" data-act="backhist">‹ Verlauf</button>
+  let h=`${zurueckPfeil('data-act="backhist"', 'Verlauf')}
     <div class="row" style="gap:10px;margin:6px 4px 12px">${iconTile(name,'',48)}<h2 style="margin:0">${esc(name)}</h2></div>`;
   if(hist.length===0){ app.innerHTML=h+`<div class="empty">Noch keine Einheiten mit dieser Übung.</div>`; return; }
   const pr=prFor(name), first=hist[0], last=hist[hist.length-1];
@@ -2751,7 +2823,7 @@ function sessRecalc(s){
 function renderSession(){
   const s=sessions.find(x=>x.id===detailSessionId); if(!s){ view='history'; return render(); }
   const dauer=fmtDauer(s.dur);
-  let h=`<button class="link" data-act="backhist">‹ Verlauf</button>
+  let h=`${zurueckPfeil('data-act="backhist"', 'Verlauf')}
     <div class="row between" style="margin:6px 4px 4px"><h2>${esc(s.planName)}</h2>
       <button class="btn sm ghost link" data-act="sessedit">${sessEdit?'Fertig':'Bearbeiten'}</button></div>
     <div class="tiny muted" style="margin:0 4px 10px">${fmtDate(s.date)} · ${fmtTime(s.date)}${dauer?` · <b style="color:var(--txt)">${dauer}</b>`:''} · <span data-sessvol>${volume(s.entries)}</span> kg Vol.</div>`;
@@ -2973,21 +3045,6 @@ function kcalSchnitt(tage){
     if(liste.length){ summe+=sumMeals(liste).kcal; mitEintrag++; }
   }
   return mitEintrag ? {schnitt:Math.round(summe/mitEintrag), tage:mitEintrag} : null;
-}
-
-// Die zuletzt gegessenen Sachen, jede nur einmal — fuers Wiedereintragen mit einem Tipp.
-// Der groesste Grund, warum Essensprotokolle nach einer Woche sterben, ist nicht
-// Faulheit, sondern dass man dasselbe Fruehstueck jeden Tag neu zusammensucht.
-function zuletztGegessen(anzahl){
-  const gesehen=new Set(), out=[];
-  const alle=kcalInit().meals.slice().sort((a,b)=>b.date-a.date);
-  for(const m of alle){
-    const key=(m.name||'')+'|'+m.menge;
-    if(gesehen.has(key)) continue;
-    gesehen.add(key); out.push(m);
-    if(out.length>=anzahl) break;
-  }
-  return out;
 }
 
 // Brock im Ernaehrungsteil. Bisher kam er dort ueberhaupt nicht vor — er stand nur
@@ -3254,7 +3311,7 @@ function addMeal(d,menge){
   const w=draftWerte(d,menge), k=kcalInit();
   // ⚠️ `foodMz` ist die im Block angetippte Mahlzeit. Ist keine gewaehlt (etwa ueber
   // den allgemeinen Knopf), entscheidet die Uhrzeit — nie ein fester Vorgabewert.
-  aufgabeErledigen('ein');      // Tagesaufgabe: etwas eingetragen
+  aufgabeErledigen('mahlzeit');  // Tagesaufgabe: eine Mahlzeit eingetragen
   k.meals.push({id:uid(),date:Date.now(),name:d.name||'Essen', mz: foodMz || mahlzeitJetzt(),
     menge:(+menge||0)+(d.basis==='portion'?'×':' g'), quelle:d.quelle||'eigen', ...w});
   /* Zuletzt benutzte Menge (02.09.2026, Karls Ansage). Nur fuer Eintraege aus der EIGENEN
@@ -3470,17 +3527,28 @@ function renderBody(){
     return Math.round(sum / 7);
   })();
   const serie=essSerie(), rekord=essSerieRekord();
-  let h=`<div class="row between" style="margin:2px 4px 6px"><h2>Heute</h2>
+  /* ➡️ Brock steht ganz oben (03.09.2026, Karls Ansage: „move the Brok widget to the top,
+     above the calorie menu"). Bis dahin sass er links neben dem Ring, in derselben Karte
+     (das war Karls Ansage vom 22.08.: „brock kann gerne links neben den kalorin kreis").
+     ⚠️ Was der Umzug mitnimmt: die Sprechblase. Figur oben und Blase unten am Ring waeren
+     zwei Sprecher gewesen. Und der Ring rueckt in die Mitte seiner Karte -- ohne Brock
+     daneben stuende er sonst links und die Karte saehe halb leer aus.
+     💡 Der Ring wird dabei etwas groesser: er hat die Breite geerbt, die Brock frei
+     gemacht hat, und ist jetzt das einzige Bild in seiner Karte. */
+  let h=`<div class="card brock-oben">
+      <div class="row" style="gap:12px;align-items:center">
+        ${monster(64,'',equippedRank())}
+        <div class="bubble kcal-bubble" style="margin:0;flex:1">${brockEssenSay(s.kcal, zt)}</div>
+      </div></div>
+    <div class="row between" style="margin:14px 4px 6px"><h2>Heute</h2>
       <div class="row" style="gap:8px;align-items:center">
         ${flammeHTML(serie, rekord)}
         <button class="btn sm ghost link" data-act="kcalgoal">${zt>0?zt+' kcal Ziel':'Ziel setzen'}</button>
       </div></div>
     <div class="card">
       <div class="row" style="gap:12px;align-items:center;justify-content:center">
-        ${monster(76,'',equippedRank())}
         ${kcalRing(s.kcal, zt)}
       </div>
-      <div class="bubble kcal-bubble">${brockEssenSay(s.kcal, zt)}</div>
       <div style="margin-top:12px">
         ${zt>0?`<div class="tiny muted" style="margin-bottom:8px">${s.kcal<=zt
             ? `noch <b style="color:var(--txt)">${zt-s.kcal} kcal</b> übrig`
@@ -3615,22 +3683,17 @@ function renderBody(){
           schnitt.schnitt>zielSchnitt?'+':''}${schnitt.schnitt-zielSchnitt}</b>` : ''}</div></div>`;
   }
 
-  h+=`<div class="fab-row" style="margin-top:10px">
-      <button class="btn primary" data-act="food:start">+ Essen eintragen</button></div>`;
-
-  // NEU: Ein-Tipp-Wiederholung. Der haeufigste Grund, warum Essensprotokolle nach
-  // einer Woche einschlafen, ist nicht Faulheit — es ist, dass man dasselbe
-  // Fruehstueck jeden Tag neu zusammensucht.
-  const letzte=zuletztGegessen(6);
-  if(letzte.length){
-    h+=`<div class="row between" style="margin:20px 4px 6px"><h2>Nochmal</h2>
-        <span class="tiny muted">ein Tipp genügt</span></div><div class="card">`;
-    letzte.forEach(m=>{ h+=`<div class="lib-row" data-again="${m.id}" style="cursor:pointer">
-      <div style="flex:1;min-width:0"><div>${esc(m.name)}</div>
-        <div class="tiny muted">${esc(String(m.menge))} · ${m.kcal} kcal · ${m.p} g Eiweiß</div></div>
-      <span class="muted" style="font-size:20px;padding:0 4px">+</span></div>`; });
-    h+=`</div>`;
-  }
+  /* ➡️ Zwei Ansagen von Karl am 03.09.2026, die zusammen eine sind:
+     · *„ich will bitte das man sein essen nur noch ueber die einzelnen button bei
+       fruehstueck undso eintragen kann"* -- der allgemeine Knopf „+ Essen eintragen"
+       stand frueher hier und ist weg.
+     · *„die zuletzt eingetragenen essen sollen gerne rueber zu da wo man das essen
+       auch entraegt"* -- der „Nochmal"-Block stand ebenfalls hier und steht jetzt in
+       `renderFood()`, unter den zwei Wegen.
+     🔴 Beides greift ineinander: ohne den allgemeinen Knopf gaebe es hier einen
+     „Nochmal"-Block, dessen Eintraege in keiner Mahlzeit landen -- der alte Weg hat
+     die Mahlzeit aus der Uhrzeit geraten. Jetzt fuehrt jeder Weg durch einen
+     Mahlzeiten-Knopf, und die Zuordnung steht fest, bevor etwas eingetragen wird. */
 
   /* ---------- Ernährung: vier Mahlzeiten statt einer Liste (23.08.2026) ----------
      Karls Vorlage. Jeder Block hat ein eigenes Ziel (Anteil am Tagesziel) und einen
@@ -3715,32 +3778,16 @@ function renderBody(){
 function gewichtVerlaufHTML(){
   const w = weightList();
   if(!w.length) return '';
-  let h = `<div class="row between" style="margin:22px 4px 4px"><h2>Gewicht</h2>
-      <span class="tiny muted">${w.length} Einträ${w.length===1?'g':'ge'}</span></div>`;
-  if(w.length>1){
-    const wf = weightImFenster(gwFenster);
-    /* ⚠️ „Verlauf" bleibt eine <h2>, nicht nur ein kleiner Zwischentitel — die Pruefungen
-       vom 01.09.2026 suchen genau dieses Element, um die Spanne daneben zu lesen, und
-       die Bedeutung ist dieselbe geblieben: die Spanne gilt dem GEWAEHLTEN Zeitraum, nicht
-       allen Wiegungen (die stehen weiter vollstaendig unter „Einträge"). */
-    h+=`<div class="row between" style="margin:20px 4px 6px"><h2>Verlauf</h2>
-        ${wf.length>1?`<span class="tiny muted">${fmtKg(Math.min(...wf.map(x=>x.kg)))}–${fmtKg(Math.max(...wf.map(x=>x.kg)))} kg</span>`:''}</div>
-      <div class="zeitwahl" style="margin:0 4px 8px">${GW_FENSTER.map(f=>
-        `<button class="chip ${f.id===gwFenster?'on':''}" data-act="gw:fenster:${f.id}">${f.name}</button>`).join('')}</div>`;
-    if(wf.length>1){
-      h+=`<div class="card" style="padding:10px 8px">${lineChart(wf.map(x=>x.kg),300,110,{x:wf.map(x=>x.date),einheit:'kg'})}</div>`;
-    } else {
-      /* Kein toter Punkt: der naechste Zeitraum, in dem wirklich eine Kurve steht, wird
-         gleich beim Namen genannt. `w.length>1` gilt hier oben schon, also findet die
-         Suche spaetestens bei „Max" etwas — `passt` kann nicht leer bleiben. */
-      const passt = GW_FENSTER.find(f=>weightImFenster(f.id).length>1);
-      h+=`<div class="empty" style="margin-top:4px">${wf.length?'Nur ein Eintrag':'Kein Eintrag'} in diesem Zeitraum — eine Kurve braucht zwei.${
-        passt&&passt.id!==gwFenster?`<br>Unter „${passt.name}" siehst du eine.`:''}</div>`;
-    }
-  } else {
-    h+=`<div class="empty" style="margin-top:4px">Ab dem zweiten Eintrag siehst du hier eine Kurve.</div>`;
-  }
-  h+=`<div class="row between" style="margin:20px 4px 6px"><h2>Einträge</h2></div><div class="card">`;
+  /* ➡️ Karls Ansage am 03.09.2026: „die kurve fuer gewicht soll nicht im verlauf stehen,
+     nur der gewicht verlauf an sich, die eintragungen".
+     Vorher standen hier Kurve, Zeitraum-Wahl (1 Woche / 1 Monat / 1 Jahr / Max) und die
+     Liste. Jetzt nur noch die Liste. Mit der Kurve sind auch `GW_FENSTER`, `gwFenster`
+     und `weightImFenster()` gegangen -- sie hatten keinen zweiten Nutzer. Toter Code,
+     der nur noch von seinen eigenen Pruefungen gehalten wird, sieht wie Funktion aus.
+     ⚠️ Die drei Kaesten Start / Aktuell / seit Start bleiben im Koerper-Tab stehen,
+     wo man wiegt -- die sind keine Kurve, sondern die Antwort auf „wo stehe ich". */
+  let h = `<div class="row between" style="margin:22px 4px 6px"><h2>Gewicht</h2>
+      <span class="tiny muted">${w.length} Einträ${w.length===1?'g':'ge'}</span></div><div class="card">`;
   [...w].reverse().forEach(x=>{ h+=`<div class="sess"><span>${fmtDate(x.date)}</span>
       <span class="row" style="gap:10px"><b>${fmtKg(x.kg)} kg</b>
       <button class="link" style="padding:0 2px;color:var(--muted)" data-delweight="${x.date}">✕</button></span></div>`; });
@@ -3750,7 +3797,7 @@ function gewichtVerlaufHTML(){
 // ---------- Essen eintragen: Liste / neu / Menge ----------
 function renderFood(){
   const k=kcalInit();
-  let h=`<button class="link" data-nav="body">‹ Kalorien</button>`;
+  let h=`${zurueckPfeil('data-nav="body"', 'Kalorien')}`;
   if(foodBusy){ h+=`<div class="card" style="text-align:center"><div class="tiny muted">${esc(foodBusy)}</div>
       <div class="ladebalken"><i></i></div></div>`; app.innerHTML=h; return; }
   if(foodFehler) h+=`<div class="card" style="border-color:var(--danger)"><b style="color:var(--danger)">Hat nicht geklappt</b>
@@ -3771,7 +3818,7 @@ function renderFood(){
           <div class="stat"><b data-vp>${w.p}</b><span>g Eiweiß</span></div>
           <div class="stat"><b data-vc>${w.c}</b><span>g KH</span></div></div>
         ${d.unsicher?`<div class="tiny muted" style="margin-top:10px;color:var(--danger)">⚠️ Die KI war sich unsicher — sieh die Zahlen nochmal an.</div>`:''}
-        <button class="btn primary" style="margin-top:14px" data-act="food:save">Eintragen</button>
+        <button class="btn primary gross" style="margin-top:14px" data-act="food:save">Eintragen</button>
         ${d.quelle!=='eigen'&&d.basis==='g100'?`<button class="btn ghost sm" style="margin-top:8px" data-act="food:merken">Auch in meine Liste aufnehmen</button>`:''}
       </div>
       <button class="btn ghost" style="margin-top:12px" data-act="food:back">Zurück</button>`;
@@ -3810,8 +3857,14 @@ function renderFood(){
     app.innerHTML=h; return;
   }
 
-  // Schritt 1: die drei Wege + eigene Liste
-  h+=`<div class="row between" style="margin:6px 4px 8px"><h2>Essen eintragen</h2></div>
+  /* Schritt 1: die zwei Wege + „Nochmal" + eigene Liste.
+     ⚠️ Die Ueberschrift nennt jetzt die Mahlzeit. Seit dem 03.09.2026 kommt man nur noch
+     ueber einen Mahlzeiten-Knopf hierher -- dann muss auch dranstehen, wohin das Essen
+     geht, sonst ist die Zuordnung unsichtbar und man traegt das Fruehstueck ins
+     Abendessen. `foodMz` ist gesetzt, `mahlzeitJetzt()` faengt den Rest. */
+  const mzJetzt = MAHLZEITEN.find(x=>x.id===(foodMz||mahlzeitJetzt()));
+  h+=`<div class="row between" style="margin:6px 4px 8px"><h2>Essen eintragen</h2>
+      ${mzJetzt?`<span class="pill">${mzJetzt.icon} ${esc(mzJetzt.name)}</span>`:''}</div>
     <div class="fab-row">
       <button class="btn" data-act="food:barcode">
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:5px"><path d="M3 5v14M7 5v14M11 5v10M15 5v14M18 5v10M21 5v14"/></svg>Barcode</button>
@@ -3824,19 +3877,70 @@ function renderFood(){
     <input id="foodSearch" placeholder="Suchen oder neues eintippen…" autocomplete="off"
       style="width:100%;background:var(--card2);border:1px solid var(--line);border-radius:12px;color:var(--txt);padding:12px;font-size:16px">
     <div id="foodList" style="margin-top:6px"></div>`;
+
+  /* ➡️ „man sollte einen groesseren, am besten einen grossen fertig button unten"
+     (Karl, 03.09.2026). Vorher fuehrte nur das kleine „‹ Kalorien" oben links zurueck --
+     am Handy die unbequemste Ecke ueberhaupt, und mit dem Daumen kaum zu treffen.
+     ⚠️ „Fertig" und nicht „Zurueck": wer hier steht, hat entweder eingetragen oder es
+     gelassen. Beides ist fertig. Ein „Zurueck" liest sich wie ein Abbruch und macht aus
+     einer abgeschlossenen Handlung eine, bei der man etwas falsch gemacht hat. */
+  h+=`<button class="btn primary gross" style="margin-top:24px" data-nav="body">Fertig</button>`;
+
   app.innerHTML=h;
   renderFoodList('');
 }
+/* ---------- Favoriten (03.09.2026, Karls Ansage) ----------
+   Ersetzt „Nochmal", das bis zum selben Tag hier stand und die zuletzt gegessenen Sachen
+   automatisch vorschlug.
+   🔴 Der Unterschied ist nicht die Anzeige, sondern wer entscheidet: „Nochmal" riet aus
+   dem Verlauf, was oft dran ist -- wer einmal etwas Ungewoehnliches isst, hatte es
+   tagelang oben stehen, und was man jeden Tag isst, fiel heraus, sobald drei andere
+   Sachen dazwischen kamen. Ein Favorit steht, bis er weggeklickt wird.
+   ⚠️ Der Stern haengt am eigenen Lebensmittel (`k.foods`), nicht an der Mahlzeit -- er
+   ueberlebt damit das Loeschen eines Eintrags und wandert ueber `blobsZusammen` mit auf
+   das zweite Geraet, weil `foods` dort schon zusammengefuehrt wird. */
+function istFavorit(f){ return !!(f && f.fav); }
+
+/* Ein Zurueck-Pfeil, ueberall derselbe (03.09.2026). `attr` ist das, was den Klick
+   auffaengt -- meist `data-nav="..."`, bei den zwei Verlauf-Seiten `data-act="backhist"`.
+   `wohin` steht nur im aria-label, nicht auf dem Bildschirm. */
+function zurueckPfeil(attr, wohin){
+  return `<button class="zurueck" ${attr} aria-label="Zurück${wohin?' zu '+wohin:''}">`
+    + `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor"`
+    + ` stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">`
+    + `<path d="M15 5l-7 7 7 7"/></svg></button>`;
+}
+
 function renderFoodList(q){
   const el=document.getElementById('foodList'); if(!el) return;
   const roh=(q||'').trim(), s=roh.toLowerCase(), k=kcalInit();
   const treffer=s?k.foods.filter(f=>(f.name+' '+(f.marke||'')).toLowerCase().includes(s)):k.foods;
-  // ⚠️ Bewusst ein div, kein button: der Loesch-Knopf sitzt darin, und ein Knopf im Knopf
-  // ist ungueltiges HTML — der Browser reisst ihn aus der Zeile heraus.
-  let h=treffer.map(f=>`<div class="lib-row" data-pickfood="${f.id}" style="cursor:pointer">
+  /* Favoriten zuerst, der Rest in seiner Reihenfolge dahinter. `sort` ist stabil (seit
+     ES2019 zugesichert), die Liste wird also nicht durcheinandergewuerfelt -- die
+     Favoriten wandern nur nach oben. ⚠️ Auf einer Kopie, sonst haette das Anzeigen
+     die gespeicherte Reihenfolge veraendert. */
+  const sortiert=[...treffer].sort((a,b)=>(istFavorit(b)?1:0)-(istFavorit(a)?1:0));
+  const favZahl=sortiert.filter(istFavorit).length;
+  const zeile=f=>`<div class="lib-row${istFavorit(f)?' ist-fav':''}" data-pickfood="${f.id}" style="cursor:pointer">
+      <button class="fav-stern${istFavorit(f)?' an':''}" data-foodfav="${f.id}"
+        aria-label="${istFavorit(f)?'Kein Favorit mehr':'Zu den Favoriten'}"
+        aria-pressed="${istFavorit(f)?'true':'false'}">${istFavorit(f)?'★':'☆'}</button>
       <div style="flex:1;min-width:0"><div>${esc(f.name)}</div>
         <div class="tiny muted">${f.kcal} kcal je 100 g${f.marke?' · '+esc(f.marke):''}</div></div>
-      <button class="del-x" data-delfood="${f.id}" aria-label="Lebensmittel löschen">✕</button></div>`).join('');
+      <button class="del-x" data-delfood="${f.id}" aria-label="Lebensmittel löschen">✕</button></div>`;
+  // ⚠️ Bewusst ein div, kein button: der Loesch-Knopf sitzt darin, und ein Knopf im Knopf
+  // ist ungueltiges HTML — der Browser reisst ihn aus der Zeile heraus.
+  let h='';
+  /* Die Trennlinie steht nur ohne Suchtext. Wer tippt, sucht etwas Bestimmtes -- dann
+     ist „Favoriten / Alle" eine Einteilung, die der Suche im Weg steht. */
+  if(!roh && favZahl){
+    h+=`<div class="listen-kopf">Favoriten</div>`
+     + sortiert.slice(0,favZahl).map(zeile).join('');
+    if(sortiert.length>favZahl) h+=`<div class="listen-kopf">Alle anderen</div>`
+     + sortiert.slice(favZahl).map(zeile).join('');
+  } else {
+    h+=sortiert.map(zeile).join('');
+  }
   if(!treffer.length) h+=`<div class="empty" style="padding:18px">${k.foods.length
       ? 'Nichts gefunden.' : 'Noch keine eigenen Lebensmittel.'}</div>`;
   /* Erst die Datenbank, dann das Abtippen: suchen kostet einen Griff, die Nährwerte von
@@ -3942,8 +4046,14 @@ function offNachDraft(p, ersatzName){
   const kcal = n['energy-kcal_100g'] != null ? n['energy-kcal_100g']
              : (n['energy_100g'] != null ? n['energy_100g']/4.184 : null);
   if(kcal == null) return null;
+  /* ⚠️ `brands` kommt aus ZWEI Quellen mit verschiedener Form (03.09.2026): die alte
+     `cgi/search.pl` liefert einen String ("Ehrmann,Aldi"), der neue Suchdienst
+     `search.openfoodfacts.org` ein Array (["Ehrmann","Aldi"]). Ohne diese Weiche
+     wirft `.split` auf dem Array -- und zwar mitten in `.map()`, womit die GANZE
+     Trefferliste leer bliebe und wie "nichts gefunden" ausgesehen haette. */
+  const marken = Array.isArray(p.brands) ? p.brands.join(',') : (p.brands||'');
   return { name:(p.product_name_de||p.product_name||ersatzName||'Produkt').slice(0,60),
-    marke:(p.brands||'').split(',')[0].trim(),
+    marke:(marken.split(',')[0]||'').trim(),
     kcal:Math.round(kcal), p:Math.round(n.proteins_100g||0),
     c:Math.round(n.carbohydrates_100g||0), f:Math.round(n.fat_100g||0),
     basis:'g100', menge:100 };
@@ -4029,23 +4139,72 @@ async function holeBarcode(nr){
    Eigene nicht reicht. */
 let dbTreffer=[], dbFrage='';
 
+/* ---------- Lebensmittel suchen: zwei Wege und ein Wiederholversuch ----------
+   🔴 Karls Meldung am 03.09.2026: „einen fehler als ich was gesucht habe, als ich dann
+   nochmal gesucht habe hat es sofort funktioniert". Nachgemessen an demselben Abend,
+   fuenf Anfragen an die alte `cgi/search.pl`: **vier mal 503, einmal 200.** Es ist keine
+   Drosselung nach Anzahl (dann waeren die spaeteren dran, nicht die ersten) und es liegt
+   nicht am Suchbegriff -- die alte Perl-Suche von Open Food Facts lehnt unter Last
+   einfach zufaellig ab. Ein zweiter Versuch geht oft sofort durch, genau wie bei Karl.
+
+   ➡️ Zwei Aenderungen, in dieser Reihenfolge:
+   1. **Der neue Suchdienst `search.openfoodfacts.org` ist jetzt der erste Weg.**
+      Nachgemessen: 6 von 6 Anfragen durch, 240-400 ms. Die alte Suche brauchte fuer
+      dasselbe zwischen 350 ms und einem Fehlschlag.
+   2. **Wer trotzdem scheitert, wird wiederholt** -- erst der neue Weg ein zweites Mal,
+      dann die alte Suche als Ausweichweg. Karls Ansage dazu: *„sonst muss es laenger
+      laden"*. Genau der Handel: bis zu ~1,5 s mehr im schlechten Fall, dafuer keine
+      Fehlermeldung, die beim zweiten Tippen von selbst verschwindet.
+
+   ⚠️ Ein 503 wirft hier bewusst weiter, statt eine leere Liste zu liefern -- sonst waere
+   der Fehlschlag als „nichts gefunden" getarnt, und das Anlege-Formular ginge auf. Genau
+   dieser Fall hat am 01.09. dazu gefuehrt, dass Naehrwerte abgetippt wurden, die die
+   Datenbank kennt. */
+const SUCH_FELDER='code,product_name,product_name_de,brands,nutriments';
+function suchAdresseNeu(q){
+  return 'https://search.openfoodfacts.org/search?page_size=24&fields='+SUCH_FELDER
+       + '&q='+encodeURIComponent(q); }
+function suchAdresseAlt(q){
+  return 'https://world.openfoodfacts.org/cgi/search.pl?search_simple=1&action=process&json=1'
+       + '&page_size=24&fields='+SUCH_FELDER+'&search_terms='+encodeURIComponent(q); }
+
+async function einSuchversuch(url){
+  const r=await fetch(url);
+  if(!r.ok) throw new Error('Die Datenbank antwortet gerade nicht (Fehler '+r.status+').');
+  return await r.json();
+}
+
+async function sucheMitAusweichweg(q){
+  const wege=[suchAdresseNeu(q), suchAdresseNeu(q), suchAdresseAlt(q)];
+  let letzter=null;
+  for(let i=0;i<wege.length;i++){
+    try{ return await einSuchversuch(wege[i]); }
+    catch(e){
+      letzter=e;
+      /* Kurz durchatmen lassen, aber nur zwischen den Versuchen -- nach dem letzten
+         waere das Warten geschenkte Zeit. 300 ms reichen: die 503 der alten Suche
+         kamen in der Messung nach 35-350 ms zurueck, das ist kein Stau, der sich
+         aussitzen laesst, sondern eine Ablehnung. */
+      if(i<wege.length-1) await new Promise(f=>setTimeout(f,300));
+    }
+  }
+  throw letzter || new Error('Kein Netz oder Datenbank nicht erreichbar.');
+}
+
 async function dbSuche(text){
   const q=(text||'').trim();
   if(q.length<2){ foodFehler='Gib mindestens zwei Buchstaben ein.'; render(); return; }
   dbFrage=q; dbTreffer=[];
   foodBusy='Suche „'+q+'“ in der Lebensmittel-Datenbank …'; foodFehler=''; view='food'; render();
   try{
-    const u='https://world.openfoodfacts.org/cgi/search.pl?search_simple=1&action=process&json=1'
-          + '&page_size=24&fields=code,product_name,product_name_de,brands,nutriments'
-          + '&search_terms='+encodeURIComponent(q);
-    const r=await fetch(u);
-    if(!r.ok) throw new Error('Die Datenbank antwortet gerade nicht (Fehler '+r.status+').');
-    const d=await r.json();
+    const d=await sucheMitAusweichweg(q);
     /* ⚠️ Treffer ohne Nährwerte werden hier weggelassen, nicht erst beim Antippen. Von den
        Produkten mit Deutschland-Kennung hatte am 22.08.2026 nur gut die Hälfte vollständige
        Werte -- eine Liste, in der jeder zweite Eintrag in eine Fehlermeldung führt, ist
        schlechter als eine kurze. */
-    dbTreffer=(d.products||[]).map(p=>{ const e=offNachDraft(p, q);
+    /* Beide Wege heissen die Trefferliste anders: `hits` beim neuen Suchdienst,
+       `products` bei der alten cgi-Suche. */
+    dbTreffer=(d.hits||d.products||[]).map(p=>{ const e=offNachDraft(p, q);
                  return e ? {...e, barcode:String(p.code||'')} : null; })
                .filter(Boolean);
     foodBusy='';
@@ -4217,28 +4376,6 @@ function weightList(){ return (profile.weights||[]).slice().sort((a,b)=>a.date-b
    ⚠️ Die Reihenfolge im Feld ist die Reihenfolge auf dem Bildschirm UND die Reihenfolge,
    in der unten der naechstgroessere Zeitraum gesucht wird — von eng nach weit. Wer hier
    umsortiert, aendert beides.                                                        */
-const GW_FENSTER = [
-  {id:'woche', name:'1 Woche', tage:7},
-  {id:'monat', name:'1 Monat', tage:30},
-  {id:'jahr',  name:'1 Jahr',  tage:365},
-  {id:'max',   name:'Max',     tage:0}
-];
-/* Bewusst NICHT im Profil abgelegt: das ist eine Blickrichtung, keine Messung. Im Profil
-   muesste sie durch `blobsZusammen` und ueber zwei Geraete abgeglichen werden — viel
-   Maschinerie dafuer, dass beim naechsten Oeffnen ohnehin die volle Kurve die richtige
-   Voreinstellung ist. */
-let gwFenster = 'max';
-/* ⚠️ Die Grenze zaehlt ab HEUTE, nicht ab dem letzten Eintrag. „1 Woche" soll die letzte
-   Woche zeigen — auch wenn nichts darin steht. Eine leere Woche ist eine Antwort; ein
-   stillschweigend zurueckgeschobenes Fenster waere eine falsche, denn dann zeigte
-   „1 Woche" bei drei Monaten Pause die Woche von vor drei Monaten. */
-function weightImFenster(id){
-  const f = GW_FENSTER.find(x=>x.id===id) || GW_FENSTER[GW_FENSTER.length-1];
-  const w = weightList();
-  if(!f.tage) return w;
-  const grenze = Date.now() - f.tage*864e5;
-  return w.filter(x=>x.date>=grenze);
-}
 function lastWeight(){ const w=weightList(); return w.length?w[w.length-1]:null; }
 // Fuer die Erinnerung auf der Startseite. Bewusst „heute", nicht „in den letzten 24 Stunden":
 // wer abends um 23 Uhr wiegt, soll am naechsten Morgen wieder gefragt werden.
@@ -4257,7 +4394,7 @@ function addWeight(kg){
   if(!(kg>0)||kg>500) return false;
   const now=Date.now(), i=(profile.weights||[]).findIndex(x=>sameDay(x.date,now));
   if(i>=0) profile.weights[i]={date:now,kg}; else profile.weights.push({date:now,kg});
-  aufgabeErledigen('ein');      // Tagesaufgabe: etwas eingetragen
+  aufgabeErledigen('gewicht');   // Tagesaufgabe: Gewicht eingetragen
   save(); return true;
 }
 
@@ -4507,9 +4644,42 @@ function renderErfolge(){
   h += `<div class="tiny muted" style="margin-top:14px;line-height:1.6">
       ${offen ? `Noch ${offen} ${offen===1?'Aufgabe':'Aufgaben'} offen.` : 'Alles erledigt für heute.'}</div></div>`;
 
+  // ---- Der Katalog ----
+  const gruppen = [...new Set(ERFOLGE.map(e=>e.gr))];
+  gruppen.forEach(g => {
+    const liste = ERFOLGE.filter(e=>e.gr===g);
+    h += `<div class="row between" style="margin:20px 4px 6px"><h2>${esc(g)}</h2>
+        <span class="tiny muted">${liste.filter(e=>!erfolgOffen(e)).length}/${liste.length}</span></div>`;
+    h += `<div class="card">`;
+    liste.forEach((e,i) => {
+      const ist = e.ist(), fertig = !erfolgOffen(e);
+      const anteil = Math.max(0, Math.min(100, Math.round(ist / e.ziel * 100)));
+      const neuHier = frisch.has(e.id);
+      h += `<div class="${neuHier?'erf-frisch':''}" style="${i?'border-top:1px solid var(--line);margin-top:12px;padding-top:12px':''}">
+        <div class="row between" style="align-items:center;gap:10px">
+          <div class="row" style="gap:10px;min-width:0;align-items:center">
+            ${erfolgSvg(e, neuHier ? 'frisch' : fertig ? 'auf' : 'zu', 26)}
+            <div style="min-width:0">
+              <b style="${fertig?'':'color:var(--muted)'}">${esc(e.name)}</b>
+              <div class="tiny muted">${esc(e.text)}</div></div></div>
+          ${neuHier ? `<span class="tiny erf-neu-pill">NEU</span>`
+            : fertig ? `<span class="tiny" style="color:var(--ok);font-weight:700;white-space:nowrap">geschafft</span>`
+                   : `<span class="tiny muted" style="white-space:nowrap">${fmtZiel(ist)} / ${fmtZiel(e.ziel)}${e.xp?` · +${e.xp}`:''}</span>`}
+        </div>
+        ${fertig ? '' : `<div class="bar" style="margin-top:8px;height:6px;background:var(--card2);border-radius:99px;overflow:hidden">
+            <i style="display:block;height:100%;width:${anteil}%;background:var(--accent)"></i></div>`}
+      </div>`;
+    });
+    h += `</div>`;
+  });
   /* ---- Bestenliste (29.08.2026, Karls Wunsch) ----
-     Steht zwischen den Tagesaufgaben und dem Katalog: die Aufgaben sind "heute", der Katalog
-     ist "insgesamt", und die Liste vergleicht genau dieses Insgesamt. */
+     ➡️ Steht seit dem 03.09.2026 GANZ UNTEN (Karls Ansage: „move the Leaderboard to the
+     very bottom of the Achievements section"). Vorher sass sie zwischen den Tagesaufgaben
+     und dem Katalog.
+     💡 Was der Umzug nebenbei repariert: die Liste laedt aus dem Netz und war damit der
+     einzige Block auf dieser Seite, der spaeter nachwaechst -- mittendrin hat er beim
+     Eintreffen alles darunter nach unten geschoben, waehrend man las. Ganz unten
+     verschiebt er nichts mehr. */
   h += `<div class="row between" style="margin:22px 4px 6px"><h2>Bestenliste</h2>
       <span class="tiny muted">nach XP</span></div>`;
   if(bestenliste === false){
@@ -4543,34 +4713,7 @@ function renderErfolge(){
        weiter im Kopf von `supabase-bestenliste.sql`, damit er nicht ganz verlorengeht. */
   }
 
-  // ---- Der Katalog ----
-  const gruppen = [...new Set(ERFOLGE.map(e=>e.gr))];
-  gruppen.forEach(g => {
-    const liste = ERFOLGE.filter(e=>e.gr===g);
-    h += `<div class="row between" style="margin:20px 4px 6px"><h2>${esc(g)}</h2>
-        <span class="tiny muted">${liste.filter(e=>!erfolgOffen(e)).length}/${liste.length}</span></div>`;
-    h += `<div class="card">`;
-    liste.forEach((e,i) => {
-      const ist = e.ist(), fertig = !erfolgOffen(e);
-      const anteil = Math.max(0, Math.min(100, Math.round(ist / e.ziel * 100)));
-      const neuHier = frisch.has(e.id);
-      h += `<div class="${neuHier?'erf-frisch':''}" style="${i?'border-top:1px solid var(--line);margin-top:12px;padding-top:12px':''}">
-        <div class="row between" style="align-items:center;gap:10px">
-          <div class="row" style="gap:10px;min-width:0;align-items:center">
-            ${erfolgSvg(e, neuHier ? 'frisch' : fertig ? 'auf' : 'zu', 26)}
-            <div style="min-width:0">
-              <b style="${fertig?'':'color:var(--muted)'}">${esc(e.name)}</b>
-              <div class="tiny muted">${esc(e.text)}</div></div></div>
-          ${neuHier ? `<span class="tiny erf-neu-pill">NEU</span>`
-            : fertig ? `<span class="tiny" style="color:var(--ok);font-weight:700;white-space:nowrap">geschafft</span>`
-                   : `<span class="tiny muted" style="white-space:nowrap">${fmtZiel(ist)} / ${fmtZiel(e.ziel)}${e.xp?` · +${e.xp}`:''}</span>`}
-        </div>
-        ${fertig ? '' : `<div class="bar" style="margin-top:8px;height:6px;background:var(--card2);border-radius:99px;overflow:hidden">
-            <i style="display:block;height:100%;width:${anteil}%;background:var(--accent)"></i></div>`}
-      </div>`;
-    });
-    h += `</div>`;
-  });
+
   app.innerHTML = h;
   /* ⚠️ setNav() laeuft in render() VOR dieser Funktion -- die goldene Zahl waere also noch
      die alte. Hier also nochmal, nachdem oben abgehakt wurde. */
@@ -4716,7 +4859,7 @@ function renderSettings(){
 
 // ---------- Datenschutz ----------
 function renderPrivacy(){
-  let h=`<button class="link" data-nav="settings">‹ Einstellungen</button>
+  let h=`${zurueckPfeil('data-nav="settings"', 'Einstellungen')}
     <div class="card" style="line-height:1.7;font-size:13.5px">
       <h2 style="margin:0 0 10px">Datenschutz</h2>
 
@@ -4897,7 +5040,7 @@ async function adminTestVerbindung(dienst){
 function renderAdmin(){
   if(!devAdmin){ view='settings'; return renderSettings(); }
   const lp=levelFromXP(profile.xp), rank=rankForLevel(lp.level);
-  let h=`<button class="link" data-nav="settings">‹ Einstellungen</button>`;
+  let h=`${zurueckPfeil('data-nav="settings"', 'Einstellungen')}`;
   h+=`<div class="card"><div class="row" style="gap:10px">
       <div class="badge" style="width:34px;height:34px;flex:0 0 34px">${rankBadge(rank,26,'ad')}</div>
       <div><b>${esc(rank.name)}</b><div class="tiny muted">Level ${lp.level} · ${profile.xp} XP · ${lp.into}/${lp.need} bis nächstes</div></div></div></div>`;
@@ -4993,7 +5136,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.065';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.066';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -6325,7 +6468,7 @@ function confirmTwice(key,btn,label,run){ if(armed[key]){ clearTimeout(armed[key
 if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ if((profile.theme||'system')==='system') applyTheme(); }); }
 
 document.addEventListener('click',ev=>{
-  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-planwarm],[data-libnew],[data-useprog],[data-editprog],[data-delprog],[data-shareprog],[data-moveex],[data-openex],[data-delweight],[data-skin],[data-sdel],[data-sdelex],[data-sadd],[data-delmeal],[data-delfood],[data-pickfood],[data-again],[data-zielart],[data-testverbindung]');
+  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-planwarm],[data-libnew],[data-useprog],[data-editprog],[data-delprog],[data-shareprog],[data-moveex],[data-openex],[data-delweight],[data-skin],[data-sdel],[data-sdelex],[data-sadd],[data-delmeal],[data-delfood],[data-foodfav],[data-pickfood],[data-zielart],[data-testverbindung]');
   if(!t) return;
   // ---- Eine abgeschlossene Einheit korrigieren (Verlauf › Bearbeiten) ----
   if(t.dataset.sdel){ const [ei,si]=t.dataset.sdel.split(':').map(Number);
@@ -6347,15 +6490,22 @@ document.addEventListener('click',ev=>{
     k.meals=k.meals.filter(x=>x.id!==id); save(); render(); return; }
   // NEU: dasselbe nochmal essen. Kopiert den alten Eintrag mit heutigem Datum —
   // ⚠️ bewusst eine Kopie mit neuer id, kein Verschieben: der alte Tag bleibt stehen.
-  if(t.dataset.again){ const alt=kcalInit().meals.find(x=>x.id===t.dataset.again); if(!alt) return;
-    kcalInit().meals.push({...alt, id:uid(), date:Date.now()});
-    save(); render(); toast(alt.name+' nochmal eingetragen'); return; }
   // NEU: Vorhaben waehlen. Setzt gleich ein passendes Kalorienziel, damit der
   // Nutzer nicht zweimal etwas entscheiden muss.
   if(t.dataset.zielart){ const art=t.dataset.zielart; if(!ZIELE[art]) return;
     const k=kcalInit(); k.art=art;
     const v=kcalVorschlagFuer(art); if(v && !(k.goal>0)) k.goal=v;
     save(); render(); toast(ZIELE[art].name+(v?' · '+v+' kcal':'')); return; }
+  /* ⚠️ `stopPropagation`, sonst traegt der Klick auf den Stern das Lebensmittel gleich
+     ein: die ganze Zeile ist ein `data-pickfood`. Genau wie beim Loesch-Kreuz daneben. */
+  if(t.dataset.foodfav){ ev.stopPropagation();
+    const f=kcalInit().foods.find(x=>x.id===t.dataset.foodfav); if(!f) return;
+    f.fav=!f.fav; save();
+    /* Nur die Liste neu zeichnen, nicht die ganze Seite: `render()` wuerde das
+       Suchfeld leeren und die Tastatur am Handy zuklappen -- mitten im Suchen. */
+    const feld=document.getElementById('foodSearch');
+    renderFoodList(feld?feld.value:'');
+    toast(f.name+(f.fav?' ist ein Favorit':' ist kein Favorit mehr')); return; }
   if(t.dataset.delfood){ ev.stopPropagation(); const id=t.dataset.delfood, k=kcalInit();
     confirmTwice('df'+id,t,'Weg?',()=>{ k.foods=k.foods.filter(x=>x.id!==id); save(); render(); }); return; }
   if(t.dataset.pickfood){ const f=kcalInit().foods.find(x=>x.id===t.dataset.pickfood); if(!f) return;
@@ -6587,7 +6737,6 @@ document.addEventListener('click',ev=>{
   else if(a.startsWith('erinn:')){ const teile=a.split(':');
     erinnerungSetzen(teile[1], teile[2]==='an'); render();
     toast(teile[2]==='an' ? 'Erinnerung eingeschaltet' : 'Erinnerung ausgeschaltet'); }
-  else if(a.startsWith('gw:fenster:')){ gwFenster=a.split(':')[2]; render(); }
   else if(a==='addweight'){ const el=document.getElementById('wInput'); const v=el?el.value.replace(',','.'):'';
     if(addWeight(v)){ render(); toast('Eingetragen'); } else toast('Bitte ein Gewicht in kg eingeben'); }
   // ---- Kalorien: Essen eintragen ----

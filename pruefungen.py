@@ -1134,33 +1134,60 @@ window.addEventListener('error', e => {
     return (r.tage === 1 && r.schnitt === 1000) || JSON.stringify(r);
   });
 
-  t('Zuletzt gegessen: jede Sache nur einmal', () => {
-    const n = Date.now();
-    profile.kcal = {goal:2000, foods:[], meals:[
-      {id:'1', date:n-3*864e5, name:'Haferflocken', menge:'80 g', kcal:300, p:10, c:50, f:5},
-      {id:'2', date:n-2*864e5, name:'Haferflocken', menge:'80 g', kcal:300, p:10, c:50, f:5},
-      {id:'3', date:n-864e5,   name:'Quark',        menge:'250 g', kcal:170, p:30, c:8, f:1}
-    ]};
-    const l = zuletztGegessen(6);
-    return (l.length === 2 && l[0].name === 'Quark') || l.map(x=>x.name).join(',');
+  /* ---- Favoriten statt „Zuletzt gegessen" (03.09.2026, Karls Ansage) ----
+     Hier standen vier Pruefungen fuer `zuletztGegessen()`: jede Sache nur einmal, gleiche
+     Sache mit anderer Menge getrennt, Anzahl eingehalten, ohne Mahlzeiten leer.
+     🔴 Die Funktion ist weg, nicht nur ihre Anzeige -- „Nochmal" riet aus dem Verlauf,
+     was oft dran ist. Jetzt entscheidet der Nutzer per Stern.
+     ⚠️ Geprueft wird deshalb etwas anderes: nicht mehr, ob die Vorhersage stimmt,
+     sondern ob der Stern haelt, was er markiert. */
+  t('Ein Favorit steht am Lebensmittel, nicht an der Mahlzeit', () => {
+    profile.kcal = {goal:2000, meals:[], foods:[
+      {id:'f1', name:'Magerquark', kcal:67, p:12, c:4, f:0},
+      {id:'f2', name:'Haferflocken', kcal:370, p:13, c:59, f:7, fav:true}]};
+    const k = kcalInit();
+    if(istFavorit(k.foods[0])) return 'ohne Stern gilt es schon als Favorit';
+    return istFavorit(k.foods[1]) || 'der gesetzte Stern wird nicht gelesen';
   });
-  t('Zuletzt gegessen: gleiche Sache, andere Menge zaehlt getrennt', () => {
-    const n = Date.now();
-    profile.kcal = {goal:2000, foods:[], meals:[
-      {id:'1', date:n-864e5, name:'Haferflocken', menge:'80 g',  kcal:300, p:10, c:50, f:5},
-      {id:'2', date:n,       name:'Haferflocken', menge:'120 g', kcal:450, p:15, c:75, f:7}
-    ]};
-    return eq(zuletztGegessen(6).length, 2);
+  t('Favoriten stehen in der Liste oben', () => {
+    profile.kcal = {goal:2000, meals:[], foods:[
+      {id:'f1', name:'Apfel',  kcal:52,  p:0, c:14, f:0},
+      {id:'f2', name:'Banane', kcal:89,  p:1, c:23, f:0},
+      {id:'f3', name:'Quark',  kcal:67,  p:12, c:4, f:0, fav:true}]};
+    /* ⚠️ `renderFoodList` schreibt in ein Element, das es nur in der Essen-Ansicht gibt.
+       Statt die ganze Ansicht zu bauen, wird das Ziel hier gestellt -- geprueft wird die
+       Reihenfolge, nicht der Weg dorthin. */
+    const hilf = document.createElement('div'); hilf.id = 'foodList';
+    document.body.appendChild(hilf);
+    renderFoodList('');
+    const h = hilf.innerHTML;
+    hilf.remove();
+    const pQuark = h.indexOf('Quark'), pApfel = h.indexOf('Apfel');
+    if(pQuark < 0 || pApfel < 0) return 'Lebensmittel fehlen in der Liste';
+    if(pQuark > pApfel) return 'der Favorit steht nicht oben';
+    return h.includes('Favoriten') || 'keine Trennung Favoriten / Alle anderen';
   });
-  t('Zuletzt gegessen: Anzahl wird eingehalten', () => {
-    const n = Date.now();
-    profile.kcal = {goal:2000, foods:[], meals:
-      [1,2,3,4,5,6,7,8].map(i => ({id:'x'+i, date:n-i*864e5, name:'Essen '+i, menge:'100 g', kcal:100, p:1, c:1, f:1}))};
-    return eq(zuletztGegessen(6).length, 6);
+  t('Ohne Favoriten gibt es keine Trennlinie', () => {
+    profile.kcal = {goal:2000, meals:[], foods:[
+      {id:'f1', name:'Apfel', kcal:52, p:0, c:14, f:0}]};
+    const hilf = document.createElement('div'); hilf.id = 'foodList';
+    document.body.appendChild(hilf);
+    renderFoodList('');
+    const h = hilf.innerHTML;
+    hilf.remove();
+    return !h.includes('listen-kopf') || 'Trennung trotz null Favoriten';
   });
-  t('Ohne Mahlzeiten ist die Liste leer', () => {
-    profile.kcal = {goal:2000, foods:[], meals:[]};
-    return eq(zuletztGegessen(6).length, 0);
+  /* 🔴 Namen kommen aus der Tastatur und muessen entschaerft sein -- dieselbe Pruefung
+     gab es fuer die „Nochmal"-Liste, und sie gilt fuer die Favoriten genauso. */
+  t('Namen in der Lebensmittel-Liste sind entschaerft', () => {
+    const boese = '<scr' + 'ipt>böse</scr' + 'ipt>';
+    profile.kcal = {goal:2000, meals:[], foods:[{id:'x', name:boese, kcal:1, p:1, c:1, f:1, fav:true}]};
+    const hilf = document.createElement('div'); hilf.id = 'foodList';
+    document.body.appendChild(hilf);
+    renderFoodList('');
+    const h = hilf.innerHTML;
+    hilf.remove();
+    return (h.includes('&lt;scr' + 'ipt&gt;') && !h.includes(boese)) || 'ungefiltert';
   });
 
   // ---- Brock im Ernaehrungsteil ----
@@ -1749,7 +1776,11 @@ window.addEventListener('error', e => {
     const h = app.innerHTML;
     kcalInit().meals = mV; profile.erinnerungen = eV; session = sV;
     if (!h.includes('Essen eintragen')) return 'keine Erinnerung';
-    if (!h.includes('data-act="food:start"')) return 'kein Knopf zum Eintragen';
+    /* ⚠️ Seit dem 03.09.2026 fuehrt der Knopf zu den Mahlzeiten statt direkt ins
+       Eintragen -- eingetragen wird nur noch ueber einen Mahlzeiten-Knopf, und ein
+       Weg daran vorbei haette die Zuordnung wieder geraten. */
+    if (!h.includes('data-nav="body"')) return 'kein Weg zu den Mahlzeiten';
+    if (h.includes('data-act="food:start"')) return 'der alte Weg am Mahlzeiten-Block vorbei steht noch da';
     return true;
   });
   t('Nach einer Mahlzeit ist die Essens-Erinnerung weg', () => {
@@ -1994,14 +2025,16 @@ window.addEventListener('error', e => {
   // ---- Und der Einbau: rufen die drei Kurven in der App die Beschriftung auch auf? ----
   // ⚠️ Genau hier war am 27.08. dreimal die Luecke. Eine beschriftete Kurve nuetzt nichts,
   // wenn renderExDetail() sie ohne Zeitstempel aufruft.
-  t('Alle drei Kurven der App bekommen Zeitstempel mit', () => {
+  t('Beide Kurven der App bekommen Zeitstempel mit', () => {
     const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
     // ⚠️ Kein /lineChart\([^)]*\)/ -- die Aufrufe enthalten selbst Klammern (map(...)),
     // die Suche braeche mitten im Aufruf ab und faende dann ueberall „kein x:".
     const rufe = q.split('lineChart(').slice(1)
       .map(s => s.slice(0, 160))
       .filter(s => !s.startsWith('vals,w,h,opt'));
-    if (rufe.length !== 3) return 'erwartet 3 Aufrufe, gefunden ' + rufe.length;
+    /* ⚠️ Zwei, nicht mehr drei (03.09.2026): die Gewichtskurve ist auf Karls Ansage
+       ganz entfallen, uebrig sind die zwei Kurven der Uebungs-Historie. */
+    if (rufe.length !== 2) return 'erwartet 2 Aufrufe, gefunden ' + rufe.length;
     const ohne = rufe.filter(s => s.indexOf('{x:') < 0);
     return ohne.length === 0 || 'ohne Datum: ' + ohne.join(' // ');
   });
@@ -2013,11 +2046,9 @@ window.addEventListener('error', e => {
      gelten fuer die Verlauf-Seite nicht -- sie war schon vorher ohne Anmeldung erreichbar
      (der Trainingsverlauf ist es auch). Weniger Aufbau bedeutet hier nicht weniger
      Pruefung, sondern dass die Huerde nie existiert hat. */
-  t('Der Koerpergewichts-Verlauf zeigt Datum und Kilogramm', () => {
+  t('Der Gewichts-Verlauf zeigt die Eintraege mit Datum und Kilogramm', () => {
     // ⚠️ `render()` verlangt fuer JEDE Ansicht eine Sitzung (die Anmeldeseite kommt sonst
-    // zuerst) -- das ist keine Eigenheit des Koerper-Tabs. Der Kalorien-Assistent dagegen
-    // wird nur von renderBody abgefragt (kcalBraucht()) und spielt fuer renderHistory
-    // keine Rolle, deshalb bleibt kobErzwingen hier unangetastet.
+    // zuerst) -- das ist keine Eigenheit des Koerper-Tabs.
     const wVorher = profile.weights, sessVorher = sessions, sVorher = session;
     session = {user:{id:'test'}, expires_at: Date.now() + 3600e3, access_token:'x'};
     sessions = [];
@@ -2029,10 +2060,14 @@ window.addEventListener('error', e => {
     const h = app.innerHTML;
     profile.weights = wVorher; sessions = sessVorher; session = sVorher;
     view = 'home'; render();
-    if (!h.includes('chart-y')) return 'keine Seitenbeschriftung';
-    if (!h.includes('chart-x')) return 'keine Beschriftung unten';
-    if (!h.includes('80 kg')) return 'hoechster Wert fehlt an der Achse';
-    if (!h.includes('01.08.') || !h.includes('20.08.')) return 'Datum fehlt unten';
+    /* 🔴 Die Gegenprobe zur Ansage vom 03.09.2026 („die kurve fuer gewicht soll nicht im
+       verlauf stehen, nur die eintragungen"): es reicht nicht, dass die Eintraege da sind
+       -- es darf auch keine Kurve mehr da sein. Ohne diese Zeile waere die Pruefung auch
+       dann gruen, wenn die Kurve einfach stehengeblieben waere. */
+    if (h.includes('chart-plot')) return 'die Kurve steht noch im Verlauf';
+    if (h.includes('gw:fenster:')) return 'die Zeitraum-Wahl steht noch da';
+    if (!h.includes('01.08.') || !h.includes('20.08.')) return 'Datum fehlt';
+    if (!h.includes('80 kg') || !h.includes('77 kg')) return 'Kilogramm fehlen';
     return true;
   });
   /* ✅ Und die Gegenprobe zur Ansage selbst: im KOERPER-Tab steht die Kurve nicht
@@ -2052,127 +2087,16 @@ window.addEventListener('error', e => {
     return /data-nav="history"/.test(h) || 'kein Weg zum Verlauf';
   });
 
-  /* ---- Zeitraum der Gewichtskurve (Karls Ansage 01.09.2026) ----
-     „ich will das die kurve fuer das gewicht zeitlich einstellbar ist 1 woche 1 monat
-     1 jahr max". Geprueft wird beides: der Filter allein UND was in der Ansicht ankommt
-     — der Fund vom selben Tag war eine Lehre, die nur an einer von zwei Stellen
-     eingebaut war. */
+  /* ---- Der Zeitraum der Gewichtskurve ist am 03.09.2026 entfallen ----
+     Hier standen elf Pruefungen: vier fuer `weightImFenster()` (1 Woche / 1 Monat /
+     1 Jahr / Max), dazu die Knoepfe, das Schneiden der Kurve und die leeren Zeitraeume.
+     🔴 Sie sind mit der Sache verschwunden, nicht mit ihrer Anzeige -- `GW_FENSTER`,
+     `gwFenster` und `weightImFenster()` gibt es nicht mehr. Pruefungen fuer geloeschten
+     Code laufen entweder rot oder, schlimmer, gruen gegen eine Attrappe.
+     ⚠️ Die eine Pruefung darunter, die den Zeitraum NICHT braucht, bleibt: die drei
+     Kaesten im Koerper-Tab zeigen weiter Start / Aktuell / seit Start. */
   const gwTage = n => Date.now() - n*864e5;
-  // Baut die Koerperansicht mit vorgegebenen Wiegungen und gibt ihr HTML zurueck.
-  // ⚠️ Dieselben drei schweigenden Huerden wie oben: ohne `session` kommt die
-  // Anmeldeseite, ohne Kalorien-Ziel der Einrichtungs-Assistent, und `kobErzwingen`
-  // haelt ihn selbst dann oben.
-  /* ⚠️ Seit dem 02.09.2026 view='history' statt 'body' -- die Kurve zog in den
-     Verlauf um, die drei alten Huerden (Anmeldung, Kalorien-Assistent) gelten dort nicht. */
-  function koerperHtml(gewichte, fenster, klick){
-    const wV=profile.weights, sessV=sessions, fV=gwFenster, sV=session;
-    session={user:{id:'test'}, expires_at:Date.now()+3600e3, access_token:'x'};
-    sessions=[];
-    profile.weights=gewichte; gwFenster=fenster||'max';
-    view='history'; render();
-    let fehlt=null;
-    if(klick){ const b=document.querySelector('[data-act="gw:fenster:'+klick+'"]');
-               if(b) b.click(); else fehlt=klick; }
-    const h=app.innerHTML, f=gwFenster;
-    profile.weights=wV; sessions=sessV; gwFenster=fV; session=sV;
-    view='home'; render();
-    return {h:h, fenster:f, fehlt:fehlt};
-  }
-  // Punkte der gezeichneten Kurve zaehlen. ⚠️ Nicht ueber eine Textsuche: die
-  // Rasterlinien tragen dieselben x1/y1 — nur die Strichstaerke 5.2 gehoert den Punkten.
-  const kurvenPunkte = html => { const d=document.createElement('div'); d.innerHTML=html;
-    return d.querySelectorAll('.chart-plot line[stroke-width="5.2"]').length; };
 
-  t('Eine Woche nimmt nur die letzten sieben Tage', () => {
-    const vorher = profile.weights;
-    profile.weights = [{date:gwTage(40),kg:82},{date:gwTage(20),kg:80},
-                       {date:gwTage(3),kg:79},{date:gwTage(1),kg:78.5}];
-    const w = weightImFenster('woche').map(x=>x.kg);
-    profile.weights = vorher;
-    return JSON.stringify(w)==='[79,78.5]' || JSON.stringify(w);
-  });
-  t('Max nimmt alles', () => {
-    const vorher = profile.weights;
-    profile.weights = [{date:gwTage(900),kg:90},{date:gwTage(1),kg:78}];
-    const n = weightImFenster('max').length;
-    profile.weights = vorher;
-    return eq(n, 2);
-  });
-  t('Ein Jahr laesst Aelteres draussen, ein Monat auch', () => {
-    const vorher = profile.weights;
-    profile.weights = [{date:gwTage(400),kg:90},{date:gwTage(60),kg:84},
-                       {date:gwTage(2),kg:80}];
-    const j = weightImFenster('jahr').length, m = weightImFenster('monat').length;
-    profile.weights = vorher;
-    return (j===2 && m===1) || 'Jahr='+j+' Monat='+m;
-  });
-  t('Ein unbekannter Zeitraum faellt auf Max zurueck', () => {
-    const vorher = profile.weights;
-    profile.weights = [{date:gwTage(900),kg:90},{date:gwTage(1),kg:78}];
-    const n = weightImFenster('quatsch').length;
-    profile.weights = vorher;
-    return eq(n, 2);
-  });
-  /* 🔴 Die Grenze zaehlt ab HEUTE, nicht ab dem letzten Eintrag. Wer nach drei
-     Monaten Pause „1 Woche" waehlt, soll einen leeren Zeitraum sehen und nicht die
-     Woche von vor drei Monaten unter der Ueberschrift „1 Woche". */
-  t('Ein leerer Zeitraum bleibt leer und schiebt sich nicht zurueck', () => {
-    const vorher = profile.weights;
-    profile.weights = [{date:gwTage(95),kg:82},{date:gwTage(90),kg:81}];
-    const n = weightImFenster('woche').length;
-    profile.weights = vorher;
-    return eq(n, 0);
-  });
-
-  t('Vier Zeitraeume stehen ueber der Kurve, genau einer ist gewaehlt', () => {
-    const r = koerperHtml([{date:gwTage(20),kg:80},{date:gwTage(2),kg:79}]);
-    const d = document.createElement('div'); d.innerHTML = r.h;
-    const knoepfe = [...d.querySelectorAll('[data-act^="gw:fenster:"]')];
-    if(knoepfe.length !== 4) return 'erwartet 4 Knoepfe, gefunden ' + knoepfe.length;
-    const an = knoepfe.filter(b => b.classList.contains('on'));
-    if(an.length !== 1) return an.length + ' Knoepfe gleichzeitig gewaehlt';
-    return an[0].getAttribute('data-act')==='gw:fenster:max'
-      || 'gewaehlt ist ' + an[0].getAttribute('data-act');
-  });
-  /* 🔴 Die Gegenprobe zum Knopf: nicht „steht der Knopf da", sondern
-     „schneidet er die Kurve wirklich". Sieben Wiegungen, davon zwei in der letzten
-     Woche — bei „Max" muessen sieben Punkte gezeichnet sein, bei „1 Woche"
-     zwei. Ein Knopf, der nur seine eigene Farbe aendert, faellt genau hier durch. */
-  t('Ein Klick auf 1 Woche schneidet die Kurve wirklich', () => {
-    const gew = [{date:gwTage(300),kg:86},{date:gwTage(200),kg:84},
-                 {date:gwTage(100),kg:83},{date:gwTage(40),kg:81},
-                 {date:gwTage(20),kg:80},{date:gwTage(5),kg:79},
-                 {date:gwTage(1),kg:78.5}];
-    const alle = koerperHtml(gew);
-    const woche = koerperHtml(gew, 'max', 'woche');
-    if(woche.fehlt) return 'Knopf ' + woche.fehlt + ' nicht gefunden';
-    if(woche.fenster !== 'woche') return 'Klick hat den Zeitraum nicht umgestellt';
-    const a = kurvenPunkte(alle.h), b = kurvenPunkte(woche.h);
-    return (a===7 && b===2) || 'Max=' + a + ' Punkte, Woche=' + b;
-  });
-  t('Der Klick laesst den Zeitraum auch nach dem Neuzeichnen stehen', () => {
-    const gew = [{date:gwTage(300),kg:86},{date:gwTage(2),kg:79}];
-    const r = koerperHtml(gew, 'max', 'jahr');
-    const d = document.createElement('div'); d.innerHTML = r.h;
-    const an = d.querySelector('[data-act^="gw:fenster:"].on');
-    return (an && an.getAttribute('data-act')==='gw:fenster:jahr')
-      || 'gewaehlt ist ' + (an ? an.getAttribute('data-act') : 'nichts');
-  });
-  /* 🔴 Kein toter Punkt. Ein Zeitraum ohne zwei Messungen darf keine leere Karte
-     zeigen — dann sieht es aus, als sei die App kaputt. Er sagt, dass nichts da ist,
-     und nennt den naechsten Zeitraum, in dem etwas steht. */
-  t('Ein Zeitraum ohne Kurve sagt das und nennt den naechsten', () => {
-    const gew = [{date:gwTage(200),kg:84},{date:gwTage(150),kg:82}];
-    const r = koerperHtml(gew, 'max', 'woche');
-    if(kurvenPunkte(r.h) !== 0) return 'trotzdem eine Kurve gezeichnet';
-    if(!/Kein Eintrag in diesem Zeitraum/.test(r.h)) return 'kein Hinweis auf den leeren Zeitraum';
-    return /Unter .1 Jahr/.test(r.h) || 'der naechste Zeitraum wird nicht genannt';
-  });
-  t('Ein einziger Eintrag im Zeitraum sagt, dass zwei noetig sind', () => {
-    const gew = [{date:gwTage(200),kg:84},{date:gwTage(2),kg:79}];
-    const r = koerperHtml(gew, 'max', 'woche');
-    return /Nur ein Eintrag in diesem Zeitraum/.test(r.h) || 'falscher oder kein Hinweis';
-  });
   /* 🔴 Die drei Kaesten oben zeigen weiter die ganze Geschichte, die Kurve darunter
      nur den Zeitraum. „kg seit Start" haelt die beiden auseinander — ohne das Wort
      liest man bei „1 Woche" die Differenz eines halben Jahres als die der Woche. */
@@ -2189,22 +2113,10 @@ window.addEventListener('error', e => {
     if(!h.includes('kg seit Start')) return 'die Differenz sagt nicht, worauf sie sich bezieht';
     return !h.includes('kg Differenz') || 'die alte, mehrdeutige Beschriftung steht noch da';
   });
-  /* Die Spanne neben der Ueberschrift beschreibt die GEZEIGTE Kurve, nicht alle Daten.
-     ⚠️ Gelesen wird genau der eine Span neben „Verlauf" und nicht die ganze Seite:
-     die Liste „Eintraege" darunter zeigt weiterhin ALLE Wiegungen — dort steht die
-     90 voellig zu Recht, und eine Textsuche ueber das ganze HTML faende sie dort. */
-  t('Die Spanne neben Verlauf gilt dem gewaehlten Zeitraum', () => {
-    const gew = [{date:gwTage(300),kg:90},{date:gwTage(5),kg:79},{date:gwTage(1),kg:78}];
-    const r = koerperHtml(gew, 'max', 'woche');
-    const d = document.createElement('div'); d.innerHTML = r.h;
-    const kopf = [...d.querySelectorAll('h2')].find(x => x.textContent.trim()==='Verlauf');
-    if(!kopf) return 'keine Ueberschrift Verlauf';
-    const span = kopf.parentElement.querySelector('span.tiny.muted');
-    if(!span) return 'keine Spanne neben der Ueberschrift';
-    const txt = span.textContent;
-    if(txt.includes('90')) return 'die Spanne zeigt noch den Wert von ausserhalb: ' + txt;
-    return (txt.includes('78') && txt.includes('79')) || 'Spanne des Zeitraums fehlt: ' + txt;
-  });
+  /* Die Spanne „78-79 kg" neben der Ueberschrift „Verlauf" ist am 03.09.2026 mit der
+     Kurve entfallen -- sie beschrieb den gewaehlten Zeitraum, und den gibt es nicht mehr.
+     Die Ueberschrift „Gewicht" traegt jetzt die Zahl der Eintraege, das prueft die
+     Verlauf-Pruefung weiter oben mit. */
 
   // ---- Verlauf je Uebung ----
   t('Verlauf nimmt nur abgehakte Saetze', () => {
@@ -2617,6 +2529,22 @@ window.addEventListener('error', e => {
   // Tag XP kriegen fuer wenn man was gemacht hat, weil an manchen Tagen machst du ja nichts."
   // JEDE verbliebene Aufgabe verlangt eine Handlung -- „App geoeffnet" ist ersatzlos raus.
   t('Aufgaben bringen hoechstens 25 XP am Tag', () => eq(AUFGABEN_MAX, 25));
+  /* 🔴 Die Gegenprobe zur Aufteilung vom 03.09.2026: „Mahlzeit" und „Gewicht" sind zwei
+     eigene Aufgaben, und die eine abzuhaken laesst die andere offen. Vorher war es eine
+     Aufgabe, die beides abdeckte -- wer wog, sah nicht mehr, dass das Essen fehlt. */
+  t('Mahlzeit und Gewicht sind getrennte Aufgaben', () => {
+    const ids = AUFGABEN.map(a=>a.id);
+    if(ids.indexOf('ein') >= 0) return 'die alte Sammel-Aufgabe steht noch da';
+    return (ids.indexOf('mahlzeit')>=0 && ids.indexOf('gewicht')>=0) || 'ids: ' + ids.join(',');
+  });
+  t('Gewicht eintragen laesst die Mahlzeit-Aufgabe offen', () => {
+    const aV = profile.aufgaben, xV = profile.xp;
+    profile.aufgaben = { tag:'', fertig:{} };
+    aufgabeErledigen('gewicht');
+    const mOffen = !aufgabeFertig('mahlzeit'), gFertig = aufgabeFertig('gewicht');
+    profile.aufgaben = aV; profile.xp = xV;
+    return (mOffen && gFertig) || 'Mahlzeit offen=' + mOffen + ' Gewicht fertig=' + gFertig;
+  });
   t('Keine Aufgabe fuers blosse Oeffnen der App', () => {
     if (AUFGABEN.some(a => a.id === 'auf')) return 'Reingeschaut steht wieder in der Liste';
     // ⚠️ Und der Einbau, nicht nur die Liste: solange die Startfolge sie noch abhakt, gaebe
@@ -2634,24 +2562,24 @@ window.addEventListener('error', e => {
   t('Eine erledigte Aufgabe gibt ihre XP', () => {
     profile.aufgaben = { tag:'', fertig:{} };
     const vorher = profile.xp;
-    const gab = aufgabeErledigen('ein');
+    const gab = aufgabeErledigen('mahlzeit');
     const delta = profile.xp - vorher;
     profile.aufgaben = { tag:'', fertig:{} }; profile.xp = vorher;
-    return (gab && delta === 10) || 'gab=' + gab + ' delta=' + delta;
+    return (gab && delta === 5) || 'gab=' + gab + ' delta=' + delta;
   });
   t('Dieselbe Aufgabe zweimal am Tag zaehlt nur einmal', () => {
     profile.aufgaben = { tag:'', fertig:{} };
     const vorher = profile.xp;
-    aufgabeErledigen('ein');
-    const nochmal = aufgabeErledigen('ein');
+    aufgabeErledigen('mahlzeit');
+    const nochmal = aufgabeErledigen('mahlzeit');
     const delta = profile.xp - vorher;
     profile.aufgaben = { tag:'', fertig:{} }; profile.xp = vorher;
-    return (nochmal === false && delta === 10) || 'nochmal=' + nochmal + ' delta=' + delta;
+    return (nochmal === false && delta === 5) || 'nochmal=' + nochmal + ' delta=' + delta;
   });
   // Der Tageswechsel wird beim LESEN geprueft, nicht per Timer - ein Timer um Mitternacht
   // liefe nur, solange die App offen ist, und die ist sie nachts nie.
   t('Am naechsten Tag stehen die Aufgaben wieder offen', () => {
-    profile.aufgaben = { tag:'2020-01-01', fertig:{ auf:true, ein:true, train:true } };
+    profile.aufgaben = { tag:'2020-01-01', fertig:{ auf:true, mahlzeit:true, gewicht:true, train:true } };
     const offen = aufgabenOffen();
     profile.aufgaben = { tag:'', fertig:{} };
     return eq(offen, AUFGABEN.length);
@@ -2918,6 +2846,41 @@ window.addEventListener('error', e => {
     const n = erfolgeNeu().length;
     view = merkV; profile.erfolgeGesehen = merkG; sessions = merkS;
     return eq(n, 0);
+  });
+
+  /* ---- Karls Ansagen vom 03.09.2026 an der Erfolgs-Seite ---- */
+  t('Die Bestenliste steht ganz unten, hinter dem Katalog', () => {
+    const merkV = view; view = 'erfolge'; renderErfolge();
+    const h = app.innerHTML;
+    view = merkV;
+    const pBeste = h.indexOf('Bestenliste');
+    /* Der Katalog wird ueber seine Gruppen gefunden -- „Körper" ist die letzte davon
+       (Reihenfolge steht in ERFOLGE) und muss VOR der Bestenliste stehen. */
+    const pKatalog = h.lastIndexOf('Körper');
+    if(pBeste < 0) return 'keine Bestenliste';
+    if(pKatalog < 0) return 'kein Katalog gefunden';
+    return pBeste > pKatalog || 'die Bestenliste steht noch vor dem Katalog';
+  });
+  t('Der Erfolg fuer 100 Wiegungen ist da und zaehlt Wiegungen', () => {
+    const e = ERFOLGE.find(x => x.id === 'k3');
+    if(!e) return 'kein Erfolg k3';
+    if(e.ziel !== 100) return 'Ziel ist ' + e.ziel + ', nicht 100';
+    const wV = profile.weights;
+    profile.weights = new Array(99).fill(0).map((_, i) => ({ date: Date.now() - i*864e5, kg: 80 }));
+    const bei99 = erfolgOffen(e);
+    profile.weights.push({ date: Date.now() - 99*864e5, kg: 80 });
+    const bei100 = erfolgOffen(e);
+    profile.weights = wV;
+    /* 🔴 Beide Richtungen: bei 99 muss er ZU sein. Ein Erfolg, der immer offen ist,
+       besteht eine Pruefung, die nur „bei 100 auf" fragt. */
+    return (bei99 === true && bei100 === false) || 'bei99 offen=' + bei99 + ' bei100 offen=' + bei100;
+  });
+  t('Das Symbol des neuen Erfolgs gibt es wirklich', () => {
+    const e = ERFOLGE.find(x => x.id === 'k3');
+    /* ⚠️ `erfolgSvg` faellt bei einem unbekannten Namen still auf `stern1` zurueck --
+       ein Tippfehler im Symbolnamen waere also unsichtbar. Deshalb wird hier der
+       Vorrat selbst gefragt, nicht die Ausgabe. */
+    return !!ERFOLG_SVG[e.svg] || 'unbekanntes Symbol: ' + e.svg;
   });
 
   // ---- Das Board oben ----
@@ -4467,8 +4430,81 @@ window.addEventListener('error', e => {
     return (h.includes('von 160 g') && h.includes('Trainingstag')) || 'kein erhoehtes Ziel';
   });
   t('Der Eiweissbalken ist da', () => bauen().includes('border-radius:99px') || 'kein Balken');
+  /* ---- Zurueck-Pfeile (03.09.2026, Karls Ansage) ----
+     „replace all small text-based back links, use a back-arrow icon only, increase the
+     tap target." Geprueft wird an der Quelle, weil die acht Stellen ueber die ganze App
+     verteilt sind und nicht alle in einer Ansicht zu bauen waeren. */
+  t('Kein Zurueck-Link traegt mehr Text', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    /* Gesucht wird das alte Muster: ein Chevron mit Wort dahinter im HTML. In den
+       Kommentaren steht es noch (dort wird der Umbau erklaert) -- deshalb nur dort,
+       wo auch ein button-Tag steht. */
+    const treffer = q.split('<button').filter(x => /^[^>]*class="link"[^>]*>\s*‹/.test(x));
+    return treffer.length === 0 || treffer.length + ' Textlinks stehen noch da';
+  });
+  t('Der Zurueck-Pfeil hat eine Trefferflaeche von 44 px', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const i = q.indexOf('.zurueck{');
+    if(i < 0) return 'kein CSS fuer den Zurueck-Pfeil';
+    const m = q.slice(i, i + 200).match(/width:(\d+)px/);
+    if(!m) return 'keine Breite gefunden';
+    return (+m[1]) >= 44 || 'nur ' + m[1] + ' px';
+  });
+  /* 🔴 Sichtbar ist nur ein Pfeil -- wer die Seite vorgelesen bekommt, braucht trotzdem
+     das Ziel. Ohne aria-label hiesse jeder dieser acht Knoepfe nur „Schaltflaeche". */
+  t('Jeder Zurueck-Pfeil sagt, wohin er fuehrt', () => {
+    const mV = view; view = 'food'; const mS = foodStep; foodStep = 'list';
+    renderFood();
+    const b = document.querySelector('.zurueck');
+    const label = b && b.getAttribute('aria-label');
+    view = mV; foodStep = mS; render();
+    if(!b) return 'kein Zurueck-Pfeil in der Essen-Ansicht';
+    return (label && /Zurück zu /.test(label)) || 'aria-label=' + label;
+  });
+
+  /* ---- Karls Ansagen vom 03.09.2026 an der Kalorien-Ansicht ---- */
+  t('Brock steht oben, vor der Ueberschrift Heute', () => {
+    const h = bauen();
+    const pBrock = h.indexOf('brock-oben'), pHeute = h.indexOf('<h2>Heute</h2>');
+    if(pBrock < 0) return 'Brock steht nicht mehr in der Ansicht';
+    if(pHeute < 0) return 'keine Ueberschrift Heute';
+    return pBrock < pHeute || 'Brock steht noch unter der Ueberschrift';
+  });
+  /* 🔴 Die Gegenprobe: Brock ist EINMAL da, nicht zweimal. Beim Umzug bleibt leicht die
+     alte Stelle stehen -- zwei Figuren waeren auf dem Bildschirm sofort zu sehen, in
+     einer Textsuche nach „brock-oben" aber nicht. */
+  t('Brock steht nur einmal in der Ansicht', () => {
+    const n = bauen().split('class="bubble kcal-bubble"').length - 1;
+    return n === 1 || n + ' Sprechblasen statt einer';
+  });
+  t('Die Mahlzeiten-Knoepfe sind weiss', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const i = q.indexOf('.mz-plus{');
+    if(i < 0) return 'kein CSS fuer die Mahlzeiten-Knoepfe';
+    const block = q.slice(i, i + 400);
+    return block.indexOf('background:#fff') >= 0 || 'kein weisser Hintergrund: ' + block.slice(0,120);
+  });
+  /* 🔴 Der Knopf ist seit derselben Ansage der EINZIGE Weg ins Essen-Eintragen -- dann
+     muss er auch zu treffen sein. 44 px ist das Mindestmass von Apple, 32 waren es
+     vorher. Geprueft wird die Zahl im CSS, nicht das Aussehen. */
+  t('Der Mahlzeiten-Knopf ist gross genug zum Tippen', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const i = q.indexOf('.mz-plus{');
+    const block = q.slice(i, i + 200);
+    const m = block.match(/width:(\d+)px/);
+    if(!m) return 'keine Breite gefunden';
+    return (+m[1]) >= 44 || 'nur ' + m[1] + ' px breit';
+  });
   t('Wochenschnitt steht in der Ansicht', () => bauen().includes('Schnitt der letzten 7 Tage') || 'fehlt');
-  t('Nochmal-Liste steht in der Ansicht', () => bauen().includes('data-again') || 'fehlt');
+  /* Die „Nochmal"-Liste ist am 03.09.2026 entfallen (Favoriten stehen jetzt in der
+     Essen-Ansicht). Was hier bleibt, ist die Gegenprobe zur zweiten Ansage desselben
+     Tages: der allgemeine Eintrag-Knopf ist weg, eingetragen wird nur ueber die
+     Mahlzeiten-Knoepfe. */
+  t('Kein Weg am Mahlzeiten-Block vorbei', () => {
+    const h = bauen();
+    if(h.includes('data-act="food:start"')) return 'der allgemeine Eintrag-Knopf steht noch da';
+    return h.includes('data-act="food:start:') || 'keine Mahlzeiten-Knoepfe';
+  });
   t('Ohne Gewicht: Hinweis statt Eiweissziel', () => {
     profile.weights = [];
     const h = bauen();
@@ -4655,11 +4691,19 @@ window.addEventListener('error', e => {
     return kobBauen().includes('Essen mitschreiben') || 'kommt nicht wieder';
   });
   // ⚠️ Karls Ansage: "brock kann gerne links neben den kalorin kreis."
-  t('Brock steht links vom Ring', () => {
+  /* ⚠️ Hiess bis zum 03.09.2026 „Brock steht links vom Ring" und prueft doch nur, dass
+     er im HTML VOR dem Ring steht. Beim Umzug nach oben (Karls Ansage desselben Tages)
+     blieb sie gruen, obwohl Brock gar nicht mehr neben dem Ring sitzt -- der Name sagte
+     etwas anderes als der Inhalt. Jetzt heisst sie, was sie tut, und prueft die neue
+     Lage: Brock steht in seiner eigenen Karte oben, der Ring darunter. */
+  t('Brock steht vor dem Ring, in eigener Karte', () => {
     kobDurch('halten', 8, 80);
     const h = kobBauen();
-    return (h.indexOf('class="mon"') < h.indexOf('<svg viewBox="0 0 130 130"')
-            && h.indexOf('class="mon"') >= 0) || 'Brock steht nicht links';
+    const pB = h.indexOf('class="mon"'), pR = h.indexOf('<svg viewBox="0 0 130 130"');
+    if(pB < 0) return 'Brock fehlt ganz';
+    if(pR < 0) return 'der Ring fehlt';
+    if(pB > pR) return 'Brock steht hinter dem Ring';
+    return h.indexOf('brock-oben') >= 0 || 'Brock sitzt nicht in seiner eigenen Karte';
   });
   kobErzwingen = false; kobDraft = null;
   profile.kcal = JSON.parse(KOB_SICHER);
@@ -4671,18 +4715,6 @@ window.addEventListener('error', e => {
   t('Leerer Tag baut trotzdem', () => {
     profile.weights = []; profile.kcal = {goal:null, foods:[], meals:[]};
     return bauen().length > 100 || 'leere Ansicht';
-  });
-  t('Ohne Eintraege keine Nochmal-Liste', () => !bauen().includes('data-again') || 'Liste trotz nichts');
-  t('Namen in der Nochmal-Liste sind entschaerft', () => {
-    // ⚠️ Der Angriffsstring wird zusammengesetzt. Stuende '</scr'+'ipt>' hier am Stueck,
-    // wuerde der Browser den umgebenden script-Block an dieser Stelle schliessen — die
-    // Pruefdatei zerlegte sich selbst. Genau das ist beim ersten Lauf passiert.
-    const boese = '<scr' + 'ipt>böse</scr' + 'ipt>';
-    const n = Date.now();
-    profile.kcal = {goal:2000, foods:[], meals:[
-      {id:'x', date:n-864e5, name:boese, menge:'1', kcal:1, p:1, c:1, f:1}]};
-    const h = bauen();
-    return (h.includes('&lt;scr' + 'ipt&gt;') && !h.includes(boese)) || 'ungefiltert';
   });
 
   profile.kcal = JSON.parse(KCAL_VORHER); profile.weights = JSON.parse(GEW_VORHER);
@@ -5100,6 +5132,74 @@ window.addEventListener('error', e => {
     const f = foodFehler, schritt = foodStep;
     window.fetch = mF; foodStep = mS; view = mV; foodFehler = '';
     return (/503/.test(f) && schritt === 'list') || 'Fehler="' + f + '" Schritt=' + schritt;
+  });
+  /* ---------- Karls Meldung vom 03.09.2026 ----------
+     „einen fehler als ich was gesucht habe, als ich dann nochmal gesucht habe hat es
+     sofort funktioniert." Nachgemessen an dem Abend: fuenf Anfragen an die alte
+     `cgi/search.pl`, vier davon 503. Es ist keine Drosselung nach Anzahl, die alte
+     Perl-Suche lehnt unter Last zufaellig ab.
+     🔴 Die Pruefung darueber deckt den Dauerfehler ab (alles 503). Karls Fall ist der
+     andere: EINMAL 503, dann geht es. Genau der war ungeprueft -- und genau der ist der
+     haeufige. */
+  await tA('Ein einzelner Fehlschlag wird wiederholt, statt den Nutzer zu stoeren', async () => {
+    const mF = window.fetch, mS = foodStep, mV = view, mT = dbTreffer;
+    let rufe = 0;
+    window.fetch = async () => {
+      rufe++;
+      if(rufe === 1) return { ok:false, status:503, json: async () => ({}) };
+      return { ok:true, json: async () => ({ hits:[
+        { code:'1', product_name:'Quark', brands:['Ehrmann'],
+          nutriments:{ 'energy-kcal_100g':66, proteins_100g:12 } } ] }) };
+    };
+    await dbSuche('quark');
+    const f = foodFehler, schritt = foodStep, n = dbTreffer.length, r = rufe;
+    window.fetch = mF; foodStep = mS; view = mV; dbTreffer = mT; foodFehler = '';
+    if(r < 2) return 'nach dem 503 wurde nicht noch einmal gefragt (Rufe=' + r + ')';
+    if(f) return 'trotz geglueckter Wiederholung steht ein Fehler da: ' + f;
+    return (schritt === 'db' && n === 1) || 'Schritt=' + schritt + ' Treffer=' + n;
+  });
+  /* Der neue Suchdienst zuerst -- er war in der Messung 6 von 6 mal erreichbar, die alte
+     Suche 1 von 5. Waere die Reihenfolge umgekehrt, liefe der haeufige Fall weiter ins
+     Wartezimmer. */
+  await tA('Gefragt wird zuerst der neue Suchdienst', async () => {
+    const mF = window.fetch, mS = foodStep, mV = view, mT = dbTreffer;
+    let erste = '';
+    window.fetch = async (u) => {
+      if(!erste) erste = String(u);
+      return { ok:true, json: async () => ({ hits:[] }) };
+    };
+    await dbSuche('quark');
+    window.fetch = mF; foodStep = mS; view = mV; dbTreffer = mT; foodFehler = '';
+    return erste.indexOf('search.openfoodfacts.org') >= 0
+      || 'zuerst gefragt wurde: ' + erste;
+  });
+  /* 🔴 Die zwei Wege liefern verschiedene Formen. Der neue nennt die Trefferliste `hits`
+     und `brands` ein ARRAY -- die alte Suche einen String. Ohne die Weiche in
+     `offNachDraft` wirft `.split` mitten in `.map()`, und die ganze Liste bliebe leer:
+     ein Fehlschlag, der wie „nichts gefunden" aussieht. Dieselbe Bauform wie der Fund
+     vom 01.09. */
+  await tA('Marken als Array brechen die Trefferliste nicht', async () => {
+    const mF = window.fetch, mS = foodStep, mV = view, mT = dbTreffer;
+    window.fetch = async () => ({ ok:true, json: async () => ({ hits:[
+      { code:'1', product_name:'Skyr', brands:['Arla','Lidl'],
+        nutriments:{ 'energy-kcal_100g':63, proteins_100g:11 } } ] }) });
+    await dbSuche('skyr');
+    const n = dbTreffer.length, marke = dbTreffer[0] && dbTreffer[0].marke;
+    window.fetch = mF; foodStep = mS; view = mV; dbTreffer = mT; foodFehler = '';
+    if(n !== 1) return 'Treffer=' + n + ' -- das Array hat die Liste zerlegt';
+    return marke === 'Arla' || 'Marke=' + marke;
+  });
+  /* Und die alte Form muss weiter gehen: der Ausweichweg liefert `products` und einen
+     String. Faellt der weg, taugt das Ausweichen nichts. */
+  await tA('Die alte Antwortform wird weiterhin gelesen', async () => {
+    const mF = window.fetch, mS = foodStep, mV = view, mT = dbTreffer;
+    window.fetch = async () => ({ ok:true, json: async () => ({ products:[
+      { code:'2', product_name:'Harzer', brands:'Loose,Aldi',
+        nutriments:{ 'energy-kcal_100g':125, proteins_100g:30 } } ] }) });
+    await dbSuche('harzer');
+    const n = dbTreffer.length, marke = dbTreffer[0] && dbTreffer[0].marke;
+    window.fetch = mF; foodStep = mS; view = mV; dbTreffer = mT; foodFehler = '';
+    return (n === 1 && marke === 'Loose') || 'Treffer=' + n + ' Marke=' + marke;
   });
   /* 🔴 Dieselbe Frage am zweiten Aufrufstelle — und hier ist der Schaden groesser als
      eine Fehlermeldung. Der catch-Block in `holeBarcode` entscheidet am WORTLAUT der
