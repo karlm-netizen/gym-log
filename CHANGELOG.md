@@ -4,6 +4,77 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-03
 
+### v0.069 — der erste Agentenlauf seit dem 01.09., und er hat sich gelohnt
+
+**Karls Frage am selben Abend:** *„wozu haben wir dann überhaupt den agenten?"* — berechtigt.
+Er war seit dem 01.09. nicht mehr gelaufen. Angesetzt auf die rund 25 Änderungen dieses
+Abends: **sechs Funde, drei schwer. Drei davon waren von diesem Abend, also von mir.**
+
+#### 🔴 1. Der Favoriten-Stern kam nie auf das zweite Gerät
+
+**`vereinige()` ist rein additiv über die Kennung** — was die Basis-Seite schon kennt, wird
+komplett übersprungen. **Felder innerhalb eines Eintrags führt es nie zusammen**, und `fav`
+ist genau so ein Feld. Der Stern wäre nur mitgewandert, wenn das ganze Lebensmittel neu ist:
+also bei keinem, das je abgeglichen wurde.
+
+🔴 **Der eigentliche Fund ist der Widerspruch im selben Dokument.** Am 02.09. stand die Grenze
+sauber notiert (bei `letzteMenge`, `index.html:3347`). Am 03.09. schrieb ich 600 Zeilen weiter
+das Gegenteil: *„wandert über `blobsZusammen` mit auf das zweite Gerät."* **Zwei Sätze, die
+sich widersprechen, in einer Datei.**
+
+✅ **Repariert über einen Zeitstempel `favAb`.** Ohne ihn ist es nicht lösbar: *„Stern gewinnt
+immer"* wäre naheliegend und falsch — dann käme ein weggeklickter Favorit vom zweiten Gerät
+ewig zurück. **Es gewinnt die jüngere Angabe, in beide Richtungen.**
+
+#### 🔴 2. Beim Start gewinnt immer das lokale Gerät — und der Kommentar sagte, das könne nicht mehr sein
+
+Im Quelltext stand: *„Diese Aufgabe gibt es seit dem 29.08. nicht mehr — der Auslöser ist
+damit weg."* **Das war zu keinem Zeitpunkt richtig.** Es gibt zwei weitere Auslöser, die
+beide `save()` rufen, bevor der erste Abgleich läuft:
+
+- `comebackPruefen()` setzt bedingungslos `zuletztDa` (seit 27.08.)
+- `aufgabeErledigen('auf')` beim ersten Öffnen (bis 29.08. und wieder ab 03.09.)
+
+⚠️ **Damit ist `dirty` beim Start immer `true`**, und aus der dokumentierten Regel *„wer etwas
+Ungesichertes hat, gibt vor"* ist in Wahrheit *„das zuletzt geöffnete Gerät gewinnt"* geworden.
+Betroffen: Pläne, Einstellungen, `days`, `favs`, `skin`.
+
+🔴 **Bewusst nicht nebenbei geändert.** Das zu reparieren heißt, an der Frage zu rühren,
+welcher Stand bei Plänen gewinnt — mit Datenverlust als möglichem Preis. **Der falsche
+Kommentar ist korrigiert, die Sache liegt Karl als Entscheidung vor.**
+
+#### 🔴 3. Gelöschtes kommt zurück, sobald ein zweites Gerät mitspielt
+
+`vereinige()` kennt keine Grabsteine: eine Kennung, die auf einer Seite fehlt, gilt als **neu**,
+nicht als **gelöscht**. Betrifft Lebensmittel, Mahlzeiten, Einheiten und Gewichte — alle vier
+haben einen Löschknopf. **Liegt seit dem 27.08. da**, wird durch Fund 2 verschärft.
+🔴 **Ebenfalls nicht nebenbei geändert** — Grabsteine sind ein eigener Umbau. Liegt Karl vor.
+
+#### 🟡 4. Meine eigene Prüfung von heute deckte einen von acht Pfeilen ab
+
+*„Jeder Zurück-Pfeil sagt, wohin er führt"* zeichnete **eine** Ansicht und nahm den ersten
+Treffer. **Der Name behauptete acht, geprüft wurde einer** — dieselbe Bauform wie „Brock steht
+links vom Ring" wenige Stunden vorher. ✅ Geht jetzt über `APP_QUELLE` und prüft alle Aufrufe.
+
+#### 🟡 5. Ein Kommentar erklärte gelöschten Code, den es wieder gibt
+
+In `gewichtVerlaufHTML()` stand, `GW_FENSTER`, `gwFenster` und `weightImFenster()` seien „mit
+der Kurve gegangen". **Alle drei sind da und in Betrieb** — die Kurve kam eine halbe Stunde
+später zurück, der Satz blieb. **Er hätte bei der nächsten Durchsicht dazu geführt, drei
+benutzte Bausteine als toten Code aufzuräumen.** Dieselbe Bauform wie `APP_FASSUNG` am 31.08.
+
+#### 🟢 6. Die alte Tagesaufgabe verschluckte 10 XP
+
+Ein Gerät, das den 03.09. übersprungen hat, trägt noch `ein:true`. `aufgabeXP` schlug im
+neuen Katalog nach, fand nichts und zählte **0** — der Haken kam herüber, die Punkte nicht.
+✅ `ALTE_AUFGABEN = { ein: 10 }`.
+
+---
+
+**823 Prüfungen (818 → 823), 0 rot.** Gegenprobe an beiden Enden gemacht: der Abgleich
+ausgebaut → rot, der Zeitstempel an der **Aufrufstelle** ausgebaut → rot. *Eine Prüfung, die
+nur die Funktion abdeckt und nicht ihren Einbau, ist die Hälfte wert.*
+
 ### v0.068 — die Kurve ist zurück, und bei den Bildern war wirklich etwas kaputt
 
 🔴 **Ein Fehler von mir, den Karl gemeldet hat:** *„The Weight Progress Chart is missing."*

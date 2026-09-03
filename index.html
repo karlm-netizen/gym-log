@@ -3820,13 +3820,15 @@ function gewichtVerlaufHTML(){
   const w = weightList();
   if(!w.length) return '';
   /* ➡️ Karls Ansage am 03.09.2026: „die kurve fuer gewicht soll nicht im verlauf stehen,
-     nur der gewicht verlauf an sich, die eintragungen".
-     Vorher standen hier Kurve, Zeitraum-Wahl (1 Woche / 1 Monat / 1 Jahr / Max) und die
-     Liste. Jetzt nur noch die Liste. Mit der Kurve sind auch `GW_FENSTER`, `gwFenster`
-     und `weightImFenster()` gegangen -- sie hatten keinen zweiten Nutzer. Toter Code,
-     der nur noch von seinen eigenen Pruefungen gehalten wird, sieht wie Funktion aus.
-     ⚠️ Die drei Kaesten Start / Aktuell / seit Start bleiben im Koerper-Tab stehen,
-     wo man wiegt -- die sind keine Kurve, sondern die Antwort auf „wo stehe ich". */
+     nur der gewicht verlauf an sich, die eintragungen". **Hier stehen deshalb nur die
+     Eintragungen** -- Datum und Kilogramm, zum Nachschlagen und Loeschen.
+     🔴 **Korrektur vom selben Abend (aus dem Agentenlauf):** hier stand, mit der Kurve
+     seien auch `GW_FENSTER`, `gwFenster` und `weightImFenster()` „gegangen". **Sie sind
+     alle drei da und in Betrieb** -- die Kurve wurde noch am selben Abend zurueckgeholt,
+     nur an einen anderen Ort. Der Satz beschrieb einen Zustand, der eine halbe Stunde lang
+     galt, und haette bei der naechsten Durchsicht dazu gefuehrt, drei benutzte Bausteine
+     als toten Code aufzuraeumen. **Dieselbe Bauform wie `APP_FASSUNG` am 31.08.**
+     ➡️ **Die Kurve steht jetzt im Koerper-Tab**, wo gewogen wird (`renderBody`). */
   let h = `<div class="row between" style="margin:22px 4px 6px"><h2>Gewicht</h2>
       <span class="tiny muted">${w.length} Einträ${w.length===1?'g':'ge'}</span></div><div class="card">`;
   [...w].reverse().forEach(x=>{ h+=`<div class="sess"><span>${fmtDate(x.date)}</span>
@@ -3898,7 +3900,8 @@ function renderFood(){
     app.innerHTML=h; return;
   }
 
-  /* Schritt 1: die zwei Wege + „Nochmal" + eigene Liste.
+  /* Schritt 1: die zwei Wege + eigene Liste (mit Favoriten oben).
+     ⚠️ Hier stand bis zum 03.09.2026 „+ „Nochmal"" -- den Block gibt es nicht mehr.
      ⚠️ Die Ueberschrift nennt jetzt die Mahlzeit. Seit dem 03.09.2026 kommt man nur noch
      ueber einen Mahlzeiten-Knopf hierher -- dann muss auch dranstehen, wohin das Essen
      geht, sonst ist die Zuordnung unsichtbar und man traegt das Fruehstueck ins
@@ -3938,9 +3941,28 @@ function renderFood(){
    tagelang oben stehen, und was man jeden Tag isst, fiel heraus, sobald drei andere
    Sachen dazwischen kamen. Ein Favorit steht, bis er weggeklickt wird.
    ⚠️ Der Stern haengt am eigenen Lebensmittel (`k.foods`), nicht an der Mahlzeit -- er
-   ueberlebt damit das Loeschen eines Eintrags und wandert ueber `blobsZusammen` mit auf
-   das zweite Geraet, weil `foods` dort schon zusammengefuehrt wird. */
+   ueberlebt damit das Loeschen eines Eintrags.
+   🔴 **Korrektur vom selben Abend:** hier stand, er wandere „ueber `blobsZusammen` mit auf
+   das zweite Geraet, weil `foods` dort schon zusammengefuehrt wird." **Das war falsch** --
+   `vereinige()` ist additiv ueber die Kennung und ruehrt Felder in einem bekannten Eintrag
+   nicht an. Der Agentenlauf hat es gefunden; die Grenze stand 600 Zeilen weiter oben schon
+   richtig beschrieben (bei `letzteMenge`, 02.09.). **Zwei Saetze im selben Dokument, die
+   sich widersprachen.** Repariert ueber `favAb`, siehe dort. */
 function istFavorit(f){ return !!(f && f.fav); }
+/* 🔴 `favAb` -- der Zeitpunkt der letzten Aenderung am Stern (03.09.2026, aus dem
+   Agentenlauf desselben Abends).
+   **Warum ein Zeitstempel und nicht nur `fav`:** `vereinige()` ist rein additiv ueber die
+   Kennung -- was die Basis-Seite schon kennt, wird ganz uebersprungen, Felder INNERHALB
+   eines Eintrags fuehrt es nie zusammen. Ein Stern an einem Lebensmittel, das beide
+   Geraete kennen (also jedem, das je abgeglichen wurde), waere damit **nie** auf dem
+   zweiten Geraet angekommen -- und das Wegklicken ebenso wenig.
+   ⚠️ Ohne Zeitstempel ist es nicht loesbar: „Stern gewinnt immer" wuerde das Wegklicken
+   nie uebertragen, „Basis gewinnt" ist der Fehler von oben. Erst der Zeitpunkt sagt,
+   welche der beiden Angaben die juengere ist.
+   💡 Alte Eintraege haben kein `favAb`. Die zaehlen als 0 -- damit gewinnt jede spaetere
+   Aenderung, und ein Stand von vor dieser Fassung wird nicht faelschlich zur juengeren
+   Angabe erklaert. */
+function favZeit(f){ return (f && +f.favAb) || 0; }
 
 /* Ein Zurueck-Pfeil, ueberall derselbe (03.09.2026). `attr` ist das, was den Klick
    auffaengt -- meist `data-nav="..."`, bei den zwei Verlauf-Seiten `data-act="backhist"`.
@@ -5223,7 +5245,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.068';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.069';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -5992,9 +6014,23 @@ function blobsZusammen(basis, dazu){
      im Profil kam unveraendert von `basis`. Und `basis` ist fast immer das eigene Geraet --
      denn die Tagesaufgabe "Reingeschaut" wurde beim Start abgehakt, das ruft `save()`,
      und damit stand `dirty` schon, bevor der erste Abgleich lief.
-     (💡 Diese Aufgabe gibt es seit dem 29.08.2026 nicht mehr -- der Ausloeser ist damit
-     weg, der Fehler war aber nie an ihr festgemacht, sondern am Zusammenfuehren selbst.) Der Zweig
-     `dirty ? ausLokal : ausCloud` faellt also praktisch immer auf die eigene Seite.
+     🔴 **Korrektur vom 03.09.2026, aus dem Agentenlauf.** Hier stand: „Diese Aufgabe gibt
+     es seit dem 29.08.2026 nicht mehr -- der Ausloeser ist damit weg." **Das war zu keinem
+     Zeitpunkt richtig.** Es gibt zwei weitere Ausloeser, und mindestens einer davon lief
+     auch zwischen dem 29.08. und heute:
+       · `comebackPruefen()` setzt bedingungslos `zuletztDa` und ruft `save()` (seit 27.08.)
+       · `aufgabeErledigen('auf')` beim ersten Oeffnen des Tages (bis 29.08. und wieder ab 03.09.)
+     Beide laufen VOR `cloudSyncStart()`. **`dirty` ist beim Start also immer `true`**, und
+     der Zweig `dirty ? ausLokal : ausCloud` faellt beim Start **garantiert** auf die eigene
+     Seite -- nicht „praktisch immer".
+     ⚠️ **Was das fuer die Abwaegung weiter oben bedeutet** („ein ueberschriebener Plan ist
+     in zwei Minuten neu getippt"): sie setzte voraus, dass `dirty` unterscheidet, welche
+     Seite frischer ist. Da es beim Start feststeht, ist aus *„wer etwas Ungesichertes hat,
+     gibt vor"* in Wahrheit *„das zuletzt geoeffnete Geraet gewinnt"* geworden. Das ist eine
+     andere Regel als die, die hier beschrieben ist.
+     ➡️ **Offen, bewusst nicht nebenbei geaendert:** das zu reparieren heisst, an der Frage
+     zu ruehren, welcher Stand bei Plaenen und Einstellungen gewinnt -- mit Datenverlust als
+     moeglichem Preis. Steht als eigener Punkt in `open-loops-apps`.
 
      Verloren gingen dadurch: die **Tagesaufgaben** (Karls Fall), die Liste der **ausgezahlten
      Erfolge**, die **Mahlzeiten und eigenen Lebensmittel** und die **Schritte**.
@@ -6009,7 +6045,17 @@ function blobsZusammen(basis, dazu){
 
   // --- Tagesaufgaben ---
   const aB = b.profile.aufgaben, aD = dp.aufgaben;
-  const aufgabeXP = id => { const a = AUFGABEN.find(x=>x.id===id); return a ? a.xp : 0; };
+  /* ⚠️ Aufgaben aus einem AELTEREN Katalog zaehlen ihren damaligen Wert, nicht 0
+     (03.09.2026, aus dem Agentenlauf). Ein Geraet, das seit Tagen nicht offen war, hat in
+     `aufgaben.fertig` noch `ein:true` -- die Sammel-Aufgabe, die an dem Tag in `mahlzeit`
+     und `gewicht` zerlegt wurde. Ohne diesen Eintrag waere der Haken uebernommen und die
+     10 XP dazu **verschluckt** worden: ein Punktestand, der einmalig zu niedrig ist, ohne
+     dass irgendwo etwas fehlt.
+     💡 Nur fuer abgeschaffte Kennungen -- was im Katalog steht, kommt weiter von dort und
+     folgt damit jeder spaeteren Wertaenderung. */
+  const ALTE_AUFGABEN = { ein: 10 };   // bis 03.09.2026: „Eingetragen" (Gewicht ODER Mahlzeit)
+  const aufgabeXP = id => { const a = AUFGABEN.find(x=>x.id===id);
+    return a ? a.xp : (ALTE_AUFGABEN[id] || 0); };
   if(aD && aD.tag && aD.fertig){
     if(!aB || !aB.tag || aD.tag > aB.tag){
       /* Die andere Seite ist an einem spaeteren Tag -- hier wurde fuer den nie etwas
@@ -6066,6 +6112,19 @@ function blobsZusammen(basis, dazu){
     if(!Array.isArray(k.foods)) k.foods = [];
     const mz = vereinige(k.meals, kD.meals, x=>x.id); k.meals = mz.liste;
     const lm = vereinige(k.foods, kD.foods, x=>x.id); k.foods = lm.liste;
+    /* 🔴 Der Stern wird eigens zusammengefuehrt -- `vereinige()` kann das nicht (03.09.2026,
+       aus dem Agentenlauf). Es geht nur um Lebensmittel, die BEIDE Seiten kennen: die
+       ueberspringt `vereinige` ganz, samt ihrer Felder.
+       ⚠️ Es gewinnt die juengere Angabe, nicht der gesetzte Stern -- sonst waere das
+       Wegklicken eines Favoriten nie von Dauer, und der Stern kaeme vom zweiten Geraet
+       immer wieder zurueck. Genau dieselbe Regel wie beim Tagesziel weiter unten. */
+    if(Array.isArray(kD.foods) && kD.foods.length){
+      const dort = new Map(kD.foods.filter(x=>x&&x.id).map(x=>[x.id,x]));
+      k.foods.forEach(f=>{
+        const g = dort.get(f && f.id); if(!g) return;
+        if(favZeit(g) > favZeit(f)){ f.fav = !!g.fav; f.favAb = +g.favAb || 0; }
+      });
+    }
     // Ein Schritt-Eintrag je Tag, der spaetere gewinnt -- dieselbe Regel wie beim Gewicht.
     if(Array.isArray(kD.steps) && kD.steps.length){
       const tag = x => new Date(x.date).toDateString(), m = new Map();
@@ -6587,7 +6646,7 @@ document.addEventListener('click',ev=>{
      ein: die ganze Zeile ist ein `data-pickfood`. Genau wie beim Loesch-Kreuz daneben. */
   if(t.dataset.foodfav){ ev.stopPropagation();
     const f=kcalInit().foods.find(x=>x.id===t.dataset.foodfav); if(!f) return;
-    f.fav=!f.fav; save();
+    f.fav=!f.fav; f.favAb=Date.now(); save();
     /* Nur die Liste neu zeichnen, nicht die ganze Seite: `render()` wuerde das
        Suchfeld leeren und die Tastatur am Handy zuklappen -- mitten im Suchen. */
     const feld=document.getElementById('foodSearch');

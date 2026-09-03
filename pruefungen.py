@@ -3069,6 +3069,62 @@ window.addEventListener('error', e => {
       blobMit({ kcal:{ foods:[{id:'f2', name:'Skyr'}],  meals:[] } }));
     return r.blob.profile.kcal.foods.length === 2 || 'nur ' + r.blob.profile.kcal.foods.length;
   });
+  /* ---- Der Favoriten-Stern ueber zwei Geraete (03.09.2026, aus dem Agentenlauf) ----
+     🔴 Der Fund war: `vereinige()` ueberspringt bekannte Kennungen GANZ. Ein Stern an einem
+     Lebensmittel, das beide Geraete kennen, waere nie herübergekommen -- und es gab keine
+     einzige Pruefung, die dasselbe Lebensmittel mit verschiedenen Feldern durch den
+     Abgleich schickt. Die Pruefung darueber benutzt zwei verschiedene Kennungen (f1/f2)
+     und kann den Fall deshalb nicht sehen. */
+  t('Ein Stern kommt auf das zweite Geraet', () => {
+    const alt = Date.now() - 60000, neu = Date.now();
+    const r = blobsZusammen(
+      blobMit({ kcal:{ foods:[{id:'f1', name:'Quark', fav:false, favAb:alt}], meals:[] } }),
+      blobMit({ kcal:{ foods:[{id:'f1', name:'Quark', fav:true,  favAb:neu}], meals:[] } }));
+    const f = r.blob.profile.kcal.foods.find(x=>x.id==='f1');
+    if(!f) return 'das Lebensmittel ist ganz verschwunden';
+    return f.fav === true || 'der Stern kam nicht mit';
+  });
+  /* 🔴 Die Gegenrichtung, und die ist der eigentliche Grund fuer den Zeitstempel: „Stern
+     gewinnt immer" waere die naheliegende Loesung und falsch -- dann kaeme ein weggeklickter
+     Favorit vom zweiten Geraet ewig zurueck. */
+  t('Ein weggeklickter Stern bleibt weg', () => {
+    const alt = Date.now() - 60000, neu = Date.now();
+    const r = blobsZusammen(
+      blobMit({ kcal:{ foods:[{id:'f1', name:'Quark', fav:false, favAb:neu}], meals:[] } }),
+      blobMit({ kcal:{ foods:[{id:'f1', name:'Quark', fav:true,  favAb:alt}], meals:[] } }));
+    const f = r.blob.profile.kcal.foods.find(x=>x.id==='f1');
+    return f.fav === false || 'der alte Stern ist zurueckgekommen';
+  });
+  t('Ein Lebensmittel ohne Zeitstempel wird nicht zur juengeren Angabe', () => {
+    /* Eintraege von vor dieser Fassung haben kein `favAb` -- die duerfen einen echten,
+       spaeter gesetzten Stern nicht ueberstimmen. */
+    const r = blobsZusammen(
+      blobMit({ kcal:{ foods:[{id:'f1', name:'Quark', fav:true, favAb:Date.now()}], meals:[] } }),
+      blobMit({ kcal:{ foods:[{id:'f1', name:'Quark'}], meals:[] } }));
+    const f = r.blob.profile.kcal.foods.find(x=>x.id==='f1');
+    return f.fav === true || 'ein Eintrag ohne Zeitstempel hat den Stern geloescht';
+  });
+  t('Der Stern wird beim Umschalten gestempelt', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const i = q.indexOf('f.fav=!f.fav');
+    if(i < 0) return 'das Umschalten sieht anders aus als erwartet';
+    /* ⚠️ Ohne den Stempel an DIESER Stelle ist der Abgleich oben wirkungslos -- er haette
+       nur nie etwas zu vergleichen. Genau die Sorte Luecke, die eine Pruefung der
+       Funktion allein nicht sieht. */
+    return q.slice(i, i + 80).indexOf('favAb') >= 0
+      || 'beim Umschalten wird kein Zeitpunkt gesetzt';
+  });
+  /* ---- Alte Aufgaben-Kennung aus einem frueheren Katalog ---- */
+  t('Die abgeschaffte Aufgabe ein zaehlt weiter ihre 10 XP', () => {
+    const heute = (() => { const d=new Date();
+      return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })();
+    const b = blobMit({ xp:0, aufgaben:{ tag:heute, fertig:{} } });
+    const d = blobMit({ xp:0, aufgaben:{ tag:heute, fertig:{ ein:true } } });
+    const r = blobsZusammen(b, d);
+    /* Der Haken kommt herueber -- und mit ihm die 10 XP von damals. Ohne den Eintrag in
+       ALTE_AUFGABEN waere der Haken da und die Punkte still weg. */
+    return r.blob.profile.xp === 10 || 'xp=' + r.blob.profile.xp + ' statt 10';
+  });
   t('Dieselbe Mahlzeit kommt nicht zweimal', () => {
     const m = {id:'a', date:Date.now(), kcal:500};
     const r = blobsZusammen(blobMit({ kcal:{foods:[], meals:[m]} }), blobMit({ kcal:{foods:[], meals:[m]} }));
@@ -4535,9 +4591,31 @@ window.addEventListener('error', e => {
     return (+m[1]) >= 44 || 'nur ' + m[1] + ' px';
   });
   /* 🔴 Sichtbar ist nur ein Pfeil -- wer die Seite vorgelesen bekommt, braucht trotzdem
-     das Ziel. Ohne aria-label hiesse jeder dieser acht Knoepfe nur „Schaltflaeche". */
-  t('Jeder Zurueck-Pfeil sagt, wohin er fuehrt', () => {
-    const mV = view; view = 'food'; const mS = foodStep; foodStep = 'list';
+     das Ziel. Ohne aria-label hiesse jeder dieser acht Knoepfe nur „Schaltflaeche".
+     ⚠️ **Umgebaut am 03.09.2026, aus dem Agentenlauf desselben Abends.** Die erste Fassung
+     hiess „Jeder Zurueck-Pfeil sagt, wohin er fuehrt" und zeichnete **eine** Ansicht
+     (`renderFood`), nahm den ersten Treffer und war fertig -- die anderen sieben Stellen
+     hat sie nie berührt. **Der Name behauptete acht, geprüft wurde einer.** Dieselbe
+     Bauform wie „Brock steht links vom Ring" am selben Abend.
+     ➡️ Jetzt ueber `APP_QUELLE`, wie die Schwester-Pruefung darueber: **alle** Aufrufe von
+     `zurueckPfeil(` muessen ein zweites Argument tragen. */
+  t('Alle acht Zurueck-Pfeile sagen, wohin sie fuehren', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    /* Aufrufe zaehlen, aber nicht die Definition selbst (die faengt mit `attr, wohin` an). */
+    const rufe = q.split('zurueckPfeil(').slice(1)
+      .map(x => x.slice(0, 90))
+      .filter(x => !x.startsWith('attr, wohin'));
+    if(rufe.length < 8) return 'nur ' + rufe.length + ' Aufrufe gefunden, erwartet mindestens 8';
+    /* Ein zweites Argument heisst: nach dem ersten Komma steht noch etwas vor der
+       schliessenden Klammer. `zurueckPfeil('data-nav="home"')` faellt hier durch. */
+    const ohne = rufe.filter(x => {
+      const bis = x.indexOf(')');
+      return bis < 0 || x.slice(0, bis).indexOf(',') < 0;
+    });
+    if(ohne.length) return ohne.length + ' Pfeil(e) ohne Ziel: ' + ohne[0].slice(0, 50);
+    /* Und die Gegenprobe am gebauten HTML -- der Quelltext allein sagt nicht, ob das
+       Argument auch im aria-label landet. */
+    const mV = view, mS = foodStep; view = 'food'; foodStep = 'list';
     renderFood();
     const b = document.querySelector('.zurueck');
     const label = b && b.getAttribute('aria-label');
