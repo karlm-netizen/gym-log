@@ -1,1 +1,6 @@
 .testrun/
+
+# Arbeitsordner des Fund-Suchers -- gehoeren nie ins Repo (04.09.2026)
+.probrun/
+_probe_agent.py
+test.html
