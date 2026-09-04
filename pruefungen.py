@@ -2329,11 +2329,15 @@ window.addEventListener('error', e => {
   /* ================================ Karls Entwurf fuer „Essen eintragen" (04.09.2026)
      Er hat ein von GPT gezeichnetes Bild geschickt: Kopfzeile, Drei-Wege-Umschalter,
      Suchfeld, Zeilen als Karten. Geprueft wird am gebauten Dokument. */
+  /* ⚠️ `foodFilter` fehlte hier bis zum Abend des 04.09. -- eine Pruefung, die ihn setzt,
+     haette ihn an die naechste weitergereicht. Heute ging das gut, weil die Filter-Pruefung
+     die letzte war; beim naechsten eingeschobenen Test nicht mehr. Genau die Sorte
+     Abhaengigkeit, die spaeter als „unerklaerlicher Fehlschlag" auftaucht. */
   const foodBauen = (tab, mz) => {
-    const vS=view, tS=foodTab, qS=foodQ, mS=foodMz, stS=foodStep;
+    const vS=view, tS=foodTab, qS=foodQ, mS=foodMz, stS=foodStep, flS=foodFilter;
     foodTab=tab; foodMz=mz||'f'; foodStep='list'; view='food'; renderFood();
     const doc = { h:app.innerHTML, app:app };
-    doc.zurueck = () => { view=vS; foodTab=tS; foodQ=qS; foodMz=mS; foodStep=stS; };
+    doc.zurueck = () => { view=vS; foodTab=tS; foodQ=qS; foodMz=mS; foodStep=stS; foodFilter=flS; };
     return doc;
   };
   t('Der Umschalter hat drei Felder und genau eines ist an', () => {
@@ -2389,27 +2393,203 @@ window.addEventListener('error', e => {
   /* ⚠️ Und der Grund, warum der Suchtext in `foodQ` liegt statt nur im Feld: das Feld wird
      beim Reiter-Wechsel neu gebaut. Ohne die Variable waere der Text nach einem Blick in
      die Favoriten weg. */
+  /* 🔴 Diese Pruefung hat bis zum Abend des 04.09. keinen Reiter gewechselt: sie setzte
+     `foodQ` und las das Feld aus. Damit bewies sie nur, dass `renderFood()` `value=` setzt --
+     und waere gruen geblieben, wenn genau das kaputtginge, was ihr Name behauptet. Jetzt
+     wird wirklich geklickt: erst tippen, dann auf „Favoriten", dann zurueck auf „Suchen". */
   t('Der Suchtext ueberlebt den Wechsel des Reiters', () => {
-    const sicher=JSON.stringify(profile.kcal), qS=foodQ;
+    const sicher=JSON.stringify(profile.kcal), vS=view, tS=foodTab, qS=foodQ,
+          mS=foodMz, stS=foodStep, flS=foodFilter, seS=session;
+    const auf = () => { view=vS; foodTab=tS; foodQ=qS; foodMz=mS; foodStep=stS;
+      foodFilter=flS; session=seS; profile.kcal=JSON.parse(sicher); };
+    session={user:{id:'test'}, expires_at:Date.now()+3600e3, access_token:'x'};
     profile.kcal={goal:2000, meals:[], foods:[
       {id:'a', name:'Quark', kcal:68, p:12, c:4, f:0, basis:'g100'}]};
-    foodQ='qua';
-    const d=foodBauen('suchen');
+    foodMz='f'; foodStep='list'; foodTab='suchen'; foodFilter=''; foodQ=''; view='food'; render();
     const feld=document.getElementById('foodSearch');
-    const wert=feld?feld.value:null;
-    d.zurueck(); foodQ=qS; profile.kcal=JSON.parse(sicher);
-    return wert==='qua' || 'im Feld steht: ' + wert;
+    if(!feld){ auf(); return 'kein Suchfeld'; }
+    feld.value='qua'; feld.dispatchEvent(new Event('input',{bubbles:true}));
+    const favKnopf=app.querySelector('[data-act="foodtab:fav"]');
+    if(!favKnopf){ auf(); return 'kein Favoriten-Reiter'; }
+    favKnopf.click();                                   // Feld ist jetzt gar nicht da
+    const suchKnopf=app.querySelector('[data-act="foodtab:suchen"]');
+    if(!suchKnopf){ auf(); return 'kein Such-Reiter'; }
+    suchKnopf.click();
+    const wieder=document.getElementById('foodSearch');
+    const wert=wieder?wieder.value:null;
+    auf();
+    return wert==='qua' || 'nach dem Hin und Her steht im Feld: ' + wert;
   });
-  /* Die Mahlzeiten-Leiste aus dem Entwurf ist BEWUSST nicht gebaut (zwei Quellen fuer
-     dieselbe Angabe). Diese Pruefung haelt die Entscheidung fest -- taucht sie eines Tages
-     doch auf, soll das eine Entscheidung sein und kein Versehen. */
-  t('Kein zweiter Mahlzeiten-Waehler neben der Ueberschrift', () => {
+  /* ---------- Die Mahlzeiten-Leiste (04.09.2026, nachgereicht) ----------
+     Sie ist zunaechst BEWUSST weggelassen worden (zwei Waehler fuer dieselbe Angabe).
+     Karl wollte sie: „natuerlich sollst du das mit dem bild bauen". Gebaut ist sie
+     deshalb als LISTEN-FILTER, nicht als Ziel-Waehler.
+     🔴 Diese Pruefung haelt genau diesen Unterschied fest -- er ist die ganze
+     Begruendung dafuer, dass die Leiste ueberhaupt gebaut werden konnte. Wuerde ein Tipp
+     auf „Abendessen" heimlich `foodMz` umstellen, landete das Fruehstueck im Abendessen,
+     und zu sehen waere davon nichts: die Ueberschrift stuende noch auf Fruehstueck. */
+  t('Die Mahlzeiten-Leiste ist da', () => {
     const sicher=JSON.stringify(profile.kcal);
     profile.kcal={goal:2000, foods:[], meals:[]};
     const d=foodBauen('suchen','f');
-    const chips=app.querySelectorAll('[data-act^="foodmz:"]');
+    const chips=app.querySelectorAll('.mz-filter > button');
+    const an=app.querySelectorAll('.mz-filter > button.on');
     d.zurueck(); profile.kcal=JSON.parse(sicher);
-    return chips.length===0 || 'es gibt ' + chips.length + ' Mahlzeiten-Knoepfe im Eintrage-Schritt';
+    if(chips.length!==5) return 'es sind ' + chips.length + ' statt 5 (Alle + vier Mahlzeiten)';
+    return an.length===1 || 'es sind ' + an.length + ' gleichzeitig an';
+  });
+  t('Ein Tipp auf die Leiste aendert das ZIEL nicht', () => {
+    const sicher=JSON.stringify(profile.kcal), vS=view, mS=foodMz, fS=foodFilter, stS=foodStep;
+    /* Ohne Sitzung zeigt render() den Anmelde-/Onboard-Schirm statt der Ansicht -- der
+       Chip waere dann nicht "weg", sondern nie gezeichnet worden. */
+    const seS=session; session={user:{id:'test'}, expires_at:Date.now()+3600e3, access_token:'x'};
+    const auf = () => { view=vS; foodMz=mS; foodFilter=fS; foodStep=stS; session=seS;
+      profile.kcal=JSON.parse(sicher); };
+    profile.kcal={goal:2000, foods:[], meals:[]};
+    foodMz='f'; foodStep='list'; foodTab='suchen'; foodFilter=''; view='food'; render();
+    const chip=app.querySelector('[data-act="foodfilter:a"]');   // Abendessen
+    if(!chip){ auf(); return 'der Abendessen-Chip fehlt'; }
+    chip.click();
+    const zielDanach=foodMz, filterDanach=foodFilter;
+    const titel=app.querySelector('.food-kopf h2');
+    const txt=titel?titel.textContent:'';
+    auf();
+    if(zielDanach!=='f') return 'das Ziel ist auf ' + zielDanach + ' gesprungen';
+    if(filterDanach!=='a') return 'der Filter hat nicht geschaltet: ' + filterDanach;
+    return txt.indexOf('Fr') > -1 || 'die Ueberschrift nennt nicht mehr das Ziel: ' + txt;
+  });
+  /* ⚠️ Und die Gegenprobe zur Herkunft: der Filter erfindet keine Einordnung, er liest
+     sie aus dem, was frueher eingetragen wurde. Ein Lebensmittel ohne Vergangenheit darf
+     unter einer Mahlzeit NICHT auftauchen. */
+  t('Der Filter zeigt nur, was zu dieser Mahlzeit eingetragen wurde', () => {
+    const sicher=JSON.stringify(profile.kcal), fS=foodFilter;
+    const frueh=Date.now()-6*3600000;
+    profile.kcal={goal:2000, foods:[
+      {id:'a', name:'Haferflocken', kcal:370, p:13, c:59, f:7, basis:'g100'},
+      {id:'b', name:'Nie gegessen', kcal:100, p:0, c:0, f:0, basis:'g100'}],
+      meals:[{id:'m1', name:'Haferflocken', kcal:148, date:frueh, mz:'f'}]};
+    foodFilter='f';
+    const d=foodBauen('suchen','f'); renderFoodList('');
+    const h=document.getElementById('foodList').innerHTML;
+    d.zurueck(); foodFilter=fS; profile.kcal=JSON.parse(sicher);
+    if(h.indexOf('Haferflocken')<0) return 'das eingetragene fehlt';
+    return h.indexOf('Nie gegessen')<0 || 'ein nie eingetragenes Lebensmittel steht unter Fruehstueck';
+  });
+
+  /* ================== Die Funde des Fund-Suchers vom 04.09.2026 ==================
+     Alle sieben liefen durch 834 gruene Pruefungen. Diese hier sind die Gegenproben --
+     jede faellt, wenn man die zugehoerige Reparatur zuruecknimmt. */
+
+  /* 🔴 Fund 1. Der Fehlerkasten wurde im Listen-Schritt weggeworfen (`h =` statt `h +=`).
+     Die sechs bestehenden Fehler-Pruefungen lasen alle die VARIABLE `foodFehler` -- keine
+     sah auf den Bildschirm. Deshalb prueft diese den DOM. */
+  t('Ein Fehler ist auch in der Liste zu sehen, nicht nur in der Variablen', () => {
+    const sicher=JSON.stringify(profile.kcal), vS=view, stS=foodStep, feS=foodFehler, seS=session;
+    const auf=()=>{ view=vS; foodStep=stS; foodFehler=feS; session=seS;
+      profile.kcal=JSON.parse(sicher); };
+    session={user:{id:'test'}, expires_at:Date.now()+3600e3, access_token:'x'};
+    profile.kcal={goal:2000, foods:[], meals:[]};
+    foodFehler='Auf dem Bild war kein Essen zu erkennen.';
+    foodStep='list'; foodMz='f'; view='food'; render();
+    const zusehen = app.textContent.indexOf('Auf dem Bild war kein Essen') > -1;
+    const kasten  = app.textContent.indexOf('Hat nicht geklappt') > -1;
+    auf();
+    if(!kasten) return 'die Ueberschrift des Fehlerkastens fehlt';
+    return zusehen || 'der Fehlertext steht nirgends auf dem Bildschirm';
+  });
+
+  /* 🔴 Fund 2. Der Loeschknopf war beim Umbau verschwunden, der Handler wartete weiter --
+     zu `delfood` gab es keine einzige Pruefung. */
+  t('Eigene Lebensmittel lassen sich loeschen', () => {
+    const sicher=JSON.stringify(profile.kcal);
+    profile.kcal={goal:2000, meals:[], foods:[
+      {id:'a', name:'Quark', kcal:68, p:12, c:4, f:0, basis:'g100'}]};
+    const d=foodBauen('suchen','f'); renderFoodList('');
+    const kreuz=document.querySelectorAll('[data-delfood]').length;
+    d.zurueck(); profile.kcal=JSON.parse(sicher);
+    return kreuz>0 || 'kein Element traegt data-delfood -- der Handler laeuft ins Leere';
+  });
+  /* ⚠️ Und nur dort. Unter „Favoriten"/„Zuletzt" sieht man einen Ausschnitt, und Loeschen
+     aus einem Ausschnitt heraus loescht mehr, als man gerade sieht. */
+  t('Aus einem Ausschnitt heraus wird nicht geloescht', () => {
+    const sicher=JSON.stringify(profile.kcal);
+    profile.kcal={goal:2000, meals:[], foods:[
+      {id:'a', name:'Quark', kcal:68, p:12, c:4, f:0, basis:'g100', fav:true}]};
+    const d=foodBauen('fav','f'); renderFoodList('');
+    const kreuz=document.querySelectorAll('[data-delfood]').length;
+    d.zurueck(); profile.kcal=JSON.parse(sicher);
+    return kreuz===0 || 'unter Favoriten steht ein Loeschkreuz';
+  });
+
+  /* 🔴 Fund 4. Gleichnamige Lebensmittel waren ueber den Namen nicht unterscheidbar --
+     eingetragen wurde der erste Treffer, mit fremden kcal. Seit dem 04.09. schreibt
+     `addMeal` die Kennung mit (`fid`). */
+  t('Zuletzt trifft bei gleichnamigen das richtige Lebensmittel', () => {
+    const sicher=JSON.stringify(profile.kcal);
+    profile.kcal={goal:2000, foods:[
+      {id:'a', name:'Kaese hell', kcal:250, p:20, c:0, f:18, basis:'g100'},
+      {id:'b', name:'kaese hell', kcal:600, p:25, c:0, f:52, basis:'g100'}],
+      meals:[{id:'m1', name:'kaese hell', fid:'b', kcal:600, date:Date.now()}]};
+    const d=foodBauen('zuletzt','f'); renderFoodList('');
+    const h=document.getElementById('foodList').innerHTML;
+    d.zurueck(); profile.kcal=JSON.parse(sicher);
+    if(h.indexOf('600 kcal')<0) return 'die Zeile zeigt nicht das eingetragene Lebensmittel';
+    return h.indexOf('250 kcal')<0 || 'es steht das gleichnamige andere da';
+  });
+  /* ⚠️ Die Rueckfallebene muss bleiben: alles vor dem 04.09. hat kein `fid`. */
+  t('Alte Eintraege ohne Kennung finden ueber den Namen zurueck', () => {
+    const sicher=JSON.stringify(profile.kcal);
+    profile.kcal={goal:2000, foods:[
+      {id:'a', name:'Quark', kcal:68, p:12, c:4, f:0, basis:'g100'}],
+      meals:[{id:'m1', name:'Quark', kcal:170, date:Date.now()}]};
+    const d=foodBauen('zuletzt','f'); renderFoodList('');
+    const h=document.getElementById('foodList').innerHTML;
+    d.zurueck(); profile.kcal=JSON.parse(sicher);
+    return h.indexOf('Quark')>-1 || 'ein alter Eintrag ohne Kennung ist verschwunden';
+  });
+
+  /* 🔴 Fund 7. Ein umbenanntes Lebensmittel fiel aus dem Filter -- und die App behauptete,
+     man habe so etwas noch nie zu dieser Mahlzeit gegessen. */
+  t('Umbenannte Lebensmittel bleiben im Mahlzeiten-Filter', () => {
+    const sicher=JSON.stringify(profile.kcal), flS=foodFilter;
+    profile.kcal={goal:2000, foods:[
+      {id:'a', name:'Magerquark', kcal:68, p:12, c:4, f:0, basis:'g100'}],
+      meals:[{id:'m1', name:'Quark', fid:'a', kcal:170, date:Date.now(), mz:'f'}]};
+    foodFilter='f';
+    const d=foodBauen('suchen','f'); renderFoodList('');
+    const h=document.getElementById('foodList').innerHTML;
+    d.zurueck(); foodFilter=flS; profile.kcal=JSON.parse(sicher);
+    return h.indexOf('Magerquark')>-1 || 'das umbenannte Lebensmittel ist aus dem Filter gefallen';
+  });
+
+  /* 🔴 Fund 6. Der Kommentar sagte, `mahlzeitVon()` fange die Bestandsdaten ohne `mz`-Feld
+     mit ab -- gedeckt war das von keiner Pruefung. Ersetzt jemand `mahlzeitVon(m)` durch
+     `m.mz`, faellt Karls gesamter Bestand vor dem 23.08. lautlos aus allen vier Filtern. */
+  t('Alte Mahlzeiten ohne mz-Feld fallen nicht aus dem Filter', () => {
+    const sicher=JSON.stringify(profile.kcal), flS=foodFilter;
+    const abends=new Date(); abends.setHours(19,0,0,0);
+    profile.kcal={goal:2000, foods:[
+      {id:'a', name:'Pizza', kcal:250, p:11, c:30, f:9, basis:'g100'}],
+      meals:[{id:'m1', name:'Pizza', fid:'a', kcal:750, date:abends.getTime()}]};
+    foodFilter='a';
+    const d=foodBauen('suchen','f'); renderFoodList('');
+    const h=document.getElementById('foodList').innerHTML;
+    d.zurueck(); foodFilter=flS; profile.kcal=JSON.parse(sicher);
+    return h.indexOf('Pizza')>-1 || 'eine Mahlzeit ohne mz-Feld wird dem Abendessen nicht zugeordnet';
+  });
+
+  /* 🔴 Fund 3. Wer waehrend eines Scans oder einer Foto-Schaetzung wegtippt, verlor den
+     Entwurf wortlos -- beim Foto kostet jeder Versuch Geld. Jetzt bleibt er liegen. */
+  t('Ein fertiger Entwurf ueberlebt das Wegtippen', () => {
+    const vS=view, stS=foodStep, dS=foodDraft, bS=foodBusy, seS=session;
+    session={user:{id:'test'}, expires_at:Date.now()+3600e3, access_token:'x'};
+    view='home'; foodBusy=''; foodStep='list'; foodDraft=null;
+    entwurfFertig({name:'Teller', kcal:640, p:30, c:60, f:22, basis:'portion', menge:1, quelle:'foto'});
+    const stand={step:foodStep, name:foodDraft&&foodDraft.name, wo:view};
+    view=vS; foodStep=stS; foodDraft=dS; foodBusy=bS; session=seS;
+    if(stand.wo!=='home') return 'die Ansicht wurde gewechselt: ' + stand.wo;
+    if(stand.step!=='menge') return 'der Entwurf wurde weggeraeumt (foodStep=' + stand.step + ')';
+    return stand.name==='Teller' || 'der Entwurf ist weg';
   });
 
   // ---- Mahlzeit eintragen ----

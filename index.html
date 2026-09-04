@@ -485,7 +485,11 @@ setTimeout(function(){
     color:var(--muted); font-size:14px; font-weight:700; padding:10px 4px; border-radius:11px;
     display:inline-flex; align-items:center; justify-content:center; gap:6px;
     transition:background .12s, color .12s}
-  .seg > button.on{background:var(--accent); color:var(--accent-ink)}
+    /* Gruen wie in Karls Entwurf. ⚠️ Ueber `--ok` und nicht ueber `--accent`: `--accent`
+     faerbt die ganze App (Nav, XP-Balken, Links, jeden Hauptknopf). Der Entwurf zeigt
+     einen Bildschirm, keine neue Hausfarbe -- und `--ok` ist das Gruen, das die App
+     ohnehin schon fuehrt (Ziel-Balken, faelliger Mahlzeiten-Block). */
+  .seg > button.on{background:var(--ok); color:#08130d}
   .food-suche{position:relative; margin-bottom:14px}
   .food-suche > svg{position:absolute; left:14px; top:50%; transform:translateY(-50%);
     color:var(--muted); pointer-events:none}
@@ -507,10 +511,29 @@ setTimeout(function(){
   /* Gruen und rund wie im Entwurf. 40 px statt der 44 der Mahlzeiten-Knoepfe: hier stehen
      viele davon untereinander, und die Zeile soll nicht auseinanderfallen. */
   .food-plus{width:40px; height:40px; flex:0 0 auto; border-radius:99px; cursor:pointer;
-    border:none; background:var(--accent); color:var(--accent-ink); line-height:0;
+    border:none; background:var(--ok); color:#08130d; line-height:0;
     display:inline-flex; align-items:center; justify-content:center;
     transition:transform .08s, filter .12s}
   .food-plus:active{transform:scale(.94); filter:brightness(.92)}
+  /* Der grosse Knopf unten ist im Entwurf gruen -- `.btn.primary` ist app-weit weiss.
+     Eigene Klasse statt Umfaerben von `.primary`, damit der Rest der App bleibt. */
+  .btn.gruen{background:var(--ok); border-color:var(--ok); color:#08130d}
+  /* ---------- Die Mahlzeiten-Leiste aus dem Entwurf ----------
+     🔴 Sie filtert die LISTE, sie waehlt NICHT das Ziel. Wohin das Essen geht, steht
+     seit dem 03.09. fest, bevor man hier ankommt, und seit v0.070 in der Ueberschrift.
+     Waeren es zwei Waehler, koennten sie sich widersprechen.
+     ⚠️ Die Zuordnung ist nicht erfunden: sie kommt daraus, in welche Mahlzeit Karl das
+     Lebensmittel bisher eingetragen hat. Ein Lebensmittel, das er noch nie eingetragen
+     hat, steht deshalb nur unter „Alle" -- richtig so, denn ueber das weiss die App
+     tatsaechlich nichts. */
+  .mz-filter{display:flex; gap:8px; overflow-x:auto; padding:2px 0 8px; margin-bottom:6px;
+    scrollbar-width:none}
+  .mz-filter::-webkit-scrollbar{display:none}
+  .mz-filter > button{flex:0 0 auto; display:inline-flex; align-items:center; gap:6px;
+    background:var(--card2); border:1px solid var(--line); color:var(--muted);
+    border-radius:12px; padding:9px 13px; font-size:13.5px; font-weight:700; cursor:pointer;
+    white-space:nowrap; transition:border-color .12s, color .12s}
+  .mz-filter > button.on{border-color:var(--ok); color:var(--ok)}
   .food-stern{background:none; border:none; cursor:pointer; font-size:17px; line-height:1;
     padding:2px 3px; color:var(--muted); flex:0 0 auto}
   .food-stern.an{color:#f2b32c}
@@ -2026,7 +2049,10 @@ function render(){
   if(view!=='meldung') meldNeuMarkiert=null;   // beim naechsten Besuch ist nichts mehr "neu"
   // Beim Verlassen der Essen-Ansicht den halbfertigen Eintrag wegräumen — aber nicht,
   // während Barcode oder KI noch laufen (die setzen view selbst auf 'food').
-  if(view!=='food'&&!foodBusy){ foodStep='list'; foodDraft=null; foodFehler=''; foodMz=''; foodTab='suchen'; foodQ=''; }
+  /* ⚠️ `foodStep==='menge'` schuetzt den fertig geschaetzten Entwurf: er ist das
+     Ergebnis einer Wartezeit (und beim Foto von echtem Geld), nicht ein halbfertiger
+     Eintrag. Halbfertiges wird weiter weggeraeumt wie bisher. */
+  if(view!=='food'&&!foodBusy&&foodStep!=='menge'){ foodStep='list'; foodDraft=null; foodFehler=''; foodMz=''; foodTab='suchen'; foodQ=''; foodFilter=''; }
   setNav();
   /* Ein zurueckgehaltener Fassungs-Hinweis wird hier faellig: er erscheint nicht mitten
      im Training, sondern beim naechsten Bild danach. */
@@ -3372,7 +3398,7 @@ let foodStep='list', foodDraft=null, foodBusy='', foodFehler='', foodMz='';
 /* ➡️ Der Drei-Wege-Umschalter aus Karls Entwurf (04.09.2026). `foodQ` haelt den
    Suchtext fest, damit ein Wechsel zwischen den Reitern ihn nicht verschluckt --
    das Feld wird beim Neuzeichnen ja neu gebaut. */
-let foodTab='suchen', foodQ='';
+let foodTab='suchen', foodQ='', foodFilter='';
 const LUPE_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"'
   + ' stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/>'
   + '<path d="M20 20l-3.5-3.5"/></svg>';
@@ -3389,7 +3415,20 @@ function addMeal(d,menge){
   // ⚠️ `foodMz` ist die im Block angetippte Mahlzeit. Ist keine gewaehlt (etwa ueber
   // den allgemeinen Knopf), entscheidet die Uhrzeit — nie ein fester Vorgabewert.
   aufgabeErledigen('mahlzeit');  // Tagesaufgabe: eine Mahlzeit eingetragen
+  /* 🔴 `fid` seit dem 04.09.2026: die KENNUNG des Lebensmittels, aus dem dieser Eintrag
+     entstanden ist. Vorher stand hier nur der Name, und „Zuletzt" wie der Mahlzeiten-Filter
+     mussten darueber zurueckraten. Zwei Folgen, beide still:
+     · Zwei Lebensmittel mit gleichem Namen (auch nur andere Gross-/Kleinschreibung) waren
+       nicht unterscheidbar -- „Kaese" (Gouda) und „kaese" (Bergkaese) trugen dieselbe Zeile,
+       und eingetragen wurde der erste Treffer. Die kcal sahen plausibel aus und stimmten nie.
+     · Ein umbenanntes Lebensmittel riss die Verbindung zu allem, was frueher damit
+       eingetragen wurde -- und der Filter behauptete dann, man habe so etwas noch nie
+       gegessen.
+     ⚠️ `fid` fehlt bei allen Eintraegen VOR diesem Tag und bei allem, was nicht aus der
+     eigenen Liste kommt (Foto, Barcode ohne Merken). Deshalb bleibt der Namensweg als
+     Rueckfallebene bestehen -- er wird nur nicht mehr zuerst gefragt. */
   k.meals.push({id:uid(),date:Date.now(),name:d.name||'Essen', mz: foodMz || mahlzeitJetzt(),
+    ...(d.id?{fid:d.id}:{}),
     menge:(+menge||0)+(d.basis==='portion'?'×':' g'), quelle:d.quelle||'eigen', ...w});
   /* Zuletzt benutzte Menge (02.09.2026, Karls Ansage). Nur fuer Eintraege aus der EIGENEN
      Liste (`d.id` zeigt in `k.foods`) und nur in Gramm — Foto-Portionen haben keine feste
@@ -3967,29 +4006,36 @@ function renderFood(){
      Umschalter Suchen / Favoriten / Zuletzt · Suchfeld mit Lupe · Zeilen als Karten mit
      rundem Feld links, kcal und Naehrwerten rechts, gruenes Plus.
 
-     DREI SACHEN AUS DEM ENTWURF SIND BEWUSST NICHT DRIN:
+     ZWEI SACHEN AUS DEM ENTWURF SIND NICHT DRIN:
 
-     1. Die Mahlzeiten-Leiste („Alle · Fruehstueck · Mittagessen · Abendessen · Snacks").
-        Seit dem 03.09. kommt man nur noch ueber einen Mahlzeiten-Knopf hierher -- die
-        Mahlzeit steht fest, BEVOR hier etwas passiert, und seit heute steht sie in der
-        Ueberschrift. Dieselben vier Namen als Filter daneben liest man als „wohin geht
-        das Essen", und dann gaebe es zwei Quellen fuer dieselbe Angabe, die sich
-        widersprechen koennen. Genau das war der Fehler, den die Ueberschrift heute
-        Nachmittag behoben hat.
+     🔴 (Hier stand bis zum Abend des 04.09. als Punkt 1, die Mahlzeiten-Leiste sei
+     bewusst weggelassen -- acht Zeilen ueber dem Code, der sie zeichnet. Karl wollte sie
+     („natuerlich sollst du das mit dem bild bauen"), sie ist gebaut, und der Kommentar ist
+     einfach stehengeblieben. Wer ihn las, haette die Leiste gar nicht erst gesucht.
+     Sie steht weiter unten und filtert die LISTE, sie waehlt kein Ziel -- das war der
+     berechtigte Teil des alten Einwands und ist so umgesetzt.)
 
-     2. Die Fotos der Lebensmittel. Es gibt keine -- weder in der App noch in der offenen
+     1. Die Fotos der Lebensmittel. Es gibt keine -- weder in der App noch in der offenen
         Datenbank in brauchbarer Form. Ein Bild je Lebensmittel waere ein eigenes Vorhaben
         (Herkunft, Rechte, Speicher, Offline-Betrieb). Statt eines erfundenen Bildes steht
         der Anfangsbuchstabe in einem Feld derselben Groesse: die Zeile behaelt ihren
         Aufbau, ohne etwas zu behaupten, was nicht da ist.
 
-     3. Die Ueberschrift „Beliebte Lebensmittel". Beliebt bei wem? Die App kennt nur Karls
+     2. Die Ueberschrift „Beliebte Lebensmittel". Beliebt bei wem? Die App kennt nur Karls
         eigene Liste; eine Beliebtheits-Reihenfolge waere eine erfundene Zahl. Der
         Abschnitt heisst weiter „Meine Lebensmittel". */
   const mzJetzt = MAHLZEITEN.find(x=>x.id===(foodMz||mahlzeitJetzt()));
   const titelMz = mzJetzt ? `${mzJetzt.icon} ${esc(mzJetzt.name)} eintragen` : 'Essen eintragen';
   const REITER = [['suchen','Suchen',LUPE_SVG],['fav','Favoriten','★'],['zuletzt','Zuletzt','⏱']];
-  h = `<div class="food-kopf">
+  /* 🔴 `+=` und nicht `=`. Bis zum 04.09.2026 stand hier `h = ` -- und damit wurde der
+     Fehlerkasten oben (`Hat nicht geklappt`, Zeile ~3927) beim Zeichnen ueberschrieben,
+     bevor ihn jemand sehen konnte. Die Schritte `menge`, `new` und `db` steigen vorher mit
+     `return` aus und zeigen ihn; nur der Listen-Schritt hat ihn verschluckt -- also genau
+     die fuenf Wege, die MIT einem Fehler hierher zurueckfallen: Barcode ohne Netz, Suche
+     ohne Treffer, Netzfehler, missglueckte Foto-Schaetzung, zu kurzer Suchtext.
+     ⚠️ Gefunden hat es der Fund-Sucher, nicht der Pruefstand: alle sechs Fehler-
+     Pruefungen lasen die VARIABLE `foodFehler`, keine sah auf den Bildschirm. */
+  h += `<div class="food-kopf">
       ${zurueckPfeil('data-nav="body"', 'Kalorien')}
       <h2>${titelMz}</h2>
       <div class="food-ikons">
@@ -4007,6 +4053,12 @@ function renderFood(){
     h+=`<div class="food-suche">${LUPE_SVG}
       <input id="foodSearch" placeholder="Lebensmittel suchen…" autocomplete="off" value="${esc(foodQ)}"></div>`;
   }
+  /* Die Mahlzeiten-Leiste aus dem Entwurf. Sie filtert die Liste, sie waehlt kein Ziel --
+     Begruendung im CSS. "Alle" ist immer da und immer der Ausgangszustand. */
+  h+=`<div class="mz-filter">
+      <button class="${foodFilter?'':'on'}" data-act="foodfilter:">🍽 Alle</button>${
+      MAHLZEITEN.map(mz=>`<button class="${foodFilter===mz.id?'on':''}"
+        data-act="foodfilter:${mz.id}">${mz.icon} ${esc(mz.name)}</button>`).join('')}</div>`;
   h+=`<div class="row between" style="margin:4px 4px 8px"><h2 style="font-size:17px">${
       foodTab==='fav'?'Favoriten':foodTab==='zuletzt'?'Zuletzt eingetragen':'Meine Lebensmittel'}</h2>
       <span class="tiny muted" id="foodZahl"></span></div>
@@ -4018,7 +4070,7 @@ function renderFood(){
      fertig button unten"), weil der Pfeil oben links am Handy die unbequemste Ecke ist.
      Ihn wegzunehmen, weil ein Entwurf ihn nicht zeigt, hiesse eine Ansage durch ein Bild
      zurueckzunehmen. */
-  h+=`<button class="btn primary gross" style="margin-top:18px" data-act="food:new">
+  h+=`<button class="btn primary gruen gross" style="margin-top:18px" data-act="food:new">
       + Eigenes Lebensmittel hinzufügen</button>
     <button class="btn ghost gross" style="margin-top:10px" data-nav="body">Fertig</button>`;
 
@@ -4076,6 +4128,21 @@ function zurueckPfeil(attr, wohin){
     + `<path d="M15 5l-7 7 7 7"/></svg></button>`;
 }
 
+/* ---------- Von einer Mahlzeit zurueck zum Lebensmittel (04.09.2026) ----------
+   🔴 Eine Stelle, nicht zwei. „Zuletzt" und der Mahlzeiten-Filter haben das vorher jeder
+   fuer sich ueber den Namen gemacht -- und beide hatten damit dieselben zwei stillen
+   Fehler (gleichnamige Lebensmittel, umbenannte). Was an zwei Orten steht, wird an einem
+   repariert.
+   Reihenfolge: erst die Kennung (`fid`, seit dem 04.09. mitgeschrieben), dann der Name als
+   Rueckfallebene fuer alles Aeltere. ⚠️ Der Name bleibt unscharf -- das ist keine
+   Nachlaessigkeit, sondern die Grenze der Altdaten: sie enthalten schlicht nichts anderes. */
+function essenZuMahlzeit(m, k){
+  if(!m) return null;
+  if(m.fid){ const t = (k.foods||[]).find(x=>x.id===m.fid); if(t) return t; }
+  const n = String(m.name||'').toLowerCase(); if(!n) return null;
+  return (k.foods||[]).find(x=>String(x.name||'').toLowerCase()===n) || null;
+}
+
 function renderFoodList(q){
   const el=document.getElementById('foodList'); if(!el) return;
   const roh=(q||'').trim(), su=roh.toLowerCase(), k=kcalInit();
@@ -4092,16 +4159,28 @@ function renderFoodList(q){
   } else if(foodTab==='zuletzt'){
     const gesehen = new Set(); liste = [];
     [...(k.meals||[])].sort((a,b)=>b.date-a.date).forEach(m=>{
-      const n = String(m.name||'').toLowerCase();
-      if(!n || gesehen.has(n)) return; gesehen.add(n);
-      const f = k.foods.find(x=>String(x.name||'').toLowerCase()===n);
-      if(f) liste.push(f);
+      const f = essenZuMahlzeit(m, k); if(!f || gesehen.has(f.id)) return;
+      gesehen.add(f.id); liste.push(f);
     });
     liste = liste.slice(0,20);
   } else {
     const treffer = su ? k.foods.filter(f=>(f.name+' '+(f.marke||'')).toLowerCase().includes(su)) : k.foods;
     // Favoriten zuerst. `sort` ist stabil, die Liste wird also nicht durcheinandergewuerfelt.
     liste = [...treffer].sort((a,b)=>(istFavorit(b)?1:0)-(istFavorit(a)?1:0));
+  }
+
+  /* ---------- Die Mahlzeiten-Leiste filtert hier, und nur hier ----------
+     🔴 Die Zuordnung ist NICHT geraten: sie kommt daraus, in welche Mahlzeit dieses
+     Lebensmittel bisher eingetragen wurde. Ein Lebensmittel ohne Vergangenheit steht
+     deshalb nur unter "Alle" -- ueber das weiss die App tatsaechlich nichts, und eine
+     erfundene Einordnung waere schlechter als keine.
+     ⚠️ Ueber den Namen, weil Mahlzeiten keinen Verweis auf das Lebensmittel speichern;
+     `mahlzeitVon()` faengt dabei die Bestandsdaten ohne `mz`-Feld mit ab. */
+  if(foodFilter){
+    const passt = new Set();
+    (k.meals||[]).forEach(m=>{ if(mahlzeitVon(m)!==foodFilter) return;
+      const f = essenZuMahlzeit(m, k); if(f) passt.add(f.id); });
+    liste = liste.filter(f=>passt.has(f.id));
   }
 
   const zahl=document.getElementById('foodZahl'); if(zahl) zahl.textContent=liste.length||'';
@@ -4126,6 +4205,16 @@ function renderFoodList(q){
         aria-label="${istFavorit(f)?'Kein Favorit mehr':'Zu den Favoriten'}"
         aria-pressed="${istFavorit(f)?'true':'false'}">${istFavorit(f)?'★':'☆'}</button>
       <button class="food-plus" data-pickfood="${f.id}" aria-label="${esc(f.name)} eintragen">${PLUS_SVG}</button>
+      ${/* 🔴 Der Loeschknopf war beim Umbau am 04.09. verlorengegangen -- die alte
+            `.lib-row` hatte ein Kreuz, die neue Karte nicht. Der Handler `data-delfood`
+            stand unveraendert weiter da und wartete auf ein Element, das es nirgends
+            mehr gab. Ein doppelt angelegtes Lebensmittel waere damit dauerhaft in der
+            Liste geblieben, ohne dass irgendwo etwas gefehlt haette.
+            ⚠️ Er steht bewusst NUR unter dem Such-Reiter: unter „Favoriten" und
+            „Zuletzt" sieht man einen Ausschnitt, und Loeschen aus einem Ausschnitt
+            heraus loescht mehr, als man gerade sieht. */''}
+      ${foodTab==='suchen'?`<button class="del-x" data-delfood="${f.id}"
+        aria-label="${esc(f.name)} aus meiner Liste löschen">✕</button>`:''}
     </div>`;
 
   let h = liste.map(zeile).join('');
@@ -4133,6 +4222,7 @@ function renderFoodList(q){
     h += `<div class="empty" style="padding:18px">${
       foodTab==='fav' ? 'Noch keine Favoriten. Tipp in der Suche auf den Stern.'
       : foodTab==='zuletzt' ? 'Hier stehen die Lebensmittel, die du zuletzt eingetragen hast.'
+      : foodFilter ? 'Aus deiner Liste ist hier noch nichts zu dieser Mahlzeit eingetragen. Ältere Einträge finden sich nur wieder, solange der Name derselbe geblieben ist.'
       : (k.foods.length ? 'Nichts gefunden.' : 'Noch keine eigenen Lebensmittel.')}</div>`;
   }
   /* Die Datenbanksuche steht nur unter dem Such-Reiter und nur mit Suchtext -- ohne beides
@@ -4259,15 +4349,32 @@ function offNachDraft(p, ersatzName){
    ➡️ Jetzt haengt die Weiche an `e.art`. Der Text darf sagen, was er will. */
 function ffehler(text, art){ const e = new Error(text); e.art = art; return e; }
 
+/* ---------- Ein Ergebnis darf nicht verlorengehen, nur weil man weggetippt hat ----------
+   🔴 Gefunden am 04.09.2026: `holeBarcode()` behandelte seine zwei Erfolgsausgaenge
+   verschieden -- der eigene Treffer setzte `view='food'` zurueck, der Datenbank-Treffer
+   und der Foto-Weg nicht. Wer waehrend der Wartezeit unten auf „Start" tippt, fiel damit
+   in die Aufraeumzeile in `render()`: Entwurf weg, wortlos. Beim Foto kostet jeder
+   verlorene Versuch echtes Geld.
+   ➡️ Beides laeuft jetzt hier durch. Wer noch in der Essens-Ansicht steht, landet wie
+   bisher direkt beim Mengen-Schritt. Wer weggegangen ist, wird NICHT zurueckgerissen --
+   der Entwurf bleibt liegen und ein Hinweis sagt, dass er da ist.
+   ⚠️ `view` wird dabei bewusst nicht angefasst: jemanden mitten aus einer anderen
+   Ansicht herauszuziehen ist genauso stoerend wie den Entwurf wegzuwerfen. */
+function entwurfFertig(entwurf, hinweis){
+  foodDraft = entwurf; foodBusy = ''; foodFehler = ''; foodStep = 'menge';
+  if(view === 'food'){ render(); if(hinweis) toast(hinweis); return; }
+  render();                                   // Aufraeumzeile greift nicht: foodStep steht
+  toast('Fertig geschätzt — steht unter Kalorien für dich bereit.');
+}
+
 async function holeBarcode(nr){
   if(!nr || nr.length<6){ foodFehler='Das war keine gültige Barcode-Nummer.'; render(); return; }
 
   // NEU: eigener Treffer schlaegt die Datenbank. Kein Netz, keine Wartezeit.
   const eigen=eigenesZuBarcode(nr);
   if(eigen){
-    foodDraft={...eigen, basis:'g100', menge:eigen.letzteMenge>0?eigen.letzteMenge:100, quelle:'barcode'};
-    foodBusy=''; foodFehler=''; foodStep='menge'; view='food'; render();
-    toast('Aus deiner Liste');
+    entwurfFertig({...eigen, basis:'g100', menge:eigen.letzteMenge>0?eigen.letzteMenge:100, quelle:'barcode'},
+      'Aus deiner Liste');
     return;
   }
 
@@ -4287,8 +4394,7 @@ async function holeBarcode(nr){
     if(!d || d.status===0 || !d.product) throw ffehler('Das Produkt steht nicht in der Datenbank.', 'unbekannt');
     const entwurf=offNachDraft(d.product, 'Produkt '+nr);
     if(!entwurf) throw ffehler('Zu dem Produkt sind keine Nährwerte hinterlegt.', 'unbekannt');
-    foodDraft={...entwurf, quelle:'barcode', barcode:String(nr)};
-    foodBusy=''; foodStep='menge'; render();
+    entwurfFertig({...entwurf, quelle:'barcode', barcode:String(nr)});
   }catch(e){
     foodBusy='';
     /* ⚠️ Nur ein ausdrücklich so markierter Fehler öffnet das Formular. Alles
@@ -4549,10 +4655,9 @@ async function schaetzeFoto(file){
     if(!txt) throw new Error('Die KI hat nichts zurückgegeben. Versuch ein anderes Bild.');
     const g=JSON.parse(txt);
     if(!g.sicher && !(+g.kcal>0)) throw new Error('Auf dem Bild war kein Essen zu erkennen.');
-    foodDraft={ name:String(g.name||'Essen').slice(0,60), marke:String(g.menge||''),
+    entwurfFertig({ name:String(g.name||'Essen').slice(0,60), marke:String(g.menge||''),
       kcal:Math.round(+g.kcal||0), p:Math.round(+g.eiweiss||0), c:Math.round(+g.kohlenhydrate||0),
-      f:Math.round(+g.fett||0), basis:'portion', menge:1, quelle:'foto', unsicher:!g.sicher };
-    foodBusy=''; foodStep='menge'; render();
+      f:Math.round(+g.fett||0), basis:'portion', menge:1, quelle:'foto', unsicher:!g.sicher });
   }catch(e){ foodBusy=''; foodStep='list';
     foodFehler=(e&&e.message)||'Unbekannter Fehler.'; render(); }
 }
@@ -5361,7 +5466,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.071';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.072';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -6758,15 +6863,20 @@ document.addEventListener('click',ev=>{
     const k=kcalInit(); k.art=art;
     const v=kcalVorschlagFuer(art); if(v && !(k.goal>0)) k.goal=v;
     save(); render(); toast(ZIELE[art].name+(v?' · '+v+' kcal':'')); return; }
-  /* ⚠️ `stopPropagation`, sonst traegt der Klick auf den Stern das Lebensmittel gleich
-     ein: die ganze Zeile ist ein `data-pickfood`. Genau wie beim Loesch-Kreuz daneben. */
+  /* ⚠️ `stopPropagation` bleibt als Gurt, aber die BEGRUENDUNG von frueher stimmt seit
+     dem 04.09.2026 nicht mehr. Sie lautete: „die ganze Zeile ist ein `data-pickfood`" --
+     das war bei der alten `.lib-row` so. In der neuen `.food-row` sitzt `data-pickfood`
+     auf drei Geschwistern (Mitte, rechte Spalte, Plus); Stern und Kreuz liegen daneben,
+     nicht darin. `closest()` findet also ohnehin den richtigen.
+     🔴 Stehengelassen wird der Gurt trotzdem: wer die Zeile eines Tages wieder als Ganzes
+     anklickbar macht, braucht ihn sofort wieder -- und ein falscher Satz daneben haette
+     genau dann in die Irre gefuehrt. */
   if(t.dataset.foodfav){ ev.stopPropagation();
     const f=kcalInit().foods.find(x=>x.id===t.dataset.foodfav); if(!f) return;
     f.fav=!f.fav; f.favAb=Date.now(); save();
     /* Nur die Liste neu zeichnen, nicht die ganze Seite: `render()` wuerde das
        Suchfeld leeren und die Tastatur am Handy zuklappen -- mitten im Suchen. */
-    const feld=document.getElementById('foodSearch');
-    renderFoodList(feld?feld.value:'');
+    renderFoodList(foodQ);
     toast(f.name+(f.fav?' ist ein Favorit':' ist kein Favorit mehr')); return; }
   if(t.dataset.delfood){ ev.stopPropagation(); const id=t.dataset.delfood, k=kcalInit();
     confirmTwice('df'+id,t,'Weg?',()=>{ k.foods=k.foods.filter(x=>x.id!==id); save(); render(); }); return; }
@@ -7038,6 +7148,10 @@ document.addEventListener('click',ev=>{
      tippen. */
   else if(a.startsWith('foodtab:')){ foodTab=a.slice(8); render();
     const f=document.getElementById('foodSearch'); if(f) f.focus(); }
+  /* ⚠️ `slice(11)` und nicht `split(':')[1]`: "foodfilter:" ohne Kennung ist "Alle",
+     und `split` gaebe dort einen leeren String zurueck, der genauso aussieht wie ein
+     Fehler. Hier ist der leere String die Absicht. */
+  else if(a.startsWith('foodfilter:')){ foodFilter=a.slice(11); render(); }
   /* ⚠️ Der Suchtext kommt aus `foodQ` und nicht mehr aus dem Feld: unter „Favoriten"
      und „Zuletzt" gibt es das Feld gar nicht, und `s?s.value:''` haette dort still einen
      leeren Namen weitergereicht. */

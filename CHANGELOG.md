@@ -4,6 +4,70 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-04
 
+### v0.072 — Grün, die Mahlzeiten-Leiste, und sieben Funde des Fund-Suchers
+
+#### 🎨 Nach Karls Entwurf nachgezogen
+
+- **Grün** für Umschalter, Plus-Knöpfe und den großen Knopf unten — über `--ok`, nicht über
+  `--accent`. ⚠️ `--accent` färbt die ganze App (Nav, XP-Balken, Links, jeden Hauptknopf);
+  der Entwurf zeigt einen Bildschirm, keine neue Hausfarbe.
+- **Die Mahlzeiten-Leiste** („Alle · Frühstück · …"). 🔴 Sie **filtert die Liste, sie wählt
+  kein Ziel** — wohin das Essen geht, steht in der Überschrift und ändert sich nicht.
+  Die Zuordnung kommt daraus, in welche Mahlzeit ein Lebensmittel bisher eingetragen wurde.
+
+#### 🤖 Der Fund-Sucher: sieben Funde, alle grün durch 834 Prüfungen
+
+**1. 🔴 Fehlermeldungen kamen im Listen-Schritt nie an.** `h =` statt `h +=` hat den roten
+Kasten *„Hat nicht geklappt"* überschrieben, bevor er gezeichnet wurde. Betroffen: Barcode
+ohne Netz · Datenbanksuche ohne Treffer · Netzfehler · **fehlgeschlagene Foto-Schätzung** ·
+zu kurzer Suchtext.
+⚠️ **Warum nichts rot wurde:** alle sechs Fehler-Prüfungen lasen die *Variable* `foodFehler`.
+Keine sah nach, ob der Text auf dem Bildschirm ankommt.
+
+**2. 🔴 Eigene Lebensmittel ließen sich nicht mehr löschen.** Die alte Zeile hatte ein ✕, die
+neue Karte nicht — der Handler `data-delfood` wartete auf ein Element, das es nirgends mehr
+gab. Zu `delfood` existierte **keine einzige Prüfung**.
+✅ Das Kreuz ist zurück, **nur unter „Suchen"**: unter „Favoriten"/„Zuletzt" sieht man einen
+Ausschnitt, und Löschen aus einem Ausschnitt löscht mehr, als man gerade sieht.
+
+**3. 🔴 Ein fertiger Entwurf ging verloren, wenn man während der Wartezeit wegtippte.**
+`holeBarcode()` behandelte seine zwei Erfolgsausgänge verschieden; der Foto-Weg fiel in die
+Aufräumzeile. Beim Foto kostet jeder verlorene Versuch echtes Geld.
+✅ Alle drei laufen jetzt durch `entwurfFertig()`. Wer weggegangen ist, wird **nicht
+zurückgerissen** — der Entwurf bleibt liegen, ein Hinweis sagt Bescheid.
+
+**4. + 7. 🔴 Die Zuordnung lief über den Namen.** Zwei Folgen, beide still:
+- „Käse" (Gouda) und „käse" (Bergkäse) waren nicht unterscheidbar — eingetragen wurde der
+  erste Treffer. **Die kcal sahen plausibel aus und stimmten nie.**
+- Ein umbenanntes Lebensmittel riss die Verbindung zu allem, was vorher damit eingetragen
+  wurde — und der Filter behauptete, man habe so etwas noch nie gegessen. **Das ist keine
+  fehlende Auskunft, sondern eine falsche.**
+
+✅ **`addMeal` schreibt jetzt die Kennung mit (`fid`).** Beide Wege gehen durch **eine**
+Funktion `essenZuMahlzeit()` — was an zwei Orten stand, wird an einem repariert.
+⚠️ **Alte Einträge haben kein `fid`**, ebenso alles aus Foto und Barcode ohne Merken.
+Der Namensweg bleibt als Rückfallebene — er wird nur nicht mehr zuerst gefragt.
+
+**5. 🔴 Eine Prüfung von heute Nachmittag prüfte nichts.** *„Der Suchtext überlebt den Wechsel
+des Reiters"* hat **keinen Reiter gewechselt** — sie setzte die Variable und las das Feld aus.
+Sie wäre grün geblieben, wenn genau das kaputtginge, was ihr Name behauptet.
+✅ Jetzt wird geklickt: tippen → „Favoriten" → zurück → nachsehen.
+
+**6. 🔴 Drei Kommentare behaupteten das Gegenteil des Codes** — darunter der Block *„Die
+Mahlzeiten-Leiste ist bewusst nicht drin"*, **acht Zeilen über dem Code, der sie zeichnet.**
+Dazu ein Satz über `data-pickfood`, der seit dem Umbau nicht mehr stimmte, und eine Zusage
+über Bestandsdaten ohne `mz`-Feld, die von keiner Prüfung gedeckt war.
+
+#### 🔬 Prüfungen 834 → 842, mit Gegenprobe
+
+Acht neue, jede als Gegenprobe zu einem Fund. **Nachgewiesen:** alle vier Reparaturen
+zurückgenommen → **5 Prüfungen rot**, danach wiederhergestellt → 842 grün.
+
+⚠️ Nebenbei repariert: `foodBauen()` in den Prüfungen sicherte `foodFilter` nicht — eine
+Prüfung hätte ihn an die nächste weitergereicht. Heute ging das gut, weil die Filter-Prüfung
+die letzte war.
+
+
 ### v0.071 — „Essen eintragen" nach Karls Entwurf neu gebaut
 
 Karl hat ein von GPT gezeichnetes Bild geschickt: *„so soll es gerne aussehen wenn man auf
