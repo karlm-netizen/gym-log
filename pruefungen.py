@@ -2326,6 +2326,92 @@ window.addEventListener('error', e => {
     return !pille || 'das alte Abzeichen steht noch neben der Ueberschrift';
   });
 
+  /* ================================ Karls Entwurf fuer „Essen eintragen" (04.09.2026)
+     Er hat ein von GPT gezeichnetes Bild geschickt: Kopfzeile, Drei-Wege-Umschalter,
+     Suchfeld, Zeilen als Karten. Geprueft wird am gebauten Dokument. */
+  const foodBauen = (tab, mz) => {
+    const vS=view, tS=foodTab, qS=foodQ, mS=foodMz, stS=foodStep;
+    foodTab=tab; foodMz=mz||'f'; foodStep='list'; view='food'; renderFood();
+    const doc = { h:app.innerHTML, app:app };
+    doc.zurueck = () => { view=vS; foodTab=tS; foodQ=qS; foodMz=mS; foodStep=stS; };
+    return doc;
+  };
+  t('Der Umschalter hat drei Felder und genau eines ist an', () => {
+    const sicher=JSON.stringify(profile.kcal);
+    profile.kcal={goal:2000, foods:[], meals:[]};
+    const d=foodBauen('suchen');
+    const alle=app.querySelectorAll('.seg > button');
+    const an=app.querySelectorAll('.seg > button.on');
+    d.zurueck(); profile.kcal=JSON.parse(sicher);
+    if(alle.length!==3) return 'es sind ' + alle.length + ' Felder';
+    return an.length===1 || 'es sind ' + an.length + ' gleichzeitig an';
+  });
+  t('Die Kopfzeile traegt den Titel und den Barcode-Knopf', () => {
+    const sicher=JSON.stringify(profile.kcal);
+    profile.kcal={goal:2000, foods:[], meals:[]};
+    const d=foodBauen('suchen','a');
+    const kopf=app.querySelector('.food-kopf');
+    const titel=kopf && kopf.querySelector('h2');
+    const bar=kopf && kopf.querySelector('[data-act="food:barcode"]');
+    const txt=titel?titel.textContent:'';
+    d.zurueck(); profile.kcal=JSON.parse(sicher);
+    if(!kopf) return 'keine Kopfzeile';
+    if(!bar) return 'kein Barcode-Knopf in der Kopfzeile';
+    return txt.indexOf('Abendessen')>-1 || 'Titel lautet: ' + txt;
+  });
+  t('Unter Favoriten stehen nur Favoriten', () => {
+    const sicher=JSON.stringify(profile.kcal);
+    profile.kcal={goal:2000, meals:[], foods:[
+      {id:'a', name:'Quark', kcal:68, p:12, c:4, f:0, basis:'g100', fav:true},
+      {id:'b', name:'Butter', kcal:740, p:0, c:0, f:82, basis:'g100'}]};
+    const d=foodBauen('fav'); renderFoodList('');
+    const h=document.getElementById('foodList').innerHTML;
+    d.zurueck(); profile.kcal=JSON.parse(sicher);
+    return (h.indexOf('Quark')>-1 && h.indexOf('Butter')<0) || 'Liste stimmt nicht';
+  });
+  /* 🔴 Der Fall, den man beim Bauen uebersieht: „Zuletzt" kommt aus den Mahlzeiten, und
+     dort steht ein NAME, keine Kennung. Ein Essen von vor drei Wochen kann auf ein
+     Lebensmittel zeigen, das inzwischen geloescht ist -- dann stuende dort eine Zeile mit
+     einem Plus, das ins Leere fuehrt. Ohne diese Pruefung faellt das erst auf, wenn Karl
+     draufdrueckt und nichts passiert. */
+  t('Zuletzt zeigt nichts, was es nicht mehr gibt', () => {
+    const sicher=JSON.stringify(profile.kcal);
+    profile.kcal={goal:2000,
+      foods:[{id:'a', name:'Quark', kcal:68, p:12, c:4, f:0, basis:'g100'}],
+      meals:[{id:'m1', name:'Quark', kcal:170, date:Date.now()-1000},
+             {id:'m2', name:'Geloeschtes Brot', kcal:200, date:Date.now()-2000}]};
+    const d=foodBauen('zuletzt'); renderFoodList('');
+    const h=document.getElementById('foodList').innerHTML;
+    d.zurueck(); profile.kcal=JSON.parse(sicher);
+    if(h.indexOf('Quark')<0) return 'das vorhandene fehlt';
+    return h.indexOf('Geloeschtes Brot')<0 || 'ein geloeschtes Lebensmittel steht in der Liste';
+  });
+  /* ⚠️ Und der Grund, warum der Suchtext in `foodQ` liegt statt nur im Feld: das Feld wird
+     beim Reiter-Wechsel neu gebaut. Ohne die Variable waere der Text nach einem Blick in
+     die Favoriten weg. */
+  t('Der Suchtext ueberlebt den Wechsel des Reiters', () => {
+    const sicher=JSON.stringify(profile.kcal), qS=foodQ;
+    profile.kcal={goal:2000, meals:[], foods:[
+      {id:'a', name:'Quark', kcal:68, p:12, c:4, f:0, basis:'g100'}]};
+    foodQ='qua';
+    const d=foodBauen('suchen');
+    const feld=document.getElementById('foodSearch');
+    const wert=feld?feld.value:null;
+    d.zurueck(); foodQ=qS; profile.kcal=JSON.parse(sicher);
+    return wert==='qua' || 'im Feld steht: ' + wert;
+  });
+  /* Die Mahlzeiten-Leiste aus dem Entwurf ist BEWUSST nicht gebaut (zwei Quellen fuer
+     dieselbe Angabe). Diese Pruefung haelt die Entscheidung fest -- taucht sie eines Tages
+     doch auf, soll das eine Entscheidung sein und kein Versehen. */
+  t('Kein zweiter Mahlzeiten-Waehler neben der Ueberschrift', () => {
+    const sicher=JSON.stringify(profile.kcal);
+    profile.kcal={goal:2000, foods:[], meals:[]};
+    const d=foodBauen('suchen','f');
+    const chips=app.querySelectorAll('[data-act^="foodmz:"]');
+    d.zurueck(); profile.kcal=JSON.parse(sicher);
+    return chips.length===0 || 'es gibt ' + chips.length + ' Mahlzeiten-Knoepfe im Eintrage-Schritt';
+  });
+
   // ---- Mahlzeit eintragen ----
   t('Mahlzeit landet mit heutigem Datum in der Liste', () => {
     profile.kcal = {goal:2000, foods:[], meals:[]};
@@ -5500,9 +5586,20 @@ window.addEventListener('error', e => {
   /* 🔴 Der Einbau: die Suche ist nur erreichbar, wenn der Knopf sie auch ausloest. */
   t('Der Knopf unter der Liste ruft die Suche auf', () => {
     const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
-    return (q.indexOf("data-act=\"food:dbsuche\"") > -1
-         && q.indexOf("a==='food:dbsuche'") > -1
-         && q.indexOf('dbSuche(s?s.value') > -1) || 'der Weg vom Knopf zur Suche ist unterbrochen';
+    /* ⚠️ Bis zum 04.09.2026 stand hier `dbSuche(s?s.value` -- der WORTLAUT der damaligen
+       Umsetzung. Als der Suchtext von `document.getElementById('foodSearch')` auf die
+       gemerkte Variable `foodQ` umgestellt wurde, wurde die Pruefung rot, obwohl der Weg
+       vom Knopf zur Suche vollstaendig war. Eine Pruefung, die eine Schreibweise festhaelt
+       statt einer Verbindung, meldet jede Umbenennung als Fehler und keinen einzigen
+       echten. Jetzt wird der ZWEIG geprueft: ruft er dbSuche auf, und bekommt der Aufruf
+       ueberhaupt etwas mit? */
+    if(q.indexOf('data-act="food:dbsuche"') < 0) return 'der Knopf fehlt';
+    const i = q.indexOf("a==='food:dbsuche'");
+    if(i < 0) return 'der Handler fehlt';
+    const zweig = q.slice(i, i + 200);
+    const m = zweig.match(/dbSuche\(([^)]*)\)/);
+    if(!m) return 'der Zweig ruft dbSuche nicht auf';
+    return m[1].trim() !== '' || 'dbSuche wird ohne Suchtext aufgerufen';
   });
   t('Ein Treffer fuehrt in den Mengen-Schritt', () => {
     const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';

@@ -4,6 +4,60 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-04
 
+### v0.071 — „Essen eintragen" nach Karls Entwurf neu gebaut
+
+Karl hat ein von GPT gezeichnetes Bild geschickt: *„so soll es gerne aussehen wenn man auf
+essen eintragen geht"* — mit dem Hinweis, dass ein paar Sachen darin komisch dargestellt und
+nicht wichtig sind.
+
+**Übernommen:** Kopfzeile mit mittigem Titel und Barcode/Foto oben rechts · Drei-Wege-Umschalter
+**Suchen / Favoriten / Zuletzt** · Suchfeld mit Lupe · Zeilen als Karten mit rundem Feld links,
+kcal und Nährwerten (`7P 1K 6F`) rechts, rundem Plus · großer Knopf unten.
+
+**„Zuletzt" ist neu** und ersetzt den „Nochmal"-Block, der am 03.09. weggefallen war.
+
+#### 🔴 Drei Sachen aus dem Entwurf sind bewusst nicht drin
+
+1. **Die Mahlzeiten-Leiste** („Alle · Frühstück · Mittagessen · …"). Seit dem 03.09. kommt man
+   nur über einen Mahlzeiten-Knopf hierher, die Mahlzeit steht also fest, **bevor** hier etwas
+   passiert — und seit heute steht sie in der Überschrift. Dieselben vier Namen als Filter
+   daneben liest man als *„wohin geht das Essen"*: **zwei Quellen für dieselbe Angabe, die
+   sich widersprechen können.** Genau der Fehler, den v0.070 behoben hat.
+2. **Die Fotos der Lebensmittel.** Es gibt keine — weder in der App noch in der offenen
+   Datenbank in brauchbarer Form. Statt eines erfundenen Bildes steht der **Anfangsbuchstabe**
+   in einem Feld derselben Größe: die Zeile behält ihren Aufbau, ohne etwas zu behaupten.
+3. **Die Überschrift „Beliebte Lebensmittel".** Beliebt bei wem? Die App kennt nur die eigene
+   Liste; eine Beliebtheits-Reihenfolge wäre eine erfundene Zahl.
+
+⚠️ **„Fertig" steht im Entwurf nicht und ist trotzdem geblieben** — er kam am 03.09. auf Karls
+ausdrückliche Ansage. Ihn wegzunehmen, weil ein Entwurf ihn nicht zeigt, hieße eine Ansage
+durch ein Bild zurückzunehmen.
+
+#### 🔧 Was unter der Oberfläche dazu nötig war
+
+- **`foodQ`** hält den Suchtext fest. Ohne die Variable wäre er nach einem Blick in die
+  Favoriten weg — das Feld wird beim Reiter-Wechsel neu gebaut.
+- **`food:new` und `food:dbsuche` lesen ihn jetzt aus `foodQ`** statt aus `#foodSearch`.
+  🔴 Unter „Favoriten" und „Zuletzt" gibt es das Feld gar nicht, und `s?s.value:''` hätte dort
+  **still einen leeren Namen weitergereicht.**
+- **„Zuletzt" sucht über den Namen zurück in die Lebensmittel-Liste** und lässt weg, was es
+  nicht mehr gibt. Mahlzeiten speichern einen Namen, keine Kennung — sonst stünde dort eine
+  Zeile mit einem Plus, das ins Leere führt.
+
+#### 🔬 Prüfungen 826 → 832, und eine umgeschrieben
+
+Die neuen prüfen am gebauten Dokument: drei Umschalter-Felder mit genau einem aktiven ·
+Titel und Barcode in der Kopfzeile · Favoriten zeigt nur Favoriten · **„Zuletzt" zeigt nichts,
+was gelöscht wurde** · der Suchtext überlebt den Reiter-Wechsel · kein zweiter Mahlzeiten-Wähler.
+
+🔴 **Eine bestehende Prüfung war kaputt, nicht der Code:** *„Der Knopf unter der Liste ruft die
+Suche auf"* hielt den **Wortlaut** `dbSuche(s?s.value` fest. Durch die Umstellung auf `foodQ`
+wurde sie rot, obwohl der Weg vom Knopf zur Suche vollständig war. **Eine Prüfung, die eine
+Schreibweise festhält statt einer Verbindung, meldet jede Umbenennung als Fehler und keinen
+einzigen echten.** Sie prüft jetzt den Zweig: ruft er `dbSuche` auf, und bekommt der Aufruf
+überhaupt etwas mit?
+
+
 ### v0.070 — zwei Ansagen von Karl an der Ernährungs-Seite
 
 **1. „der + button ist immernoch zu nah an der kcal leiste"**
