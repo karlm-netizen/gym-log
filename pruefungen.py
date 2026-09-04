@@ -2275,6 +2275,57 @@ window.addEventListener('error', e => {
     return (an === true && aus === false) || (an + '/' + aus);
   });
 
+  /* ============================================ Zwei Ansagen von Karl, 04.09.2026
+     1. „der + button ist immernoch zu nah an der kcal leiste"
+     2. „wenn ich draufdruecke sollte oben stehm fruehstueck oder abenessen eintragen"
+
+     🔴 Beide werden GEMESSEN bzw. am gebauten Dokument geprueft, nicht am Quelltext
+     nachgelesen. Grund steht im Vault vom 03.09.: eine Pruefung war gruen, waehrend die
+     Gewichtskurve ganz fehlte -- sie prueft das Teil, nicht das Bild. Ein Abstand, den
+     niemand misst, ist genau die Sorte Fehler, die monatelang unbemerkt bleibt. */
+  t('Der Plus-Knopf klebt nicht am kcal-Balken', () => {
+    const sicher = JSON.stringify(profile.kcal);
+    profile.kcal = {goal:2000, foods:[], meals:[]};
+    addMeal({name:'Probe', basis:'g100', kcal:100, p:0, c:0, f:0}, 100);
+    const v = view; view = 'body'; renderBody();
+    const block = document.querySelector('.mz');
+    const knopf = block && block.querySelector('.mz-plus');
+    // Der Balken ist das erste Element NACH der Kopfzeile, das eine Fuellung traegt.
+    const balken = block && block.querySelector('.row.between + div');
+    if (!knopf || !balken) { view = v; profile.kcal = JSON.parse(sicher);
+      return 'Knopf oder Balken nicht gefunden'; }
+    const a = knopf.getBoundingClientRect(), b = balken.getBoundingClientRect();
+    const luft = b.top - a.bottom;
+    view = v; profile.kcal = JSON.parse(sicher);
+    if (!(a.height > 0 && b.height > 0)) return 'nicht gezeichnet';
+    /* Gebaut sind 14 px. Schwelle 8: eine kleine Masskorrektur macht die Pruefung nicht
+       rot, das Entfernen des Abstands schon -- dann steht hier wieder rund 0. */
+    return luft > 8 || 'nur ' + luft.toFixed(1) + ' px Luft zwischen Knopf und Balken';
+  });
+  t('Die Ueberschrift beim Eintragen nennt die Mahlzeit', () => {
+    const sicher = JSON.stringify(profile.kcal), vS = view, mS = foodMz, stS = foodStep;
+    profile.kcal = {goal:2000, foods:[], meals:[]};
+    foodMz = 'a'; foodStep = 'list'; view = 'food'; renderFood();
+    const h2 = document.querySelector('h2');
+    const txt = h2 ? h2.textContent : '';
+    view = vS; foodMz = mS; foodStep = stS; profile.kcal = JSON.parse(sicher);
+    if (!h2) return 'keine Ueberschrift gefunden';
+    return (txt.indexOf('Abendessen') > -1 && txt.indexOf('eintragen') > -1)
+      || 'Ueberschrift lautet: ' + txt;
+  });
+  /* ⚠️ Die Gegenprobe: das alte Abzeichen rechts daneben muss WEG sein. Ohne diese
+     Pruefung waere die obere auch dann gruen, wenn beides nebeneinander stuende -- und
+     zweimal dasselbe ist keine Betonung, sondern eine Doppelung. */
+  t('Neben der Ueberschrift steht die Mahlzeit kein zweites Mal', () => {
+    const sicher = JSON.stringify(profile.kcal), vS = view, mS = foodMz, stS = foodStep;
+    profile.kcal = {goal:2000, foods:[], meals:[]};
+    foodMz = 'f'; foodStep = 'list'; view = 'food'; renderFood();
+    const kopf = document.querySelector('h2') && document.querySelector('h2').parentElement;
+    const pille = kopf ? kopf.querySelector('.pill') : null;
+    view = vS; foodMz = mS; foodStep = stS; profile.kcal = JSON.parse(sicher);
+    return !pille || 'das alte Abzeichen steht noch neben der Ueberschrift';
+  });
+
   // ---- Mahlzeit eintragen ----
   t('Mahlzeit landet mit heutigem Datum in der Liste', () => {
     profile.kcal = {goal:2000, foods:[], meals:[]};

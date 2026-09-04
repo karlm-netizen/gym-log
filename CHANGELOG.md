@@ -2,6 +2,45 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-09-04
+
+### v0.070 — zwei Ansagen von Karl an der Ernährungs-Seite
+
+**1. „der + button ist immernoch zu nah an der kcal leiste"**
+
+🔴 **Nachgemessen statt geschätzt: es waren 0,0 px.** Der Ziel-Balken einer Mahlzeit stand
+ohne jeden Abstand unter der Zeile mit dem Plus-Knopf — und der Knopf ist 44 px hoch und hat
+einen Schlagschatten. Zwei Elemente, die sich berühren, liest das Auge als eines: der Balken
+sah aus wie der Unterrand des Knopfes.
+
+✅ **14 px dazwischen.** Der Balken bekommt einen eigenen Rahmen mit `margin-top`, nicht
+`zielBalken()` selbst — die Funktion zeichnet auch die Eiweiß-Leiste weiter oben, und die
+steht dort richtig.
+
+**2. „wenn ich draufdrücke sollte oben stehm frühstück oder abenessen eintragen"**
+
+Die Mahlzeit stand als Abzeichen **rechts neben** der Überschrift „Essen eintragen" — also an
+der Stelle, an der auf allen anderen Seiten Zähler und Nebenangaben stehen. Sie ist aber keine
+Nebenangabe: seit dem 03.09. kommt man nur noch über einen Mahlzeiten-Knopf hierher, und die
+Mahlzeit ist **das Einzige, was diese Seite von den drei anderen unterscheidet.**
+
+✅ **Jetzt steht sie in der Überschrift selbst:** „☕ Frühstück eintragen", „🥗 Abendessen
+eintragen". Das Abzeichen daneben ist entfallen — zweimal dasselbe ist keine Betonung.
+
+### 🔬 Drei neue Prüfungen, 823 → 826 — und diesmal mit Gegenprobe
+
+⚠️ **Beide Änderungen werden am gebauten Dokument geprüft, nicht im Quelltext nachgelesen.**
+Die erste **misst** den Abstand zwischen Knopf-Unterkante und Balken-Oberkante.
+
+🔴 **Der Grund steht im Vault vom 03.09.:** eine Prüfung war grün, während die Gewichtskurve
+ganz fehlte. **Ein Abstand, den niemand misst, ist genau die Sorte Fehler, die monatelang
+unbemerkt bleibt** — es wird ja nichts rot.
+
+✅ **Gegenprobe gemacht:** beide Änderungen zurückgenommen → **3 Prüfungen rot**, mit der
+Meldung *„nur 0.0 px Luft zwischen Knopf und Balken"*. Danach wiederhergestellt, 826 grün.
+**Die dritte Prüfung ist die Gegenprobe zur zweiten**: sie fällt, wenn das alte Abzeichen
+neben der neuen Überschrift stehen bliebe.
+
 ## 2026-09-03
 
 ### v0.069 — der erste Agentenlauf seit dem 01.09., und er hat sich gelohnt

@@ -3743,7 +3743,12 @@ function renderBody(){
         <button class="mz-plus" data-act="food:start:${mz.id}"
           aria-label="Zu ${mz.name} eintragen">${PLUS_SVG}</button>
       </div>
-      ${ziel?zielBalken(sum, ziel, 'var(--ok)'):''}
+      ${/* ➡️ Karl, 04.09.2026: „der + button ist immernoch zu nah an der kcal leiste“.
+            Der Balken stand ohne jeden Abstand unter der Zeile -- und in der Zeile sitzt
+            der 44 px hohe Plus-Knopf mit Schlagschatten. Zwei Elemente, die sich beruehren,
+            liest man als eines: der Balken sah aus wie der Unterrand des Knopfes.
+            14 px trennen sie sichtbar, ohne den Block auseinanderzuziehen. */''}
+      ${ziel?`<div style="margin-top:14px">${zielBalken(sum, ziel, 'var(--ok)')}</div>`:''}
       ${drin.length?`<div style="margin-top:8px">`+[...drin].reverse().map(m=>
         `<div class="mz-eintrag"><div style="min-width:0">
            <span>${esc(m.name)}</span>
@@ -3907,8 +3912,15 @@ function renderFood(){
      geht, sonst ist die Zuordnung unsichtbar und man traegt das Fruehstueck ins
      Abendessen. `foodMz` ist gesetzt, `mahlzeitJetzt()` faengt den Rest. */
   const mzJetzt = MAHLZEITEN.find(x=>x.id===(foodMz||mahlzeitJetzt()));
-  h+=`<div class="row between" style="margin:6px 4px 8px"><h2>Essen eintragen</h2>
-      ${mzJetzt?`<span class="pill">${mzJetzt.icon} ${esc(mzJetzt.name)}</span>`:''}</div>
+  /* ➡️ Karl, 04.09.2026: „wenn ich draufdrücke sollte oben stehm frühstück oder
+     abenessen eintragen oder was auch immer“.
+     ⚠️ Die Mahlzeit stand vorher als Abzeichen RECHTS neben „Essen eintragen“ -- also an
+     der Stelle, an der sonst Zähler und Nebenangaben stehen. Sie ist aber keine Nebenangabe,
+     sondern das Einzige, was diese Seite von den drei anderen unterscheidet. Jetzt steht sie
+     in der Überschrift selbst, und das Abzeichen entfällt -- zweimal dasselbe daneben wäre
+     Wiederholung, keine Betonung. */
+  const titelMz = mzJetzt ? `${mzJetzt.icon} ${esc(mzJetzt.name)} eintragen` : 'Essen eintragen';
+  h+=`<div class="row between" style="margin:6px 4px 8px"><h2>${titelMz}</h2></div>
     <div class="fab-row">
       <button class="btn" data-act="food:barcode">
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:5px"><path d="M3 5v14M7 5v14M11 5v10M15 5v14M18 5v10M21 5v14"/></svg>Barcode</button>
@@ -5245,7 +5257,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.069';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.070';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
