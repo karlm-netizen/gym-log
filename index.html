@@ -155,6 +155,87 @@ setTimeout(function(){
   .btn.primary:active{filter:brightness(.9)}
   .btn.ghost{background:transparent}
   .btn.sm{width:auto; padding:8px 12px; font-size:13px}
+
+  /* ---------- Rueckmeldung beim Tippen (06.09.2026) ----------
+     Aus Karls Checkliste vom 06.09. (Reel @lincolndevine, Punkt 4): "keine Tap-Animation"
+     ist eines der fuenf Anzeichen fuer eine hingevibte App. Nachgezaehlt vor dem Umbau:
+     6 :active-Regeln und 14 Uebergaenge auf 7.686 Zeilen.
+
+     🔴 Hier stand am selben Abend ein Kommentar, der behauptete, jetzt gaeben "ALLE
+     antippbaren Karten" etwas zurueck. **Das war falsch.** Der Fund-Sucher hat im Browser
+     nachgemessen: erreicht wurden drei von vierzehn. Stumm blieben unter anderem `.check`
+     -- der Satz-Haken, also der meistgetippte Knopf im ganzen Training --, die
+     Pausenuhr-Knoepfe, die Themenkacheln und die Rangkarten.
+     ⚠️ Und keine der beiden neuen Pruefungen konnte das sehen: sie fragten, OB eine
+     :active-Regel dasteht und ob ihre Selektoren tot sind. **Was eine Regel nicht
+     erreicht, sieht man ihr nicht an.** Die Liste unten ist deshalb an der Klick-Weiche
+     ausgerichtet -- wer dort steht, ist antippbar und gehoert hierher.
+
+     ⚠️ Bewusst hier oben und generisch. Die spezielleren Regeln weiter unten
+     (.mz-plus, .food-plus, .zurueck, .fav-stern) stehen SPAETER in der Datei und gewinnen
+     damit bei gleicher Staerke -- sie haben eigene, kraeftigere Werte und behalten die.
+     ⚠️ .btn.primary:active (zwei Klassen) ist staerker als .btn:active und behaelt sein
+     eigenes brightness(.9). Hier kommt nur das Zusammenziehen dazu.
+     ⚠️ Kein `data-go` hier: die App kennt kein einziges: ein toter Selektor faellt nie auf. */
+  .btn, .theme-toggle, .check, .t-btn, .chip, .iconbtn, .link, .lib-row, .theme-cell,
+  .food-mitte, [data-nav], [data-act], [data-startplan], [data-skin], [data-opensess],
+  [data-openex], [data-fav], [data-pickfood], [data-check]{
+    transition:transform .09s ease, filter .09s ease; -webkit-tap-highlight-color:transparent}
+  .btn:active, .theme-toggle:active, .check:active, .t-btn:active, .chip:active,
+  .iconbtn:active, .link:active, .lib-row:active, .theme-cell:active, .food-mitte:active,
+  [data-nav]:active, [data-act]:active, [data-startplan]:active, [data-skin]:active,
+  [data-opensess]:active, [data-openex]:active, [data-fav]:active, [data-pickfood]:active,
+  [data-check]:active{transform:scale(.975); filter:brightness(.93)}
+  /* ♿ Wer "Bewegung reduzieren" gesetzt hat, bekommt die Abdunklung, aber kein Zucken.
+     ⚠️ Die aelteren, spezielleren Regeln (.mz-plus, .food-plus, .zurueck, .fav-stern)
+     stehen weiter unten und behalten ihr eigenes Zusammenziehen -- auch hier drin. Das
+     war vor dem 06.09. genauso und ist keine neue Luecke, aber es steht jetzt dabei. */
+  @media (prefers-reduced-motion: reduce){
+    .btn, .theme-toggle, .check, .t-btn, .chip, .iconbtn, .link, .lib-row, .theme-cell,
+    .food-mitte, [data-nav], [data-act], [data-startplan], [data-skin], [data-opensess],
+    [data-openex], [data-fav], [data-pickfood], [data-check]{transition:none}
+    .btn:active, .theme-toggle:active, .check:active, .t-btn:active, .chip:active,
+    .iconbtn:active, .link:active, .lib-row:active, .theme-cell:active, .food-mitte:active,
+    [data-nav]:active, [data-act]:active, [data-startplan]:active, [data-skin]:active,
+    [data-opensess]:active, [data-openex]:active, [data-fav]:active, [data-pickfood]:active,
+    [data-check]:active{transform:none}
+  }
+
+  /* ---------- Platzhalter statt leerer Flaeche (06.09.2026) ----------
+     Reel @lincolndevine, Punkt 2. ⚠️ Bewusst NUR an den zwei Stellen eingesetzt, die
+     wirklich aus dem Netz laden (Bestenliste, Essens-Suche). Diese App ist lokal-zuerst;
+     ueberall sonst waere ein Platzhalter eine Luege ueber eine Wartezeit, die es nicht gibt. */
+  .skel{border-radius:8px; background:var(--card2); position:relative; overflow:hidden}
+  .skel::after{content:''; position:absolute; inset:0; transform:translateX(-100%);
+    background:linear-gradient(90deg, transparent, rgba(127,127,127,.16), transparent);
+    animation:schimmer 1.3s ease-in-out infinite}
+  @keyframes schimmer{100%{transform:translateX(100%)}}
+  @media (prefers-reduced-motion: reduce){ .skel::after{animation:none} }
+  .skel-zeile{display:flex; align-items:center; gap:12px; padding:11px 0;
+    border-bottom:1px solid var(--line)}
+  .skel-zeile:last-child{border-bottom:none}
+
+  /* ---------- "Ohne Netz" (06.09.2026) ----------
+     Reel @lincolndevine, Punkt 5. Offline KANN die App laengst -- die Daten liegen im Geraet
+     und beim Wiederverbinden schiebt sie von selbst. Was fehlte: man sah es nicht.
+     ⚠️ Unten statt oben, weil oben schon drei Baender uebereinander stapeln koennen
+     (#neufassung, #speicherwarnung, #fehlerbanner) und jede weitere Kombination dort eine
+     eigene CSS-Regel braucht. Unten steht es ueber der Leiste, wie der Toast. */
+  #offlineband{position:fixed; left:50%; transform:translateX(-50%); bottom:78px; z-index:55;
+    display:none; max-width:88%; padding:8px 14px; border-radius:999px; font-size:12.5px;
+    font-weight:600; background:var(--card2); color:var(--muted);
+    border:1px solid var(--line); pointer-events:none; text-align:center}
+  #offlineband.show{display:block}
+  /* 🔴 Nachgemessen am 06.09.2026: bei laufender Pausenuhr lag das Band genau darauf
+     (Band 372-406, Uhr 355-428). Ausgerechnet waehrend des Trainings, wo die Uhr das
+     Wichtigste auf dem Schirm ist. Das Band weicht der Uhr aus -- nicht umgekehrt.
+     ⚠️ Geschwister-Regel wie bei den Baendern oben (#neufassung ~ #speicherwarnung):
+     sie haelt nur, solange #offlineband im Quelltext NACH #timerbar steht. */
+  /* ⚠️ 150px reichten nicht: der Toast steht bei 120px und ist bei laengerem Text zwei
+     Zeilen hoch -- nachgemessen lagen Band (604-654) und Toast (643-684) elf Pixel
+     uebereinander, und der Toast (z-index 60) deckte die Oberkante des Bandes zu.
+     Dieselbe Kollision wie mit der Uhr, eine Ebene weiter. 200px raeumt beides. */
+  #timerbar.show ~ #offlineband{bottom:200px}
   /* Der Abschluss-Knopf (03.09.2026, Karls Ansage „am besten einen grossen fertig button
      unten"). Deutlich hoeher als ein normaler Knopf, damit er am Ende einer langen Seite
      ohne Zielen zu treffen ist. */
@@ -726,6 +807,7 @@ setTimeout(function(){
 <button id="neufassung" type="button">Neue Fassung ist da — tippen zum Laden</button>
 <button id="speicherwarnung" type="button">Speichern geht nicht — tippen</button>
 <button id="fehlerbanner" type="button">Etwas ist schiefgelaufen — tippen für Details</button>
+<div id="offlineband">Ohne Netz — Änderungen bleiben im Gerät</div>
 <div id="toast" class="toast"></div>
 <div id="modal" class="modal"></div>
 <!-- Fuer „Essen per Foto": capture=environment oeffnet am Handy direkt die Kamera. -->
@@ -2612,6 +2694,21 @@ function renderHome(){
   // Brock sitzt klein in der Heute-Karte, weil sein Spruch sich genau darauf bezieht.
   // Der Begleiter waechst mit: er zeigt den getragenen Rang, nicht mehr den alten Brock.
   const brock=`<div class="mascot mini">${monster(56,'',equippedRank())}<div class="bubble">${brockSay()}</div></div>`;
+
+  /* ---------- Ein Hauptknopf je Bildschirm (06.09.2026) ----------
+     Karls Checkliste vom 06.09. (Reel @agenticmatt, Hick's Law): mehrere Knoepfe mit
+     derselben optischen Wichtigkeit zwingen zum Ueberlegen. Vorher konnten hier VIER
+     gruene `btn primary` gleichzeitig stehen -- Fortsetzen, Starten, Gewicht eintragen,
+     Zu den Mahlzeiten -- und alle sahen gleich laut aus.
+
+     Die Rangfolge ist die Antwort auf "was soll der Nutzer als Naechstes tun?":
+     laufendes Training > heutiger Plan > wiegen > essen. Wer nicht Erster ist, wird
+     zum ruhigen Zweitknopf. ⚠️ Die Reihenfolge der Aufrufe unten IST die Rangfolge --
+     wer hier Bloecke verschiebt, verschiebt auch, was gruen ist.
+     ⚠️ `Verwerfen` bleibt aussen vor: es ist kein Kandidat, sondern die gefaehrliche
+     Handlung, und die soll leise bleiben (steht als `btn ghost sm` in Rot). */
+  let hauptFrei = true;
+  const hauptKlasse = () => { if(hauptFrei){ hauptFrei = false; return 'btn primary'; } return 'btn'; };
   // Auf dem PC (ab 900 px) stehen die zwei Blöcke nebeneinander, am Handy untereinander.
   // Dieselben Karten, nur ein Umbruch — kein eigener Bau fürs breite Fenster.
   let h='<div class="cols2"><div>';
@@ -2638,18 +2735,18 @@ function renderHome(){
     <div class="row between"><h2>Training läuft</h2><span class="pill">${esc(active.planName)}</span></div>
     <p class="muted tiny" style="margin:6px 0 0"><b data-sesstime style="color:var(--txt)">${fmtClock(Date.now()-active.date)}</b> · ${doneSets(active.exercises)} Sätze · seit ${fmtTime(active.date)}</p>
     ${brock}
-    <button class="btn primary" style="margin-top:12px" data-act="resume">Fortsetzen</button>
+    <button class="${hauptKlasse()}" style="margin-top:12px" data-act="resume">Fortsetzen</button>
     <button class="btn ghost sm" style="margin-top:8px;color:var(--danger)" data-act="discard">Verwerfen</button></div>`; }
   if(p){ h+=`<div class="card" style="border-color:var(--accent);margin-top:${active?'10px':'0'}">
       <div class="plan-chip"><span class="dot"></span><b>${esc(p.name)}</b></div>
       <div class="muted tiny" style="margin-top:6px">${p.exercises.length} Übungen · ${esc(p.exercises.map(e=>e.name).filter(Boolean).slice(0,3).join(', '))}${p.exercises.length>3?' …':''}</div>
       ${active?'':brock}
-      <button class="btn primary" style="margin-top:12px" data-startplan="${p.id}">${active?'Nochmal starten':'Starten'}</button></div>`; }
+      <button class="${hauptKlasse()}" style="margin-top:12px" data-startplan="${p.id}">${active?'Nochmal starten':'Starten'}</button></div>`; }
   else if(!active){ const nx=nextTrainingDay();
     h+=`<div class="card"><b>Ruhetag</b>
       <div class="muted tiny" style="margin-top:6px">${nx?`Weiter geht's am ${DAYLONG[nx.d]} mit ${esc(nx.p.name)}.`:'Noch keine Trainingstage festgelegt.'}</div>
       ${brock}
-      ${plans.length?'':`<button class="btn primary" style="margin-top:12px" data-act="ob:start">Plan einrichten</button>`}</div>`; }
+      ${plans.length?'':`<button class="${hauptKlasse()}" style="margin-top:12px" data-act="ob:start">Plan einrichten</button>`}</div>`; }
 
   /* Erinnerungen (Karls Ansagen vom 28. und 29.08.2026).
      ⚠️ Jede steht NUR da, solange die Sache heute offen ist -- eine Erinnerung, die nach dem
@@ -2668,7 +2765,7 @@ function renderHome(){
         <div class="field" style="flex:1;margin:0">
           <input id="wInput" type="number" inputmode="decimal" step="0.1" min="20" max="500"
                  placeholder="${lw?fmtKg(lw.kg):'z. B. 78,5'}"></div>
-        <button class="btn primary" style="width:auto;padding:12px 18px" data-act="addweight">Eintragen</button>
+        <button class="${hauptKlasse()}" style="width:auto;padding:12px 18px" data-act="addweight">Eintragen</button>
       </div></div>`;
   }
   /* Essen (29.08.2026, Karls Ansage). 🔴 Kein Eingabefeld wie beim Wiegen: eine Mahlzeit
@@ -2678,7 +2775,7 @@ function renderHome(){
     h+=`<div class="card" style="margin-top:10px">
       <div class="row between"><b>Essen eintragen</b><span class="pill">täglich</span></div>
       <div class="tiny muted" style="margin-top:4px">Heute steht noch nichts drin.</div>
-      <button class="btn primary" style="margin-top:10px" data-nav="body">Zu den Mahlzeiten</button></div>`;
+      <button class="${hauptKlasse()}" style="margin-top:10px" data-nav="body">Zu den Mahlzeiten</button></div>`;
   }
 
   h+=`<div class="card" data-nav="progs" style="cursor:pointer;margin-top:10px"><div class="row between">
@@ -3486,6 +3583,16 @@ function kcalRing(ist,ziel){
 // `foodMz` haelt fest, in WELCHEN Mahlzeiten-Block eingetragen wird — gesetzt vom
 // Plus-Knopf des Blocks, geleert beim Verlassen. Leer heisst: nach Uhrzeit entscheiden.
 let foodStep='list', foodDraft=null, foodBusy='', foodFehler='', foodMz='';
+/* 🔴 Gefunden am 06.09.2026 vom Fund-Sucher, noch vor dem ersten Push von v0.074.
+   Die Platzhalter beim Laden wurden zuerst am Anzeigetext festgemacht (`/Datenbank/`).
+   Barcode UND Textsuche melden aber beide "Suche ... in der Lebensmittel-Datenbank" --
+   nur endet der Barcode in einem einzelnen Entwurf und die Textsuche in einer Liste.
+   Der Barcode versprach damit drei Zeilen, die nie kamen.
+   ⚠️ Der Merkposten ist groesser als der Fehler: **eine Anzeige darf nicht davon
+   abhaengen, was in einem anderen Anzeigetext steht.** Der Text ist zum Lesen da, nicht
+   zum Auswerten -- er aendert sich beim naechsten Umformulieren, und dann ist es still
+   kaputt. Deshalb jetzt ein eigenes Ja/Nein, das die aufrufende Stelle setzt. */
+let foodBusyListe = false;
 /* ➡️ Der Drei-Wege-Umschalter aus Karls Entwurf (04.09.2026). `foodQ` haelt den
    Suchtext fest, damit ein Wechsel zwischen den Reitern ihn nicht verschluckt --
    das Feld wird beim Neuzeichnen ja neu gebaut. */
@@ -4029,8 +4136,21 @@ function gewichtVerlaufHTML(){
 function renderFood(){
   const k=kcalInit();
   let h=`${zurueckPfeil('data-nav="body"', 'Kalorien')}`;
-  if(foodBusy){ h+=`<div class="card" style="text-align:center"><div class="tiny muted">${esc(foodBusy)}</div>
-      <div class="ladebalken"><i></i></div></div>`; app.innerHTML=h; return; }
+  if(foodBusy){
+    /* Der Balken sagt "es laeuft", der Platzhalter sagt "und es kommt eine Liste"
+       (06.09.2026, Reel-Checkliste Punkt 2).
+       ⚠️ Die Platzhalter NUR beim Suchen. Bei der Foto-Schaetzung kommt am Ende ein
+       einzelner Entwurf, keine Liste -- dort waeren drei Zeilen ein falsches Versprechen. */
+    const sucht = foodBusyListe;
+    h+=`<div class="card" style="text-align:center"><div class="tiny muted">${esc(foodBusy)}</div>
+      <div class="ladebalken"><i></i></div></div>`;
+    if(sucht){ h+=`<div class="card" aria-busy="true" aria-label="Suchergebnisse werden geladen">`
+      + Array.from({length:3}).map(() => `<div class="skel-zeile">
+            <div class="skel" style="height:13px;flex:1;max-width:160px"></div>
+            <div class="skel" style="height:26px;width:26px;border-radius:999px;margin-left:auto"></div>
+          </div>`).join('')
+      + `</div>`; }
+    app.innerHTML=h; return; }
   if(foodFehler) h+=`<div class="card" style="border-color:var(--danger)"><b style="color:var(--danger)">Hat nicht geklappt</b>
       <div class="tiny muted" style="margin-top:6px;line-height:1.6">${esc(foodFehler)}</div></div>`;
 
@@ -4469,7 +4589,8 @@ async function holeBarcode(nr){
     return;
   }
 
-  foodBusy='Suche '+nr+' in der Lebensmittel-Datenbank …'; foodFehler=''; view='food'; render();
+  // Barcode: am Ende steht EIN Lebensmittel, keine Liste -- also keine Listen-Platzhalter.
+  foodBusy='Suche '+nr+' in der Lebensmittel-Datenbank …'; foodBusyListe=false; foodFehler=''; view='food'; render();
   try{
     const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(nr)}.json?fields=product_name,product_name_de,brands,nutriments`);
     /* ⚠️ Ein 503 lässt fetch NICHT werfen — die Antwort kommt, sie ist nur leer. Ohne
@@ -4581,7 +4702,8 @@ async function dbSuche(text){
   const q=(text||'').trim();
   if(q.length<2){ foodFehler='Gib mindestens zwei Buchstaben ein.'; render(); return; }
   dbFrage=q; dbTreffer=[];
-  foodBusy='Suche „'+q+'“ in der Lebensmittel-Datenbank …'; foodFehler=''; view='food'; render();
+  // Textsuche: am Ende steht eine Trefferliste -- hier sind die Platzhalter ehrlich.
+  foodBusy='Suche „'+q+'“ in der Lebensmittel-Datenbank …'; foodBusyListe=true; foodFehler=''; view='food'; render();
   try{
     const d=await sucheMitAusweichweg(q);
     /* ⚠️ Treffer ohne Nährwerte werden hier weggelassen, nicht erst beim Antippen. Von den
@@ -4696,7 +4818,8 @@ async function schaetzeFoto(file){
   // fragKey() ist seit dem 22.08.2026 ein Dialog und damit asynchron — ohne await
   // liefe es sofort mit einem Promise (immer wahr) weiter und schickte das Foto ohne Schluessel.
   if((!aiKey() || altSchluessel()) && !(await fragKey())){ foodFehler='Ohne Schlüssel kann das Foto nicht geschätzt werden.'; render(); return; }
-  foodBusy='Das Bild wird angesehen … das dauert ein paar Sekunden.'; foodFehler=''; view='food'; render();
+  // Foto: am Ende steht EIN Entwurf.
+  foodBusy='Das Bild wird angesehen … das dauert ein paar Sekunden.'; foodBusyListe=false; foodFehler=''; view='food'; render();
   try{
     const b64=await fotoKlein(file,1024);
     // Google statt Anthropic (Karls Entscheidung, 21.08.2026): der Schluessel kostet dort
@@ -5109,7 +5232,17 @@ function renderErfolge(){
         Dafür muss <b style="color:var(--txt)">supabase-bestenliste.sql</b> einmal im
         Supabase-Dashboard ausgeführt werden.</div></div>`;
   } else if(bestenliste === null){
-    h += `<div class="card"><div class="tiny muted">Wird geladen …</div></div>`;
+    /* Platzhalter in der Form der echten Liste statt eines Satzes (06.09.2026). Vorher stand
+       hier "Wird geladen …" -- eine Zeile, wo gleich zehn kommen, und die Karte sprang beim
+       Eintreffen in der Hoehe. ⚠️ Fuenf Zeilen, nicht zehn: es sollen nicht mehr Plaetze
+       versprochen werden, als am Ende dastehen koennen. */
+    h += `<div class="card" aria-busy="true" aria-label="Bestenliste wird geladen">`
+       + Array.from({length:5}).map(() => `<div class="skel-zeile">
+             <div class="skel" style="width:22px;height:22px;border-radius:999px"></div>
+             <div class="skel" style="height:12px;flex:1;max-width:140px"></div>
+             <div class="skel" style="height:12px;width:46px;margin-left:auto"></div>
+           </div>`).join('')
+       + `</div>`;
   } else if(!bestenliste.length){
     h += `<div class="card"><div class="tiny muted">Noch niemand drin.</div></div>`;
   } else {
@@ -5557,7 +5690,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.073';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.074';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -5812,7 +5945,23 @@ function postfachSpringen(){
    kein Absturz und darf auch nicht wie einer aussehen -- die Seite sagt dann, dass die Liste
    noch eingerichtet werden muss. `null` heisst "noch nicht geladen", `[]` heisst "geladen,
    aber leer", `false` heisst "gibt es serverseitig nicht". Drei Zustaende, drei Anzeigen. */
-let bestenliste = null;
+/* 🔴 Bis zum 06.09.2026 stand hier `let bestenliste = null` -- eine reine Arbeitsvariable,
+   nirgends gespeichert. Folge: nach JEDEM Kaltstart oeffnete "Erfolge" ohne Liste, obwohl
+   zwei Minuten vorher noch eine da war. Genau der dritte Punkt aus Karls Checkliste vom
+   06.09. (Reel @lincolndevine): "Bildschirme oeffnen leer".
+   ⚠️ Gespeichert wird NUR eine echte Liste. `false` heisst "die Tabelle fehlt" und `null`
+   heisst "gerade nicht erreichbar" -- beides sind Aussagen ueber DIESEN Moment und haben
+   im Geraet nichts verloren. Ein gespeichertes `false` wuerde beim naechsten Start
+   "noch nicht eingerichtet" behaupten, ohne je gefragt zu haben. */
+const BESTEN_KEY = 'bestenliste';
+/* ⚠️ Eigene Funktion statt einer sofort aufgerufenen Klammer. Eine Klammer laesst sich
+   nicht pruefen -- sie laeuft genau einmal beim Laden, und danach kommt man nicht mehr
+   heran. (Regel vom 06.09.2026: die Pruefung muss das Teil UND den Einbau treffen.) */
+function gemerkteBestenliste(){
+  const g = DB.get(BESTEN_KEY, null);
+  return Array.isArray(g) ? g : null;
+}
+let bestenliste = gemerkteBestenliste();
 let bestenlisteZuletzt = 0;
 let bestenlisteLaeuft = false;
 
@@ -5864,11 +6013,28 @@ async function bestenlisteAuffrischen(erzwingen){
   if(!erzwingen && Date.now() - bestenlisteZuletzt < 30000) return;
   bestenlisteLaeuft = true;
   bestenlisteZuletzt = Date.now();
+  /* 🔴 Gefunden am 06.09.2026 vom Fund-Sucher, zweiter Lauf. Wer hier startet, ist nicht
+     zwingend derselbe, der unten ankommt: zwischen den beiden `await` liegen zwei
+     Netzrunden, und in der Zeit kann jemand auf Abmelden getippt haben. `clearSession()`
+     raeumt die gemerkte Liste -- und die Antwort, die danach eintrifft, hat sie
+     seelenruhig zurueckgeschrieben. Belegt: nach dem Abmelden war der Speicher leer, nach
+     dem Eintreffen der Antwort stand die Liste des Vorgaengers wieder drin.
+     ⚠️ Deshalb wird gemerkt, WER den Lauf gestartet hat, und danach nachgesehen. */
+  const wer = session.user && session.user.id;
   try{
     await bestenlisteSchieben();
     const rows = await bestenlisteHolen();
+    // Inzwischen abgemeldet oder Konto gewechselt? Dann gehoert diese Antwort niemandem hier.
+    if(!session || (session.user && session.user.id) !== wer) return;
     if(rows === null) return;        // Netz weg -- den alten Stand stehen lassen
     bestenliste = rows;
+    /* Merken, damit der naechste Kaltstart nicht wieder leer anfaengt. Nur echte Listen.
+       🔴 Und die Kehrseite, gefunden am 06.09.2026: sagt der Server "die Tabelle gibt es
+       nicht" (`false`), muss die gemerkte Liste WEG. Sonst zeigt die App nach dem
+       Auffrischen "noch nicht eingerichtet", beim naechsten Kaltstart aber wieder die
+       alte Liste -- sie widerspraeche sich selbst, je nachdem wann man hinsieht. */
+    if(Array.isArray(rows)) DB.set(BESTEN_KEY, rows);
+    else if(rows === false){ try{ localStorage.removeItem('gymlog:' + BESTEN_KEY); }catch(e){} }
     if(view === 'erfolge') render();
   } finally { bestenlisteLaeuft = false; }
 }
@@ -6233,7 +6399,26 @@ async function supaRPC(fn,args){ try{ const r=await fetch(`${SUPA_URL}/rest/v1/r
 function setSession(d,username){ session={ access_token:d.access_token, refresh_token:d.refresh_token,
     expires_at:Date.now()+((d.expires_in||3600)*1000), user:{id:d.user.id,email:d.user.email},
     username: username || (d.user.user_metadata&&d.user.user_metadata.username) || d.user.email }; DB.set('session',session); }
-function clearSession(){ session=null; DB.set('session',null); }
+function clearSession(){
+  session=null; DB.set('session',null);
+  /* 🔴 Die gemerkte Bestenliste enthaelt Namen ANDERER Leute und gehoert zur Sitzung,
+     nicht zum Geraet. Sie stand bis zum 06.09.2026 in `kontoDatenRaeumen()` -- und der
+     Fund-Sucher hat nachgezaehlt: `clearSession()` wird SIEBENMAL gerufen,
+     `kontoDatenRaeumen()` nur viermal. Drei Wege loeschten die Anmeldung, ohne die Liste:
+     darunter das abgelaufene Token (`Bitte neu anmelden`). Meldet sich danach jemand
+     anderes an diesem Geraet an, sieht er bis zur ersten Auffrischung die Liste des
+     Vorgaengers.
+     ⚠️ Deshalb hier und nicht dort: das hier ist die eine Stelle, durch die ALLE Wege
+     gehen. (Dieselbe Bauform wie die Push-Anmeldung, gefunden am 30.08.2026.) */
+  try{ localStorage.removeItem('gymlog:' + BESTEN_KEY); }catch(e){}
+  bestenliste = null;
+  /* ⚠️ Und die Bremse mit zuruecksetzen. Ohne diese Zeile raeumte das Abmelden zwar die
+     Liste, aber `bestenlisteZuletzt` blieb stehen -- die 30-Sekunden-Sperre in
+     `bestenlisteAuffrischen` griff weiter, und "Erfolge" hing nach dem naechsten Anmelden
+     bis zu einer halben Minute im Platzhalter. 🔴 Das sah aus wie Laden, und der neue
+     schimmernde Platzhalter versprach sogar aktiv, dass gleich etwas kommt. */
+  bestenlisteZuletzt = 0;
+}
 // Wichtig: Kein Rauswurf bei Netzproblemen — nur wenn der Server die Anmeldung wirklich ablehnt.
 /* 🔴 Ein Auffrischen zur Zeit. Gefunden beim Durchsehen am 27.08.2026.
 
@@ -7460,6 +7645,25 @@ if(location.hash === '#postfach'){
   postfachOeffnen();
 }
 window.addEventListener('online',()=>{ if(session&&dirty) cloudPush(); });
+
+/* ---------- "Ohne Netz" sichtbar machen (06.09.2026) ----------
+   Punkt 5 aus Karls Checkliste. Die App KONNTE offline immer schon alles -- die Zeile
+   darueber schiebt beim Wiederverbinden von selbst nach. Was fehlte: ohne Netz sah die App
+   aus wie mit Netz, und wer gerade eine Einheit abgeschlossen hatte, wusste nicht, ob sie
+   angekommen ist.
+   ⚠️ `navigator.onLine` ist nur eine halbe Wahrheit -- es sagt "dieses Geraet hat eine
+   Verbindung", nicht "das Internet ist erreichbar". Deshalb steht dort NICHT "nicht
+   gespeichert", sondern was sicher stimmt: die Aenderungen liegen im Geraet.
+   ⚠️ Kein render() von hier aus: das Band steht ausserhalb von #app und ueberlebt jedes
+   Neuzeichnen. Ein render() an dieser Stelle wuerde mitten in einer Eingabe den Fokus
+   verlieren -- dieselbe Falle wie beim Neufassungs-Hinweis. */
+function offlineBandSetzen(){
+  const b = document.getElementById('offlineband');
+  if(b) b.classList.toggle('show', navigator.onLine === false);
+}
+window.addEventListener('online',  offlineBandSetzen);
+window.addEventListener('offline', offlineBandSetzen);
+offlineBandSetzen();
 // Zwei Wege, weil kein Browser beide zuverlaessig meldet: 'visibilitychange' kommt beim
 // Wegwischen und beim Bildschirm-Aus, 'pagehide' beim echten Schliessen. Doppelt gesendet
 // wird nichts -- flushSync prueft dirty, und der erste Erfolg setzt es zurueck.

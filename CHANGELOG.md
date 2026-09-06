@@ -4,6 +4,180 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-06
 
+### v0.074 — drei Checklisten aus Karls Reels, fünf davon gebaut
+
+Karl hat drei Instagram-Reels transkribieren lassen und geschickt: eine UX-Checkliste
+(Hick's Law), eine zu öffentlichen Endpunkten und Kosten, und fünf Anzeichen für eine
+„hingevibte“ App. **Erst geprüft, dann gebaut** — der Bericht steht im Vault unter
+`04-projects/gym-log-pruefung-checklisten-2026-09-06.md`.
+
+⚠️ **Der wichtigste Befund war ein Nicht-Befund:** die Reels zielen auf Apps mit einem
+Server, der Rechnungen bezahlt. **Gym-Log hat keinen.** Der KI-Schlüssel für die
+Foto-Schätzung ist der eigene Google-Schlüssel im eigenen Browser, die Zeilensperre steht
+überall, und die Meldungen haben seit dem 25.08. eine serverseitige Bremse. **Es gibt keine
+Stelle, an der ein Fremder Kosten auf fremde Rechnung auslösen kann.**
+
+#### 🎯 Ein Hauptknopf je Bildschirm (Hick's Law)
+
+**Die Startseite konnte vier grüne `btn primary` gleichzeitig zeigen** — Fortsetzen, Starten,
+Gewicht eintragen, Zu den Mahlzeiten — und alle sahen gleich wichtig aus. Genau der Fall aus
+dem Reel: *„Entwurf speichern / Vorschau / Veröffentlichen“* nebeneinander.
+
+- **`hauptKlasse()` vergibt Grün genau einmal.** Rangfolge: laufendes Training › heutiger
+  Plan › wiegen › essen. Wer nicht Erster ist, wird zum ruhigen Zweitknopf.
+- ⚠️ **Die Reihenfolge der Aufrufe im Quelltext IST die Rangfolge** — wer die Blöcke
+  verschiebt, verschiebt auch, was grün ist. Steht als Warnung im Code.
+- ✅ **`Verwerfen` bleibt aussen vor**: die gefährliche Handlung war schon vorher richtig
+  leiser als die harmlose. Das war der einzige Platz, an dem die Regel bereits stimmte.
+
+#### ✨ Vier Punkte aus „fünf Anzeichen für eine hingevibte App“
+
+**1. Rückmeldung beim Tippen.** Vorher: **6 `:active`-Regeln auf 7.686 Zeilen.** Die meisten
+Knöpfe und alle antippbaren Karten gaben beim Tippen gar nichts zurück. Jetzt ein
+generischer Druckzustand für Knöpfe und Karten, mit Rücknahme bei „Bewegung reduzieren“.
+⚠️ Bewusst weit oben im Stylesheet, damit die älteren, kräftigeren Regeln (`.mz-plus`,
+`.food-plus`, `.zurueck`) ihre eigenen Werte behalten.
+
+**2. Bildschirme öffnen leer.** 🔴 `let bestenliste = null` war eine reine
+Arbeitsvariable — **nach jedem Kaltstart öffnete „Erfolge“ ohne Liste.** Jetzt wird die
+letzte Liste im Gerät gemerkt und sofort gezeigt, die Auffrischung läuft dahinter.
+⚠️ **Gemerkt wird nur eine echte Liste.** `false` heisst „die Tabelle fehlt“ und `null`
+heisst „gerade nicht erreichbar“ — beides sind Aussagen über DIESEN Moment. Ein
+gespeichertes `false` würde beim nächsten Start ein SQL anmahnen, das längst gelaufen ist.
+🔴 **Und sie wird beim Abmelden geräumt** — sie enthält Namen anderer Leute und gehört
+zum Konto, nicht zum Gerät. (Dieselbe Bauform wie die Push-Anmeldung, 30.08.2026.)
+
+**3. Keine Ladeplatzhalter.** Jetzt Platzhalterzeilen in der Form des echten Inhalts, mit
+leichtem Schimmern — **aber nur an den zwei Stellen, die wirklich aus dem Netz laden**
+(Bestenliste, Essens-Suche). ⚠️ Bei der Foto-Schätzung bewusst nicht: dort kommt am Ende
+ein einzelner Entwurf, drei Platzhalterzeilen wären ein Versprechen, das die App nicht hält.
+
+**4. Kein Offline-Betrieb** — traf **nicht** zu, die App kann das längst. **Was fehlte: man
+sah es nicht.** Jetzt ein ruhiger Streifen „Ohne Netz — Änderungen bleiben im Gerät“.
+⚠️ Der Text behauptet bewusst **keinen Datenverlust**: `navigator.onLine` sagt nur „dieses
+Gerät hat eine Verbindung“, und gespeichert ist ohnehin immer.
+
+**5. Knöpfe warten auf den Server** — traf **nicht** zu. Die App ist lokal-zuerst; genau das,
+was das Reel als Lösung vorschlägt, ist hier die Bauform.
+
+#### 🤖 Der Fund-Sucher: fünf Funde, alle behoben — und zwei davon waren meine
+
+⚠️ **Der Lauf ist an einem Sitzungslimit abgebrochen**, bevor ein Bericht kam. Er hatte
+aber sieben Wegwerf-Proben im Prüfstand stehen lassen — **und die hatten schon gemessen.**
+Die Proben sind entfernt, ihre Funde stehen hier.
+
+**1. 🔴 Die Platzhalter kamen auch beim Barcode — und der endet in EINEM Entwurf.**
+Ursache: die Unterscheidung Liste/Entwurf lief über den **Anzeigetext** (`/Datenbank/`).
+Barcode und Textsuche melden aber beide *„Suche … in der Lebensmittel-Datenbank"*. Der
+Barcode versprach damit drei Zeilen, die nie kamen.
+➡️ Jetzt eine eigene Flagge `foodBusyListe`, die die aufrufende Stelle setzt.
+💡 **Der Merkposten ist grösser als der Fehler:** eine Anzeige darf nicht davon abhängen,
+was in einem anderen **Anzeigetext** steht. Der Text ist zum Lesen da, nicht zum Auswerten —
+er ändert sich beim nächsten Umformulieren, und dann ist es still kaputt.
+
+**2. 🔴 Das neue Offline-Band lag genau auf der Pausenuhr.** Nachgemessen: Band
+372–406, Uhr 355–428. **Ausgerechnet während des Trainings**, wo die Uhr das Wichtigste auf
+dem Schirm ist. ➡️ Das Band weicht der Uhr jetzt aus (`#timerbar.show ~ #offlineband`).
+
+**3. 🟠 Das Räumen der Bestenliste sass im falschen Weg.** Es stand in
+`kontoDatenRaeumen()` — der Fund-Sucher hat nachgezählt: **`clearSession()` wird siebenmal
+gerufen, `kontoDatenRaeumen()` nur viermal.** Drei Wege löschten die Anmeldung ohne die
+Liste, darunter das abgelaufene Token (*„Bitte neu anmelden"*). Meldet sich danach jemand
+anderes an diesem Gerät an, sieht er bis zur ersten Auffrischung **die Liste des
+Vorgängers.** ➡️ Umgezogen nach `clearSession()` — die eine Stelle, durch die alle Wege gehen.
+
+**4. 🟡 Sagte der Server „die Tabelle gibt es nicht", blieb die gemerkte Liste liegen.**
+Die App zeigte nach dem Auffrischen *„noch nicht eingerichtet"* und beim nächsten Kaltstart
+wieder die alte Liste — **sie widersprach sich selbst, je nachdem wann man hinsah.**
+
+**5. 🟡 `[data-go]` im Druckzustand war ein toter Selektor.** Diese App kennt kein
+einziges `data-go`. Nachgezählt: vier Vorkommen im Quelltext, **alle vier waren die
+Selektoren selbst.** Kostet nichts, tut nichts, fällt nie auf.
+
+#### 🐛 Und ein Fund an meinen eigenen Prüfungen — dieselbe Bauform
+
+Die neue Prüfung auf tote Selektoren lief über `document.styleSheets` und sprang mit
+`if (r.cssRules) { …; continue; }` über **jede einzelne Regel** hinweg.
+🔴 **Seit Chrome CSS-Verschachtelung kann, hat auch eine ganz normale Style-Regel ein
+`cssRules`** — eine leere Liste, aber ein Objekt, und ein Objekt ist wahr.
+**Die Prüfung meldete daraufhin „gar keine Attribut-Selektoren gefunden"** — also das
+Harmlose —, obwohl sie in Wahrheit **nichts angesehen hatte.**
+⚠️ Dazu sass im selben Sammler ein `catch`, das den Fehler geschluckt hätte. Beides
+gerichtet: erst den Selektor lesen, dann nur bei echtem Inhalt absteigen — und ein Wurf
+wird gemeldet statt verschwiegen.
+
+#### 🤖 Der zweite Lauf: fünf weitere Funde, alle behoben
+
+**1. 🟠 Abmelden während des Auffrischens schrieb die Liste des Vorgängers zurück.**
+Genau die Lücke, die der Umzug nach `clearSession()` schliessen sollte — **auf dem
+asynchronen Weg war sie weiter offen.** Zwischen den beiden `await` liegen zwei Netzrunden;
+wer in der Zeit auf Abmelden tippt, räumt die Liste, und die danach eintreffende Antwort
+schreibt sie seelenruhig wieder hinein. ➡️ Der Lauf merkt sich jetzt, **wer** ihn gestartet
+hat, und prüft das nach dem Warten.
+
+**2. 🟠 Der Druckzustand erreichte drei von vierzehn antippbaren Dingen** — und der
+Kommentar daneben behauptete *„ALLE antippbaren Karten"*. 🔴 **Der Kommentar war falsch.**
+Stumm blieben unter anderem **`.check`, der Satz-Haken — der meistgetippte Knopf im ganzen
+Training**, dazu die Pausenuhr-Knöpfe, Chips, Icon-Knöpfe, Textlinks, Übungszeilen,
+Themenkacheln und die Rangkarten. ➡️ Die Liste ist jetzt an der **Klick-Weiche**
+ausgerichtet: wer dort steht, ist antippbar und gehört in die Regel.
+
+**3. 🟡 Nach Ab- und Anmelden hing „Erfolge" bis zu 30 Sekunden im Platzhalter.**
+Das Abmelden räumte die Liste, liess aber `bestenlisteZuletzt` stehen — die
+30-Sekunden-Bremse griff weiter. **Und es sah exakt aus wie Laden**; der neue schimmernde
+Platzhalter versprach sogar aktiv, dass gleich etwas kommt. ➡️ Eine Zeile.
+
+**4. 🟡 Das Offline-Band lag bei laufender Uhr auf dem Toast** — dieselbe Kollision wie
+mit der Pausenuhr, eine Ebene weiter. Nachgemessen: 11 px, und der Toast deckt mit z-index 60
+die Oberkante zu. ➡️ 200 px statt 150 räumt beides.
+
+**5. ⏭️ Offen und bewusst nicht gebaut: die gemerkte Bestenliste trägt kein Alter.**
+Ohne Netz lässt die App den alten Stand stehen — richtig so. **Aber vorher stand dort
+„Wird geladen …", jetzt stehen Zahlen.** Wer wochenlang offline ist, sieht seinen alten Rang,
+als wäre er von eben. 🔴 **Das ist die Bauform in Reinform**, und die Reparatur
+(`{ts, uid, rows}` statt nur `rows`) ändert, was im Gerät gespeichert wird — **deshalb liegt
+sie als Entscheidung bei Karl**, nach der Regel vom 04.09.
+
+#### 🐛 Zwei Funde an meinen eigenen Prüfungen — beide dieselbe Bauform
+
+**a) Die Prüfung auf tote Selektoren sah gar nichts an.** Sie lief über
+`document.styleSheets` und sprang mit `if (r.cssRules) { …; continue; }` über **jede
+einzelne Regel** hinweg — seit Chrome CSS-Verschachtelung kann, hat auch eine ganz normale
+Style-Regel ein `cssRules`: eine leere Liste, aber ein Objekt, und ein Objekt ist wahr.
+**Gemeldet wurde „gar keine Attribut-Selektoren gefunden"**, also das Harmlose. Dazu ein
+`catch`, das einen echten Wurf verschluckt hätte.
+
+**b) Die erste Fassung der Druckzustand-Prüfung war genauso blind.** Sie suchte die
+Selektornamen als **Text** im Quelltext — und fand sie im Nachbarblock (der
+`prefers-reduced-motion`-Rücknahme) wieder. 🔴 **Die Gegenprobe hat es aufgedeckt:
+Selektoren aus der Druck-Regel entfernt — alles blieb grün.**
+➡️ Sie misst jetzt echt: sammelt aus dem Stylesheet alle Regeln mit `:active` **und** einem
+wirklichen `transform`, legt für jedes der 17 antippbaren Dinge ein Probe-Element an und
+fragt `matches()`. Was keine Regel trifft, fliegt auf.
+💡 **Der Merkposten, der über diese App hinausgeht:** eine Prüfung, die Quelltext liest,
+prüft, ob etwas **dasteht** — nicht, ob es **wirkt**. Bei CSS ist das fast immer zu wenig.
+
+#### 🧪 Prüfungen 867 → 894
+
+27 neue, **mit Gegenprobe an den Einbaustellen** — dreimal: für die fünf Neuerungen,
+für die sechs Reparaturen aus dem ersten Lauf und für die fünf aus dem zweiten.
+🔴 **Beim dritten Mal fielen zwei Prüfungen durch:** zwei Sabotagen blieben grün.
+Genau daran ist Fund (b) oben aufgeflogen. Nach dem Umbau schlägt jede Sabotage an,
+wiederhergestellt → 894 grün.
+⚠️ **Eine bestehende Prüfung wurde umgeschrieben, nicht gelöscht:** der Ladehinweis der
+Bestenliste war ein Satz und ist jetzt ein Platzhalter. **Die Absicht bleibt Wort für Wort
+dieselbe** — „ungeladen“ darf nicht wie „leer“ aussehen.
+
+#### 📋 Was bei Karl liegt (Supabase-Dashboard, nicht im Code)
+
+- 🔴 **Es gibt keine Warnung bei ungewöhnlichem Verkehr.** Der Schaden ist ohne
+  Rechnungskonto gedeckelt — aber „gedeckelt“ heisst: das Kontingent ist plötzlich weg und
+  niemand weiss warum. *Settings → Billing*, zwei Minuten.
+- 🟠 **`username_taken` ist öffentlich und ungebremst.** Muss offen bleiben (die
+  Registrierung fragt damit), könnte aber eine Mengengrenze je IP bekommen.
+- ❓ **Ist die E-Mail-Bestätigung an?** Aus = beliebig viele Konten. An = Supabase verschickt
+  je Versuch eine Mail, und das Kontingent ist klein.
+
 ### v0.073 — Grabsteine: Gelöschtes bleibt gelöscht
 
 #### 🪦 Der Datenverlust beim Abgleich, Schritt 1

@@ -1956,6 +1956,505 @@ window.addEventListener('error', e => {
     if (!h.includes('id="wInput"')) return 'kein Eingabefeld';
     return true;
   });
+  /* ================= v0.074 · ein Hauptknopf je Bildschirm (06.09.2026) =================
+     Karls Checkliste vom 06.09. (Reel @agenticmatt, Hick's Law). Vorher konnten auf der
+     Startseite VIER gruene `btn primary` gleichzeitig stehen.
+     🔴 Diese Pruefungen bauen bewusst den SCHLIMMSTEN Zustand nach -- laufendes Training,
+     heutiger Plan, Wiege-Erinnerung und Essens-Erinnerung auf einmal. Nur in dem Zustand
+     ist der Fehler ueberhaupt sichtbar; in jedem einzelnen fuer sich war nie etwas falsch. */
+  const vollesHaus = (fn) => {
+    const sV = session, aV = active, wV = profile.weights, eV = profile.erinnerungen,
+          mV = profile.meals, pV = programs, prV = profile.progIdx;
+    session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    // Ein laufendes Training, ein Plan fuer HEUTE, nichts gewogen, nichts gegessen.
+    const heute = todayIdx();
+    programs = [neuerPlan('Prueflauf', [{name:'Prueftag', day:heute, exercises:[{name:'Kniebeuge', sets:3}]}])];
+    profile.progIdx = 0; bindPlans();
+    active = {id:'a1', date: Date.now()-600000, planName:'Prueftag', exercises:[{name:'Kniebeuge', sets:[{weight:60, reps:5, done:true}]}]};
+    profile.weights = [{date: Date.now()-3*864e5, kg:79}];
+    profile.meals = [];
+    profile.erinnerungen = {wiegen:true, essen:true, ts:Date.now()};
+    view = 'home'; render();
+    const h = app.innerHTML;
+    session = sV; active = aV; profile.weights = wV; profile.erinnerungen = eV;
+    profile.meals = mV; programs = pV; profile.progIdx = prV; bindPlans();
+    view = 'home'; render();
+    return fn(h);
+  };
+  const zaehlePrimary = (h) => (h.match(/class="btn primary"/g) || []).length;
+
+  t('Startseite zeigt hoechstens EINEN gruenen Hauptknopf', () => {
+    return vollesHaus(h => {
+      const n = zaehlePrimary(h);
+      if (n === 0) return 'gar kein Hauptknopf - dann fuehrt die Seite niemanden';
+      return n === 1 || n + ' gruene Knoepfe gleichzeitig';
+    });
+  });
+  /* ⚠️ Die wichtigere Haelfte: der Fehler laesst sich auch "beheben", indem man die
+     anderen Knoepfe einfach weglaesst. Das waere schlechter als vorher. */
+  t('Die zurueckgestuften Knoepfe sind weiterhin da, nur leiser', () => {
+    return vollesHaus(h => {
+      for (const k of ['data-act="resume"', 'data-startplan=', 'data-act="addweight"', 'data-nav="body"'])
+        if (!h.includes(k)) return 'weg statt leise: ' + k;
+      return true;
+    });
+  });
+  // Die Rangfolge ist die Antwort auf "was soll der Nutzer als Naechstes tun?".
+  t('Bei laufendem Training ist Fortsetzen der gruene Knopf', () => {
+    return vollesHaus(h => {
+      const i = h.indexOf('class="btn primary"');
+      const j = h.indexOf('data-act="resume"');
+      if (i < 0 || j < 0) return 'Fortsetzen oder Hauptknopf fehlt';
+      // Der gruene Knopf und `resume` muessen derselbe sein: gleiches Element.
+      return (j > i && j - i < 120) || 'der gruene Knopf ist nicht Fortsetzen';
+    });
+  });
+  t('Ohne laufendes Training ist Starten der gruene Knopf', () => {
+    const sV = session, aV = active, pV = programs, prV = profile.progIdx,
+          eV = profile.erinnerungen, wV = profile.weights;
+    session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    programs = [neuerPlan('Prueflauf', [{name:'Prueftag', day:todayIdx(), exercises:[{name:'Kniebeuge', sets:3}]}])];
+    profile.progIdx = 0; bindPlans();
+    active = null;
+    profile.weights = [{date: Date.now()-3*864e5, kg:79}];
+    profile.erinnerungen = {wiegen:true, essen:true, ts:Date.now()};
+    view = 'home'; render();
+    const h = app.innerHTML;
+    session = sV; active = aV; programs = pV; profile.progIdx = prV;
+    profile.erinnerungen = eV; profile.weights = wV; bindPlans(); view = 'home'; render();
+    if (zaehlePrimary(h) !== 1) return zaehlePrimary(h) + ' gruene Knoepfe';
+    const i = h.indexOf('class="btn primary"'), j = h.indexOf('data-startplan=');
+    return (j > i && j - i < 120) || 'der gruene Knopf ist nicht Starten';
+  });
+
+  /* ================= v0.074 · die Bestenliste ueberlebt den Kaltstart =================
+     Reel @lincolndevine, Punkt 3: "Bildschirme oeffnen leer". */
+  const mitGemerkter = (wert, fn) => {
+    const alt = localStorage.getItem('gymlog:bestenliste');
+    try {
+      if (wert === undefined) localStorage.removeItem('gymlog:bestenliste');
+      else localStorage.setItem('gymlog:bestenliste', JSON.stringify(wert));
+      return fn();
+    } finally {
+      if (alt === null) localStorage.removeItem('gymlog:bestenliste');
+      else localStorage.setItem('gymlog:bestenliste', alt);
+    }
+  };
+  t('Eine gemerkte Liste kommt beim Start zurueck', () => {
+    return mitGemerkter([{user_id:'x', name:'Karl', xp:1200}], () => {
+      const g = gemerkteBestenliste();
+      return (Array.isArray(g) && g.length === 1 && g[0].name === 'Karl') || 'nichts zurueckbekommen';
+    });
+  });
+  /* 🔴 Der eigentliche Grund fuer die Pruefung: `false` heisst "die Tabelle fehlt" und
+     `null` heisst "gerade nicht erreichbar". Beides sind Aussagen ueber DIESEN Moment.
+     Ein gespeichertes `false` wuerde beim naechsten Start "noch nicht eingerichtet"
+     behaupten, ohne je gefragt zu haben -- und Karl zu einem SQL schicken, das laengst lief. */
+  t('Ein gemerktes "Tabelle fehlt" wird beim Start NICHT geglaubt', () => {
+    return mitGemerkter(false, () => gemerkteBestenliste() === null || 'false ueberlebt den Start');
+  });
+  t('Muell im Speicher fuehrt nicht zu einer kaputten Liste', () => {
+    return mitGemerkter({kaputt:true}, () => gemerkteBestenliste() === null || 'Objekt durchgelassen');
+  });
+  t('Ohne gemerkte Liste faengt der Start bei null an', () => {
+    return mitGemerkter(undefined, () => gemerkteBestenliste() === null || 'nicht null');
+  });
+  // ⚠️ Der Einbau, nicht nur das Teil: die Startzeile muss die Funktion auch benutzen.
+  t('Die Startzeile benutzt gemerkteBestenliste()', () => {
+    const q = document.documentElement.innerHTML;
+    return /let bestenliste\s*=\s*gemerkteBestenliste\(\)/.test(q)
+      || 'bestenliste wird beim Start nicht aus dem Geraet geholt';
+  });
+  /* 🔴 Die Liste enthaelt Namen ANDERER Leute und haengt am Konto. Bleibt sie beim
+     Abmelden liegen, sieht der Naechste an diesem Geraet die Liste des Vorigen.
+     (Dieselbe Bauform wie die Push-Anmeldung, gefunden am 30.08.2026.) */
+  /* 🔴 Diese Pruefung hing bis zum 06.09.2026 abends an `kontoDatenRaeumen()`. Der
+     Fund-Sucher hat nachgezaehlt: `clearSession()` wird SIEBENMAL gerufen,
+     `kontoDatenRaeumen()` nur viermal -- drei Wege loeschten die Anmeldung, ohne die
+     Liste, darunter das abgelaufene Token. Das Raeumen ist deshalb nach `clearSession()`
+     umgezogen, und diese Pruefung mit. */
+  t('Jedes Loeschen der Anmeldung raeumt die gemerkte Bestenliste', () => {
+    const alt = localStorage.getItem('gymlog:bestenliste'), bV = bestenliste, sV = session;
+    try {
+      localStorage.setItem('gymlog:bestenliste', JSON.stringify([{user_id:'fremd', name:'Jemand', xp:9}]));
+      bestenliste = [{user_id:'fremd', name:'Jemand', xp:9}];
+      clearSession();
+      if (localStorage.getItem('gymlog:bestenliste') !== null) return 'die Liste liegt noch im Geraet';
+      return bestenliste === null || 'die Liste steht noch im Speicher der Sitzung';
+    } finally {
+      bestenliste = bV; session = sV; DB.set('session', sV);
+      if (alt === null) localStorage.removeItem('gymlog:bestenliste');
+      else localStorage.setItem('gymlog:bestenliste', alt);
+    }
+  });
+  /* ⚠️ Der Einbau, nicht nur das Teil: das Raeumen muss in der Funktion stehen, durch die
+     ALLE Wege gehen. Steht es in einer, die nur manche Wege nehmen, ist die Luecke zurueck
+     -- und sie ist wieder still. */
+  t('Das Raeumen sitzt in clearSession, nicht in einem Nebenweg', () => {
+    const q = window.APP_QUELLE;
+    const i = q.indexOf('function clearSession()');
+    if (i < 0) return 'clearSession nicht gefunden';
+    const koerper = q.slice(i, i + 1400);
+    return /removeItem\('gymlog:' \+ BESTEN_KEY\)/.test(koerper)
+      || 'clearSession raeumt die Bestenliste nicht';
+  });
+  /* 🔴 Sagt der Server "die Tabelle gibt es nicht", muss die gemerkte Liste weg. Sonst
+     zeigt die App nach dem Auffrischen "noch nicht eingerichtet" und beim naechsten
+     Kaltstart wieder die alte Liste -- sie widerspraeche sich selbst, je nachdem wann
+     man hinsieht. */
+  t('Fehlt die Tabelle, fliegt auch die gemerkte Liste raus', () => {
+    const q = window.APP_QUELLE;
+    const i = q.indexOf('async function bestenlisteAuffrischen');
+    if (i < 0) return 'bestenlisteAuffrischen nicht gefunden';
+    const koerper = q.slice(i, i + 1800);
+    if (!/rows === false/.test(koerper)) return 'der Fall "Tabelle fehlt" wird nicht behandelt';
+    return /rows === false[^;]*removeItem/.test(koerper.replace(/\s+/g, ' '))
+      || 'bei fehlender Tabelle bleibt die alte Liste liegen';
+  });
+
+  /* ================= v0.074 · "Ohne Netz" wird sichtbar =================
+     Reel @lincolndevine, Punkt 5. Offline konnte die App laengst -- man sah es nur nicht. */
+  const mitNetz = (an, fn) => {
+    const urspruenglich = Object.getOwnPropertyDescriptor(Navigator.prototype, 'onLine');
+    Object.defineProperty(navigator, 'onLine', {get: () => an, configurable: true});
+    try { return fn(); }
+    finally {
+      delete navigator.onLine;
+      if (urspruenglich) Object.defineProperty(Navigator.prototype, 'onLine', urspruenglich);
+    }
+  };
+  /* 🔴 Fund des Fund-Suchers (06.09.2026, zweiter Lauf): wer das Auffrischen startet, ist
+     nicht zwingend derselbe, der unten ankommt. Zwischen den beiden `await` liegen zwei
+     Netzrunden -- in der Zeit kann jemand abgemeldet haben, und die eintreffende Antwort
+     schrieb die Liste des Vorgaengers seelenruhig zurueck ins Geraet.
+     ⚠️ Diese Pruefung baut das Wettrennen echt nach: sie haelt die Antwort an, meldet
+     dazwischen ab, und laesst sie dann eintreffen. */
+  await tA('Abmelden waehrend des Auffrischens schreibt nichts zurueck', async () => {
+    const sV = session, bV = bestenliste, zV = bestenlisteZuletzt;
+    const holenV = bestenlisteHolen, schiebenV = bestenlisteSchieben;
+    const alt = localStorage.getItem('gymlog:bestenliste');
+    let loesen;
+    try {
+      session = {user:{id:'alt'}, expires_at: Date.now()+3600e3, access_token:'x'};
+      bestenlisteSchieben = async () => {};
+      bestenlisteHolen = () => new Promise(f => { loesen = f; });
+      const lauf = bestenlisteAuffrischen(true);
+      /* ⚠️ Erst den Zyklus durchlassen: `bestenlisteAuffrischen` wartet zuerst auf
+         `bestenlisteSchieben()`, und `bestenlisteHolen` wird deshalb erst danach gerufen.
+         Ohne dieses Warten ist `loesen` hier noch gar nicht gesetzt. */
+      await new Promise(f => setTimeout(f, 0));
+      if (typeof loesen !== 'function') return 'das Holen wurde nie gerufen';
+      // Mitten im Warten: abmelden. Das raeumt die gemerkte Liste.
+      clearSession();
+      loesen([{user_id:'alt', name:'Fremder', xp:500}]);
+      await lauf;
+      const drin = localStorage.getItem('gymlog:bestenliste');
+      if (drin !== null) return 'die Liste des Vorgaengers steht wieder im Geraet: ' + drin;
+      return bestenliste === null || 'bestenliste ist wieder gefuellt';
+    } finally {
+      bestenlisteHolen = holenV; bestenlisteSchieben = schiebenV;
+      session = sV; DB.set('session', sV); bestenliste = bV; bestenlisteZuletzt = zV;
+      if (alt === null) localStorage.removeItem('gymlog:bestenliste');
+      else localStorage.setItem('gymlog:bestenliste', alt);
+    }
+  });
+
+  /* 🟡 Das Abmelden raeumte die Liste, liess aber die 30-Sekunden-Bremse stehen --
+     "Erfolge" hing nach dem naechsten Anmelden bis zu einer halben Minute im Platzhalter,
+     und das sah exakt aus wie Laden. */
+  t('Abmelden loest auch die 30-Sekunden-Bremse', () => {
+    const sV = session, zV = bestenlisteZuletzt, bV = bestenliste;
+    try {
+      bestenlisteZuletzt = Date.now();
+      clearSession();
+      return bestenlisteZuletzt === 0 || 'die Bremse steht noch auf ' + bestenlisteZuletzt;
+    } finally {
+      session = sV; DB.set('session', sV); bestenlisteZuletzt = zV; bestenliste = bV;
+    }
+  });
+
+  /* 🔴 Der eigentliche Merkposten des Abends. Die ersten zwei Prüfungen zum Druckzustand
+     fragten, OB eine :active-Regel dasteht und ob ihre Selektoren tot sind -- **was eine
+     Regel nicht erreicht, sieht man ihr nicht an.** Der Fund-Sucher hat im Browser
+     nachgemessen: erreicht wurden drei von vierzehn antippbaren Dingen. Stumm blieb unter
+     anderem `.check`, der Satz-Haken -- der meistgetippte Knopf im ganzen Training.
+
+     🔴 Und die erste Fassung DIESER Prüfung war genauso blind: sie suchte die Namen als
+     Text im Quelltext und fand sie im Nachbarblock (der `prefers-reduced-motion`-Rücknahme)
+     wieder. Die Gegenprobe hat es aufgedeckt: Selektoren aus der Druck-Regel entfernt --
+     alles blieb grün.
+
+     ⚠️ Deshalb misst sie jetzt wirklich: sie sammelt aus dem Stylesheet alle Regeln, die
+     `:active` UND einen echten `transform` tragen (die Rücknahme steht im @media und hat
+     `transform:none`, fällt also raus), legt für jedes antippbare Ding ein Probe-Element
+     an und fragt `matches()`. Was keine Regel trifft, fliegt auf. */
+  t('Alles Antippbare gibt beim Tippen wirklich etwas zurueck', () => {
+    const basen = [];
+    for (const bl of Array.from(document.styleSheets)) {
+      let regeln;
+      try { regeln = Array.from(bl.cssRules); }
+      catch (err) { return 'die Regeln waren nicht lesbar - ' + err.name; }
+      for (const r of regeln) {
+        const sel = r.selectorText || '';
+        if (sel.indexOf(':active') < 0) continue;
+        const tf = r.style && r.style.transform;
+        if (!tf || tf === 'none') continue;      // die Ruecknahme zaehlt nicht als Rueckmeldung
+        sel.split(',').forEach(teil => {
+          const basis = teil.trim().split(':active').join('');
+          if (basis) basen.push(basis);
+        });
+      }
+    }
+    if (!basen.length) return 'keine einzige Druck-Regel mit transform gefunden';
+
+    const proben = [
+      ['Satz-Haken',        '<button class="check"></button>'],
+      ['Pausenuhr-Knopf',   '<button class="t-btn"></button>'],
+      ['Chip',              '<span class="chip"></span>'],
+      ['Icon-Knopf',        '<button class="iconbtn"></button>'],
+      ['Textlink',          '<button class="link"></button>'],
+      ['Uebungszeile',      '<div class="lib-row"></div>'],
+      ['Themenkachel',      '<div class="theme-cell"></div>'],
+      ['normaler Knopf',    '<button class="btn"></button>'],
+      ['Wegweiser',         '<button data-nav="home"></button>'],
+      ['Aktion',            '<button data-act="x"></button>'],
+      ['Plan starten',      '<button data-startplan="1"></button>'],
+      ['Rang ausruesten',   '<div data-skin="1"></div>'],
+      ['Einheit oeffnen',   '<div data-opensess="1"></div>'],
+      ['Uebung oeffnen',    '<div data-openex="1"></div>'],
+      ['Favoriten-Stern',   '<button data-fav="1"></button>'],
+      ['Essen waehlen',     '<div data-pickfood="1"></div>'],
+      ['Satz abhaken',      '<button data-check="1"></button>']
+    ];
+    const topf = document.createElement('div');
+    document.body.appendChild(topf);
+    const stumm = [];
+    try {
+      for (const [name, html] of proben) {
+        topf.innerHTML = html;
+        const el = topf.firstElementChild;
+        let trifft = false;
+        for (const b of basen) {
+          try { if (el.matches(b)) { trifft = true; break; } } catch (err) { /* Selektor unbrauchbar */ }
+        }
+        if (!trifft) { stumm.push(name); continue; }
+        // Zweite Haelfte: ohne Uebergang springt es hart statt zu federn.
+        const ue = getComputedStyle(el).transitionProperty || '';
+        if (ue.indexOf('transform') < 0 && ue !== 'all') stumm.push(name + ' (ohne Uebergang)');
+      }
+    } finally { topf.remove(); }
+    return stumm.length === 0 || 'gibt beim Tippen nichts zurueck: ' + stumm.join(', ');
+  });
+
+  /* 🟡 Dieselbe Kollision wie mit der Pausenuhr, eine Ebene weiter: bei laufender Uhr
+     wich das Band nach oben aus -- genau in den Toast hinein (11 px, und der Toast deckt
+     mit z-index 60 die Oberkante zu). ⚠️ Der Toast wird hier absichtlich lang gemacht:
+     kurz passt er, zweizeilig nicht. */
+  t('Das Offline-Band liegt auch nicht auf dem Toast', () => {
+    const b = document.getElementById('offlineband');
+    const to = document.getElementById('toast');
+    if (!b || !to) return 'Band oder Toast gibt es nicht';
+    const warBand = b.classList.contains('show'), warKlasse = document.body.className;
+    const warUhr = tb.classList.contains('show'), warInhalt = tb.innerHTML;
+    const warToast = to.classList.contains('show'), warText = to.textContent;
+    try {
+      document.body.classList.remove('gate', 'setup');
+      tb.innerHTML = '<div class="timer"><div class="time">1:15</div>'
+        + '<div class="bar"><i style="width:80%"></i></div>'
+        + '<button class="t-btn">OK</button></div>';
+      tb.classList.add('show');
+      to.textContent = 'Eine laengere Meldung, die auf schmalen Schirmen zwei Zeilen braucht';
+      to.classList.add('show');
+      b.classList.add('show');
+      const rb = b.getBoundingClientRect(), rt = to.getBoundingClientRect();
+      if (rb.height === 0 || rt.height === 0) return 'eines von beiden wird nicht gezeichnet';
+      const ueber = !(rb.bottom <= rt.top || rb.top >= rt.bottom);
+      return !ueber || ('sie ueberlappen: Band ' + Math.round(rb.top) + '-' + Math.round(rb.bottom)
+                        + ', Toast ' + Math.round(rt.top) + '-' + Math.round(rt.bottom));
+    } finally {
+      tb.innerHTML = warInhalt; to.textContent = warText;
+      if (!warUhr) tb.classList.remove('show');
+      if (!warToast) to.classList.remove('show');
+      if (!warBand) b.classList.remove('show');
+      document.body.className = warKlasse;
+    }
+  });
+
+  t('Ohne Netz steht der Hinweis da', () => {
+    return mitNetz(false, () => {
+      offlineBandSetzen();
+      const b = document.getElementById('offlineband');
+      if (!b) return 'das Band gibt es gar nicht';
+      return b.classList.contains('show') || 'das Band bleibt versteckt';
+    });
+  });
+  t('Mit Netz ist der Hinweis weg', () => {
+    return mitNetz(true, () => {
+      offlineBandSetzen();
+      const b = document.getElementById('offlineband');
+      return (b && !b.classList.contains('show')) || 'das Band steht trotz Netz da';
+    });
+  });
+  /* ⚠️ Der Text darf NICHT behaupten, etwas sei nicht gespeichert. `navigator.onLine` sagt
+     nur "dieses Geraet hat eine Verbindung", und gespeichert ist ohnehin immer -- die Daten
+     liegen im Geraet. Ein falscher Alarm hier waere schlimmer als gar keiner. */
+  t('Der Offline-Hinweis behauptet keinen Datenverlust', () => {
+    const b = document.getElementById('offlineband');
+    if (!b) return 'das Band gibt es gar nicht';
+    const txt = b.textContent;
+    if (/nicht gespeichert|verloren|Fehler/i.test(txt)) return 'der Text macht Angst: ' + txt;
+    return /Ger.t/.test(txt) || 'der Text sagt nicht, wo die Aenderungen bleiben';
+  });
+  // ⚠️ Und der Einbau: ohne die zwei Lauscher merkt das Band den Wechsel nie.
+  t('Das Band haengt an online UND offline', () => {
+    const q = document.documentElement.innerHTML;
+    return (/addEventListener\('online',\s*offlineBandSetzen\)/.test(q)
+         && /addEventListener\('offline',\s*offlineBandSetzen\)/.test(q))
+      || 'mindestens ein Lauscher fehlt';
+  });
+
+  /* ================= v0.074 · Platzhalter nur, wo wirklich geladen wird =================
+     Reel @lincolndevine, Punkt 2. */
+  const foodMitBusy = (text, fn) => {
+    // ⚠️ Ohne `session` zeichnet render() die Anmeldeseite statt der Essens-Seite -- die
+    // Pruefung lief dann gegen ein leeres Blatt und meldete "kein Platzhalter".
+    const bV = foodBusy, vV = view, sV = session;
+    session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    foodBusy = text; view = 'food'; render();
+    const h = app.innerHTML;
+    foodBusy = bV; view = vV; session = sV; render();
+    return fn(h);
+  };
+  t('Die Essens-Suche zeigt Platzhalter in Listenform', () => {
+    // ⚠️ Die Flagge setzt sonst die Suche selbst -- hier von Hand, genauso wie sie es tut.
+    const lV = foodBusyListe;
+    foodBusyListe = true;
+    const r = foodMitBusy('Suche „Quark" in der Lebensmittel-Datenbank …', h => {
+      if (!h.includes('class="skel')) return 'kein Platzhalter';
+      return h.includes('aria-busy="true"') || 'der Ladezustand ist nicht angesagt';
+    });
+    foodBusyListe = lV;
+    return r;
+  });
+  /* 🔴 Beim Foto kommt am Ende EIN Entwurf, keine Liste. Drei Platzhalterzeilen waeren
+     dort ein Versprechen, das die App nicht einloest. */
+  /* 🔴 Vom Fund-Sucher am 06.09.2026 gefunden, bevor v0.074 draussen war: die Platzhalter
+     wurden zuerst am ANZEIGETEXT festgemacht (`/Datenbank/`). Barcode und Textsuche melden
+     aber beide "Suche ... in der Lebensmittel-Datenbank" -- nur endet der Barcode in EINEM
+     Entwurf. Er versprach damit drei Zeilen, die nie kamen.
+     ⚠️ Der Merkposten ist groesser als der Fehler: eine Anzeige darf nicht davon abhaengen,
+     was in einem anderen Anzeigetext steht. Der Text ist zum Lesen da, nicht zum Auswerten. */
+  t('Die Barcode-Suche zeigt KEINE Listen-Platzhalter', () => {
+    const lV = foodBusyListe;
+    foodBusyListe = false;
+    const r = foodMitBusy('Suche 4001724819998 in der Lebensmittel-Datenbank …', h => {
+      if (h.includes('class="skel')) return 'Listen-Platzhalter, obwohl EIN Entwurf kommt';
+      return h.includes('ladebalken') || 'gar keine Anzeige, dass etwas laeuft';
+    });
+    foodBusyListe = lV;
+    return r;
+  });
+  // ⚠️ Und der Einbau: die Unterscheidung darf nicht wieder am Text haengen.
+  t('Die Platzhalter haengen an einer Flagge, nicht an einem Anzeigetext', () => {
+    const q = window.APP_QUELLE;
+    if (/const sucht\s*=\s*\/[^/]*\/\.test\(foodBusy\)/.test(q))
+      return 'die Unterscheidung liest wieder den Anzeigetext';
+    return /const sucht\s*=\s*foodBusyListe/.test(q) || 'foodBusyListe wird nicht benutzt';
+  });
+  t('Nur die Textsuche setzt die Listen-Flagge', () => {
+    const q = window.APP_QUELLE;
+    const wahr = (q.match(/foodBusyListe\s*=\s*true/g) || []).length;
+    return wahr === 1 || wahr + ' Stellen setzen die Flagge auf true (erwartet: nur die Textsuche)';
+  });
+
+  /* 🔴 Nachgemessen am 06.09.2026: das Offline-Band lag genau auf der Pausenuhr
+     (Band 372-406, Uhr 355-428) -- ausgerechnet waehrend des Trainings, wo die Uhr das
+     Wichtigste auf dem Schirm ist. Diese Pruefung misst echte Rechtecke, keine CSS-Zeilen:
+     eine Regel kann richtig aussehen und trotzdem nicht greifen. */
+  t('Das Offline-Band liegt nicht auf der Pausenuhr', () => {
+    const b = document.getElementById('offlineband');
+    if (!b) return 'das Band gibt es gar nicht';
+    const warBand = b.classList.contains('show'), warKlasse = document.body.className;
+    const warUhr = tb.classList.contains('show'), warInhalt = tb.innerHTML;
+    try {
+      document.body.classList.remove('gate', 'setup');
+      tb.innerHTML = '<div class="timer"><div class="time">1:15</div>'
+        + '<div class="bar"><i style="width:80%"></i></div>'
+        + '<button class="t-btn">-15</button><button class="t-btn">OK</button></div>';
+      tb.classList.add('show');
+      b.classList.add('show');
+      const rb = b.getBoundingClientRect(), rt = tb.getBoundingClientRect();
+      if (rb.height === 0 || rt.height === 0) return 'eines von beiden wird gar nicht gezeichnet';
+      const ueber = !(rb.bottom <= rt.top || rb.top >= rt.bottom);
+      return !ueber || ('sie ueberlappen: Band ' + Math.round(rb.top) + '-' + Math.round(rb.bottom)
+                        + ', Uhr ' + Math.round(rt.top) + '-' + Math.round(rt.bottom));
+    } finally {
+      tb.innerHTML = warInhalt;
+      if (!warUhr) tb.classList.remove('show');
+      if (!warBand) b.classList.remove('show');
+      document.body.className = warKlasse;
+    }
+  });
+
+  /* 🟡 `[data-go]` stand im Druckzustand und traf NICHTS -- diese App kennt kein einziges
+     `data-go`. Ein toter Selektor kostet nichts und faellt nie auf. Genau deshalb hier. */
+  /* 🟡 Der Druckzustand hatte anfangs `[data-go]` mit drin -- und diese App kennt kein
+     einziges `data-go`. Ein toter Selektor kostet nichts, tut nichts und faellt nie auf.
+
+     ⚠️ Die erste Fassung dieser Pruefung suchte im Quelltext nach dem Namen und fand
+     dabei den KOMMENTAR, der die Entfernung erklaert -- rot, obwohl alles richtig war.
+     Deshalb liest sie jetzt die echten CSS-Regeln aus `document.styleSheets`: dort stehen
+     keine Kommentare, nur das, was der Browser tatsaechlich anwendet.
+
+     Die Regel: jeder Attribut-Selektor in einer :active-Regel muss im Quelltext auch als
+     echtes Attribut vorkommen (`data-nav=`), nicht nur als Selektor. */
+  t('Der Druckzustand hat keine toten Selektoren', () => {
+    const q = window.APP_QUELLE;
+    const namen = new Set();
+    /* \U0001f534 Diese Schleife hatte am 06.09.2026 selbst die Bauform, die wir suchen: ein
+       `catch`, das jeden Fehler schluckte. Ein Wurf beim ERSTEN Blatt sah danach genauso
+       aus wie "es gibt keine Attribut-Selektoren" -- und die Pruefung meldete das
+       Harmlosere. Jetzt wird der Wurf festgehalten und im Ergebnis genannt. */
+    const fehler = [];
+    /* [!] Hier stand zuerst `if (r.cssRules) { sammle(...); continue; }` -- und damit wurde
+       JEDE Regel uebersprungen. Seit Chrome die CSS-Verschachtelung kann, hat auch eine
+       ganz normale Style-Regel ein `cssRules`: eine LEERE Liste, aber ein Objekt, und ein
+       Objekt ist wahr. Die Pruefung meldete daraufhin "keine Attribut-Selektoren
+       gefunden" -- also das Harmlose, obwohl sie in Wahrheit nichts angesehen hatte.
+       Deshalb jetzt: erst den Selektor lesen, dann nur bei ECHTEM Inhalt absteigen. */
+    const sammle = (regeln) => {
+      for (const r of Array.from(regeln)) {
+        const sel = r.selectorText || '';
+        if (sel.indexOf(':active') >= 0) {
+          const treffer = sel.match(/\[[a-zA-Z-]+\]/g) || [];
+          treffer.forEach(x => namen.add(x.slice(1, -1)));
+        }
+        if (r.cssRules && r.cssRules.length) sammle(r.cssRules);
+      }
+    };
+    for (const bl of Array.from(document.styleSheets)) {
+      try { sammle(bl.cssRules); } catch (err) { fehler.push(err.name + ': ' + err.message); }
+    }
+    if (namen.size === 0)
+      return fehler.length ? ('die Regeln waren nicht lesbar - ' + fehler[0])
+                           : 'gar keine Attribut-Selektoren im Druckzustand gefunden';
+    // Jeder Selektor muss im Quelltext auch als echtes Attribut vorkommen, nicht nur als Regel.
+    const tot = [...namen].filter(n => q.indexOf(n + '=') < 0);
+    return tot.length === 0 || 'trifft nichts: ' + tot.join(', ');
+  });
+  // ♿ Wer "Bewegung reduzieren" gesetzt hat, darf kein zuckendes Bild bekommen.
+  t('Der Druckzustand achtet auf "Bewegung reduzieren"', () => {
+    const q = document.documentElement.innerHTML;
+    const i = q.indexOf('.btn:active');
+    if (i < 0) return 'kein Druckzustand gefunden';
+    /* ⚠️ Bewusst grosszuegig: zwischen der Regel und ihrer Ruecknahme stehen Kommentare,
+       und die wachsen. Ein zu enges Fenster macht die Pruefung rot, ohne dass sich am
+       Verhalten etwas geaendert hat -- genau einmal passiert, am 06.09.2026 abends. */
+    const rest = q.slice(i, i + 2400);
+    if (!/prefers-reduced-motion/.test(rest)) return 'keine Ruecknahme fuer reduzierte Bewegung';
+    return /transform:\s*none/.test(rest) || 'die Ruecknahme laesst das Zusammenziehen stehen';
+  });
+
   // ⚠️ Der wichtigere Fall: eine Erinnerung, die nach dem Erledigen stehen bleibt, ist keine.
   // 🔴 Ohne Schalter waere die Erinnerung eine Aufforderung, die man nicht loswird.
   t('Ausgeschaltet steht die Wiege-Erinnerung nicht mehr da', () => {
@@ -4867,12 +5366,17 @@ window.addEventListener('error', e => {
     return (h.includes('noch nicht eingerichtet') && h.includes('supabase-bestenliste.sql'))
       || 'kein Hinweis auf das fehlende SQL';
   });
-  t('Vor dem Laden steht "Wird geladen", nicht "niemand drin"', () => {
+  /* 06.09.2026: der Ladehinweis war ein Satz ("Wird geladen …") und ist jetzt ein
+     Platzhalter in der Form der Liste. ⚠️ Die Absicht der Pruefung bleibt Wort fuer Wort
+     dieselbe -- "ungeladen" darf nicht wie "leer" aussehen. Nur woran man den Ladezustand
+     erkennt, hat sich geaendert. */
+  t('Vor dem Laden steht ein Platzhalter, nicht "niemand drin"', () => {
     const e = erfolgeSeite();
     const h = e.zeichne(null);
     e.zurueck();
     if (h.includes('Noch niemand drin')) return 'leer und ungeladen werden verwechselt';
-    return h.includes('Wird geladen') || 'kein Ladehinweis';
+    if (!h.includes('aria-busy="true"')) return 'der Ladezustand ist nicht angesagt';
+    return h.includes('class="skel') || 'kein Platzhalter';
   });
   t('Eine leere Liste sagt "Noch niemand drin"', () => {
     const e = erfolgeSeite();
@@ -6687,6 +7191,8 @@ window.addEventListener('error', e => {
     klick('ob:finish');
     return eq(profile.erfahrung, 'erfahren');
   }));
+
+
 
   // ================================================================ Aufraeumen
   sessions = SICHER.sessions; profile = SICHER.profile; settings = SICHER.settings;
