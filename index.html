@@ -1320,6 +1320,96 @@ if(profile.vol==null) profile.vol='high';        // 'low' = wenig Sätze/Wdh, 'h
 if(profile.favs==null) profile.favs=[];          // Lieblingsübungen
 if(profile.days==null) profile.days=null;        // Trainingstage, 0=Mo … 6=So
 // Felder auffüllen, die es in älteren Ständen noch nicht gab (alte Backups, Zurücksetzen, Abmelden).
+/* ---------- Grabsteine: Geloeschtes bleibt geloescht (06.09.2026) ----------
+   🔴 Der Fund vom 03.09.2026: `vereinige()` liest eine Kennung, die auf einer Seite
+   FEHLT, als *neu* -- nicht als *geloescht*. Wer eine Mahlzeit loescht und danach das
+   andere Geraet aufmacht, bekommt sie zurueck, mit demselben Zeitstempel. Das sieht
+   nicht nach Abgleich aus, das sieht nach einem Gespenst aus. Betraf alle vier Listen
+   mit Loeschknopf: Einheiten, Mahlzeiten, eigene Lebensmittel, Gewichte.
+
+   Der Weg: beim Loeschen wandert die Kennung in eine Liste. Der Abgleich nimmt nichts
+   an, was dort steht, und wirft aus dem eigenen Stand raus, was die andere Seite
+   begraben hat. Nach GRABSTEIN_TAGE raeumt sich die Liste selbst auf.
+
+   🟢 Warum das der sichere Schritt ist: rein additiv. Er kann nichts ueberschreiben,
+   nur verhindern, dass etwas zurueckkommt. Das schlimmste denkbare Ergebnis ist ein
+   Grabstein zu viel -- und den sieht man sofort, weil ein Eintrag verschwindet.
+   ⏭️ Schritt 2 (Zeitstempel fuer Plaene und Einstellungen) ist bewusst NICHT hier drin:
+   der entscheidet neu, welcher Plan ueberlebt, und kann Arbeit kosten.
+
+   ⚠️ XP wird beim Begraben NICHT abgezogen -- Gleichlauf mit dem oertlichen Loeschen,
+   das auch nichts abzieht.
+   🔴 **Hier stand bis zum 06.09.2026 abends eine Begruendung, die das Gegenteil behauptete:**
+   „wuerde der Abgleich es tun, haette dasselbe Loeschen je nach Geraet zwei verschiedene
+   Folgen." Genau diese zwei Folgen gibt es -- nur andersherum, und erst seit es Grabsteine
+   gibt. `b.profile.xp` waechst nur additiv aus `s.neu`, und bei allem Skalaren gewinnt
+   `basis`; `dirty` steht beim Start ohnehin fest. Legt das Handy eine Einheit an (+XP),
+   schiebt, und loescht sie, BEVOR der PC sie je gesehen hat, dann behaelt das Handy die
+   Punkte und der PC bekommt sie nie. **Kein Zweig gleicht das je wieder aus.**
+   ⚠️ Vor den Grabsteinen kam die Einheit einfach zurueck und beide Seiten glichen sich an --
+   um den Preis des Gespenstes. **Das ist eine Abwaegung, keine Panne**, und sie liegt bei
+   Karl: steht als offener Punkt in `open-loops-apps`. Bis dahin bleibt es, wie es ist.
+   ⚠️ Die Grabsteine stehen im Profil und wandern deshalb selbst ueber den Abgleich.
+   Ohne das wuesste die andere Seite nichts von der Beerdigung.                        */
+const GRABSTEIN_ARTEN = ['sessions','meals','foods','weights'];
+const GRABSTEIN_TAGE  = 90;
+
+function grabsteineInit(p){
+  if(!p || typeof p!=='object') return {};
+  if(!p.geloescht || typeof p.geloescht!=='object') p.geloescht = {};
+  GRABSTEIN_ARTEN.forEach(a=>{
+    if(!p.geloescht[a] || typeof p.geloescht[a]!=='object') p.geloescht[a] = {};
+  });
+  return p.geloescht;
+}
+/* Kennungen sind mal Text (id), mal Zahl (beim Gewicht der Zeitstempel). Als
+   Objektschluessel wird beides ohnehin zu Text -- das passiert hier einmal an einer
+   Stelle und bewusst, statt an vier Stellen versehentlich. */
+function grabsteinSchluessel(k){ return String(k); }
+
+function grabsteinSetzen(art, kennung){
+  if(kennung===undefined || kennung===null) return;
+  const g = grabsteineInit(profile);
+  if(!g[art] || typeof g[art]!=='object') g[art] = {};
+  g[art][grabsteinSchluessel(kennung)] = Date.now();
+}
+/* Was laenger als GRABSTEIN_TAGE her ist, faellt raus -- sonst waechst die Liste ewig.
+   ⚠️ **Die Annahme dahinter, ausdruecklich als Annahme:** „nach 90 Tagen kennt kein Geraet
+   den Eintrag mehr." Das kann der Code nicht wissen. Ausgemistet wird bei JEDEM Start
+   (`normalizeProfile`) auf der oertlichen Uhr. Ein Geraet, das laenger als 90 Tage nicht
+   offen war, hat den Eintrag noch -- der Schutz ist dann abgeraeumt, und beim ersten
+   Oeffnen kommt alles Geloeschte zurueck. Selten, aber still.
+   💡 Steht als Restrisiko in `open-loops-apps`, damit die Frage beim naechsten Nachdenken
+   ueber GRABSTEIN_TAGE nicht schon beantwortet aussieht. */
+function grabsteineAufraeumen(g, jetzt){
+  if(!g || typeof g!=='object') return g;
+  const grenze = (jetzt||Date.now()) - GRABSTEIN_TAGE*86400000;
+  GRABSTEIN_ARTEN.forEach(a=>{
+    const m = g[a]; if(!m || typeof m!=='object') return;
+    Object.keys(m).forEach(k=>{ if(!((+m[k]||0) > grenze)) delete m[k]; });
+  });
+  return g;
+}
+// Beide Seiten zusammen; steht dieselbe Kennung auf beiden, gilt der spaetere Zeitpunkt.
+function grabsteineZusammen(a, b){
+  const raus = {};
+  GRABSTEIN_ARTEN.forEach(art=>{
+    const m = {};
+    [a && a[art], b && b[art]].forEach(q=>{
+      if(!q || typeof q!=='object') return;
+      Object.keys(q).forEach(k=>{ const t=+q[k]||0; if(t > (+m[k]||0)) m[k]=t; });
+    });
+    raus[art] = m;
+  });
+  return raus;
+}
+// Wirft aus einer Liste alles raus, was begraben ist.
+function ohneBegrabene(liste, m, schluessel){
+  if(!Array.isArray(liste)) return [];   // war ein Ternaer, dessen erster Zweig nie lief
+  if(!m || typeof m!=='object') return liste;
+  return liste.filter(x => !(grabsteinSchluessel(schluessel(x)) in m));
+}
+
 function normalizeProfile(){
   if(!profile||typeof profile!=='object') profile={xp:0,theme:'system'};
   if(typeof profile.xp!=='number') profile.xp=0;
@@ -1346,6 +1436,7 @@ function normalizeProfile(){
      Fassung weiss die App noch nichts, und "noch nichts" darf nicht als "war lange weg"
      durchgehen -- sonst begruesst sie jeden Bestandsnutzer beim Umstieg mit "wieder da?". */
   if(typeof profile.zuletztDa !== 'number') profile.zuletztDa = null;
+  grabsteineAufraeumen(grabsteineInit(profile));   // Grabsteine (06.09.2026)
   kcalInit();                                               // Tagesziel, eigene Lebensmittel, Mahlzeiten
 }
 normalizeProfile();
@@ -5466,7 +5557,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.072';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.073';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -6212,7 +6303,25 @@ function gewichteZusammen(a, b){
 function blobsZusammen(basis, dazu){
   const b=JSON.parse(JSON.stringify(basis||{})), d=dazu||{};
   let zusatz=0;                      // wie viel ausser Einheiten und Gewichten dazukam
-  const s=vereinige(b.sessions, d.sessions, x=>x.id);
+  /* --- Grabsteine zuerst (06.09.2026) ---
+     Sie entscheiden, was ueberhaupt noch dazukommen darf. Beide Seiten zusammen, dann
+     ausgemistet -- ein Grabstein, der abgelaufen ist, soll auch beim Abgleich nichts
+     mehr aufhalten.
+     ⚠️ Der EIGENE Stand wird gleich hier mitgefiltert und nicht erst am Ende: sonst
+     stuende das Geloeschte weiter in `basis`, `vereinige()` saehe die Kennung als
+     bekannt an und der Filter auf der anderen Seite liefe ins Leere. */
+  const grab = grabsteineAufraeumen(grabsteineZusammen(
+    b.profile && b.profile.geloescht, d.profile && d.profile.geloescht));
+  b.sessions = ohneBegrabene(b.sessions, grab.sessions, x=>x && x.id);
+  if(b.profile && typeof b.profile==='object'){
+    if(Array.isArray(b.profile.weights))
+      b.profile.weights = ohneBegrabene(b.profile.weights, grab.weights, x=>x && x.date);
+    if(b.profile.kcal && typeof b.profile.kcal==='object'){
+      b.profile.kcal.meals = ohneBegrabene(b.profile.kcal.meals, grab.meals, x=>x && x.id);
+      b.profile.kcal.foods = ohneBegrabene(b.profile.kcal.foods, grab.foods, x=>x && x.id);
+    }
+  }
+  const s=vereinige(b.sessions, ohneBegrabene(d.sessions, grab.sessions, x=>x && x.id), x=>x.id);
   // sessions liegt aufsteigend nach Datum -- renderHistory dreht die Liste zum Anzeigen um.
   b.sessions=s.liste.slice().sort((x,y)=>x.date-y.date);
   if(!b.profile||typeof b.profile!=='object') b.profile={xp:0};
@@ -6222,7 +6331,8 @@ function blobsZusammen(basis, dazu){
   // die Einheiten darunter hergeben. Einheiten vor dem 05.08. haben kein xp -> zaehlen 0,
   // genau wie an dem Tag, an dem sie entstanden sind.
   b.profile.xp=(+b.profile.xp||0) + s.neu.reduce((n,x)=>n+(+x.xp||0), 0);
-  const gw=gewichteZusammen(b.profile.weights, d.profile&&d.profile.weights);
+  const gw=gewichteZusammen(b.profile.weights,
+    ohneBegrabene(d.profile&&d.profile.weights, grab.weights, x=>x && x.date));
   const vorher=(b.profile.weights||[]).length;
   b.profile.weights=gw;
 
@@ -6331,8 +6441,10 @@ function blobsZusammen(basis, dazu){
     const k = b.profile.kcal;
     if(!Array.isArray(k.meals)) k.meals = [];
     if(!Array.isArray(k.foods)) k.foods = [];
-    const mz = vereinige(k.meals, kD.meals, x=>x.id); k.meals = mz.liste;
-    const lm = vereinige(k.foods, kD.foods, x=>x.id); k.foods = lm.liste;
+    const mz = vereinige(k.meals, ohneBegrabene(kD.meals, grab.meals, x=>x && x.id), x=>x.id);
+    k.meals = mz.liste;
+    const lm = vereinige(k.foods, ohneBegrabene(kD.foods, grab.foods, x=>x && x.id), x=>x.id);
+    k.foods = lm.liste;
     /* 🔴 Der Stern wird eigens zusammengefuehrt -- `vereinige()` kann das nicht (03.09.2026,
        aus dem Agentenlauf). Es geht nur um Lebensmittel, die BEIDE Seiten kennen: die
        ueberspringt `vereinige` ganz, samt ihrer Felder.
@@ -6374,6 +6486,9 @@ function blobsZusammen(basis, dazu){
     });
     zusatz += mz.neu.length + lm.neu.length;
   }
+  /* Die Grabsteine beider Seiten wandern mit -- sonst wuesste das Geraet, das gleich
+     schiebt, nichts von einer Beerdigung auf der anderen Seite. */
+  b.profile.geloescht = grab;
   return {blob:b, uebernommen: s.neu.length + Math.max(0, gw.length-vorher) + zusatz};
 }
 // Liefert {ok,data}: ok=false heißt "konnte nicht laden" (Netz), NICHT "Konto ist leer".
@@ -6851,10 +6966,11 @@ document.addEventListener('click',ev=>{
     e.sets.push({weight:last.weight||'',reps:last.reps||'',done:true});
     sessRecalc(s); render(); return; }
   if(t.dataset.delweight){ const ts=+t.dataset.delweight;
-    confirmTwice('dw'+ts,t,'Löschen?',()=>{ profile.weights=(profile.weights||[]).filter(x=>x.date!==ts); save(); render(); }); return; }
+    confirmTwice('dw'+ts,t,'Löschen?',()=>{ profile.weights=(profile.weights||[]).filter(x=>x.date!==ts);
+      grabsteinSetzen('weights', ts); save(); render(); }); return; }
   // ---- Kalorien ----
   if(t.dataset.delmeal){ const id=t.dataset.delmeal, k=kcalInit();
-    k.meals=k.meals.filter(x=>x.id!==id); save(); render(); return; }
+    k.meals=k.meals.filter(x=>x.id!==id); grabsteinSetzen('meals', id); save(); render(); return; }
   // NEU: dasselbe nochmal essen. Kopiert den alten Eintrag mit heutigem Datum —
   // ⚠️ bewusst eine Kopie mit neuer id, kein Verschieben: der alte Tag bleibt stehen.
   // NEU: Vorhaben waehlen. Setzt gleich ein passendes Kalorienziel, damit der
@@ -6879,7 +6995,8 @@ document.addEventListener('click',ev=>{
     renderFoodList(foodQ);
     toast(f.name+(f.fav?' ist ein Favorit':' ist kein Favorit mehr')); return; }
   if(t.dataset.delfood){ ev.stopPropagation(); const id=t.dataset.delfood, k=kcalInit();
-    confirmTwice('df'+id,t,'Weg?',()=>{ k.foods=k.foods.filter(x=>x.id!==id); save(); render(); }); return; }
+    confirmTwice('df'+id,t,'Weg?',()=>{ k.foods=k.foods.filter(x=>x.id!==id);
+      grabsteinSetzen('foods', id); save(); render(); }); return; }
   if(t.dataset.pickfood){ const f=kcalInit().foods.find(x=>x.id===t.dataset.pickfood); if(!f) return;
     foodDraft={...f, basis:'g100', menge:f.letzteMenge>0?f.letzteMenge:100, quelle:'eigen'};
     foodStep='menge'; foodFehler=''; render(); return; }
@@ -7223,7 +7340,9 @@ document.addEventListener('click',ev=>{
     sessEdit=!sessEdit; render(); }
   else if(a.startsWith('gw:fenster:')){ gwFenster=a.split(':')[2]; render(); }
   else if(a==='backhist'){ view='history'; render(); }
-  else if(a==='delsess'){ confirmTwice('ds',t,'Einheit löschen?',()=>{ sessions=sessions.filter(x=>x.id!==detailSessionId); save(); view='history'; render(); }); }
+  else if(a==='delsess'){ const wegId=detailSessionId;
+    confirmTwice('ds',t,'Einheit löschen?',()=>{ sessions=sessions.filter(x=>x.id!==wegId);
+      grabsteinSetzen('sessions', wegId); save(); view='history'; render(); }); }
   else if(a==='closemodal'){ closeModal(); }
 });
 

@@ -2,6 +2,56 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-09-06
+
+### v0.073 — Grabsteine: Gelöschtes bleibt gelöscht
+
+#### 🪦 Der Datenverlust beim Abgleich, Schritt 1
+
+Der Fund vom 03.09.2026: `vereinige()` liest eine Kennung, die auf einer Seite **fehlt**, als
+*neu* — nicht als *gelöscht*. Wer eine Mahlzeit löschte und danach das andere Gerät aufmachte,
+bekam sie zurück, mit demselben Zeitstempel. **Das sieht nicht nach Abgleich aus, das sieht
+nach einem Gespenst aus.** Betroffen waren alle vier Listen mit Löschknopf: Einheiten,
+Mahlzeiten, eigene Lebensmittel, Gewichte. Lag seit dem 27.08. — zehn Tage.
+
+- **Beim Löschen wandert die Kennung nach `profile.geloescht`.** Der Abgleich nimmt nichts an,
+  was dort steht — **und wirft aus dem eigenen Stand raus, was die andere Seite begraben hat.**
+  ⚠️ Die zweite Richtung ist die wichtigere: ohne sie stünde das Gelöschte weiter in `basis`,
+  `vereinige()` hielte die Kennung für bekannt, und der Filter liefe ins Leere.
+- **Nach 90 Tagen räumt sich die Liste selbst auf** (`GRABSTEIN_TAGE`).
+- 🟢 **Rein additiv** — kann nichts überschreiben, nur verhindern, dass etwas zurückkommt.
+  Das schlimmste denkbare Ergebnis ist ein Grabstein zu viel, und den sieht man sofort.
+- ⏭️ **Schritt 2 (Zeitstempel für Pläne und Einstellungen) ist bewusst nicht dabei** — der
+  entscheidet neu, welcher Plan überlebt.
+
+#### 🤖 Der Fund-Sucher: sieben Funde, und der erste traf die Prüfungen selbst
+
+**1. 🔴 Alle 18 neuen Prüfungen blieben grün, wenn man die Grabsteine komplett abschaltete.**
+Sie setzten `geloescht` von Hand und prüften nur den Abgleich — **dass beim Löschen überhaupt
+ein Grabstein entsteht, war ungeprüft.** Der Agent hat es bewiesen: alle vier
+`grabsteinSetzen`-Aufrufe entfernt → 860 ok, 0 fehlgeschlagen.
+✅ **Sieben Prüfungen ergänzt, die echt klicken** statt den Zustand zu stellen — inklusive
+„ein einzelner Klick begräbt noch nichts" (sonst wäre die Sicherheitsfrage wirkungslos) und
+„der Grabstein überlebt das Speichern". Gegenprobe jetzt: **5 rot** statt 0.
+
+**2. 🔴 Die XP-Begründung behauptete das Gegenteil dessen, was passiert.** Der Kommentar sagte,
+ohne Abzug hätte dasselbe Löschen *nicht* je nach Gerät zwei Folgen. Doch — und zwar erst seit
+es Grabsteine gibt: löscht das Handy eine Einheit, bevor der PC sie je gesehen hat, behält das
+Handy die Punkte und der PC bekommt sie nie. ✅ **Kommentar an drei Stellen richtiggestellt,
+Verhalten unverändert** — das ist eine Abwägung für Karl, keine Panne.
+
+**3. 🟡 Der 90-Tage-Verfall stand als Tatsache da, ist aber eine Annahme.** Ein Gerät, das
+länger als 90 Tage nicht offen war, hat den Eintrag noch. ✅ Als Restrisiko ausgeschrieben.
+
+**4. 🟢 Tote Verzweigung in `ohneBegrabene`** (`Array.isArray(liste)?liste:[]` innerhalb eines
+`if(!Array.isArray(liste))`) — las sich, als würde ein Nicht-Array durchgereicht. ✅ Behoben.
+
+**Offen und Karl vorgelegt, weil es an Abgleich und Löschwegen rührt:** die XP-Abweichung ·
+der Gewichts-Grabstein greift auf die Millisekunde, der Abgleich auf den Tag · „Alles
+zurücksetzen" setzt keine Grabsteine · der Export trägt die Grabsteine jetzt mit.
+
+**Prüfungen 842 → 867.**
+
 ## 2026-09-04
 
 ### v0.072 — Grün, die Mahlzeiten-Leiste, und sieben Funde des Fund-Suchers

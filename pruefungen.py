@@ -601,6 +601,224 @@ window.addEventListener('error', e => {
     return eq(blobsZusammen(a, b).blob.profile.weights.length, 0);
   });
 
+  // ================================================================ Grabsteine (06.09.2026)
+  /* 🔴 Der Fund vom 03.09.2026, in Reinform: `vereinige()` liest eine Kennung, die auf
+     einer Seite FEHLT, als *neu* -- nicht als *geloescht*. Karl loescht einen falsch
+     eingetragenen Snack, macht zwei Tage spaeter das andere Geraet auf, und der Snack
+     steht wieder da, mit demselben Zeitstempel.
+     ⚠️ Diese Pruefungen sind entlang der vier Listen mit Loeschknopf gebaut, nicht
+     entlang dessen, was sich leicht pruefen laesst. Alle vier hatten den Fehler. */
+  const mitGrab = (o, g) => { const x = blob(o); x.profile.geloescht = g; return x; };
+  const jetzt   = Date.now();
+  const tage    = n => jetzt - n*86400000;
+
+  t('Begrabene Mahlzeit kommt nicht zurueck', () => {
+    const a = mitGrab({profile:{xp:0, weights:[], kcal:{foods:[], meals:[]}}},
+                      {meals:{'m1': jetzt}});
+    const b = blob({profile:{xp:0, weights:[], kcal:{foods:[], meals:[{id:'m1', kcal:250}]}}});
+    return eq(blobsZusammen(a, b).blob.profile.kcal.meals.length, 0);
+  });
+  t('Begrabene Einheit kommt nicht zurueck', () => {
+    const a = mitGrab({sessions:[]}, {sessions:{'a': jetzt}});
+    const b = blob({sessions:[einheit('a', 100, 5)]});
+    return eq(blobsZusammen(a, b).blob.sessions.length, 0);
+  });
+  t('Begrabenes eigenes Lebensmittel kommt nicht zurueck', () => {
+    const a = mitGrab({profile:{xp:0, weights:[], kcal:{foods:[], meals:[]}}},
+                      {foods:{'f1': jetzt}});
+    const b = blob({profile:{xp:0, weights:[], kcal:{foods:[{id:'f1', name:'Skyr'}], meals:[]}}});
+    return eq(blobsZusammen(a, b).blob.profile.kcal.foods.length, 0);
+  });
+  t('Begrabenes Gewicht kommt nicht zurueck', () => {
+    const ts = jetzt - 3*864e5;
+    const a = mitGrab({profile:{xp:0, weights:[]}}, {weights:{}});
+    a.profile.geloescht.weights[String(ts)] = jetzt;
+    const b = blob({profile:{xp:0, weights:[{date:ts, kg:80}]}});
+    return eq(blobsZusammen(a, b).blob.profile.weights.length, 0);
+  });
+
+  /* ⚠️ Die andere Richtung, und die ist die wichtigere: hat das ANDERE Geraet geloescht,
+     muss der eigene Stand hergeben. Ohne das stuende der Eintrag weiter in `basis`,
+     `vereinige()` saehe die Kennung als bekannt an -- und der Filter liefe ins Leere. */
+  t('Was die andere Seite begraben hat, faellt auch aus dem eigenen Stand', () => {
+    const a = blob({profile:{xp:0, weights:[], kcal:{foods:[], meals:[{id:'m1', kcal:250}]}}});
+    const b = mitGrab({profile:{xp:0, weights:[], kcal:{foods:[], meals:[]}}},
+                      {meals:{'m1': jetzt}});
+    return eq(blobsZusammen(a, b).blob.profile.kcal.meals.length, 0);
+  });
+  t('Auch eine eigene Einheit faellt, wenn die andere Seite sie begraben hat', () => {
+    const a = blob({sessions:[einheit('a', 100, 5)]});
+    const b = mitGrab({sessions:[]}, {sessions:{'a': jetzt}});
+    return eq(blobsZusammen(a, b).blob.sessions.length, 0);
+  });
+
+  /* Die Grabsteine muessen selbst ueber den Abgleich wandern -- sonst weiss das Geraet,
+     das gleich schiebt, nichts von der Beerdigung und schickt den Eintrag zurueck. */
+  t('Grabsteine beider Seiten wandern mit', () => {
+    const a = mitGrab({sessions:[]}, {sessions:{'a': jetzt}});
+    const b = mitGrab({sessions:[]}, {sessions:{'b': jetzt}});
+    const g = blobsZusammen(a, b).blob.profile.geloescht;
+    // ⚠️ Doppeltes Nicht: ohne das kaeme der Zeitstempel zurueck, nicht `true` --
+    // und der Melder oben verlangt genau `true`.
+    return !!(g && g.sessions && g.sessions.a && g.sessions.b) || JSON.stringify(g);
+  });
+  t('Beim selben Grabstein gilt der spaetere Zeitpunkt', () => {
+    const frueher = jetzt - 60000, spaeter = jetzt - 1000;
+    const a = mitGrab({sessions:[]}, {sessions:{'a': frueher}});
+    const b = mitGrab({sessions:[]}, {sessions:{'a': spaeter}});
+    return eq(blobsZusammen(a, b).blob.profile.geloescht.sessions.a, spaeter);
+  });
+
+  /* Ohne Verfall waechst die Liste ewig. Ein Grabstein von vor einem Jahr schuetzt auch
+     nichts mehr: der Eintrag, den er meinte, ist auf jedem Geraet laengst weg. */
+  t('Ein abgelaufener Grabstein haelt nichts mehr auf', () => {
+    const a = mitGrab({sessions:[]}, {sessions:{'a': tage(91)}});
+    const b = blob({sessions:[einheit('a', 100, 5)]});
+    return eq(blobsZusammen(a, b).blob.sessions.length, 1);
+  });
+  t('Ein Grabstein von gestern haelt noch auf', () => {
+    const a = mitGrab({sessions:[]}, {sessions:{'a': tage(1)}});
+    const b = blob({sessions:[einheit('a', 100, 5)]});
+    return eq(blobsZusammen(a, b).blob.sessions.length, 0);
+  });
+  t('Abgelaufene Grabsteine werden ausgemistet', () => {
+    const g = grabsteineAufraeumen({sessions:{alt: tage(200), neu: tage(2)},
+                                    meals:{}, foods:{}, weights:{}});
+    return (g.sessions.alt === undefined && g.sessions.neu !== undefined)
+           || JSON.stringify(g.sessions);
+  });
+
+  /* ⚠️ XP wird beim Begraben NICHT abgezogen -- Gleichlauf mit dem oertlichen Loeschen.
+     🔴 Der Satz „sonst haette dasselbe Loeschen je nach Geraet zwei Folgen" stand hier bis
+     zum 06.09.2026 abends und war falsch herum: die zwei Folgen gibt es, seit es Grabsteine
+     gibt. Die zwei Pruefungen darunter zeigen es nebeneinander -- 5 bleibt 5, 7 kommt nie an.
+     Abwaegung fuer Karl, steht als offener Punkt in `open-loops-apps`. */
+  t('Eine begrabene Einheit zieht keine XP ab', () => {
+    const a = mitGrab({sessions:[einheit('a', 100, 5)], profile:{xp:5, weights:[]}},
+                      {sessions:{'a': jetzt}});
+    return eq(blobsZusammen(a, blob({})).blob.profile.xp, 5);
+  });
+  t('Eine begrabene Einheit bringt auch keine XP mit', () => {
+    const a = mitGrab({profile:{xp:0, weights:[]}}, {sessions:{'a': jetzt}});
+    const b = blob({sessions:[einheit('a', 100, 7)]});
+    return eq(blobsZusammen(a, b).blob.profile.xp, 0);
+  });
+
+  // ---- Keine Regression: ohne Grabsteine laeuft alles wie vorher ----
+  t('Neben einem Grabstein kommt der Rest normal dazu', () => {
+    const a = mitGrab({sessions:[]}, {sessions:{'a': jetzt}});
+    const b = blob({sessions:[einheit('a', 100, 5), einheit('c', 200, 3)]});
+    return eq(blobsZusammen(a, b).blob.sessions.map(x=>x.id).join(','), 'c');
+  });
+  t('Ohne geloescht-Feld auf beiden Seiten aendert sich nichts', () => {
+    const a = blob({sessions:[einheit('a', 100, 5)]});
+    const b = blob({sessions:[einheit('b', 200, 7)]});
+    return eq(blobsZusammen(a, b).blob.sessions.map(x=>x.id).join(','), 'a,b');
+  });
+  t('Ohne Grabstein-Karte bleibt die Liste unangetastet', () => {
+    const l = [{id:'x'},{id:'y'}];
+    return eq(ohneBegrabene(l, null, x=>x.id).length, 2);
+  });
+  /* Kennungen sind mal Text, mal Zahl (beim Gewicht der Zeitstempel). Als Objektschluessel
+     wird beides zu Text -- das muss an beiden Enden gleich passieren, sonst greift der
+     Grabstein fuers Gewicht nie. */
+  t('Zahl und Text treffen denselben Grabstein', () => {
+    return eq(ohneBegrabene([{date:1700}], {'1700': jetzt}, x=>x.date).length, 0);
+  });
+  t('grabsteineInit legt alle vier Arten an', () => {
+    const p = {};
+    const g = grabsteineInit(p);
+    return (g.sessions && g.meals && g.foods && g.weights && p.geloescht === g)
+           || JSON.stringify(g);
+  });
+
+  /* ================= Die andere Haelfte: entsteht ueberhaupt ein Grabstein? =================
+     🔴 **Fund des Fund-Suchers vom 06.09.2026, experimentell bewiesen.** Die 18 Pruefungen
+     oben setzen `geloescht` von Hand (`mitGrab`) und pruefen danach nur `blobsZusammen`.
+     Nimmt man alle vier `grabsteinSetzen`-Aufrufe aus den Loeschwegen heraus -- legt das
+     Feature aus Nutzersicht also komplett stillt -- bleiben sie **alle gruen**.
+     Auch die eingebaute Gegenprobe („Filter stillgelegt -> 10 rot") deckt nur den Abgleich ab.
+     ⚠️ Das ist genau die Bauform, nach der gesucht wird: es faellt erst auf, wenn jemand
+     beim naechsten Umbau einen Loeschweg anfasst und den Aufruf verliert.
+     ➡️ Diese Pruefungen klicken deshalb **echt**, statt den Zustand zu stellen.            */
+  // Stellt den echten Zustand hinterher wieder her -- diese Pruefungen fassen `profile`
+  // und `sessions` an, nicht nur eine Kopie.
+  const mitZustand = (fn) => {
+    const alt = { p: JSON.parse(JSON.stringify(profile)), s: sessions.slice(),
+                  v: view, d: detailSessionId };
+    try { return fn(); }
+    finally { profile = alt.p; sessions = alt.s; view = alt.v; detailSessionId = alt.d;
+              normalizeProfile(); save(); }
+  };
+  /* Der Handler haengt an `document`, ein angehaengter Knopf reicht also. `mal` ist fuer
+     confirmTwice: erster Klick schaerft, zweiter fuehrt aus. */
+  const grabKlick = (attr, wert, mal) => {
+    const b = document.createElement('button');
+    b.setAttribute(attr, wert); b.textContent = 'x';
+    document.body.appendChild(b);
+    for(let i=0; i<(mal||1); i++) b.click();
+    b.remove();
+  };
+
+  t('Loeschen einer Mahlzeit setzt einen Grabstein', () => mitZustand(() => {
+    const k = kcalInit();
+    k.meals = [{id:'mtest', kcal:100, date:Date.now()}];
+    grabsteineInit(profile).meals = {};
+    grabKlick('data-delmeal', 'mtest');
+    const g = profile.geloescht && profile.geloescht.meals;
+    return !!(g && g.mtest) || 'kein Grabstein: ' + JSON.stringify(g);
+  }));
+  t('Die geloeschte Mahlzeit ist danach auch wirklich weg', () => mitZustand(() => {
+    const k = kcalInit();
+    k.meals = [{id:'mtest', kcal:100, date:Date.now()}];
+    grabKlick('data-delmeal', 'mtest');
+    return eq(kcalInit().meals.filter(x=>x.id==='mtest').length, 0);
+  }));
+  t('Loeschen eines eigenen Lebensmittels setzt einen Grabstein', () => mitZustand(() => {
+    const k = kcalInit();
+    k.foods = [{id:'ftest', name:'Testquark'}];
+    grabsteineInit(profile).foods = {};
+    grabKlick('data-delfood', 'ftest', 2);          // confirmTwice: zwei Klicks
+    const g = profile.geloescht && profile.geloescht.foods;
+    return !!(g && g.ftest) || 'kein Grabstein: ' + JSON.stringify(g);
+  }));
+  /* ⚠️ Der erste Klick darf NICHT schon begraben -- sonst waere die Sicherheitsfrage
+     wirkungslos: wer sich vertippt und wegklickt, haette den Eintrag trotzdem beerdigt. */
+  t('Ein einzelner Klick begraebt noch nichts', () => mitZustand(() => {
+    const k = kcalInit();
+    k.foods = [{id:'ftest2', name:'Testquark'}];
+    grabsteineInit(profile).foods = {};
+    grabKlick('data-delfood', 'ftest2', 1);
+    const g = profile.geloescht && profile.geloescht.foods;
+    return eq(g && g.ftest2 === undefined, true);
+  }));
+  t('Loeschen eines Gewichts setzt einen Grabstein', () => mitZustand(() => {
+    const ts = Date.now() - 5*864e5;
+    profile.weights = [{date:ts, kg:80}];
+    grabsteineInit(profile).weights = {};
+    grabKlick('data-delweight', String(ts), 2);
+    const g = profile.geloescht && profile.geloescht.weights;
+    return !!(g && g[String(ts)]) || 'kein Grabstein: ' + JSON.stringify(g);
+  }));
+  t('Loeschen einer Einheit setzt einen Grabstein', () => mitZustand(() => {
+    sessions = [einheit('stest', Date.now(), 5)];
+    detailSessionId = 'stest';
+    grabsteineInit(profile).sessions = {};
+    grabKlick('data-act', 'delsess', 2);
+    const g = profile.geloescht && profile.geloescht.sessions;
+    return !!(g && g.stest) || 'kein Grabstein: ' + JSON.stringify(g);
+  }));
+  /* Der Grabstein muss den Weg ueber die Platte ueberstehen -- er liegt im Profil und
+     wird von `save()` mitgeschrieben. Ohne das waere er nach dem naechsten Start weg. */
+  t('Der Grabstein ueberlebt das Speichern', () => mitZustand(() => {
+    const k = kcalInit();
+    k.meals = [{id:'mpersist', kcal:100, date:Date.now()}];
+    grabKlick('data-delmeal', 'mpersist');
+    const roh = DB.get('profile');
+    return !!(roh && roh.geloescht && roh.geloescht.meals && roh.geloescht.meals.mpersist)
+           || 'nicht gespeichert';
+  }));
+
   // ---- Was bewusst NICHT zusammengefuehrt wird ----
   t('Plaene kommen von der Basis, nicht vom anderen Stand', () => {
     const a = blob({programs:[{id:'p1', name:'meiner'}]});
