@@ -4,3 +4,7 @@
 .probrun/
 _probe_agent.py
 test.html
+
+# Python-Zwischenspeicher (kam am 09.09.2026 mit den Datenschutz-Skripten dazu)
+__pycache__/
+*.pyc
