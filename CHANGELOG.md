@@ -2,6 +2,144 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-09-09
+
+### v0.075 — die Datenschutzerklärung läuft ab jetzt mit
+
+**Karls Ansage:** *„KI Agenten für Datenschutz Erklärung der sie immer aktualliesiert …
+er muss zu jeder neuen version laufen. er soll auch prüfen ob das alles so legal ist."*
+
+#### 🔴 Zwei Funde, beide sofort behoben
+
+**1. Die Erklärung versprach etwas, das seit sechs Tagen nicht mehr stimmte.**
+Beim Essen-Eintragen stand: *„Übertragen wird nur die Nummer, nichts über dich."*
+Seit dem **03.09.** (v0.072, der neue Suchdienst) schickt die Textsuche aber **den
+eingetippten Suchbegriff** an `search.openfoodfacts.org`. Wer „Protein Pudding Aldi"
+tippt, schickt diesen Text an einen fremden Dienst.
+➡️ **Die Suche steht jetzt als eigener Punkt in der Erklärung**, mit dem Hinweis, dass
+Favoriten und Zuletzt *nicht* suchen — die stehen auf dem Gerät.
+
+**2. `PRIVACY_STAND` stand auf dem 24. August**, obwohl der Text am 03.09. geändert
+wurde. Unter einem geänderten Rechtstext stand ein altes Datum.
+➡️ Jetzt der 9. September — und ab sofort schlägt die Prüfung an, sobald der Text
+jünger ist als sein eigener Stand (`git log -L` auf `renderPrivacy`).
+
+#### 🤖 Neu: `datenschutz-pruefen.py`
+
+Läuft in Sekunden und prüft fünf Dinge: **unbekannte Ziele im Code** · **Stand vs.
+letzte Textänderung** · **fehlende Pflichtangaben** (Art. 13 DSGVO) · **Versprechen,
+die der Code widerlegt** · und was **nicht messbar** ist (Discord geht über eine
+Supabase-Funktion hinaus, nicht aus dem Browser — das steht als Merkposten drin,
+damit niemand denkt, es sei übersehen worden).
+
+⚠️ **Kommentare werden vorher entfernt.** Ohne das schlug die Prüfung bei `wger.de` an —
+der Host steht nur in einem Kommentar, der erklärt, woher die Übungsliste stammt; zur
+Laufzeit geht dorthin nichts. **Eine Prüfung, die auf Kommentare anspringt, wird nach dem
+dritten Fehlalarm nicht mehr gelesen.**
+
+#### 🧪 `datenschutz-gegenprobe.py`
+
+Baut vier Schadensfälle in eine Kopie ein — unbekannter Fremddienst · Textsuche ohne
+Erwähnung · gelöschte Pflichtangabe · Zähldienst trotz „kein Tracking" — und verlangt,
+dass jeder als **SCHWER** herauskommt.
+💡 **Ohne sie wüsste man nur, dass die Prüfung „OK" sagen kann** — nicht, dass sie
+überhaupt in der Lage ist, „FEHLER" zu sagen.
+
+#### ⚙️ Sie läuft von selbst
+
+Ein `PostToolUse`-Hook im Vault (`werkzeuge/datenschutz-hook.py`) startet die Prüfung
+nach **jeder** Änderung an `index.html`. Gibt es Funde, kommen sie sofort zurück in die
+Sitzung; gibt es keine, bleibt es still.
+
+🔴 **Der Hook hatte selbst genau den Fehler, den er finden soll.** Die erste Fassung gab
+ihre Meldung mit `ensure_ascii=False` aus; ein Umlaut traf auf die cp1252-Konsole, der
+`UnicodeEncodeError` landete im `except`, **und der Hook blieb still — obwohl der Prüfer
+zwei Funde gemeldet hatte.** Gefunden nur durch die Gegenprobe, nie im Betrieb.
+
+#### 🔎 Was die beiden Agentenläufe danach fanden
+
+**Der Datenschutz-Wächter: 8 Funde. Der Fund-Sucher: 11.** Beide Berichte stehen im Vault
+(`04-projects/gym-log-datenschutz-2026-09-09.md`, `…-funde-2026-09-09.md`).
+
+##### 🔴 Die Bestenliste widersprach der Datenschutzerklärung
+
+Im Text stand wörtlich: *„Andere Nutzer können deine Daten **nicht** sehen."*
+Tatsächlich schiebt `bestenlisteSchieben()` bei **jedem** Abgleich Name und XP hoch, und
+jeder Angemeldete liest die ganze Tabelle. **Das Wort „Bestenliste" kam in der Erklärung
+kein einziges Mal vor.** Der falsche Satz ist vom 05.08., die Bestenliste vom 29.08. —
+der Text wurde seitdem **zweimal angefasst**, ohne dass es auffiel.
+➡️ **Karls Entscheidung: den Text richtigstellen, keinen Schalter.** Die Erklärung hat
+jetzt einen eigenen Abschnitt „Die Bestenliste" — samt dem Hinweis, dass ohne Username
+der vordere Teil der E-Mail-Adresse dort steht.
+
+##### 🔴 An Discord ging die E-Mail-Adresse statt des Usernames
+
+`supabase-meldungen.sql` las `u.email`, mit der Begründung *„Gym-Log hat KEINE
+Benutzernamen"* — **die gibt es seit dem 28.07.2026**, und `username_taken()` liest sie
+aus derselben Tabelle. Damit ging bei jeder Meldung eine direkt identifizierende Angabe
+nach USA, obwohl die Erklärung „dein Username" versprach.
+➡️ **Umgestellt.** Ohne Username stehen jetzt acht Zeichen der user_id statt einer Adresse.
+⚠️ **Muss im Supabase-Dashboard neu eingespielt werden.**
+
+##### 🔴 Vor der Anmeldung war die Erklärung nicht erreichbar
+
+`render()` brach ohne Sitzung sofort ab. Man gab E-Mail, Username und Passwort ab,
+**bevor man irgendetwas lesen konnte** — Art. 13 verlangt die Information zum Zeitpunkt
+der Erhebung. ➡️ Die Anmeldemaske hat jetzt einen Hinweis samt Link, und
+`view==='privacy'` ist vor dem Gate erreichbar.
+
+##### 🔴 Und der Fund, der gegen die Arbeit von heute ging
+
+**Der Fix am Suchweg war nur zur Hälfte richtig.** Die Ausweichsuche geht an
+`world.openfoodfacts.org` — und für genau diesen Host stand drei Zeilen unter dem neuen
+Absatz weiterhin *„Übertragen wird nur die Nummer"*.
+💡 **Die eigene Prüfung wusste es sogar** — ihre Liste notiert den Host als „Barcode +
+**Ausweichsuche**" —, konnte den Zweck aber nie vergleichen.
+
+##### 🔴 Die Datums-Prüfung konnte die Änderung, wegen der sie läuft, nicht sehen
+
+`git log -L` liest **committete** Historie; der Hook läuft als `PostToolUse`, also immer
+**vor** dem Commit. Text ändern, Datum vergessen, committen, pushen — alles in einer
+Sitzung, und nichts wurde rot.
+➡️ Die Prüfung sieht jetzt **zuerst den Arbeitsbaum** (`git diff`) und erst danach die
+Historie. Und wenn `renderPrivacy` umbenannt wird, meldet sie ihren **eigenen Ausfall**,
+statt still `None` zurückzugeben.
+
+##### 🔴 Der Hook sah genau die Änderungen nicht, die hier üblich sind
+
+Der Matcher `Write|Edit` erfasst keine Python-Patchskripte — und so wird `index.html` in
+diesem Projekt fast immer geändert. **Der CHANGELOG behauptete trotzdem „nach jeder
+Änderung".**
+➡️ Der Hook fragt nicht mehr, **womit** geändert wurde, sondern misst per SHA-256, **ob**
+sich die Datei geändert hat. Das hält auch für `sed`, Editoren von Hand und alles, was
+noch kommt.
+➡️ Dazu: stürzt der Prüfer ab, **sagt der Hook das jetzt**. Vorher fiel ein Absturz still
+unter den Tisch — und sah aus wie ein Prüfer ohne Funde.
+
+##### 🟡 Fünf kleinere, alle behoben
+
+**Art. 9** für Gesundheitsdaten (Gewicht, Schritte, Mahlzeiten) ergänzt · **die Grenzen
+des Löschens** benannt (Discord-Nachricht, eigener Download) · **IP-Adresse** bei Suche
+und Foto ehrlich genannt (*„nichts über dich"* war zu stark — eine IP ist personenbezogen,
+EuGH *Breyer*) · **Push läuft über Apple bzw. Google** (USA), das stand nirgends ·
+**der Export trägt jetzt Meldungen und Postfach mit**, damit „alles" auch alles heißt.
+
+##### ⚙️ Und die Gegenprobe hängt jetzt an etwas
+
+Sie war **nirgends verdrahtet** — das Einzige, was die zeichenketten-abhängigen Prüfungen
+absichert, rief niemand auf. Jetzt laufen Prüfung **und** Gegenprobe am Ende von
+`pruefungen.py` mit und gehen in dessen Rückgabewert ein: **wer hier rot ist, pusht nicht.**
+Gegengeprüft — mit kaputter Erklärung wird der Prüfstand rot und nennt den Fund.
+Die Gegenprobe selbst deckt jetzt **acht** Fälle ab statt vier; `pruefe_stand()` war
+vorher die einzige Prüffunktion ganz ohne.
+
+#### ⚖️ Was das Skript NICHT kann
+
+Ob eine Formulierung rechtlich trägt, sieht kein `grep`. Dafür gibt es den Agenten
+`datenschutz-waechter` (im Vault unter `.claude/agents/`): er prüft Rechtsgrundlagen,
+Drittlandsübermittlung, Einwilligungen und ob der Text nach Art. 12 DSGVO verständlich
+ist. **Er ändert die Erklärung nicht selbst** — er legt den Textvorschlag vor.
+
 ## 2026-09-06
 
 ### v0.074 — drei Checklisten aus Karls Reels, fünf davon gebaut

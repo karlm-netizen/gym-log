@@ -7257,4 +7257,36 @@ if not m:
 txt = m.group(1).replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>').replace('&quot;', '"')
 enc = sys.stdout.encoding or 'utf-8'
 print(txt.encode(enc, errors='replace').decode(enc, errors='replace'))
-sys.exit(0 if ', 0 fehlgeschlagen' in txt else 1)
+js_ok = ', 0 fehlgeschlagen' in txt
+
+# ---------------------------------------------------------------------------
+# Datenschutz: Pruefung + Gegenprobe, angehaengt am 09.09.2026.
+#
+# 🔴 WARUM SIE HIER HAENGEN: der Fund-Sucher hat am 09.09.2026 gemeldet, dass
+# `datenschutz-gegenprobe.py` **nirgends verdrahtet** war - obwohl sie das
+# Einzige ist, was die zeichenketten-abhaengigen Pruefungen absichert. Ein
+# Pruefwerkzeug, das niemand aufruft, ist kein Pruefwerkzeug, sondern eine
+# Datei. Dieselbe Bauform wie alles andere, was dieses Projekt jagt.
+#
+# Sie laufen NACH den JS-Pruefungen, damit deren Ergebnis oben stehen bleibt,
+# und gehen in denselben Rueckgabewert ein: wer hier rot ist, pusht nicht.
+ds_ok = True
+for skript, was in [('datenschutz-pruefen.py', 'Datenschutz-Pruefung'),
+                    ('datenschutz-gegenprobe.py', 'Gegenprobe dazu')]:
+    pfad = SRC / skript          # SRC steht ganz oben in dieser Datei
+    if not pfad.is_file():
+        print(f'{was}: {skript} fehlt - uebersprungen')
+        continue
+    lauf = subprocess.run([sys.executable, str(pfad), '--kurz'] if 'pruefen' in skript
+                          else [sys.executable, str(pfad)],
+                          cwd=str(pfad.parent), capture_output=True, text=True,
+                          encoding='utf-8', errors='replace', timeout=300)
+    if lauf.returncode == 0:
+        print(f'{was}: ok')
+    else:
+        ds_ok = False
+        print(f'=== {was}: FEHLGESCHLAGEN ===')
+        ausgabe = (lauf.stdout or '') + (lauf.stderr or '')
+        print(ausgabe.encode(enc, errors='replace').decode(enc, errors='replace'))
+
+sys.exit(0 if (js_ok and ds_ok) else 1)

@@ -1546,7 +1546,11 @@ const SUPA_KEY='sb_publishable_7UvOL7KzzgJK6om8OwUsSg_usOMz92l';
 // Git-Historie stünde. Karls Entscheidung am 03.08.2026.
 const PRIVACY_OWNER='Karl Fangmeyer (privat betriebene App)';
 const PRIVACY_CONTACT='karlm.fangmeyer@gmail.com';
-const PRIVACY_STAND='24. August 2026';   // bei jeder inhaltlichen Aenderung mit hochziehen
+const PRIVACY_STAND='9. September 2026';  // bei jeder inhaltlichen Aenderung mit hochziehen
+/* 🔴 09.09.2026: Der Stand stand auf dem 24.08., obwohl der Text am 03.09. geaendert
+   wurde. Gefunden von datenschutz-pruefen.py, nicht von einem Menschen -- genau dafuer
+   gibt es das Skript. Es vergleicht dieses Datum mit `git log -L` auf renderPrivacy()
+   und schlaegt an, sobald der Text juenger ist als sein eigener Stand. */
 function save(){
   const paare = {programs, sessions, active, settings, profile};
   const nicht = Object.keys(paare).filter(k => !DB.set(k, paare[k]));
@@ -2215,6 +2219,17 @@ function navPunktZeichnen(){
   navZahl(document.querySelector('#nav button[data-nav="erfolge"]'), erfolgeNeu().length, true);
 }
 function render(){
+  /* 🔴 Gefunden am 09.09.2026 (Datenschutz-Waechter): hier war Schluss, wenn keine
+     Sitzung da ist -- und damit war die Datenschutzerklaerung NUR fuer Angemeldete
+     erreichbar. Wer ein Konto anlegt, gibt E-Mail, Username und Passwort ab, BEVOR
+     er lesen kann, was damit passiert. Art. 13 Abs. 1 DSGVO verlangt die Information
+     aber "zum Zeitpunkt der Erhebung".
+     ⚠️ Die Ausnahme steht bewusst VOR `renderAuthGate()` und nicht darin: die
+     Erklaerung ist eine eigene Ansicht, keine Verzierung der Anmeldemaske. */
+  if(!session && view==='privacy'){
+    document.body.classList.remove('gate','setup');
+    renderPrivacy(); return;
+  }
   if(!session){ document.body.classList.add('gate'); document.body.classList.remove('setup'); renderAuthGate(); return; }
   document.body.classList.remove('gate');
   document.body.classList.toggle('setup', view==='onboard');   // Assistent: untere Leiste ausblenden
@@ -2331,6 +2346,11 @@ function renderAuthGate(err){
       ${err?`<div class="tiny" style="color:var(--danger);margin:2px 2px 10px">${esc(err)}</div>`:''}
       <button class="btn primary" data-act="${login?'doLogin':'doRegister'}">${login?'Anmelden':'Konto erstellen'}</button>
       <button class="link" data-act="authSwitch" style="width:100%;text-align:center;margin-top:12px">${login?'Noch kein Konto? Registrieren':'Schon ein Konto? Anmelden'}</button>
+      ${login?'':`<div class="tiny muted" style="margin:14px 2px 0;line-height:1.55">
+        Mit dem Erstellen eines Kontos werden deine E-Mail-Adresse und dein Username
+        gespeichert. Was die App sonst noch speichert und wohin etwas geht, steht in der
+        <button class="link" data-act="zeigDatenschutz" style="display:inline;padding:0;text-decoration:underline">Datenschutzerklärung</button>
+        &mdash; die kannst du lesen, <b style="color:var(--txt)">bevor</b> du dich anmeldest.</div>`}
       ${login?`<button class="link" data-act="authForgot" style="width:100%;text-align:center;margin-top:8px">Passwort vergessen?</button>`:''}
     </div>`;
   const f=document.getElementById(login?'au_id':'au_user'); if(f) f.focus(); }
@@ -5413,7 +5433,10 @@ function renderSettings(){
 
 // ---------- Datenschutz ----------
 function renderPrivacy(){
-  let h=`${zurueckPfeil('data-nav="settings"', 'Einstellungen')}
+  /* ⚠️ Ohne Sitzung fuehrt der Pfeil zurueck zur Anmeldung, nicht zu den
+     Einstellungen -- dorthin kaeme man ja gar nicht. */
+  let h=`${session ? zurueckPfeil('data-nav="settings"', 'Einstellungen')
+                   : zurueckPfeil('data-act="zurueckZurAnmeldung"', 'Anmeldung')}
     <div class="card" style="line-height:1.7;font-size:13.5px">
       <h2 style="margin:0 0 10px">Datenschutz</h2>
 
@@ -5434,7 +5457,11 @@ function renderPrivacy(){
           dem Kurzbefehl auf deinem iPhone, die App liest deine Gesundheitsdaten nicht selbst</li>
         <li>XP, Level und deine Einstellungen</li>
         <li>eine <b style="color:var(--txt)">Geräte-Kennung für Benachrichtigungen</b>, wenn du Push
-          erlaubst — damit eine Antwort auf deine Meldung ankommt. Ohne Push wird nichts gespeichert.</li>
+          erlaubst — damit eine Antwort auf deine Meldung ankommt. Ohne Push wird nichts gespeichert.
+          Diese Kennung ist eine <b style="color:var(--txt)">Adresse beim Mitteilungsdienst deines
+          Browsers</b> (bei einem iPhone <b style="color:var(--txt)">Apple</b>, bei Chrome
+          <b style="color:var(--txt)">Google</b> — beide USA). Ohne sie kann keine Mitteilung
+          zugestellt werden. Schaltest du Push aus, wird sie gelöscht.</li>
         <li>deine <b style="color:var(--txt)">Problemmeldungen</b> samt Antwort, wenn du welche schickst
           (siehe unten)</li>
       </ul>
@@ -5446,6 +5473,11 @@ function renderPrivacy(){
         <b style="color:var(--txt)">Schritte</b> und die <b style="color:var(--txt)">Benachrichtigungen</b> —
         beruhen auf deiner Einwilligung (lit. a); die kannst du jederzeit zurücknehmen, indem du die
         Einträge löschst bzw. den jeweiligen Schalter in den Einstellungen ausmachst.</p>
+      <p class="muted" style="margin:0 0 14px"><b style="color:var(--txt)">Gewicht, Schritte und
+        Mahlzeiten sagen etwas über deine Gesundheit aus.</b> Für solche Angaben gilt zusätzlich
+        <b style="color:var(--txt)">Art. 9 Abs. 2 lit. a DSGVO</b>: sie werden nur gespeichert, wenn du
+        sie ausdrücklich einträgst oder den Schalter dafür anmachst. Du kannst sie jederzeit einzeln
+        löschen oder den Schalter wieder ausmachen — dann ist die Einwilligung zurückgenommen.</p>
 
       <b>Wo die Daten liegen</b>
       <p class="muted" style="margin:4px 0 14px">Auf deinem Gerät und zusätzlich bei
@@ -5460,15 +5492,29 @@ function renderPrivacy(){
         Die App braucht ein Konto; einen Weg, sie ganz ohne Anmeldung zu benutzen, gibt es nicht.</p>
 
       <b>Wenn du Essen einträgst</b>
-      <p class="muted" style="margin:4px 0 8px">Zwei der drei Wege reden mit einem fremden Dienst.
-        Beide benutzt die App <b style="color:var(--txt)">nur, wenn du den Knopf drückst</b> — von allein
-        geht nichts hinaus:</p>
+      <p class="muted" style="margin:4px 0 8px">Drei der Wege reden mit einem fremden Dienst.
+        Alle drei benutzt die App <b style="color:var(--txt)">nur, wenn du suchst oder einen Knopf
+        drückst</b> — von allein geht nichts hinaus:</p>
       <ul class="muted" style="margin:0 0 14px;padding-left:18px">
+        <li><b style="color:var(--txt)">Suchen</b> — <b style="color:var(--txt)">was du ins Suchfeld
+          tippst</b>, geht an <b style="color:var(--txt)">Open Food Facts</b>
+          (gemeinnützig, Frankreich), um passende Lebensmittel zu finden. Antwortet der Suchdienst
+          (search.openfoodfacts.org) nicht, geht dieselbe Anfrage <b style="color:var(--txt)">ersatzweise
+          an world.openfoodfacts.org</b> — derselbe Anbieter, anderer Rechner.
+          Übertragen wird der Suchbegriff, kein Name und kein Konto.
+          <b style="color:var(--txt)">Deine IP-Adresse sieht der Dienst dabei</b> — wie bei jedem
+          Aufruf einer fremden Seite.
+          <b style="color:var(--txt)">Tipp nichts ein, was du nicht weitergeben willst.</b>
+          Die Reiter <b style="color:var(--txt)">Favoriten</b> und <b style="color:var(--txt)">Zuletzt</b>
+          suchen nicht — die stehen auf deinem Gerät.</li>
         <li><b style="color:var(--txt)">Barcode</b> — die eingescannte Nummer geht an
-          <b style="color:var(--txt)">Open Food Facts</b> (open-food-facts.org, gemeinnützig, Frankreich),
-          um die Nährwerte zu holen. Übertragen wird nur die Nummer, nichts über dich.</li>
+          <b style="color:var(--txt)">Open Food Facts</b> (world.openfoodfacts.org, gemeinnützig,
+          Frankreich), um die Nährwerte zu holen. <b style="color:var(--txt)">Beim Scannen</b> wird nur
+          die Nummer übertragen, nichts über dich — beim Suchen dagegen dein Suchbegriff, siehe oben.</li>
         <li><b style="color:var(--txt)">Foto</b> — das Bild geht an <b style="color:var(--txt)">Google</b>
           (Google LLC, USA), damit die Nährwerte geschätzt werden. Damit verlassen diese Bilder die EU.
+          <b style="color:var(--txt)">Deine IP-Adresse sieht Google dabei</b> — wie bei jedem Aufruf
+          einer fremden Seite.
           Der dafür nötige Schlüssel bleibt auf deinem Gerät und wird nicht mitsynchronisiert.
           <b style="color:var(--txt)">Nimm keine Bilder auf, auf denen Personen zu erkennen sind.</b></li>
       </ul>
@@ -5495,18 +5541,33 @@ function renderPrivacy(){
         An Dritte geht nichts — mit Ausnahme der drei Fälle oben (Barcode, Foto, Problemmeldung),
         die du jedes Mal selbst auslöst.
         Es werden auch keine Cookies zu Werbezwecken gesetzt. XP, Level und Rang rechnet die App allein
-        aus deinen Einheiten aus — das bleibt in der App und hat für dich keinerlei Folgen nach außen.</p>
+        aus deinen Einheiten aus. <b style="color:var(--txt)">Dein Name und dein XP-Stand gehen zusätzlich
+        in die Bestenliste</b>, die alle Angemeldeten sehen — sonst nichts.</p>
+
+      <b>Die Bestenliste</b>
+      <p class="muted" style="margin:4px 0 14px">Auf der Erfolge-Seite stehen die Konten mit den meisten
+        XP. Dafür gehen <b style="color:var(--txt)">dein Name und deine XP-Zahl</b> bei jedem Abgleich in
+        eine eigene Tabelle, die <b style="color:var(--txt)">jeder Angemeldete lesen kann</b>.
+        <b style="color:var(--txt)">Deine Trainings, Gewichte und Mahlzeiten stehen dort nicht</b> und
+        sind darüber auch nicht abrufbar.
+        ⚠️ <b style="color:var(--txt)">Hat dein Konto keinen Username, steht dort der vordere Teil deiner
+        E-Mail-Adresse</b> (alles vor dem @). Wenn du das nicht willst, trag in den Einstellungen einen
+        Username ein.</p>
 
       <b>Wer sie sehen kann</b>
       <p class="muted" style="margin:4px 0 14px">Du. Und technisch bedingt der Betreiber der App —
         deine Trainingsdaten liegen unverschlüsselt in der Datenbank und könnten dort eingesehen werden.
         Das passiert nicht absichtlich, aber es ist ehrlicher, dass du es weißt.
-        Andere Nutzer können deine Daten <b style="color:var(--txt)">nicht</b> sehen; die Datenbank gibt
-        jedem Konto nur die eigenen Zeilen heraus.</p>
+        Deine Trainings, Gewichte und Mahlzeiten sieht sonst niemand — die Datenbank gibt jedem Konto nur
+        die eigenen Zeilen heraus. <b style="color:var(--txt)">Eine Ausnahme ist die Bestenliste</b>
+        (siehe oben): dort stehen dein Name und dein XP-Stand für alle Angemeldeten sichtbar.</p>
 
       <b>Wie lange</b>
       <p class="muted" style="margin:4px 0 14px">Bis du dein Konto löschst. Danach sind sie weg —
-        „Konto löschen" entfernt die Daten <i>und</i> die Anmeldung, nicht nur das eine.</p>
+        „Konto löschen" entfernt die Daten <i>und</i> die Anmeldung, nicht nur das eine.
+        <b style="color:var(--txt)">Zwei Dinge kann die App dabei nicht erreichen:</b> eine
+        Problemmeldung, die schon als Discord-Nachricht beim Betreiber liegt, und alles, was du dir
+        selbst heruntergeladen hast. Soll die Meldung auch dort weg, schreib an die Adresse oben.</p>
 
       <b>Deine Rechte</b>
       <p class="muted" style="margin:4px 0 6px">Du hast das Recht auf Auskunft (Art. 15), Berichtigung
@@ -5690,7 +5751,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.074';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.075';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -6361,7 +6422,17 @@ function importierePlan(){
 }
 
 function exportData(){
-  const data={app:'gym-log', version:2, exportedAt:new Date().toISOString(), programs, plans, sessions, profile, settings};
+  /* 🔴 09.09.2026 (Datenschutz-Waechter): Meldungen und Postfach fehlten hier.
+     Der Knopf heisst "Meine Daten herunterladen" und setzt Art. 20 DSGVO um --
+     wenn zwei Listen fehlen, stimmt das Wort "alles" daneben nicht.
+     Beides liegt ohnehin im Geraet (localStorage), das Lesen kostet nichts.
+     ⚠️ Bewusst mit `||[]` abgesichert: die Leser geben bei kaputtem Speicher
+     ein leeres Feld zurueck, aber ein spaeterer Umbau soll den Export nicht
+     mit `undefined` fuellen koennen -- eine Ausfuhr, die still Felder
+     verliert, ist genau die Bauform, die hier gejagt wird. */
+  const data={app:'gym-log', version:3, exportedAt:new Date().toISOString(),
+              programs, plans, sessions, profile, settings,
+              meldungen: meldungenLesen()||[], postfach: postfachLesen()||[]};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob), a=document.createElement('a');
   a.href=url; a.download='gym-log-daten-'+new Date().toISOString().slice(0,10)+'.json';
@@ -7499,6 +7570,12 @@ document.addEventListener('click',ev=>{
   else if(a==='export'){ exportData(); }
   else if(a==='resetall'){ confirmTwice('rst',t,'Wirklich alles löschen?',()=>{ programs=[neuerPlan('Mein Plan',seedPlans())]; sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null; normalizeProfile(); bindPlans(); save(); applyTheme(); view='home'; render(); toast('Zurückgesetzt'); }); }
   else if(a==='authSwitch'){ authMode=(authMode==='login')?'register':'login'; renderAuthGate(); }
+  /* Die Datenschutzerklaerung vor der Anmeldung (09.09.2026, Art. 13 DSGVO).
+     ⚠️ `view` wird gesetzt, nicht `renderPrivacy()` direkt gerufen: sonst wuerde der
+     naechste beliebige `render()`-Aufruf die Seite wieder gegen die Anmeldemaske
+     tauschen, und der Text waere weg, waehrend man ihn liest. */
+  else if(a==='zeigDatenschutz'){ view='privacy'; render(); }
+  else if(a==='zurueckZurAnmeldung'){ view='home'; render(); }
   else if(a==='authForgot'){ const el=document.getElementById('au_id');
     // Was im Anmeldefeld steht, mitnehmen -- aber nur, wenn es eine Adresse ist.
     if(el && el.value.includes('@')) resetMail=el.value.trim();

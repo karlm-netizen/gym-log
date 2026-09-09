@@ -196,14 +196,28 @@ begin
   if ziel is null or ziel = '' then return new; end if;
 
   /* ---- Wer hat gemeldet? ----
-     ⚠️ Anders als Angel-Log hat Gym-Log KEINE Profil-Tabelle und keine
-     Benutzernamen — es gibt nur `gymlog_data` (id + data). Als Kennung bleibt
-     deshalb die E-Mail aus `auth.users`. Diese Funktion ist `security definer`,
-     nur deshalb darf sie dort überhaupt lesen.
-     ⚠️ `coalesce` auf 'unbekannt': fällt die Zeile weg, sähe es sonst aus, als
-     sei der Melder vergessen worden. */
-  select u.email into melder from auth.users u where u.id = new.user_id;
-  melder := coalesce(melder, 'unbekannt');
+     🔴 KORRIGIERT am 09.09.2026 (Datenschutz-Wächter). Hier stand bis dahin die
+     E-Mail-Adresse, mit der Begründung „Gym-Log hat KEINE Benutzernamen". Das war
+     schlicht falsch: Benutzernamen gibt es seit dem 28.07.2026, sie stehen in
+     `auth.users.raw_user_meta_data->>'username'` — und `username_taken()` in
+     `supabase-funktionen.sql` liest sie an genau derselben Stelle.
+     ⚠️ Warum das mehr als ein Schönheitsfehler war: diese Nachricht geht an
+     Discord in die USA. Damit ging bei JEDER Meldung eine direkt identifizierende
+     Angabe ins Drittland — und die Datenschutzerklärung nannte an dieser Stelle
+     ausdrücklich „dein Username". Der Text versprach also das Datensparsamere,
+     der Code tat das andere. Zudem blieb die Adresse nach „Konto löschen" in der
+     Discord-Nachricht stehen.
+     💡 Für die Antwort wird sie nicht gebraucht: die läuft über `new.user_id`
+     zurück in das Postfach in der App, nicht über E-Mail.
+     ⚠️ `coalesce`-Kette: fehlt der Username (Konten von vor dem 28.07. konnten
+     keinen haben), steht dort die user_id statt einer Adresse — damit bleibt die
+     Meldung zuordenbar, ohne etwas herauszugeben, das niemand gesehen haben muss.
+     Diese Funktion ist `security definer`, nur deshalb darf sie in `auth.users`
+     überhaupt lesen. */
+  select nullif(trim(u.raw_user_meta_data->>'username'), '')
+    into melder
+    from auth.users u where u.id = new.user_id;
+  melder := coalesce(melder, 'ohne Username (' || left(new.user_id::text, 8) || ')');
 
   /* ---- Wen soll Discord anpingen? ----
      Die ID steht in `gym_konfig`, nicht hier im Quelltext: sie ändert sich, wenn
