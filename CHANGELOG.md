@@ -2,6 +2,87 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-09-10
+
+### v0.076 — der Nachlauf des Fund-Suchers, und was er von gestern übrig ließ
+
+**Der Agentenlauf nach v0.075 hat die Reparaturen selbst geprüft.** Ergebnis: **12 neue
+Funde, 3 schwer** — und von den 19 Funden des Vortags waren **8 sauber behoben, 6 halb,
+5 gar nicht.**
+
+🔴 **Die Commit-Nachricht von `81e51ba` sagte „alle behoben". Das war falsch.**
+Der Satz steht hier, weil er nicht stehen bleiben soll: eine Zusammenfassung, die mehr
+behauptet als geprüft wurde, ist dieselbe Bauform wie ein Rechtstext, der mehr verspricht
+als der Code tut.
+
+#### 🔴 Der Arbeitsbaum-Check hat geraten statt gemessen
+
+Er suchte in geänderten Zeilen nach acht Stichwörtern („Datenschutz", „Bestenliste", …).
+**Beides nachgemessen, beides daneben:**
+- **146 der 160 Zeilen** der Erklärung tragen keines dieser Wörter — darunter wörtlich
+  die Sätze, um die es tags zuvor ging. Wer einen davon ändert und den Stand stehen lässt,
+  bekam **keinen Fund**.
+- **„Bestenliste" steht 13× in gewöhnlichem Code.** Von den letzten 14 Commits hätten drei
+  den Check ausgelöst, **zwei davon zu Unrecht** — und weil die Prüfung seit v0.075 den
+  Push blockiert, wäre der einzige Weg durch gewesen, `PRIVACY_STAND` auf heute zu setzen.
+  **Damit wäre das Datum zum Build-Datum geworden und das Signal weg.**
+
+➡️ Jetzt kommen die Zeilennummern aus den `@@`-Köpfen des Diffs und werden gegen den
+echten Zeilenbereich der Erklärung gehalten. **Kein Stichwort mehr im Spiel.**
+
+#### 🔴 Der Hook verbrauchte seinen Merker, bevor irgendetwas geprüft war
+
+Der SHA-256 wurde geschrieben, **bevor** feststand, ob der Prüfer läuft. Stürzte er danach
+ab, galt die Datei beim nächsten Mal als unverändert — **und wurde nie geprüft.** Ein
+Merker, der die Prüfung ersetzt, statt sie auszulösen.
+➡️ Der Hash wird jetzt erst **nach** einem Lauf gemerkt, der stattgefunden hat. Dazu:
+alle geänderten Repos statt nur des ersten · `sw.js` zählt mit (der Prüfer liest sie) ·
+ein nicht anlegbarer Merker-Ordner ist laut statt still.
+
+#### 🔴 Von allem, was gestern in die Erklärung kam, prüfte kein Satz irgendetwas
+
+Bestenliste, Art. 9, IP-Adresse, Push über Apple/Google, Grenzen des Löschens — **alle
+ungesichert.** Sie hätten am nächsten Tag verschwinden können. *Genau die Geschichte, die
+den Bestenlisten-Satz überhaupt in den Bericht gebracht hat: er stand elf Tage falsch da.*
+➡️ Neu: `pruefe_zusagen()` — **was der Code tut, muss der Text sagen.** Vier Regeln, jede
+mit einem Kennzeichen im Code.
+➡️ Neu: `pruefe_handler()` — jedes `data-act` braucht seinen Zweig im Verteiler.
+**Ein toter Knopf sieht aus wie ein Knopf.**
+
+💡 **Und diese Regel hatte den Fehler sofort selbst:** das Kennzeichen `gewichtHinzu` war
+geraten und gab es nie — die Art.-9-Regel prüfte nichts und sagte nichts. Nur die
+Gegenprobe hat es gefunden. Jetzt meldet eine Regel, deren Kennzeichen ins Leere zeigt.
+
+#### 🟡 Sechs weitere
+
+**Die Erklärung widersprach sich selbst:** „Zwei Ausnahmen" stand vier Absätze über der
+neu eingefügten dritten (Push). Jetzt drei, und dass man die dritte nicht selbst auslöst.
+**Die Pflichtangaben-Prüfung las die ganze 549-KB-Datei** — Fundstellen außerhalb konnten
+eine gelöschte Pflichtangabe maskieren (gemessen: „Speicherdauer" 6×, „Betroffenenrechte"
+2×, **eine davon kam gestern durch die Reparatur eines anderen Fundes dazu**). Liest jetzt
+nur den Abschnitt.
+**Der Prüfstand blieb grün, wenn die Datenschutz-Skripte verschwinden** — jetzt rot.
+**Vor der Anmeldung erschien die Navigationsleiste** — `gate` bleibt jetzt gesetzt.
+**Der Export-Knopf stand ohne Konto da** und hätte eine leere Datei geladen.
+**Der user_id-Rückfall an Discord** steht jetzt im Text.
+
+#### ⚙️ Zwei Behauptungen ohne Mechanik
+
+- `datenschutz-pruefen.py` verwies auf einen README-Abschnitt **„Der Datenschutz-Wächter",
+  den es nie gab.** Das README hatte neun Zeilen und enthielt das Wort „Datenschutz" nicht.
+  ➡️ Der Abschnitt steht jetzt da.
+- Die Agentenrolle sagte **„Läuft nach jeder neuen APP_FASSUNG"** — im ganzen Vault gab es
+  keine Stelle, die ihn startet. ➡️ Jetzt steht dort, was tatsächlich wann läuft.
+
+#### 🧪 Die Gegenproben
+
+**14 Fälle** für die Datenschutz-Prüfung (waren 4), **11** für den Hook (neu:
+`werkzeuge/datenschutz-hook-gegenprobe.py`). Darunter die zwei, die den Arbeitsbaum-Check
+festnageln: *eine Zeile ohne Stichwort im Abschnitt wird gesehen* — *eine Zeile mit
+„Bestenliste" außerhalb löst nicht aus.*
+
+**894 Prüfungen grün.**
+
 ## 2026-09-09
 
 ### v0.075 — die Datenschutzerklärung läuft ab jetzt mit
@@ -39,17 +120,23 @@ dritten Fehlalarm nicht mehr gelesen.**
 
 #### 🧪 `datenschutz-gegenprobe.py`
 
-Baut vier Schadensfälle in eine Kopie ein — unbekannter Fremddienst · Textsuche ohne
+Baut Schadensfälle in eine Kopie ein — unbekannter Fremddienst · Textsuche ohne
 Erwähnung · gelöschte Pflichtangabe · Zähldienst trotz „kein Tracking" — und verlangt,
-dass jeder als **SCHWER** herauskommt.
+dass jeder als **SCHWER** herauskommt. *(Vier zu diesem Zeitpunkt; in v0.076 sind es 14.)*
 💡 **Ohne sie wüsste man nur, dass die Prüfung „OK" sagen kann** — nicht, dass sie
 überhaupt in der Lage ist, „FEHLER" zu sagen.
 
 #### ⚙️ Sie läuft von selbst
 
 Ein `PostToolUse`-Hook im Vault (`werkzeuge/datenschutz-hook.py`) startet die Prüfung
-nach **jeder** Änderung an `index.html`. Gibt es Funde, kommen sie sofort zurück in die
+nach einer Änderung an `index.html`. Gibt es Funde, kommen sie sofort zurück in die
 Sitzung; gibt es keine, bleibt es still.
+
+🔴 **Nachtrag 10.09.2026:** Der Satz stand hier zuerst als *„nach **jeder** Änderung"* —
+**und war falsch, im selben Commit, der den Fund dazu enthielt.** Der Matcher
+`Write|Edit` sah die Python-Patchskripte nicht, mit denen `index.html` hier fast immer
+geändert wird. Behoben in v0.076: der Hook misst jetzt per SHA-256, **ob** sich etwas
+geändert hat, statt zu fragen, **womit**. Seither stimmt der Satz.
 
 🔴 **Der Hook hatte selbst genau den Fehler, den er finden soll.** Die erste Fassung gab
 ihre Meldung mit `ensure_ascii=False` aus; ein Umlaut traf auf die cp1252-Konsole, der

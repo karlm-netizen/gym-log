@@ -9,9 +9,12 @@ pruefen ob das alles so legal ist."
 WAS DIESE DATEI TUT UND WAS NICHT
 Sie ist der mechanische Teil: sie sammelt die PRUEFBAREN Tatsachen und meldet,
 wo die Erklaerung ihnen widerspricht. Ob eine Formulierung rechtlich traegt,
-entscheidet sie NICHT - das ist die Aufgabe des Agenten (siehe README, Abschnitt
-"Der Datenschutz-Waechter"). Beides zusammen ist der Waechter; dieses Skript ist
+entscheidet sie NICHT - das ist die Aufgabe des Agenten. Seine Rolle steht in
+`ki-os-2/.claude/agents/datenschutz-waechter.md`, sein Ablauf im README dieses
+Repos unter "Datenschutz". Beides zusammen ist der Waechter; dieses Skript ist
 der Teil, der bei jedem Lauf in Sekunden durchlaeuft.
+(Der Verweis zeigte bis zum 10.09.2026 auf einen README-Abschnitt, den es nie
+gab - ein Wegweiser ins Leere ist schlimmer als keiner.)
 
 WARUM ES SIE BRAUCHT - der Fund vom 09.09.2026
 Die Erklaerung sagte beim Essen-Eintragen: "Uebertragen wird nur die Nummer,
@@ -157,7 +160,16 @@ def pruefe_stand():
 
     # --- 1. Der Arbeitsbaum: gibt es JETZT ungesicherte Aenderungen am Text? ---
     # Das ist der Fall, den der Hook erwischen muss - er laeuft vor dem Commit.
-    if ungesicherte_aenderung_am_abschnitt() and stand != date.today():
+    arbeitsbaum = ungesicherte_aenderung_am_abschnitt()
+    if arbeitsbaum == "abschnitt-weg":
+        # ⚠️ Nicht als "geaendert" durchwinken: `"abschnitt-weg"` ist wahr, und ein
+        # truthy Rueckgabewert haette hier still einen falschen Fund erzeugt.
+        # Der Abschnitt ist NICHT auffindbar - das ist ein Defekt der Pruefung
+        # selbst und muss als solcher dastehen.
+        fund("SCHWER", "Die Erklaerung ist in index.html nicht auffindbar",
+             "Gesucht wurde `function renderPrivacy` bis zur schliessenden Klammer.",
+             "Solange das so ist, prueft nichts mehr, ob der Stand zum Text passt.")
+    elif arbeitsbaum is True and stand != date.today():
         fund("SCHWER",
              f"Die Erklaerung ist gerade geaendert worden, PRIVACY_STAND steht "
              f"auf dem {stand:%d.%m.%Y}",
@@ -184,18 +196,65 @@ def pruefe_stand():
     return stand
 
 
-def ungesicherte_aenderung_am_abschnitt():
-    """Wurde renderPrivacy() geaendert, ohne dass es schon committet ist?
+def erklaerungs_zeilen():
+    """Welche Zeilen von index.html gehoeren zur Datenschutzerklaerung?
 
-    🔴 DER GRUND, WARUM ES DIESE FUNKTION GIBT (Fund-Sucher, 09.09.2026):
+    Gibt eine Liste von (von, bis) zurueck, 1-basiert und einschliesslich.
+    Zwei Bereiche: die Funktion `renderPrivacy` und die PRIVACY_-Konstanten,
+    die weit oben stehen (Verantwortlicher, Kontakt, Stand).
+
+    Ist die Funktion nicht zu finden, gibt es None - der Aufrufer macht daraus
+    einen lauten Fund, keine stille Null.
+    """
+    zeilen = lies(INDEX).splitlines()
+    von = bis = None
+    for i, z in enumerate(zeilen, start=1):
+        if z.startswith("function renderPrivacy"):
+            von = i
+            continue
+        if von and bis is None and z.rstrip() in ("}", " }"):
+            bis = i
+            break
+    if von is None or bis is None:
+        return None
+
+    bereiche = [(von, bis)]
+    konst = [i for i, z in enumerate(zeilen, start=1) if z.startswith("const PRIVACY_")]
+    if konst:
+        bereiche.append((min(konst), max(konst)))
+    return bereiche
+
+
+def ungesicherte_aenderung_am_abschnitt():
+    """Wurde die Erklaerung geaendert, ohne dass es schon committet ist?
+
+    🔴 WARUM ES DIESE FUNKTION GIBT (Fund-Sucher, 09.09.2026):
     Die Pruefung lief urspruenglich NUR ueber `git log -L`. Das liest committete
     Historie - der Hook laeuft aber als PostToolUse, also IMMER vor dem Commit.
     Damit konnte die Pruefung genau die Aenderung, wegen der sie gestartet wurde,
-    prinzipiell nicht sehen: Text aendern, Datum vergessen, committen, pushen -
-    alles in einer Sitzung, und nichts wurde rot.
+    prinzipiell nicht sehen.
 
-    Deshalb zuerst der Arbeitsbaum: `git diff` zeigt, was JETZT anders ist.
+    🔴 UND WARUM SIE AM 10.09.2026 NEU GESCHRIEBEN WURDE (Fund-Sucher, Nachlauf):
+    Die erste Fassung suchte in den geaenderten ZEILEN nach acht Stichwoertern
+    ("Datenschutz", "Bestenliste", "DSGVO" ...). Das ging in beide Richtungen
+    daneben, beides nachgemessen:
+      · 146 der 160 Zeilen von renderPrivacy tragen KEINES dieser Woerter -
+        darunter woertlich die Saetze, um die es an dem Tag ging. Wer einen
+        davon aendert und den Stand stehen laesst, bekam keinen Fund.
+      · "Bestenliste" steht 13x in gewoehnlichem Code ausserhalb der Erklaerung.
+        Von den letzten 14 Commits haetten drei den Check ausgeloest, zwei davon
+        zu Unrecht - und weil die Pruefung seit dem 09.09. in `pruefungen.py`
+        haengt, waere der einzige Weg durch gewesen, PRIVACY_STAND auf heute zu
+        setzen. Damit waere das Datum zum Build-Datum geworden und das Signal weg.
+
+    ➡️ Deshalb wird jetzt nicht mehr geraten, sondern gemessen: aus dem Diff
+    kommen die Zeilennummern (@@-Koepfe), und die werden gegen den echten
+    Zeilenbereich der Erklaerung gehalten. Kein Stichwort mehr im Spiel.
     """
+    bereiche = erklaerungs_zeilen()
+    if bereiche is None:
+        return "abschnitt-weg"      # der Aufrufer meldet das laut
+
     try:
         roh = subprocess.run(
             ["git", "-C", str(HIER), "diff", "--unified=0", "--", "index.html"],
@@ -209,17 +268,21 @@ def ungesicherte_aenderung_am_abschnitt():
         )
         if roh.returncode != 0:
             return None
-        # Grob, aber ausreichend: steht im Diff eine Zeile aus dem Datenschutz-
-        # Abschnitt? Die Marker sind Formulierungen, die nur dort vorkommen.
-        marken = ("Datenschutz", "PRIVACY_", "Open Food Facts", "Bestenliste",
-                  "DSGVO", "Art. 6", "Art. 13", "Aufsichtsbeh")
-        for zeile in (roh.stdout or "").splitlines():
-            if zeile.startswith(("+", "-")) and not zeile.startswith(("+++", "---")):
-                if any(m in zeile for m in marken):
-                    return True
-        return False
     except (OSError, subprocess.SubprocessError):
         return None
+
+    # @@ -alt,n +neu,m @@  -- uns interessiert der NEUE Bereich.
+    # Fehlt die Zahl nach dem Komma, ist es genau eine Zeile; ist sie 0, wurde
+    # nur geloescht (dann liegt die Loeschstelle bei `start`).
+    for kopf in re.findall(r"^@@ -\S+ \+(\d+)(?:,(\d+))? @@", roh.stdout or "",
+                           flags=re.M):
+        start = int(kopf[0])
+        anzahl = int(kopf[1]) if kopf[1] else 1
+        ende = start + max(anzahl, 1) - 1
+        for von, bis in bereiche:
+            if start <= bis and ende >= von:      # ueberschneiden sie sich?
+                return True
+    return False
 
 
 def letzte_aenderung_am_abschnitt():
@@ -297,13 +360,122 @@ def pruefe_versprechen():
         fund("SCHWER", f'Die Erklaerung sagt "kein Tracking", im Code steht: {", ".join(drin)}')
 
 
+def erklaerungs_text():
+    """Nur die Zeilen der Datenschutzerklaerung, nicht die ganze Datei.
+
+    🔴 WARUM (Fund-Sucher, Nachlauf 10.09.2026): `pruefe_pflichtangaben` las
+    bis dahin `lies(INDEX)`, also alle 549 KB. Damit konnten Fundstellen
+    AUSSERHALB der Erklaerung eine fehlende Pflichtangabe maskieren -
+    nachgemessen: "Speicherdauer" 6x ausserhalb, "Betroffenenrechte" 2x.
+    ⚠️ Und die Reparatur eines anderen Fundes hat das am 09.09. verschlimmert:
+    der neue Kommentar bei `exportData` enthaelt "Art. 20 DSGVO" und maskiert
+    seither die Betroffenenrechte mit. Wer den ganzen Abschnitt loescht, bekaeme
+    trotzdem "keine Funde".
+    """
+    bereiche = erklaerungs_zeilen()
+    if bereiche is None:
+        return None
+    zeilen = lies(INDEX).splitlines()
+    heraus = []
+    for von, bis in bereiche:
+        heraus.extend(zeilen[von - 1:bis])
+    return "\n".join(heraus)
+
+
+# ---------------------------------------------------------------------------
+# Was der Code TUT -> was der Text dazu SAGEN MUSS.
+#
+# 🔴 WARUM ES DIESE LISTE GIBT (Fund-Sucher, Nachlauf 10.09.2026): von allem,
+# was am 09.09. in die Erklaerung geschrieben wurde - Bestenliste, Art. 9,
+# IP-Adresse, Push ueber Apple/Google, Grenzen des Loeschens - pruefte
+# **kein einziger Satz** irgendetwas. Sie haetten morgen wieder verschwinden
+# koennen, und nichts waere rot geworden. Das ist exakt die Geschichte, die den
+# Bestenlisten-Satz ueberhaupt in den Bericht gebracht hat: er stand elf Tage
+# falsch da.
+#
+# Jede Regel ist: (Kennzeichen im Code, was im Text stehen muss, Begruendung).
+# Das Kennzeichen wird OHNE Kommentare gesucht, der Text NUR im Abschnitt.
+ZUSAGEN = [
+    ("bestenlisteSchieben",
+     ("Bestenliste",),
+     "Die App schiebt Name und XP in eine Tabelle, die alle Angemeldeten lesen. "
+     "Steht das nicht im Text, sagt er das Gegenteil der Wahrheit - genau so war "
+     "es vom 05.08. bis zum 09.09.2026."),
+    ("gym_push",
+     ("Apple", "Google"),
+     "Die Push-Kennung liegt beim Mitteilungsdienst des Browsers (Apple bzw. "
+     "Google, USA). Als Drittlandsempfaenger muessen beide benannt sein."),
+    ("generativelanguage.googleapis.com",
+     ("IP-Adresse",),
+     "Jeder Aufruf traegt die IP mit, und eine IP ist personenbezogen "
+     "(EuGH, Breyer, C-582/14). \"Nichts ueber dich\" waere zu stark."),
+    ("addWeight",
+     ("Art. 9",),
+     "Gewicht, Schritte und Mahlzeiten sind Gesundheitsdaten. Dafuer reicht "
+     "Art. 6 nicht - es braucht die ausdrueckliche Einwilligung nach Art. 9 "
+     "Abs. 2 lit. a."),
+]
+
+
+def pruefe_zusagen():
+    """Tut der Code etwas, das der Text verschweigt?"""
+    abschnitt = erklaerungs_text()
+    if abschnitt is None:
+        return                        # pruefe_stand meldet das schon laut
+    code = kommentare_weg(lies(INDEX))
+
+    for kennzeichen, pflicht, warum in ZUSAGEN:
+        if kennzeichen not in code:
+            # 🔴 NICHT still ueberspringen (gefunden am 10.09.2026 an dieser
+            # Datei selbst: das Kennzeichen `gewichtHinzu` war geraten und gab es
+            # nie - die Regel hat deshalb nie etwas geprueft und nie etwas gesagt.
+            # Genau die Bauform, die dieses Werkzeug jagen soll.)
+            # Entweder wurde die Funktion umbenannt, dann muss das Kennzeichen
+            # nachgezogen werden, oder es gibt sie nicht mehr, dann gehoert die
+            # Regel geloescht. Beides ist eine Entscheidung, keine Stille.
+            fund("HINWEIS",
+                 f"Die Zusagen-Regel `{kennzeichen}` findet ihr Kennzeichen nicht mehr",
+                 "Sie prueft damit nichts. Umbenannt -> Kennzeichen nachziehen;",
+                 "weggefallen -> Regel loeschen. Nicht stehen lassen.")
+            continue
+        fehlend = [w for w in pflicht if w not in abschnitt]
+        if fehlend:
+            fund("SCHWER",
+                 f"Der Code hat `{kennzeichen}`, die Erklaerung sagt nichts von "
+                 f"{', '.join(fehlend)}",
+                 warum)
+
+
+def pruefe_handler():
+    """Hat jedes `data-act` im HTML auch einen Zweig im Klick-Verteiler?
+
+    🔴 WARUM (Fund-Sucher, Nachlauf 10.09.2026): die zwei neuen Knoepfe
+    `zeigDatenschutz` und `zurueckZurAnmeldung` haengen an Zeichenketten, die an
+    zwei getrennten Stellen stehen. Ein Tippfehler in einer davon faellt durch
+    die ganze `else if`-Kette und tut **nichts** - der Link in der Anmeldemaske
+    waere ein toter Knopf, und die Art.-13-Reparatur still wieder weg.
+    ⚠️ Ein toter Knopf sieht aus wie ein Knopf.
+    """
+    quelltext = lies(INDEX)
+    benutzt = set(re.findall(r'data-act="([a-zA-Z][a-zA-Z0-9_]*)"', quelltext))
+    behandelt = set(re.findall(r"a\s*===\s*'([a-zA-Z][a-zA-Z0-9_]*)'", quelltext))
+    behandelt |= set(re.findall(r'a\s*===\s*"([a-zA-Z][a-zA-Z0-9_]*)"', quelltext))
+    for name in sorted(benutzt - behandelt):
+        fund("SCHWER", f"Der Knopf `data-act=\"{name}\"` hat keinen Zweig im Verteiler",
+             "Er tut beim Klicken nichts - und sieht dabei aus wie ein Knopf.")
+
+
 def pruefe_pflichtangaben():
     """Steht das drin, was Art. 13 DSGVO verlangt?
 
     Kein Ersatz fuer eine rechtliche Pruefung - nur ein Netz gegen das
     versehentliche Loeschen ganzer Abschnitte beim Umbauen.
+
+    ⚠️ Liest seit dem 10.09.2026 NUR den Abschnitt (siehe erklaerungs_text).
     """
-    text = lies(INDEX)
+    text = erklaerungs_text()
+    if text is None:
+        return                        # pruefe_stand meldet das schon laut
     pflicht = {
         "Verantwortlicher":      ["PRIVACY_OWNER", "Verantwortlich ist"],
         "Kontakt":               ["PRIVACY_CONTACT"],
@@ -342,6 +514,8 @@ def main():
     stand = pruefe_stand()
     pruefe_versprechen()
     pruefe_pflichtangaben()
+    pruefe_zusagen()
+    pruefe_handler()
 
     if not kurz:
         print("\n--- Wohin die App zur Laufzeit spricht ---")

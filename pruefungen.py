@@ -7275,7 +7275,17 @@ for skript, was in [('datenschutz-pruefen.py', 'Datenschutz-Pruefung'),
                     ('datenschutz-gegenprobe.py', 'Gegenprobe dazu')]:
     pfad = SRC / skript          # SRC steht ganz oben in dieser Datei
     if not pfad.is_file():
-        print(f'{was}: {skript} fehlt - uebersprungen')
+        # 🔴 ROT, nicht uebersprungen (Fund-Sucher, Nachlauf 10.09.2026).
+        # Vorher blieb ds_ok True und der Prueftstand meldete weiter "0
+        # fehlgeschlagen" - eine Zeile Text in ~900 Zeilen Ausgabe ist kein
+        # Alarm. Damit haette das Umbenennen oder Loeschen einer der beiden
+        # Dateien die ganze Datenschutz-Pruefung still abgeschaltet.
+        # Derselbe Bau wie "die Gegenprobe ist nirgends verdrahtet": verdrahtet
+        # schon, aber mit einem Schalter, der sich von selbst umlegt.
+        ds_ok = False
+        print(f'=== {was}: {skript} FEHLT ===')
+        print('    Solange die Datei fehlt, prueft nichts mehr die')
+        print('    Datenschutzerklaerung gegen den Code.')
         continue
     lauf = subprocess.run([sys.executable, str(pfad), '--kurz'] if 'pruefen' in skript
                           else [sys.executable, str(pfad)],

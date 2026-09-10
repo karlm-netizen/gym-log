@@ -1546,7 +1546,7 @@ const SUPA_KEY='sb_publishable_7UvOL7KzzgJK6om8OwUsSg_usOMz92l';
 // Git-Historie stünde. Karls Entscheidung am 03.08.2026.
 const PRIVACY_OWNER='Karl Fangmeyer (privat betriebene App)';
 const PRIVACY_CONTACT='karlm.fangmeyer@gmail.com';
-const PRIVACY_STAND='9. September 2026';  // bei jeder inhaltlichen Aenderung mit hochziehen
+const PRIVACY_STAND='10. September 2026';  // bei jeder inhaltlichen Aenderung mit hochziehen
 /* 🔴 09.09.2026: Der Stand stand auf dem 24.08., obwohl der Text am 03.09. geaendert
    wurde. Gefunden von datenschutz-pruefen.py, nicht von einem Menschen -- genau dafuer
    gibt es das Skript. Es vergleicht dieses Datum mit `git log -L` auf renderPrivacy()
@@ -2227,7 +2227,15 @@ function render(){
      ⚠️ Die Ausnahme steht bewusst VOR `renderAuthGate()` und nicht darin: die
      Erklaerung ist eine eigene Ansicht, keine Verzierung der Anmeldemaske. */
   if(!session && view==='privacy'){
-    document.body.classList.remove('gate','setup');
+    /* ⚠️ `gate` BLEIBT gesetzt (Fund-Sucher, Nachlauf 10.09.2026). Die erste
+       Fassung nahm die Klasse weg -- damit erschienen fuer den Ausgeloggten die
+       vier Reiter und auf dem PC die volle Seitenleiste, mit "Trainieren"
+       statisch auf aktiv. Kaputt war nichts (jeder Reiter fuehrt zurueck zur
+       Anmeldung), aber es sah aus, als waere man drin.
+       Die drei `body.gate`-Regeln (Zeilen 651, 652, 725) sind genau das, was die
+       Leseansicht braucht: Leiste aus, kein linker Rand auf dem PC. */
+    document.body.classList.add('gate');
+    document.body.classList.remove('setup');
     renderPrivacy(); return;
   }
   if(!session){ document.body.classList.add('gate'); document.body.classList.remove('setup'); renderAuthGate(); return; }
@@ -5485,10 +5493,13 @@ function renderPrivacy(){
         Supabase arbeitet dabei nur im Auftrag und nach Weisung (Auftragsverarbeitung, Art. 28 DSGVO).
         Die Server dieses Projekts stehen in der <b style="color:var(--txt)">EU</b> —
         <b style="color:var(--txt)">deine gespeicherten Daten verlassen die EU nicht.</b>
-        <b style="color:var(--txt)">Zwei Ausnahmen gibt es</b>, und beide löst du selbst aus:
+        <b style="color:var(--txt)">Drei Ausnahmen gibt es.</b> Zwei davon löst du selbst aus:
         ein <b style="color:var(--txt)">Essens-Foto</b>, das du zum Schätzen abschickst, und eine
         <b style="color:var(--txt)">Problemmeldung</b>, die dem Betreiber über Discord zugestellt wird.
-        Beides geht in die USA; Näheres steht weiter unten.
+        Die dritte ist die <b style="color:var(--txt)">Geräte-Kennung für Benachrichtigungen</b>: sie
+        liegt beim Mitteilungsdienst deines Browsers (Apple bzw. Google) — die entsteht, sobald du Push
+        erlaubst, und wird benutzt, wenn eine Antwort für dich da ist.
+        Alle drei gehen in die USA; Näheres steht weiter unten.
         Die App braucht ein Konto; einen Weg, sie ganz ohne Anmeldung zu benutzen, gibt es nicht.</p>
 
       <b>Wenn du Essen einträgst</b>
@@ -5521,7 +5532,8 @@ function renderPrivacy(){
 
       <b>Wenn du ein Problem meldest</b>
       <p class="muted" style="margin:4px 0 8px">Mit deinem Text gehen automatisch mit:
-        <b style="color:var(--txt)">dein Username</b>, die <b style="color:var(--txt)">Fassung der App</b>,
+        <b style="color:var(--txt)">dein Username</b> (hat dein Konto keinen, stattdessen die
+        ersten acht Zeichen deiner Konto-Kennung — nie deine E-Mail-Adresse), die <b style="color:var(--txt)">Fassung der App</b>,
         die <b style="color:var(--txt)">Kennung deines Browsers</b> (enthält Gerät und Betriebssystem),
         die <b style="color:var(--txt)">Bildschirmgröße</b>, ob du gerade
         <b style="color:var(--txt)">online oder offline</b> bist, die
@@ -5588,7 +5600,9 @@ function renderPrivacy(){
            er ist die Umsetzung der Datenübertragbarkeit (Art. 20 DSGVO) und
            gehört damit hierher, nicht zur Datensicherung — gesichert wird über
            das Konto. Das Gegenstück (Backup laden) ist bewusst weg. -->
-      <button class="btn" data-act="export">⬇︎ Meine Daten herunterladen</button>
+      ${session?`<button class="btn" data-act="export">⬇︎ Meine Daten herunterladen</button>`
+                :`<div class="tiny muted" style="margin:2px 0 0">Zum Herunterladen deiner Daten
+                   musst du angemeldet sein — vorher gibt es ja noch keine.</div>`}
     </div>`;
   app.innerHTML=h;
 }
@@ -5751,7 +5765,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.075';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.076';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -7007,6 +7021,18 @@ async function deleteAccount(){
        die Anmeldung im Geraet bleibt in jedem Fall bestehen. Hier steht „alle Daten
        dauerhaft"; dann darf auch nichts mehr klingeln. */
     try{ await pushAbmelden(); }catch(e){}
+    /* 🔴 Die eigene Bestenlisten-Zeile ausdruecklich mitloeschen (10.09.2026,
+       Karls Entscheidung nach dem Fund-Sucher-Nachlauf).
+       ⚠️ Sie haengt NICHT per `on delete cascade` am Konto -- jedenfalls nicht
+       verlaesslich: das greift nur, wenn `delete_own_account` das Konto wirklich
+       entfernt. Geht der Aufruf schief (Ausgang 'dataonly'), blieben **Name und
+       XP-Stand oeffentlich stehen**, waehrend auf dem Bildschirm steht: "dein
+       Fortschritt ist weg -- auch in der Cloud".
+       💡 Gefahrlos: die Zeilensperre laesst ohnehin nur die eigene Zeile zu, und
+       beim Kontoloeschen soll sie weg. Fehlschlag wird geschluckt wie daneben --
+       das Loeschen darf daran nicht scheitern. */
+    try{ await fetch(`${SUPA_URL}/rest/v1/gym_bestenliste?user_id=eq.${uidNow}`,
+                     {method:'DELETE',headers:authHeaders(true)}); }catch(e){}
     try{ const r=await fetch(`${SUPA_URL}/rest/v1/gymlog_data?id=eq.${uidNow}`,{method:'DELETE',headers:authHeaders(true)});
       dataGone=r.ok; }catch(e){}
     try{ const r=await fetch(`${SUPA_URL}/rest/v1/rpc/delete_own_account`,{method:'POST',headers:authHeaders(true),body:'{}'});

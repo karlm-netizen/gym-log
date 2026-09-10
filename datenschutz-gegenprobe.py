@@ -140,7 +140,149 @@ else:
         print("         rc:", roh.returncode, "stderr:", (roh.stderr or "")[:120])
         gescheitert += 1
 
-# --- 8. Und die Gegenprobe zur Gegenprobe: die echte Datei muss sauber bleiben ---
+# --- 8+9. Der Arbeitsbaum-Check: sieht er den Abschnitt, und NUR den? ---
+# 🔴 Diese beiden Proben fehlten bis zum 10.09.2026 (Fund-Sucher, Nachlauf).
+# Die erste Fassung des Checks suchte acht Stichwoerter in geaenderten Zeilen und
+# ging in BEIDE Richtungen daneben: 146 der 160 Zeilen der Erklaerung trugen kein
+# Stichwort, und "Bestenliste" steht 13x in gewoehnlichem Code. Ohne Gegenprobe
+# war beides nicht zu sehen.
+#
+# ⚠️ Diese Proben aendern die ECHTE index.html kurz und stellen sie danach wieder
+# her - anders geht es nicht, denn `git diff` misst den Arbeitsbaum, nicht eine
+# Kopie im Temp-Ordner. Hash-Kontrolle danach.
+import hashlib as _h
+import subprocess as _sp2
+
+_echte = HIER / "index.html"
+_orig = _echte.read_bytes()
+_hash = _h.sha256(_orig).hexdigest()
+
+_sauber = _sp2.run(["git", "-C", str(HIER), "diff", "--quiet", "--", "index.html"],
+                   capture_output=True).returncode == 0
+if not _sauber:
+    print("[ HINW ] Proben 8+9 uebersprungen: index.html ist gerade nicht committet")
+    print("         (der Check misst den Arbeitsbaum - er braucht einen sauberen Start)")
+else:
+    dp.INDEX = _echte
+    _text = _orig.decode("utf-8")
+    _zeilen = _text.splitlines(keepends=True)
+    _bereiche = dp.erklaerungs_zeilen()
+    try:
+        # --- Probe 8: eine Zeile IM Abschnitt, die KEIN Stichwort traegt ---
+        # Genau der Fall, den die alte Fassung nicht sah.
+        _von, _bis = _bereiche[0]
+        _ziel = None
+        _marker = ("Datenschutz", "PRIVACY_", "Open Food Facts", "Bestenliste",
+                   "DSGVO", "Art. 6", "Art. 13", "Aufsichtsbeh")
+        for _i in range(_von, _bis):
+            _z = _zeilen[_i - 1]
+            if len(_z.strip()) > 40 and not any(_m in _z for _m in _marker):
+                _ziel = _i
+                break
+        if _ziel is None:
+            print("[ HINW ] Probe 8: keine markenlose Zeile im Abschnitt gefunden")
+        else:
+            _neu = list(_zeilen)
+            _neu[_ziel - 1] = _z.rstrip("\r\n") + " \n"   # ein Leerzeichen mehr
+            _echte.write_bytes("".join(_neu).encode("utf-8"))
+            if dp.ungesicherte_aenderung_am_abschnitt() is True:
+                print(f"[  OK  ] Probe 8: Aenderung an Zeile {_ziel} (ohne Stichwort) wird gesehen")
+            else:
+                print(f"[FEHLER] Probe 8: Aenderung an Zeile {_ziel} im Abschnitt blieb unbemerkt")
+                gescheitert += 1
+            _echte.write_bytes(_orig)
+
+        # --- Probe 9: eine Zeile MIT "Bestenliste" AUSSERHALB des Abschnitts ---
+        # Genau der Fehlalarm, der den Pruefstand taeglich rot gemacht haette.
+        _aussen = None
+        for _i, _z2 in enumerate(_zeilen, start=1):
+            if "Bestenliste" in _z2 and not any(v <= _i <= b for v, b in _bereiche):
+                _aussen = _i
+                break
+        if _aussen is None:
+            print("[ HINW ] Probe 9: kein 'Bestenliste' ausserhalb des Abschnitts gefunden")
+        else:
+            _neu = list(_zeilen)
+            _neu[_aussen - 1] = _zeilen[_aussen - 1].rstrip("\r\n") + " \n"
+            _echte.write_bytes("".join(_neu).encode("utf-8"))
+            if dp.ungesicherte_aenderung_am_abschnitt() is False:
+                print(f"[  OK  ] Probe 9: Aenderung an Zeile {_aussen} ('Bestenliste' im Code) loest NICHT aus")
+            else:
+                print(f"[FEHLER] Probe 9: Fehlalarm bei Zeile {_aussen} ausserhalb der Erklaerung")
+                gescheitert += 1
+    finally:
+        _echte.write_bytes(_orig)
+        if _h.sha256(_echte.read_bytes()).hexdigest() != _hash:
+            print("[FEHLER] index.html NICHT sauber wiederhergestellt!")
+            gescheitert += 1
+
+# --- 10. Eine Zusage faellt aus dem Text, der Code tut es weiter ---
+# 🔴 Neu am 10.09.2026. Von allem, was am 09.09. in die Erklaerung geschrieben
+# wurde, prueste vorher kein einziger Satz irgendetwas - sie haetten am naechsten
+# Tag verschwinden koennen, ohne dass etwas rot wird.
+probe(
+    "Bestenliste faellt aus dem Text, Code schiebt weiter",
+    lambda t: t.replace("Die Bestenliste", "XXX").replace("Bestenliste</b>", "XXX</b>")
+               .replace("die Bestenliste", "XXX").replace("Bestenliste", "XXX"),
+    [dp.pruefe_zusagen],
+    "bestenlisteSchieben",
+)
+
+probe(
+    "Art. 9 faellt aus dem Text, Gewicht wird weiter erfasst",
+    lambda t: t.replace("Art. 9", "XXX"),
+    [dp.pruefe_zusagen],
+    "Art. 9",
+)
+
+probe(
+    "IP-Adresse faellt aus dem Text, das Foto geht weiter zu Google",
+    lambda t: t.replace("IP-Adresse", "XXX"),
+    [dp.pruefe_zusagen],
+    "IP-Adresse",
+)
+
+# --- 11. Ein Knopf ohne Handler ---
+# Ein toter Knopf sieht aus wie ein Knopf.
+probe(
+    "data-act ohne Zweig im Verteiler wird gefunden",
+    lambda t: t.replace('data-act="zeigDatenschutz"', 'data-act="zeigDatenschutzz"', 1),
+    [dp.pruefe_handler],
+    "zeigDatenschutzz",
+)
+
+# --- 12. Pflichtangabe NUR ausserhalb der Erklaerung -> gilt als fehlend ---
+# 🔴 Der Kern von Fund 3 (alt) und Neu 8: die Pruefung las die ganze 549-KB-Datei,
+# also konnten Fundstellen ausserhalb eine geloeschte Pflichtangabe maskieren.
+# Gemessen: "Speicherdauer" 6x ausserhalb, "Betroffenenrechte" 2x - eine davon
+# kam am 09.09. durch die Reparatur eines anderen Fundes dazu.
+def rechte_nur_aussen(t):
+    """Art.-15/17/20-Nennungen im Abschnitt loeschen, aussen stehen lassen."""
+    bereiche = dp.erklaerungs_zeilen()
+    zeilen = t.splitlines(keepends=True)
+    for von, bis in bereiche:
+        for i in range(von - 1, min(bis, len(zeilen))):
+            for wort in ("Art. 15", "Art. 16", "Art. 17", "Art. 18", "Art. 20", "Art. 21"):
+                zeilen[i] = zeilen[i].replace(wort, "XXX")
+    return "".join(zeilen)
+
+
+probe(
+    "Betroffenenrechte nur noch ausserhalb -> gilt als fehlend",
+    rechte_nur_aussen,
+    [dp.pruefe_pflichtangaben],
+    "Betroffenenrechte",
+)
+
+# --- 13. Die Erklaerung ganz weg -> muss laut sein, nicht still ---
+probe(
+    "umbenannte renderPrivacy wird als Defekt gemeldet",
+    lambda t: t.replace("function renderPrivacy(", "function renderDatenschutzSeite(", 1),
+    [dp.pruefe_stand],
+    "nicht auffindbar",
+)
+
+# --- 14. Und die Gegenprobe zur Gegenprobe: die echte Datei muss sauber bleiben ---
 dp._funde.clear()
 dp.INDEX = HIER / "index.html"
 dp.pruefe_ziele(); dp.pruefe_versprechen(); dp.pruefe_pflichtangaben()
