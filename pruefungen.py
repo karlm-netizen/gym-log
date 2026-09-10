@@ -7272,7 +7272,8 @@ js_ok = ', 0 fehlgeschlagen' in txt
 # und gehen in denselben Rueckgabewert ein: wer hier rot ist, pusht nicht.
 ds_ok = True
 for skript, was in [('datenschutz-pruefen.py', 'Datenschutz-Pruefung'),
-                    ('datenschutz-gegenprobe.py', 'Gegenprobe dazu')]:
+                    ('datenschutz-gegenprobe.py', 'Gegenprobe dazu'),
+                    ('datenschutz-arbeitsbaum-probe.py', 'Arbeitsbaum-Probe')]:
     pfad = SRC / skript          # SRC steht ganz oben in dieser Datei
     if not pfad.is_file():
         # 🔴 ROT, nicht uebersprungen (Fund-Sucher, Nachlauf 10.09.2026).
