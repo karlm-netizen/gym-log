@@ -161,7 +161,11 @@ def pruefe_stand():
     # --- 1. Der Arbeitsbaum: gibt es JETZT ungesicherte Aenderungen am Text? ---
     # Das ist der Fall, den der Hook erwischen muss - er laeuft vor dem Commit.
     arbeitsbaum = ungesicherte_aenderung_am_abschnitt()
-    if arbeitsbaum == "abschnitt-weg":
+    if arbeitsbaum == "git-klemmt":
+        fund("SCHWER", "Der Arbeitsbaum liess sich nicht pruefen (git antwortet nicht)",
+             "Damit faellt genau die Pruefung aus, die VOR dem Commit greifen soll.",
+             "Kein Repo? Kaputter Index? `git status` von Hand nachsehen.")
+    elif arbeitsbaum == "abschnitt-weg":
         # ⚠️ Nicht als "geaendert" durchwinken: `"abschnitt-weg"` ist wahr, und ein
         # truthy Rueckgabewert haette hier still einen falschen Fund erzeugt.
         # Der Abschnitt ist NICHT auffindbar - das ist ein Defekt der Pruefung
@@ -257,7 +261,14 @@ def ungesicherte_aenderung_am_abschnitt():
 
     try:
         roh = subprocess.run(
-            ["git", "-C", str(HIER), "diff", "--unified=0", "--", "index.html"],
+            # 🔴 `HEAD` MUSS dabeistehen (Fund-Sucher, 10.09.2026).
+            # `git diff` allein vergleicht Arbeitsbaum gegen INDEX - alles,
+            # was schon `git add` gesehen hat, steht in beiden gleich und
+            # faellt aus dem Diff. Nachgemessen: Zeile in renderPrivacy
+            # geaendert -> Fund; dieselbe Zeile nach `git add` -> KEIN Fund.
+            # Der uebliche Ablauf hier ist `git add -A` und dann committen,
+            # also war der Check genau im entscheidenden Moment blind.
+            ["git", "-C", str(HIER), "diff", "HEAD", "--unified=0", "--", "index.html"],
             capture_output=True, text=True, timeout=60,
             # ⚠️ encoding MUSS gesetzt sein. Ohne das dekodiert Python die
             # Ausgabe auf Windows als cp1252, der Diff enthaelt aber UTF-8-
@@ -267,9 +278,13 @@ def ungesicherte_aenderung_am_abschnitt():
             encoding="utf-8", errors="replace",
         )
         if roh.returncode != 0:
-            return None
+            # 🔴 Nicht still None (Fund-Sucher, 10.09.2026). Klemmt git - kein
+            # Repo, kaputter Index, fehlendes Programm -, kann der Arbeitsbaum
+            # nicht geprueft werden. Das ist ein Ausfall der Pruefung und muss
+            # als solcher dastehen, nicht als "nichts gefunden".
+            return "git-klemmt"
     except (OSError, subprocess.SubprocessError):
-        return None
+        return "git-klemmt"
 
     # @@ -alt,n +neu,m @@  -- uns interessiert der NEUE Bereich.
     # Fehlt die Zahl nach dem Komma, ist es genau eine Zeile; ist sie 0, wurde
@@ -278,6 +293,15 @@ def ungesicherte_aenderung_am_abschnitt():
                            flags=re.M):
         start = int(kopf[0])
         anzahl = int(kopf[1]) if kopf[1] else 1
+        # 🔴 Bei einer REINEN LOESCHUNG schreibt git `+<zeile davor>,0` - die
+        # Zahl zeigt also auf die Zeile VOR der Loeschstelle (Fund-Sucher,
+        # 10.09.2026). Wer genau die erste Zeile eines Bereichs loescht, landete
+        # damit knapp davor und rutschte durch. Nachgemessen: `const
+        # PRIVACY_OWNER` (Zeile 1547) geloescht -> `+1546,0` -> kein Fund.
+        # ⚠️ Ausgerechnet an dieser Zeile haengt die Pflichtangabe
+        # "Verantwortlicher". Deshalb bei `,0` einen Schritt nach vorn.
+        if anzahl == 0:
+            start += 1
         ende = start + max(anzahl, 1) - 1
         for von, bis in bereiche:
             if start <= bis and ende >= von:      # ueberschneiden sie sich?
@@ -360,8 +384,16 @@ def pruefe_versprechen():
         fund("SCHWER", f'Die Erklaerung sagt "kein Tracking", im Code steht: {", ".join(drin)}')
 
 
-def erklaerungs_text():
+def erklaerungs_text(nur_anzeige=False):
     """Nur die Zeilen der Datenschutzerklaerung, nicht die ganze Datei.
+
+    `nur_anzeige=True` laesst die `const PRIVACY_`-Zeilen weg.
+    🔴 WARUM (Fund-Sucher, 10.09.2026): die Konstanten gehoeren zum "Abschnitt",
+    damit eine Aenderung an ihnen den Arbeitsbaum-Check ausloest. Fuer die
+    PFLICHTANGABEN sind sie aber Gift: `PRIVACY_CONTACT` steht dort immer, also
+    konnte die Pflichtangabe "Kontakt" gar nicht mehr fehlschlagen.
+    **Nachgemessen: den ganzen Verantwortlich-Absatz geloescht -> keine Funde.**
+    Eine Pruefung, die nicht mehr durchfallen kann, ist keine Pruefung.
 
     🔴 WARUM (Fund-Sucher, Nachlauf 10.09.2026): `pruefe_pflichtangaben` las
     bis dahin `lies(INDEX)`, also alle 549 KB. Damit konnten Fundstellen
@@ -378,7 +410,10 @@ def erklaerungs_text():
     zeilen = lies(INDEX).splitlines()
     heraus = []
     for von, bis in bereiche:
-        heraus.extend(zeilen[von - 1:bis])
+        for z in zeilen[von - 1:bis]:
+            if nur_anzeige and z.startswith("const PRIVACY_"):
+                continue
+            heraus.append(z)
     return "\n".join(heraus)
 
 
@@ -395,20 +430,34 @@ def erklaerungs_text():
 #
 # Jede Regel ist: (Kennzeichen im Code, was im Text stehen muss, Begruendung).
 # Das Kennzeichen wird OHNE Kommentare gesucht, der Text NUR im Abschnitt.
+#
+# 🔴 DIE PFLICHTWOERTER SIND WORTFOLGEN, KEINE EINZELWOERTER (10.09.2026).
+# Die erste Fassung suchte "IP-Adresse", "Apple", "Google", "Bestenliste".
+# Nachgemessen: "IP-Adresse" steht 2x im Abschnitt, "Google" 5x, "Bestenliste"
+# 3x. Wer den Google-IP-Satz loescht, bekommt trotzdem gruen - der Satz bei
+# Open Food Facts deckt ihn. **Drei der vier Regeln waren so maskiert**, nur
+# "Art. 9" (1x) war scharf. Gefunden vom Fund-Sucher; die Gegenprobe hat es
+# nicht gemerkt, weil sie das Wort UEBERALL ersetzte statt an einer Stelle.
+# ⚠️ Eine Wortfolge, die nur an einer Stelle vorkommt, kann nicht maskiert
+# werden. Beim Umformulieren muss sie hier nachgezogen werden - dann meldet
+# sich die Regel, statt still gruen zu bleiben.
 ZUSAGEN = [
     ("bestenlisteSchieben",
-     ("Bestenliste",),
+     ("bei jedem Abgleich in",),
      "Die App schiebt Name und XP in eine Tabelle, die alle Angemeldeten lesen. "
      "Steht das nicht im Text, sagt er das Gegenteil der Wahrheit - genau so war "
      "es vom 05.08. bis zum 09.09.2026."),
     ("gym_push",
-     ("Apple", "Google"),
+     ("Adresse beim Mitteilungsdienst",),
      "Die Push-Kennung liegt beim Mitteilungsdienst des Browsers (Apple bzw. "
      "Google, USA). Als Drittlandsempfaenger muessen beide benannt sein."),
     ("generativelanguage.googleapis.com",
-     ("IP-Adresse",),
+     ("IP-Adresse sieht Google",),
      "Jeder Aufruf traegt die IP mit, und eine IP ist personenbezogen "
      "(EuGH, Breyer, C-582/14). \"Nichts ueber dich\" waere zu stark."),
+    ("suchAdresseNeu",
+     ("IP-Adresse sieht der Dienst",),
+     "Auch die Textsuche traegt die IP mit - der Satz beim Foto deckt sie nicht."),
     ("addWeight",
      ("Art. 9",),
      "Gewicht, Schritte und Mahlzeiten sind Gesundheitsdaten. Dafuer reicht "
@@ -473,7 +522,9 @@ def pruefe_pflichtangaben():
 
     ⚠️ Liest seit dem 10.09.2026 NUR den Abschnitt (siehe erklaerungs_text).
     """
-    text = erklaerungs_text()
+    # ⚠️ `nur_anzeige=True`: die const-Zeilen zaehlen hier NICHT mit, sonst kann
+    # "Kontakt" nie fehlschlagen (siehe erklaerungs_text).
+    text = erklaerungs_text(nur_anzeige=True)
     if text is None:
         return                        # pruefe_stand meldet das schon laut
     pflicht = {

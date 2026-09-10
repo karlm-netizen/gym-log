@@ -4,6 +4,85 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-10
 
+### v0.077 — der Löschcode von heute Mittag tat nichts
+
+**Der dritte Agentenlauf: 13 Funde, 5 schwer.** Von den 12 Funden des Laufs davor
+waren 6 sauber behoben, 4 halb, 2 gar nicht.
+
+#### 🔴 Der schwerste: eine Reparatur, die nie greifen konnte
+
+Heute Mittag wurde auf Karls Entscheidung eingebaut, dass „Konto löschen" die eigene
+Zeile in der Bestenliste mitlöscht. **Die Datenbank lässt das gar nicht zu.**
+`supabase-bestenliste.sql` vergab drei Regeln — `select`, `insert`, `update`. Für
+`delete` **keine**, und ohne Regel ist es unter RLS für alle gesperrt. Die Datei sagte
+es sogar selbst: *„Löschen braucht niemand. Ohne Regel ist es für alle gesperrt."*
+
+⚠️ **Und niemand hätte es gemerkt:** PostgREST antwortet auf so ein DELETE mit **204,
+genau wie bei Erfolg** — null betroffene Zeilen sind kein Fehler. Der Code sah die
+Antwort nicht einmal an. Der Kommentar daneben behauptete dabei das Gegenteil der Lage
+(*„Gefahrlos: die Zeilensperre lässt ohnehin nur die eigene Zeile zu"*).
+
+➡️ **Drei Dinge repariert, nicht eins:**
+- Die **Löschregel** steht jetzt in `supabase-bestenliste.sql` (`auth.uid() = user_id`,
+  öffnet nichts). ⚠️ **Muss im Dashboard eingespielt werden.**
+- Der Code **zählt**, was wirklich gelöscht wurde (`Prefer: return=representation`).
+  Eine eingespielte Datei ist kein Beweis.
+- Der Bildschirm **sagt es**: neuer Ausgang `'dataonly-liste'` nennt den
+  Bestenlisten-Eintrag ausdrücklich, statt „dein Fortschritt ist weg" zu behaupten.
+
+#### 🔴 Drei der vier Zusagen-Regeln waren maskiert
+
+`pruefe_zusagen` suchte Einzelwörter. Nachgemessen: **„IP-Adresse" steht 2× im
+Abschnitt, „Google" 5×, „Bestenliste" 3×.** Wer den Google-IP-Satz löschte, bekam grün —
+der Open-Food-Facts-Satz deckte ihn. Nur „Art. 9" (1×) war scharf.
+➡️ Jetzt **Wortfolgen statt Wörter**, jede genau einmal im Text. Und die Gegenprobe
+prüft diese Eindeutigkeit selbst, damit es beim nächsten Umformulieren auffällt.
+
+#### 🔴 „Kontakt" konnte gar nicht mehr fehlschlagen
+
+Die `const PRIVACY_`-Zeilen gehören zum „Abschnitt" — richtig für den Arbeitsbaum-Check,
+Gift für die Pflichtangaben: `PRIVACY_CONTACT` steht dort immer.
+**Nachgemessen: den ganzen Verantwortlich-Absatz gelöscht → keine Funde.**
+➡️ Die Pflichtangaben lesen jetzt ohne die `const`-Zeilen. *Eine Prüfung, die nicht mehr
+durchfallen kann, ist keine Prüfung.*
+
+#### 🔴 Die Hook-Gegenprobe startete niemand
+
+11 Proben, kein Hook, kein Skript, kein Prüfstand — **das Einzige, was den Hook
+absichert**, rief nichts auf. Dieselbe Bauform wie „die Gegenprobe ist nirgends
+verdrahtet" von gestern, einen Stock tiefer.
+➡️ Sie läuft jetzt in `pruefungen.py` mit. Und sie testet endlich `main()` und
+**`melde()`** — ausgerechnet die Funktion, die den Hook am 09.09. stumm machte, wurde
+von keiner Probe je ausgeführt.
+
+#### 🔴 Die Warnung „Python nicht gefunden" war unerreichbar
+
+`settings.json` startet den Hook mit genau dem `python.exe`, dessen Fehlen sie melden
+sollte. Fehlt es, läuft der Hook gar nicht erst an.
+➡️ `PYTHON` fällt jetzt auf `sys.executable` zurück — damit läuft der Hook auch auf dem
+Laptop, und die Warnung greift, wenn wirklich keines da ist.
+
+#### 🟡 Und vier, die still danebenlagen
+
+- **Der Diff war blind für alles, was `git add` gesehen hat.** `git diff` ohne `HEAD`
+  vergleicht gegen den Index. Nachgemessen: Zeile geändert → Fund; dieselbe Zeile nach
+  `git add` → **kein Fund**. Der übliche Ablauf hier ist `git add -A` und dann committen,
+  also war der Check genau im entscheidenden Moment blind.
+- **Klemmendes git war still** — jetzt ein eigener Fund.
+- **Reine Löschungen zählten um eins daneben.** git schreibt `+<Zeile davor>,0`; wer
+  genau die erste Zeile eines Bereichs löschte, rutschte durch. Das ist beim
+  Konstanten-Block `PRIVACY_OWNER` — **die Zeile, an der die Pflichtangabe
+  „Verantwortlicher" hängt.**
+- **Übersprungen hieß „bestanden".** Die zwei Proben, die den Arbeitsbaum-Check
+  festnageln, brauchen einen sauberen Stand — im Alltag läuft der Prüfstand aber gerade
+  dann, wenn Änderungen offen sind. Sie sprangen fast immer ab, und der Lauf meldete
+  trotzdem „bestanden". Jetzt steht es im Ergebnis.
+- **Der Hook merkte sich den Stand, bevor die Meldung heraus war.** Stirbt `melde()` an
+  der Ausgabe — genau das ist am 09.09. passiert —, wäre der Stand gemerkt und die
+  Meldung weg. Jetzt wird erst gemeldet, dann quittiert.
+
+**894 Prüfungen grün.** Gegenproben: 18 Fälle für die Datenschutz-Prüfung, 8 für den Hook.
+
 ### v0.076 — der Nachlauf des Fund-Suchers, und was er von gestern übrig ließ
 
 **Der Agentenlauf nach v0.075 hat die Reparaturen selbst geprüft.** Ergebnis: **12 neue

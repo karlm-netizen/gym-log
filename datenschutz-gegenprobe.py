@@ -27,6 +27,7 @@ spec.loader.exec_module(dp)
 ECHTE = (HIER / "index.html").read_text(encoding="utf-8")
 tmp = Path(tempfile.mkdtemp())
 gescheitert = 0
+uebersprungen = 0        # siehe Proben 8+9: uebersprungen ist nicht bestanden
 
 
 def probe(name, umbau, pruefungen, erwartet_stichwort):
@@ -157,11 +158,21 @@ _echte = HIER / "index.html"
 _orig = _echte.read_bytes()
 _hash = _h.sha256(_orig).hexdigest()
 
-_sauber = _sp2.run(["git", "-C", str(HIER), "diff", "--quiet", "--", "index.html"],
+# 🔴 `HEAD` dazu (Fund-Sucher, 10.09.2026): ohne das galt eine vorgemerkte
+# Aenderung als "sauber", und die Proben liefen auf einem Stand, den sie nicht
+# kannten.
+_sauber = _sp2.run(["git", "-C", str(HIER), "diff", "--quiet", "HEAD", "--", "index.html"],
                    capture_output=True).returncode == 0
 if not _sauber:
-    print("[ HINW ] Proben 8+9 uebersprungen: index.html ist gerade nicht committet")
-    print("         (der Check misst den Arbeitsbaum - er braucht einen sauberen Start)")
+    # 🔴 Uebersprungen ist NICHT bestanden (Fund-Sucher, 10.09.2026).
+    # Diese beiden Proben brauchen einen sauberen Arbeitsbaum - im Alltag laeuft
+    # der Prueftstand aber gerade dann, wenn Aenderungen offen sind. Damit
+    # sprangen sie fast immer ab, und der Lauf meldete trotzdem "bestanden".
+    # **Eine Probe, die sich selbst ueberspringt, sichert nichts** - das muss im
+    # Ergebnis stehen, nicht nur als Hinweiszeile mittendrin.
+    uebersprungen += 2
+    print("[ UEBER ] Proben 8+9 uebersprungen: index.html ist gerade nicht committet")
+    print("          (der Check misst den Arbeitsbaum - er braucht einen sauberen Start)")
 else:
     dp.INDEX = _echte
     _text = _orig.decode("utf-8")
@@ -220,26 +231,52 @@ else:
 # 🔴 Neu am 10.09.2026. Von allem, was am 09.09. in die Erklaerung geschrieben
 # wurde, prueste vorher kein einziger Satz irgendetwas - sie haetten am naechsten
 # Tag verschwinden koennen, ohne dass etwas rot wird.
-probe(
-    "Bestenliste faellt aus dem Text, Code schiebt weiter",
-    lambda t: t.replace("Die Bestenliste", "XXX").replace("Bestenliste</b>", "XXX</b>")
-               .replace("die Bestenliste", "XXX").replace("Bestenliste", "XXX"),
-    [dp.pruefe_zusagen],
-    "bestenlisteSchieben",
-)
+# 🔴 Diese Proben loeschen jetzt GENAU EINE Stelle, nicht das Wort ueberall
+# (Fund-Sucher, 10.09.2026). Die erste Fassung ersetzte z. B. "IP-Adresse"
+# in der ganzen Datei - damit fiel nicht auf, dass DREI der vier Regeln
+# maskiert waren: "IP-Adresse" stand 2x im Abschnitt, "Google" 5x. Wer nur
+# den Google-Satz loeschte, bekam gruen, weil der Open-Food-Facts-Satz ihn
+# deckte. **Eine Gegenprobe, die grosszuegiger loescht als die Wirklichkeit,
+# prueft die Wirklichkeit nicht.**
+for _kennz, _pflicht, _ in dp.ZUSAGEN:
+    for _wortfolge in _pflicht:
+        probe(
+            f"Zusage faellt aus dem Text: {_kennz}",
+            (lambda w: (lambda t: t.replace(w, "XXX", 1)))(_wortfolge),
+            [dp.pruefe_zusagen],
+            _kennz,
+        )
 
-probe(
-    "Art. 9 faellt aus dem Text, Gewicht wird weiter erfasst",
-    lambda t: t.replace("Art. 9", "XXX"),
-    [dp.pruefe_zusagen],
-    "Art. 9",
-)
+# --- Und die Falle davor: sind die Pflicht-Wortfolgen ueberhaupt eindeutig? ---
+# Ohne diese Probe koennte jemand beim Umformulieren eine Wortfolge waehlen,
+# die zweimal vorkommt - und die Regel waere still wieder maskiert.
+dp.INDEX = HIER / "index.html"
+_abschnitt = dp.erklaerungs_text()
+_doppelt = []
+for _kennz, _pflicht, _ in dp.ZUSAGEN:
+    for _w in _pflicht:
+        _n = _abschnitt.count(_w)
+        if _n != 1:
+            _doppelt.append(f"{_w!r} steht {_n}x (soll: genau 1x)")
+if _doppelt:
+    print("[FEHLER] Pflicht-Wortfolgen sind nicht eindeutig:")
+    for _z in _doppelt:
+        print("         -", _z)
+    print("         Eine Wortfolge, die mehrfach vorkommt, kann sich selbst maskieren.")
+    gescheitert += 1
+else:
+    print(f"[  OK  ] alle {sum(len(p) for _, p, _ in dp.ZUSAGEN)} Pflicht-Wortfolgen "
+          "kommen genau einmal vor")
 
+# --- Kann eine Pflichtangabe noch fehlschlagen? (Neu 1) ---
+# 🔴 `PRIVACY_CONTACT` steht in der const-Zeile, die zum "Abschnitt" gehoert -
+# damit konnte "Kontakt" nie mehr fehlen. Nachgemessen: den ganzen
+# Verantwortlich-Absatz geloescht -> keine Funde.
 probe(
-    "IP-Adresse faellt aus dem Text, das Foto geht weiter zu Google",
-    lambda t: t.replace("IP-Adresse", "XXX"),
-    [dp.pruefe_zusagen],
-    "IP-Adresse",
+    "geloeschter Verantwortlich-Absatz wird gefunden",
+    lambda t: t.replace("Verantwortlich ist", "XXX").replace("PRIVACY_OWNER", "XXX_OWNER"),
+    [dp.pruefe_pflichtangaben],
+    "Verantwortlicher",
 )
 
 # --- 11. Ein Knopf ohne Handler ---
@@ -297,5 +334,13 @@ else:
 
 shutil.rmtree(tmp, ignore_errors=True)
 print()
-print("Gegenprobe:", "bestanden" if not gescheitert else f"{gescheitert} Probe(n) gescheitert")
+if gescheitert:
+    print(f"Gegenprobe: {gescheitert} Probe(n) gescheitert")
+elif uebersprungen:
+    # ⚠️ Bewusst NICHT "bestanden". Ein Lauf, in dem sich Proben selbst
+    # uebersprungen haben, hat weniger geprueft, als er zu pruefen vorgibt.
+    print(f"Gegenprobe: bestanden, ABER {uebersprungen} Probe(n) uebersprungen")
+    print("            -> fuer den vollen Lauf: index.html committen und nochmal.")
+else:
+    print("Gegenprobe: bestanden, alle Proben gelaufen")
 sys.exit(1 if gescheitert else 0)

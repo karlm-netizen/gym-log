@@ -5765,7 +5765,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.076';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.077';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -7013,7 +7013,7 @@ async function authSignOut(){
 async function deleteAccount(){
   if(!session) return 'none';
   const uidNow=session.user.id;
-  let dataGone=false, accountGone=false;
+  let dataGone=false, accountGone=false, bestenlisteWeg=false;
   if(await ensureToken()){
     /* ⚠️ Zuerst die Mitteilungen, dann die Daten. `gym_push` haengt zwar per
        `on delete cascade` am Konto — aber nur, wenn das Konto wirklich verschwindet.
@@ -7023,16 +7023,28 @@ async function deleteAccount(){
     try{ await pushAbmelden(); }catch(e){}
     /* 🔴 Die eigene Bestenlisten-Zeile ausdruecklich mitloeschen (10.09.2026,
        Karls Entscheidung nach dem Fund-Sucher-Nachlauf).
-       ⚠️ Sie haengt NICHT per `on delete cascade` am Konto -- jedenfalls nicht
-       verlaesslich: das greift nur, wenn `delete_own_account` das Konto wirklich
-       entfernt. Geht der Aufruf schief (Ausgang 'dataonly'), blieben **Name und
-       XP-Stand oeffentlich stehen**, waehrend auf dem Bildschirm steht: "dein
-       Fortschritt ist weg -- auch in der Cloud".
-       💡 Gefahrlos: die Zeilensperre laesst ohnehin nur die eigene Zeile zu, und
-       beim Kontoloeschen soll sie weg. Fehlschlag wird geschluckt wie daneben --
-       das Loeschen darf daran nicht scheitern. */
-    try{ await fetch(`${SUPA_URL}/rest/v1/gym_bestenliste?user_id=eq.${uidNow}`,
-                     {method:'DELETE',headers:authHeaders(true)}); }catch(e){}
+       ⚠️ Sie haengt NICHT verlaesslich per `on delete cascade` am Konto: das
+       greift nur, wenn `delete_own_account` das Konto wirklich entfernt. Geht der
+       Aufruf schief (Ausgang 'dataonly'), blieben **Name und XP-Stand oeffentlich
+       stehen**, waehrend auf dem Bildschirm steht: "dein Fortschritt ist weg".
+
+       🔴 UND HIER STAND BIS ZUM ABEND DES 10.09. EIN SATZ, DER DAS GEGENTEIL DER
+       LAGE BEHAUPTETE: "Gefahrlos: die Zeilensperre laesst ohnehin nur die eigene
+       Zeile zu." In Wahrheit gab es fuer `delete` **gar keine Regel** -- und ohne
+       Regel ist es unter RLS fuer alle gesperrt. Der Aufruf loeschte nichts.
+       ⚠️ **PostgREST antwortet darauf mit 204, genau wie bei Erfolg**, weil null
+       betroffene Zeilen kein Fehler sind. Der alte Code sah die Antwort nicht
+       einmal an. Gefunden vom Fund-Sucher, nicht im Betrieb.
+       ➡️ Die Regel steht jetzt in `supabase-bestenliste.sql`. Und weil eine
+       eingespielte Datei kein Beweis ist, wird das Ergebnis hier GEZAEHLT:
+       `Prefer: return=representation` laesst PostgREST die geloeschten Zeilen
+       zurueckgeben. Kommt ein leeres Feld zurueck, ist nichts geloescht worden. */
+    try{
+      const rb = await fetch(`${SUPA_URL}/rest/v1/gym_bestenliste?user_id=eq.${uidNow}`,
+                     {method:'DELETE',headers:{...authHeaders(true),'Prefer':'return=representation'}});
+      if(rb.ok){ const weg = await rb.json().catch(()=>[]);
+                 bestenlisteWeg = Array.isArray(weg) && weg.length>0; }
+    }catch(e){}
     try{ const r=await fetch(`${SUPA_URL}/rest/v1/gymlog_data?id=eq.${uidNow}`,{method:'DELETE',headers:authHeaders(true)});
       dataGone=r.ok; }catch(e){}
     try{ const r=await fetch(`${SUPA_URL}/rest/v1/rpc/delete_own_account`,{method:'POST',headers:authHeaders(true),body:'{}'});
@@ -7045,7 +7057,13 @@ async function deleteAccount(){
   programs=[neuerPlan('Mein Plan',seedPlans())]; sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null; normalizeProfile(); bindPlans();
   DB.set('programs',programs); DB.set('sessions',sessions); DB.set('profile',profile); DB.set('settings',settings); DB.set('active',null);
   setDirty(false); authMode='login'; view='home';
-  return accountGone?'full':'dataonly';
+  /* ⚠️ `'dataonly-liste'` ist der ehrliche Fall (10.09.2026): das Konto blieb
+     stehen UND die Bestenlisten-Zeile liess sich nicht loeschen. Dann steht der
+     Name dort weiter -- und das gehoert auf den Bildschirm, nicht in eine
+     Annahme. Im `'full'`-Fall raeumt `on delete cascade` mit ab, da ist die
+     Zeile in jedem Fall weg. */
+  if(accountGone) return 'full';
+  return bestenlisteWeg ? 'dataonly' : 'dataonly-liste';
 }
 async function sendeRuecksetzLink(){
   const el=document.getElementById('rs_mail');
@@ -7617,6 +7635,12 @@ document.addEventListener('click',ev=>{
   else if(a==='delaccount'){ confirmTwice('da',t,'Konto wirklich löschen?',()=>{ deleteAccount().then(res=>{ render();
       if(res==='full') toast('Konto und alle Daten gelöscht');
       else if(res==='dataonly') showModal('<b>Deine Daten sind gelöscht.</b><div class="tiny muted" style="margin-top:8px">Alle Trainings, Einheiten und dein Fortschritt sind weg — auch in der Cloud. Die Anmeldung selbst (E-Mail und Passwort) konnte nicht entfernt werden; melde dich beim Betreiber, wenn auch die weg soll.</div>');
+      /* 🔴 Der Fall, den es vor dem 10.09.2026 nicht gab -- und der genau deshalb
+         gefaehrlich war: hier stand dieselbe Meldung wie oben ("dein Fortschritt
+         ist weg"), waehrend Name und XP-Stand in der Bestenliste stehenblieben.
+         Eine Meldung, die mehr behauptet als geschehen ist, ist schlimmer als
+         eine, die den Rest offenlaesst. */
+      else if(res==='dataonly-liste') showModal('<b>Deine Daten sind gelöscht.</b><div class="tiny muted" style="margin-top:8px">Alle Trainings, Einheiten und dein Fortschritt sind weg — auch in der Cloud. <b style="color:var(--txt)">Zwei Dinge sind geblieben:</b> die Anmeldung selbst (E-Mail und Passwort) und <b style="color:var(--txt)">dein Eintrag in der Bestenliste</b> — dort stehen weiter dein Name und dein XP-Stand. Melde dich beim Betreiber, wenn beides weg soll.</div>');
       else toast('Kein Netz — nichts gelöscht. Bitte später nochmal.'); }); }); }
   else if(a==='saveplan'){ syncPlanInputs(); const p=editPlans().find(x=>x.id===editPlanId); p.exercises=p.exercises.filter(e=>e.name.trim()); if(!p.exercises.length) p.exercises.push({id:uid(),name:'Übung',sets:3,reps:10}); save(); view='home'; render(); }
   else if(a==='delplan'){ confirmTwice('dp',t,'Training löschen?',()=>{ const pr=editProg();

@@ -7299,4 +7299,32 @@ for skript, was in [('datenschutz-pruefen.py', 'Datenschutz-Pruefung'),
         ausgabe = (lauf.stdout or '') + (lauf.stderr or '')
         print(ausgabe.encode(enc, errors='replace').decode(enc, errors='replace'))
 
+# ---------------------------------------------------------------------------
+# Die Hook-Gegenprobe im Vault mitlaufen lassen.
+#
+# 🔴 WARUM (Fund-Sucher, 10.09.2026): `datenschutz-hook-gegenprobe.py` wurde von
+# NIEMANDEM gestartet - kein Hook, kein Skript, kein Prueftstand. Sie ist das
+# Einzige, was den Hook absichert, der wiederum die Datenschutzpruefung ausloest.
+# Genau dieselbe Bauform wie "die Gegenprobe ist nirgends verdrahtet" vom 09.09.,
+# einen Stock tiefer.
+#
+# ⚠️ Der Vault liegt ausserhalb dieses Repos. Fehlt er (fremder Rechner, anderer
+# Pfad), wird uebersprungen MIT Hinweis - aber nicht rot: das waere ein
+# Fehlalarm, der niemandem hilft. Ist die Datei da und faellt durch, ist es rot.
+VAULT_GEGENPROBE = SRC.parent / 'ki-os-2' / 'werkzeuge' / 'datenschutz-hook-gegenprobe.py'
+if VAULT_GEGENPROBE.is_file():
+    lauf = subprocess.run([sys.executable, str(VAULT_GEGENPROBE)],
+                          cwd=str(VAULT_GEGENPROBE.parent), capture_output=True,
+                          text=True, encoding='utf-8', errors='replace', timeout=300)
+    if lauf.returncode == 0:
+        print('Hook-Gegenprobe (Vault): ok')
+    else:
+        ds_ok = False
+        print('=== Hook-Gegenprobe (Vault): FEHLGESCHLAGEN ===')
+        ausgabe = (lauf.stdout or '') + (lauf.stderr or '')
+        print(ausgabe.encode(enc, errors='replace').decode(enc, errors='replace'))
+else:
+    print(f'Hook-Gegenprobe: {VAULT_GEGENPROBE.name} nicht gefunden - uebersprungen')
+    print(f'    (gesucht unter {VAULT_GEGENPROBE})')
+
 sys.exit(0 if (js_ok and ds_ok) else 1)

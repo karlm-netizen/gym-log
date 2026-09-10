@@ -91,15 +91,38 @@ create policy "eigene zeile aendern"
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
--- Loeschen braucht niemand. Ohne Regel ist es fuer alle gesperrt -- das ist
--- die richtige Voreinstellung, nicht eine Luecke.
+-- ---------------------------------------------------------------------------
+--  Die eigene Zeile loeschen duerfen -- neu am 10.09.2026.
+--
+--  🔴 WARUM DAS HIER JETZT STEHT: hier stand bis heute "Loeschen braucht
+--  niemand. Ohne Regel ist es fuer alle gesperrt -- das ist die richtige
+--  Voreinstellung, nicht eine Luecke."
+--  Das stimmte, solange "Konto loeschen" sich auf `on delete cascade` verlassen
+--  konnte. Genau das tut es aber im Fall `'dataonly'` NICHT: scheitert
+--  `delete_own_account`, bleibt das Konto stehen -- und mit ihm die Zeile,
+--  also Name und XP-Stand, sichtbar fuer jeden Angemeldeten.
+--
+--  ⚠️ Am 10.09.2026 wurde in `deleteAccount()` ein DELETE eingebaut, ohne dass
+--  es diese Regel gab. PostgREST antwortet darauf mit **204 wie bei Erfolg**,
+--  es sind null Zeilen betroffen, und niemand sieht hin. Der Kommentar im Code
+--  behauptete dabei das Gegenteil der Lage ("die Zeilensperre laesst ohnehin
+--  nur die eigene Zeile zu"). Gefunden vom Fund-Sucher am selben Tag.
+--
+--  💡 Die Regel oeffnet nichts: `auth.uid() = user_id` laesst genau die eigene
+--  Zeile zu, so wie bei `update` daneben.
+-- ---------------------------------------------------------------------------
+drop policy if exists "eigene zeile loeschen" on public.gym_bestenliste;
+create policy "eigene zeile loeschen"
+  on public.gym_bestenliste for delete
+  using (auth.uid() = user_id);
 
 -- ---------------------------------------------------------------------------
 --  Gegenprobe: so muss es danach aussehen.
---  Erwartet: drei Regeln, rowsecurity = true. In der Spalte `roles` steht bei
---  allen dreien {public} -- das ist richtig so: abgesichert wird ueber `qual`
---  bzw. `with_check`, nicht ueber die Rolle. Wer nicht angemeldet ist, hat kein
---  `auth.uid()` und faellt an der Bedingung durch.
+--  Erwartet: VIER Regeln (select, insert, update, delete), rowsecurity = true.
+--  ⚠️ Bis zum 10.09.2026 waren es drei -- `delete` fehlte, siehe oben.
+--  In der Spalte `roles` steht bei allen {public} -- das ist richtig so:
+--  abgesichert wird ueber `qual` bzw. `with_check`, nicht ueber die Rolle. Wer
+--  nicht angemeldet ist, hat kein `auth.uid()` und faellt an der Bedingung durch.
 -- ---------------------------------------------------------------------------
 select relrowsecurity as rls_an
   from pg_class
