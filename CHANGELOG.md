@@ -4,6 +4,63 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-11
 
+### v0.085 — ein Fehlschlag beim Bestenlisten-Schreiben wird sichtbar
+
+**Karls Meldung:** *„eigentlich sollten dort 3 Leute drauf stehen ich meine Freundin und
+mein Kollege"* — und nach dem Test auf einem zweiten Gerät: *„Wenn ich die App dort öffne
+ist das leaderboard leer"*.
+
+#### 📐 Was nachgemessen ist, nicht vermutet
+
+Über die REST-Schnittstelle, mit dem öffentlichen Schlüssel aus dem Quelltext, **ohne
+Anmeldung**:
+
+| Tabelle | Antwort |
+|---|---|
+| `gym_bestenliste` | **200, leere Liste** → Tabelle da, Lesen geht, **keine Zeilen** |
+| `gymlog_data` | 200, leere Liste → da |
+| `gym_freunde` | 404 → gibt es nicht (richtig, SQL bewusst noch nicht drin) |
+
+Dazu die Regeln in `supabase-bestenliste.sql` nachgelesen: Lesen ist
+`auth.uid() is not null` — **jeder Angemeldete sieht ALLE Zeilen**, nicht nur die eigene.
+Schreiben ist `with check (auth.uid() = user_id)` für insert **und** update. Beides richtig.
+
+➡️ Damit bleibt genau eine Möglichkeit: **das Hochschreiben scheitert.**
+
+#### 🔴 Und niemand erfuhr es
+
+`bestenlisteSchieben()` gab bei einem Fehlschlag `false` zurück — und der Aufrufer **warf den
+Wert weg** (`if(r.ok && !beimSchliessen) bestenlisteSchieben();`, ohne `await`, ohne
+Auswertung). Auf dem Bildschirm stand „Noch niemand drin", **als wäre das ein normaler
+Zustand.**
+
+⚠️ Dieselbe Bauform, die an diesem einen Tag schon dreimal fast Schaden angerichtet hätte.
+Deshalb wird hier **nicht geraten**, woran es liegt, sondern die Antwort des Servers
+festgehalten und auf der Erfolge-Seite angezeigt — **mit Status und Text**, denn daran lässt
+sich der Fehler überhaupt erst finden.
+
+#### ⚖️ Streng unterschieden
+
+| Lage | Was passiert |
+|---|---|
+| 📵 **Kein Netz, keine Antwort** | **nichts wird behauptet** — die App darf offline sein |
+| 🚫 **Server hat nein gesagt** | festgehalten samt Status und Meldung, rote Karte |
+| ✅ **Schreiben gelingt** | ein alter Fehler wird **weggeräumt** |
+| 👑 **Admin** | keine Warnung — dort wird die Zeile mit Absicht gelöscht |
+
+🔴 **Der wichtigste Satz steht auf der Karte selbst:** *„Deine Trainingsdaten sind davon nicht
+betroffen — die Bestenliste ist nur eine Kopie von Name und XP-Stand."* Ohne ihn liest sich
+eine rote Karte an dieser Stelle wie Datenverlust, und das wäre schlicht falsch.
+
+#### 🧪 Am Prüfstand
+
+**959 Prüfungen** (waren 951), alle grün. **Acht neue**, davon drei asynchron mit
+ausgetauschtem `fetch` — die prüfen das **Festhalten**, nicht nur die Anzeige.
+⚠️ Genau diese Lücke hätte den Fehler sonst wieder durchgelassen: fünf Prüfungen setzen den
+Fehler von Hand und wären auch dann grün, wenn die App ihn nie festhält.
+
+**Zwei Gegenproben**, beide mit dem erwarteten Rot (**4** und **3**).
+
 ### v0.084 — die rote Warnung an der Bestenliste stand da, wenn alles in Ordnung war
 
 **Karls Meldung:** *„Warum ist jetzt niemand mehr auf dem Leaderboard mit der roten Nachricht

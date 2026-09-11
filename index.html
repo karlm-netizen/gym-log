@@ -5593,6 +5593,23 @@ function renderErfolge(){
           Als Admin stehst du nicht in der Bestenliste — XP aus der Admin-Konsole
           sollen andere nicht sehen.</div></div>`;
   }
+  /* \U0001f534 Der Fehlschlag beim Hochschreiben, sichtbar gemacht (11.09.2026).
+     \u26a0\ufe0f NICHT fuer Admins: die loeschen ihre Zeile mit Absicht, dort waere es keine
+     Nachricht, sondern Laerm.
+     \u26a0\ufe0f Der letzte Satz ist der wichtigste. Ohne ihn liest sich eine rote Karte an
+     dieser Stelle wie "deine Daten sind weg" -- und das waere schlicht falsch: die
+     Bestenliste ist eine Kopie, die Einheiten liegen woanders. */
+  if(!devAdmin && bestenlisteSchiebFehler){
+    const f = bestenlisteSchiebFehler;
+    h += `<div class="card" style="border-color:var(--danger)">
+        <div class="tiny" style="line-height:1.7;color:var(--danger)">
+          Dein Eintrag konnte nicht in die Bestenliste geschrieben werden.</div>
+        <div class="tiny muted" style="line-height:1.7;margin-top:5px">
+          ${f.status ? `Der Server hat mit <b style="color:var(--txt)">${esc(String(f.status))}</b> geantwortet`
+                     : 'Grund'}${f.meldung ? ` \u2014 \u201e${esc(f.meldung)}\u201c` : ''}.<br>
+          <b style="color:var(--txt)">Deine Trainingsdaten sind davon nicht betroffen</b> \u2014
+          die Bestenliste ist nur eine Kopie von Name und XP-Stand.</div></div>`;
+  }
   if(bestenliste === false){
     h += `<div class="card"><div class="tiny muted" style="line-height:1.7">
         Die Bestenliste ist noch nicht eingerichtet.<br>
@@ -6159,7 +6176,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.084';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.085';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -6498,6 +6515,36 @@ async function bestenlisteZeileDa(uid){
    erfolgreich geloescht -- ist keine Warnung wert. */
 function adminWarnungNoetig(weg, zeileDa){ return weg === false && zeileDa === true; }
 
+/* ---------- Ein Fehlschlag beim Hochschreiben wird sichtbar (11.09.2026) ----------
+   Karls Meldung: "eigentlich sollten dort 3 Leute drauf stehen ich meine Freundin und mein
+   Kollege" -- die Liste war leer. Und auf den Test, sie solle die App oeffnen:
+   "Wenn ich die App dort oeffne ist das leaderboard leer".
+
+   \U0001f534 Nachgemessen ueber die REST-Schnittstelle, ohne Anmeldung:
+     `gym_bestenliste` -> **200 mit leerer Liste**  (Tabelle da, Lesen geht, keine Zeilen)
+     `gymlog_data`     -> 200 mit leerer Liste      (da)
+     `gym_freunde`     -> 404                       (gibt es nicht, so gewollt)
+   Dazu die Regeln in `supabase-bestenliste.sql` nachgelesen: Lesen ist
+   `auth.uid() is not null` (jeder Angemeldete sieht ALLE Zeilen), Schreiben ist
+   `with check (auth.uid() = user_id)` fuer insert UND update. Beides richtig.
+
+   \u27a1\ufe0f Damit bleibt genau eine Moeglichkeit uebrig: **das Hochschreiben scheitert.**
+   Und heute erfaehrt das niemand -- `bestenlisteSchieben()` gibt `false` zurueck, und der
+   Aufrufer wirft den Wert weg (`if(r.ok && !beimSchliessen) bestenlisteSchieben();`).
+   Auf dem Bildschirm steht dann "Noch niemand drin", als waere das ein normaler Zustand.
+
+   \U0001f534 **Das ist dieselbe Bauform, die heute schon dreimal fast Schaden angerichtet
+   haette:** etwas geht still schief, und nichts wird dabei rot. Deshalb wird hier NICHT
+   geraten, woran es liegt, sondern die Antwort des Servers festgehalten und angezeigt.
+
+   \u26a0\ufe0f Unterschieden wird dabei streng:
+     * **kein Netz / gar keine Antwort** -> `null`, es wird NICHTS behauptet. Die App darf
+       offline sein, das ist kein Fehler (siehe das Offline-Band).
+     * **der Server hat geantwortet und nein gesagt** -> festhalten samt Status und Text.
+   Sonst stuende bei jedem Funkloch eine Warnung da, und nach drei Tagen sieht niemand mehr
+   hin -- genau der Grund, warum die falsche Admin-Warnung eine Fassung vorher weg musste. */
+let bestenlisteSchiebFehler = null;   // {status, meldung} oder null
+
 async function bestenlisteSchieben(){
   if(!session || !session.user || !await ensureToken()) return false;
   /* ➡️ 10.09.2026, Karls Ansage: „Sobald man admin bekommt werden XP nicht mehr auf dem
@@ -6514,7 +6561,9 @@ async function bestenlisteSchieben(){
   }
   adminZeileHaengt = false;
   const name = (session.username || session.user.email || '').split('@')[0].slice(0,40);
-  if(!name) return false;
+  /* \u26a0\ufe0f Ohne Namen gibt es nichts zu schreiben -- und das ist KEIN Serverfehler.
+     Trotzdem gehoert es gesagt, sonst fehlt man in der Liste und niemand weiss, warum. */
+  if(!name){ bestenlisteSchiebFehler = { status: 0, meldung: 'kein Name am Konto' }; return false; }
   try{
     const r = await fetch(`${SUPA_URL}/rest/v1/gym_bestenliste`, {
       method:'POST',
@@ -6522,8 +6571,20 @@ async function bestenlisteSchieben(){
       body: JSON.stringify([{ user_id: session.user.id, name,
                               xp: Math.max(0, Math.round(+profile.xp || 0)),
                               stand: new Date().toISOString() }]) });
-    return r.ok;
-  }catch(e){ return false; }
+    if(r.ok){ bestenlisteSchiebFehler = null; return true; }
+    /* Die Antwort von PostgREST mitnehmen -- sie sagt beim naechsten Blick auf die
+       Erfolge-Seite genau, woran es liegt (Rechte, Spalte, Typ). Ohne sie bliebe nur
+       "hat nicht geklappt", und das haette man auch vorher gewusst. */
+    let text = '';
+    try{ const j = await r.json();
+         text = (j && (j.message || j.hint || j.details)) || ''; }catch(e){}
+    bestenlisteSchiebFehler = { status: r.status, meldung: String(text).slice(0,160) };
+    return false;
+  }catch(e){
+    /* Gar nicht hingekommen. Das ist kein Nein vom Server, also wird nichts behauptet --
+       und ein frueherer Fehler wird auch nicht stillschweigend weggeraeumt. */
+    return false;
+  }
 }
 
 /* 🔴 Gefunden am 01.09.2026: die erste Zeile hat den Vertrag darueber gebrochen.

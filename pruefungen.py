@@ -5684,6 +5684,121 @@ window.addEventListener('error', e => {
      einzuspielen, das laengst gelaufen ist.
      \u26a0\ufe0f Eine falsche Arbeitsanweisung ist schlimmer als gar keine Antwort -- genau das
      steht seit dem 01.09.2026 als Begruendung an `bestenlisteHolen()` eine Funktion weiter. */
+  /* ============ Der Fehlschlag beim Hochschreiben wird sichtbar (11.09.2026) ============
+     Karls Meldung: "eigentlich sollten dort 3 Leute drauf stehen ich meine Freundin und
+     mein Kollege" -- und nach dem Test auf einem zweiten Geraet: "Wenn ich die App dort
+     oeffne ist das leaderboard leer".
+
+     \U0001f534 Nachgemessen: die Tabelle ist da und lesbar, sie hat nur keine Zeilen. Das
+     Hochschreiben scheitert also -- und bis heute erfuhr das NIEMAND: `bestenlisteSchieben()`
+     gab `false` zurueck, und der Aufrufer warf den Wert weg. Auf dem Bildschirm stand
+     "Noch niemand drin", als waere das ein normaler Zustand.
+     \u26a0\ufe0f Diese Pruefungen halten fest, dass der Fehlschlag AUF DEM BILDSCHIRM landet.
+     Ohne sie faellt die Anzeige beim naechsten Umbau still wieder heraus, und die App
+     schweigt wieder -- dieselbe Bauform, die an einem Tag dreimal beinahe Schaden
+     angerichtet hat. */
+  const mitSchiebFehler = (f, admin, fn) => {
+    const mF = bestenlisteSchiebFehler, mA = devAdmin, mV = view, mS = session, mB = bestenliste;
+    session = session || {username:'Pruef', access_token:'x', user:{id:'p1', email:'p@example.org'}};
+    bestenlisteSchiebFehler = f; devAdmin = admin; bestenliste = [];
+    view = 'erfolge'; renderErfolge();
+    const h = app.innerHTML;
+    bestenlisteSchiebFehler = mF; devAdmin = mA; view = mV; session = mS; bestenliste = mB;
+    return fn(h);
+  };
+
+  t('Ein Fehlschlag beim Hochschreiben steht auf der Erfolge-Seite', () => {
+    return mitSchiebFehler({status:403, meldung:'new row violates row-level security policy'},
+      false, h => h.includes('konnte nicht in die Bestenliste geschrieben werden')
+        || 'auf der Seite steht nichts davon');
+  });
+  /* \u26a0\ufe0f Der Status muss MIT dran stehen. "Hat nicht geklappt" haette man auch vorher
+     gewusst -- die Zahl ist das, woran sich der Fehler ueberhaupt finden laesst. */
+  t('Der Fehlschlag nennt den Status und den Text des Servers', () => {
+    return mitSchiebFehler({status:403, meldung:'new row violates row-level security policy'},
+      false, h => {
+        if (h.indexOf('403') < 0) return 'der Status fehlt';
+        return h.indexOf('row-level security') >= 0 || 'der Text vom Server fehlt';
+      });
+  });
+  /* \U0001f534 Der wichtigste Satz auf der Karte. Ohne ihn liest sich eine rote Karte an
+     dieser Stelle wie "deine Daten sind weg" -- und das waere schlicht falsch. */
+  t('Die Karte sagt, dass die Trainingsdaten nicht betroffen sind', () => {
+    return mitSchiebFehler({status:403, meldung:''}, false,
+      h => h.includes('Trainingsdaten sind davon nicht betroffen')
+        || 'die Beruhigung fehlt -- das liest sich wie Datenverlust');
+  });
+  t('Ohne Fehlschlag steht dort nichts', () => {
+    return mitSchiebFehler(null, false,
+      h => !h.includes('konnte nicht in die Bestenliste geschrieben werden')
+        || 'die Warnung steht ohne Anlass da');
+  });
+  /* \u26a0\ufe0f Als Admin wird die Zeile mit Absicht geloescht. Eine Warnung waere dort keine
+     Nachricht, sondern Laerm -- und Laerm, den man drei Tage sieht, sieht man dann nie
+     wieder. Genau daran ist die falsche Admin-Warnung eine Fassung vorher gescheitert. */
+  t('Als Admin kommt keine Schreib-Warnung', () => {
+    return mitSchiebFehler({status:403, meldung:'egal'}, true,
+      h => !h.includes('konnte nicht in die Bestenliste geschrieben werden')
+        || 'auch Admins bekommen die Warnung');
+  });
+
+  /* \U0001f534 Und jetzt das FESTHALTEN selbst, nicht nur die Anzeige. Die fuenf Pruefungen
+     darueber setzen `bestenlisteSchiebFehler` von Hand -- bliebe die Zuweisung in
+     `bestenlisteSchieben()` aus, waeren sie alle gruen und die App trotzdem stumm. Das ist
+     genau die Luecke, durch die dieser Fehler ueberhaupt drei Leute lang unbemerkt blieb.
+     \u26a0\ufe0f `fetch` wird dafuer kurz ausgetauscht und im `finally` zurueckgegeben -- bliebe der
+     Ersatz stehen, liefen alle spaeteren Pruefungen gegen eine Attrappe. */
+  const mitFetch = async (antwort, vorlauf, fn) => {
+    const mF = bestenlisteSchiebFehler, mS = session, mA = devAdmin, echtesFetch = window.fetch;
+    devAdmin = false;
+    session = { username:'Pruef', access_token:'x', expires_at: Date.now() + 3600e3,
+                user:{ id:'p1', email:'p@example.org' } };
+    bestenlisteSchiebFehler = vorlauf;
+    window.fetch = antwort;
+    let ergebnis, gemerkt;
+    try { ergebnis = await bestenlisteSchieben(); gemerkt = bestenlisteSchiebFehler; }
+    finally { window.fetch = echtesFetch;
+              bestenlisteSchiebFehler = mF; session = mS; devAdmin = mA; }
+    return fn(ergebnis, gemerkt);
+  };
+
+  await tA('Eine Absage vom Server wird wirklich festgehalten', async () => {
+    return mitFetch(
+      () => Promise.resolve({ ok:false, status:403,
+              json: () => Promise.resolve({ message:'new row violates row-level security policy' }) }),
+      null,
+      (ergebnis, f) => {
+        if (ergebnis !== false) return 'gibt ' + ergebnis + ' statt false zurueck';
+        if (!f) return 'nichts festgehalten';
+        if (f.status !== 403) return 'Status ' + f.status + ' statt 403';
+        return /row-level security/.test(f.meldung) || 'Meldung: ' + f.meldung;
+      });
+  });
+  /* \u26a0\ufe0f Die Gegenrichtung, und sie ist kein Beiwerk: gelingt das Schreiben, muss ein
+     ALTER Fehler weg sein. Sonst bliebe die rote Karte stehen, nachdem das Problem behoben
+     ist -- genau die Falle, die eine Fassung vorher bei der Admin-Warnung zugeschlagen hat. */
+  await tA('Nach einem gelungenen Schreiben ist der alte Fehler weg', async () => {
+    return mitFetch(
+      () => Promise.resolve({ ok:true, status:201, json: () => Promise.resolve([]) }),
+      { status:403, meldung:'von vorhin' },
+      (ergebnis, f) => {
+        if (ergebnis !== true) return 'gibt ' + ergebnis + ' statt true zurueck';
+        return f === null || 'der alte Fehler steht noch da: ' + JSON.stringify(f);
+      });
+  });
+  /* \U0001f534 Kein Netz ist KEIN Nein vom Server. Wuerde ein Funkloch die rote Karte ausloesen,
+     stuende sie staendig da -- und was staendig dasteht, sieht nach drei Tagen niemand mehr.
+     Die App darf offline sein, dafuer gibt es das Offline-Band. */
+  await tA('Ein Funkloch loest keine Warnung aus', async () => {
+    return mitFetch(
+      () => Promise.reject(new TypeError('Failed to fetch')),
+      null,
+      (ergebnis, f) => {
+        if (ergebnis !== false) return 'gibt ' + ergebnis + ' statt false zurueck';
+        return f === null || 'ein Funkloch hat eine Warnung erzeugt: ' + JSON.stringify(f);
+      });
+  });
+
   t('Die Admin-Warnung kommt nur, wenn die Zeile nachweislich noch da ist', () => {
     const faelle = [
       ['Loeschen hat getroffen',            true,  null,  false],
