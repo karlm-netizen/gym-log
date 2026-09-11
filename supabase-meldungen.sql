@@ -351,3 +351,39 @@ create policy "eigene gym-push loeschen" on public.gym_push
 -- insert into public.gym_konfig (schluessel, wert)
 -- values ('discord_ping', '647688538816774154')
 -- on conflict (schluessel) do update set wert = excluded.wert;
+
+-- ============================================================================
+--  Gegenprobe: so muss es danach aussehen
+-- ============================================================================
+--
+--  🔴 WARUM DAS HIER SEIT DEM 11.09.2026 STEHT. Diese Datei hatte als einzige
+--  der vier keine Gegenprobe. Nach dem Einspielen stand im SQL-Editor nur
+--  "Success. No rows returned" -- und das sagt genau eine Sache: es ist nichts
+--  abgestuerzt. Es sagt NICHT, dass die Zustell-Funktion ersetzt wurde, dass der
+--  Trigger haengt oder dass der Webhook ueberlebt hat.
+--
+--  ⚠️ Dieselbe Bauform wie der Loeschcode vom 10.09.2026: PostgREST antwortete
+--  dort mit 204 wie bei Erfolg, und niemand sah hin. Eine gruene Meldung, die
+--  nichts misst, ist schlimmer als gar keine -- man hoert auf zu pruefen.
+--
+--  💡 EINE Zeile mit vier Spalten, nicht vier Abfragen: der SQL-Editor zeigt
+--  nur das Ergebnis der LETZTEN Anweisung. Vier getrennte selects heisst, drei
+--  Ergebnisse sieht niemand.
+--
+--  ERWARTET:
+--    trigger_da     = 1       der Trigger haengt an der Tabelle
+--    nutzt_username = true    <- die eigentliche Aenderung vom 09.09.2026
+--    nennt_email    = false   <- steht hier true, ist die ALTE Fassung noch drin
+--                              und es geht weiter eine Adresse an Discord (USA)
+--    konfig_zeilen  >= 1      der Webhook hat das Einspielen ueberlebt
+--                              (gym_konfig ist "create table if not exists")
+-- ============================================================================
+
+select
+  (select count(*) from pg_trigger
+    where tgname = 'gym_meldungen_zustellen')              as trigger_da,
+  (select pg_get_functiondef(oid) ilike '%raw_user_meta_data%'
+     from pg_proc where proname = 'gym_meldung_zustellen') as nutzt_username,
+  (select pg_get_functiondef(oid) ilike '%email%'
+     from pg_proc where proname = 'gym_meldung_zustellen') as nennt_email,
+  (select count(*) from public.gym_konfig)                 as konfig_zeilen;
