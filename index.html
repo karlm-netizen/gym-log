@@ -6159,7 +6159,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.083';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.084';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -6463,6 +6463,41 @@ async function bestenlisteZeileLoeschen(uid){
    waere es dieselbe Falle wie oben: es sieht erledigt aus und ist es nicht. */
 let adminZeileHaengt = false;
 
+/* ---------- Karls Meldung vom 11.09.2026 ----------
+   "Warum ist jetzt niemand mehr auf dem Leaderboard mit der roten Nachricht darunter"
+
+   🔴 Der Fehler: `bestenlisteZeileLoeschen()` gibt `false` fuer "nichts geloescht"
+   zurueck -- und das hat ZWEI Ursachen, die der Rueckgabewert nicht auseinanderhalten kann:
+
+     a) die Loeschregel fehlt, die Zeile steht weiter da        <- die Warnung ist richtig
+     b) es war schlicht nichts mehr da                          <- alles in Ordnung
+
+   Bis heute galt beides als (a). **Sobald die Zeile einmal erfolgreich geloescht war, war
+   ab dann immer (b) der Fall** -- und bei jedem Abgleich stand die rote Warnung da, die
+   Karl auffordert, ein SQL einzuspielen, das laengst gelaufen ist.
+   ⚠️ Dieselbe Bauform wie am 01.09.2026 eine Funktion weiter unten, und mit derselben
+   Folge: **eine falsche Arbeitsanweisung ist schlimmer als gar keine Antwort.**
+
+   ➡️ Jetzt wird NACHGESEHEN statt geraten: hat das Loeschen nichts getroffen, fragt die
+   App gezielt nach der eigenen Zeile. Kommt sie zurueck, haengt sie wirklich.
+   ⚠️ Nur in dem einen Fall -- traf das Loeschen etwas, ist die Zeile sicher weg; kam es
+   gar nicht erst hin (`null`), sagt die Anzeige lieber nichts. */
+async function bestenlisteZeileDa(uid){
+  if(!uid || !await ensureToken()) return null;
+  try{
+    const r = await fetch(`${SUPA_URL}/rest/v1/gym_bestenliste?user_id=eq.${uid}&select=user_id&limit=1`,
+                          { headers: authHeaders(true) });
+    if(!r.ok) return null;
+    const rows = await r.json().catch(()=>[]);
+    return Array.isArray(rows) && rows.length > 0;
+  }catch(e){ return null; }
+}
+/* Die Entscheidung als eigene Funktion, damit sie ohne Netz nachpruefbar ist.
+   ⚠️ Gewarnt wird NUR, wenn beides zusammenkommt: das Loeschen hat nichts getroffen
+   UND die Zeile ist nachweislich noch da. Alles andere -- kein Netz, keine Antwort,
+   erfolgreich geloescht -- ist keine Warnung wert. */
+function adminWarnungNoetig(weg, zeileDa){ return weg === false && zeileDa === true; }
+
 async function bestenlisteSchieben(){
   if(!session || !session.user || !await ensureToken()) return false;
   /* ➡️ 10.09.2026, Karls Ansage: „Sobald man admin bekommt werden XP nicht mehr auf dem
@@ -6472,7 +6507,9 @@ async function bestenlisteSchieben(){
      50.000 stehen, fuer immer, weil sie niemand mehr anfasst. Sie muss WEG. */
   if(devAdmin){
     const weg = await bestenlisteZeileLoeschen(session.user.id);
-    adminZeileHaengt = (weg === false);
+    // Nur nachfragen, wenn das Loeschen nichts getroffen hat -- sonst ist nichts zu klaeren.
+    const daDrin = (weg === false) ? await bestenlisteZeileDa(session.user.id) : null;
+    adminZeileHaengt = adminWarnungNoetig(weg, daDrin);
     return weg !== null;
   }
   adminZeileHaengt = false;

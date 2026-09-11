@@ -5672,6 +5672,32 @@ window.addEventListener('error', e => {
     return spaeter === true || 'nach einer Minute bleibt es weiter verboten';
   });
 
+  /* ============ Die rote Warnung an der Bestenliste (11.09.2026) ============
+     Karls Meldung: "Warum ist jetzt niemand mehr auf dem Leaderboard mit der roten
+     Nachricht darunter"
+
+     \U0001f534 `bestenlisteZeileLoeschen()` gibt `false` fuer "nichts geloescht" zurueck, und
+     das hat ZWEI Ursachen, die der Rueckgabewert nicht auseinanderhalten kann: die
+     Loeschregel fehlt (Warnung richtig) -- oder es war schlicht nichts mehr da (alles in
+     Ordnung). Bis heute galt beides als der erste Fall. **Sobald die Zeile einmal geloescht
+     war, stand die Warnung bei JEDEM Abgleich da** und forderte Karl auf, ein SQL
+     einzuspielen, das laengst gelaufen ist.
+     \u26a0\ufe0f Eine falsche Arbeitsanweisung ist schlimmer als gar keine Antwort -- genau das
+     steht seit dem 01.09.2026 als Begruendung an `bestenlisteHolen()` eine Funktion weiter. */
+  t('Die Admin-Warnung kommt nur, wenn die Zeile nachweislich noch da ist', () => {
+    const faelle = [
+      ['Loeschen hat getroffen',            true,  null,  false],
+      ['nichts getroffen, nichts mehr da',  false, false, false],
+      ['nichts getroffen, Zeile steht da',  false, true,  true ],
+      ['nichts getroffen, nicht pruefbar',  false, null,  false],
+      ['gar nicht erst hingekommen',        null,  null,  false]
+    ];
+    const schlecht = faelle
+      .filter(f => adminWarnungNoetig(f[1], f[2]) !== f[3])
+      .map(f => f[0] + ' -> ' + adminWarnungNoetig(f[1], f[2]) + ' statt ' + f[3]);
+    return schlecht.length === 0 || schlecht.join(' | ');
+  });
+
   t('Die Profil-Ansicht laesst sich zeichnen', () => {
     renderProfil();
     const txt = document.getElementById('app').textContent;

@@ -4,6 +4,47 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-11
 
+### v0.084 — die rote Warnung an der Bestenliste stand da, wenn alles in Ordnung war
+
+**Karls Meldung:** *„Warum ist jetzt niemand mehr auf dem Leaderboard mit der roten Nachricht
+darunter"* — mit Bildschirmfoto.
+
+#### 🔴 Der Fehler
+
+`bestenlisteZeileLoeschen()` gibt `false` für **„nichts gelöscht"** zurück. Das hat **zwei**
+Ursachen, die der Rückgabewert nicht auseinanderhalten kann:
+
+| | |
+|---|---|
+| a) | Die Löschregel fehlt, die Zeile steht weiter da → **Warnung richtig** |
+| b) | Es war schlicht nichts mehr da → **alles in Ordnung** |
+
+Bis heute galt beides als (a). **Sobald die Zeile einmal erfolgreich gelöscht war, war ab
+dann immer (b) der Fall** — und bei jedem Abgleich stand die rote Warnung da und forderte
+auf, ein SQL einzuspielen, das längst gelaufen war.
+
+⚠️ Dieselbe Bauform wie am 01.09.2026 eine Funktion weiter (`bestenlisteHolen`), mit
+derselben Begründung: **eine falsche Arbeitsanweisung ist schlimmer als gar keine Antwort.**
+
+#### ➡️ Jetzt wird nachgesehen statt geraten
+
+Hat das Löschen nichts getroffen, fragt die App **gezielt nach der eigenen Zeile**. Kommt
+sie zurück, hängt sie wirklich. Nur dann warnt sie.
+⚠️ Nur in genau diesem Fall — traf das Löschen etwas, ist die Zeile sicher weg; kam es gar
+nicht erst hin (kein Netz), sagt die Anzeige lieber nichts.
+
+#### 🧪 Am Prüfstand
+
+**951 Prüfungen** (waren 950), alle grün. Die neue prüft eine **Wahrheitstafel** über alle
+fünf Fälle; die Gegenprobe (zurück auf die alte Regel) macht genau die zwei Fälle rot, die
+den Fehler ausmachten.
+
+#### ℹ️ Was das NICHT erklärt
+
+Dass die Liste leer ist, ist eine andere Sache: **eine Zeile entsteht erst, wenn ein
+Abgleich gelingt**, und die Tabelle gibt es erst seit dem 11.09. vormittags. Karl selbst
+steht per eigener Entscheidung vom 10.09. nicht drin (Admin).
+
 ### v0.083 — die Leiste sitzt tiefer, der Ladeschirm sagt Bescheid
 
 Karls Meldung vom 11.09.2026 mit Bildschirmfoto: **„da sieht man ganz klar das die Leiste
