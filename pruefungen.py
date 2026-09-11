@@ -1962,7 +1962,12 @@ window.addEventListener('error', e => {
      🔴 Diese Pruefungen bauen bewusst den SCHLIMMSTEN Zustand nach -- laufendes Training,
      heutiger Plan, Wiege-Erinnerung und Essens-Erinnerung auf einmal. Nur in dem Zustand
      ist der Fehler ueberhaupt sichtbar; in jedem einzelnen fuer sich war nie etwas falsch. */
-  const vollesHaus = (fn) => {
+  /* \u2705 11.09.2026: die Startseite ist in ZWEI Reiter zerfallen (Karls Ansage: "der erste
+     wird jetzt ein Home Button da sieht man die widgets"). Der Hauptknopf-Gedanke gilt
+     seitdem je Seite -- `vollesHaus` baut deshalb die Seite, nach der gefragt wird.
+     \u26a0\ufe0f Ohne den Parameter waere der Unterschied stillschweigend verschwunden: die
+     Pruefungen haetten weiter EINE Seite angesehen und die andere nie. */
+  const vollesHaus = (fn, welche) => {
     const sV = session, aV = active, wV = profile.weights, eV = profile.erinnerungen,
           mV = profile.meals, pV = programs, prV = profile.progIdx;
     session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
@@ -1974,8 +1979,13 @@ window.addEventListener('error', e => {
     profile.weights = [{date: Date.now()-3*864e5, kg:79}];
     profile.meals = [];
     profile.erinnerungen = {wiegen:true, essen:true, ts:Date.now()};
-    view = 'home'; render();
-    const h = app.innerHTML;
+    let h;
+    if (welche === 'beide') {
+      view = 'home'; render(); h = app.innerHTML;
+      view = 'training'; render(); h += app.innerHTML;
+    } else {
+      view = welche || 'training'; render(); h = app.innerHTML;
+    }
     session = sV; active = aV; profile.weights = wV; profile.erinnerungen = eV;
     profile.meals = mV; programs = pV; profile.progIdx = prV; bindPlans();
     view = 'home'; render();
@@ -1992,12 +2002,15 @@ window.addEventListener('error', e => {
   });
   /* ⚠️ Die wichtigere Haelfte: der Fehler laesst sich auch "beheben", indem man die
      anderen Knoepfe einfach weglaesst. Das waere schlechter als vorher. */
+  /* \u26a0\ufe0f Seit dem 11.09.2026 ueber BEIDE Seiten: Fortsetzen und Starten stehen auf
+     "Training", Wiegen und Essen auf "Home". Die Frage bleibt dieselbe -- **keiner der
+     Knoepfe darf beim Zuruecksstufen verschwunden sein**, sie sollen nur leiser sein. */
   t('Die zurueckgestuften Knoepfe sind weiterhin da, nur leiser', () => {
     return vollesHaus(h => {
       for (const k of ['data-act="resume"', 'data-startplan=', 'data-act="addweight"', 'data-nav="body"'])
         if (!h.includes(k)) return 'weg statt leise: ' + k;
       return true;
-    });
+    }, 'beide');
   });
   // Die Rangfolge ist die Antwort auf "was soll der Nutzer als Naechstes tun?".
   t('Bei laufendem Training ist Fortsetzen der gruene Knopf', () => {
@@ -2007,7 +2020,22 @@ window.addEventListener('error', e => {
       if (i < 0 || j < 0) return 'Fortsetzen oder Hauptknopf fehlt';
       // Der gruene Knopf und `resume` muessen derselbe sein: gleiches Element.
       return (j > i && j - i < 120) || 'der gruene Knopf ist nicht Fortsetzen';
-    });
+    }, 'training');
+  });
+  /* \u2705 Und die Gegenseite, neu am 11.09.2026: auf "Home" ist der gruene Knopf das
+     Wiegen. Ohne diese Pruefung waere nach der Aufteilung nur noch EINE der zwei Seiten
+     auf ihren Hauptknopf hin geprueft -- und die andere haette stillschweigend zwei
+     gruene Knoepfe bekommen koennen. */
+  t('Auf Home ist Wiegen der gruene Knopf', () => {
+    return vollesHaus(h => {
+      const i = h.indexOf('class="btn primary"');
+      const j = h.indexOf('data-act="addweight"');
+      if (i < 0 || j < 0) return 'Wiegen oder Hauptknopf fehlt';
+      return (j > i && j - i < 200) || 'der gruene Knopf ist nicht das Wiegen';
+    }, 'home');
+  });
+  t('Auf Home steht nur EIN gruener Knopf', () => {
+    return vollesHaus(h => zaehlePrimary(h) === 1 || zaehlePrimary(h) + ' gruene Knoepfe', 'home');
   });
   t('Ohne laufendes Training ist Starten der gruene Knopf', () => {
     const sV = session, aV = active, pV = programs, prV = profile.progIdx,
@@ -2018,7 +2046,7 @@ window.addEventListener('error', e => {
     active = null;
     profile.weights = [{date: Date.now()-3*864e5, kg:79}];
     profile.erinnerungen = {wiegen:true, essen:true, ts:Date.now()};
-    view = 'home'; render();
+    view = 'training'; render();          // 11.09.2026: das Training sitzt auf dem zweiten Reiter
     const h = app.innerHTML;
     session = sV; active = aV; programs = pV; profile.progIdx = prV;
     profile.erinnerungen = eV; profile.weights = wV; bindPlans(); view = 'home'; render();
@@ -4304,19 +4332,22 @@ window.addEventListener('error', e => {
     const mV=view, mD=devAdmin, mS=session;
     if(!session) session={access_token:'t'};
     devAdmin=false; DB.set('devadmin',false);
-    view='home'; render();
+    /* 11.09.2026: Brock ist mit dem Trainings-Teil auf den zweiten Reiter gezogen, und die
+       Geste mit ihm. Auf "Home" gibt es ihn nicht mehr -- dort waere das eine Geste auf
+       einer Figur, die gar nicht dasteht. */
+    view='training'; render();
     const r = brockTippen(5);
     view=mV; devAdmin=mD; DB.set('devadmin',mD); session=mS; render();
-    return r === true || (r === null ? 'kein Brock auf der Startseite' : 'blieb zu');
+    return r === true || (r === null ? 'kein Brock auf dem Trainings-Reiter' : 'blieb zu');
   });
   t('Nochmal tippen sperrt nicht wieder zu', () => {
     const mV=view, mD=devAdmin, mS=session;
     if(!session) session={access_token:'t'};
     devAdmin=true; DB.set('devadmin',true);
-    view='home'; render();
+    view='training'; render();
     const r = brockTippen(5);
     view=mV; devAdmin=mD; DB.set('devadmin',mD); session=mS; render();
-    return r === true || (r === null ? 'kein Brock auf der Startseite' : 'die Geste hat zugesperrt');
+    return r === true || (r === null ? 'kein Brock auf dem Trainings-Reiter' : 'die Geste hat zugesperrt');
   });
   t('Zumachen geht nur noch bewusst', () => {
     const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
@@ -5274,9 +5305,14 @@ window.addEventListener('error', e => {
      ⚠️ Was von der urspruenglichen Ansage bleibt und hier geprueft wird: **Erfolge ist
      der dritte Knopf und steht direkt hinter Kalorien.** Der Nachbar dahinter heisst
      seit heute Profil statt Einstellungen -- die Stelle ist dieselbe geblieben. */
-  t('Erfolge steht als dritter Reiter hinter Kalorien', () => {
+  /* \u2705 11.09.2026 abends, Karls Ansage im Wortlaut: "Also es ist die reinfolge Home,
+     Training, Essen, Erfolge, Profil". Vorne kam "Home" dazu, der alte erste Reiter heisst
+     jetzt "Training" und steht an zweiter Stelle.
+     \u26a0\ufe0f Geprueft wird die REIHENFOLGE als Ganzes und nicht eine einzelne Stelle: Karl
+     hat sie an einem Tag dreimal geaendert, und jedes Mal war die Reihenfolge die Ansage. */
+  t('Die Reiter stehen in Karls Reihenfolge', () => {
     const reihe = [...document.querySelectorAll('#nav button')].map(b => b.dataset.nav);
-    return eq(reihe.join('|'), 'home|body|erfolge|profil');
+    return eq(reihe.join('|'), 'home|training|body|erfolge|profil');
   });
   // ⚠️ renderErfolge() direkt, nicht ueber render(): das prueft `session` und springt ohne
   // Anmeldung ins Login-Fenster. Im Prueframen ist niemand angemeldet.
@@ -5302,9 +5338,9 @@ window.addEventListener('error', e => {
   // ============================== Fuenf Symbole, kein Text, Profil rechts (11.09.2026)
   /* Karls Entscheidung vom 10.09.2026 im Wortlaut: "Fuenf Symbole, kein Text,
      Profil rechts." */
-  t('Die Leiste hat vier Knoepfe', () => {
+  t('Die Leiste hat fuenf Knoepfe', () => {
     const n = document.querySelectorAll('#nav button').length;
-    return n === 4 || 'es sind ' + n;
+    return n === 5 || 'es sind ' + n;
   });
   /* 🔴 Und ausdruecklich: das Zahnrad ist WEG. Ohne diese Pruefung koennte es bei einem
      spaeteren Umbau zurueckkommen, ohne dass jemand es merkt -- die Zahl der Knoepfe oben
@@ -5611,6 +5647,39 @@ window.addEventListener('error', e => {
   /* ============ Ein Kasten statt zwei (11.09.2026) ============
      Karls Meldung: "die 2 oberen Kaesten bitte zusammenfuegen brok ist dort doppelt zu
      sehen das mag ich nicht". */
+  /* \U0001f534 Karls Ansage vom 11.09.2026: "Die spaltmasse auf der Profil Seite ueberpruefen."
+     Nachgemessen war es:
+       Rang-Karte  <-> Kacheln        12 px
+       Kacheln     <-> Freunde         4 px   <- aus einem `margin-top:4px`
+       Freunde     <-> Einstellungen  12 px
+     Ein Spalt war schmaler als die anderen, weil zwei Karten ein eigenes `margin-top`
+     trugen und damit die 12 px von `.card` ueberschrieben.
+     \u26a0\ufe0f Diese Pruefung MISST, statt im Quelltext zu lesen. Im Quelltext sieht ein
+     `margin-top:4px` nach einer Kleinigkeit aus -- auf dem Bildschirm ist es der eine
+     Spalt, der nicht stimmt, und den sieht man erst, wenn man danach sucht.
+     \u26a0\ufe0f Verglichen werden die Abstaende UNTEREINANDER, nicht gegen eine feste Zahl: wer
+     spaeter alle Abstaende gemeinsam aendert, soll nicht aus Versehen rot werden. */
+  t('Die Abstaende im Profil sind alle gleich', () => {
+    const b = document.body, warGate = b.classList.contains('gate');
+    b.classList.remove('gate');
+    const sV = session;
+    session = session || {username:'Pruef', access_token:'x', user:{id:'p1', email:'p@example.org'}};
+    renderProfil();
+    const kinder = [...app.children].filter(el => el.getBoundingClientRect().height > 4);
+    const spalte = [];
+    for (let i = 1; i < kinder.length; i++) {
+      const oben = kinder[i-1].getBoundingClientRect().bottom;
+      const unten = kinder[i].getBoundingClientRect().top;
+      spalte.push(Math.round(unten - oben));
+    }
+    session = sV;
+    if (warGate) b.classList.add('gate');
+    if (spalte.length < 3) return 'nur ' + spalte.length + ' Spalten messbar - zu wenig fuer die Aussage';
+    const kleinste = Math.min(...spalte), groesste = Math.max(...spalte);
+    return (groesste - kleinste <= 2)
+      || ('ungleich: ' + spalte.join(' / ') + ' px');
+  });
+
   t('Brock steht im Profil nur einmal', () => {
     renderProfil();
     const brocks = [...document.querySelectorAll('#app img')]

@@ -4,6 +4,63 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-11
 
+### v0.089 — fünf Reiter: Home, Training, Essen, Erfolge, Profil
+
+**Karls Ansagen:** *„Ich will 5 Buttons unten der erste wird jetzt ein Home Button da sieht
+man die widgets zb"* — und im Wortlaut: *„Also es ist die reinfolge Home, Training, Essen,
+Erfolge, Profil"*.
+
+#### 🏠 Die Startseite ist in zwei Reiter zerfallen
+
+Sie trug zwei Fragen auf einmal. Jetzt eine je Reiter:
+
+| Reiter | Was drauf ist |
+|---|---|
+| **Home** | Fortschritt (Rang, XP) und **was heute noch offen ist** — Wiegen, Essen, Schritte |
+| **Training** | Heute · laufende Einheit · Ruhetag · Alle Trainingspläne |
+
+⚠️ Die Blöcke sind **wortwörtlich umgezogen**, nicht neu geschrieben. An ihnen hängen Karls
+Ansagen vom 28./29.08. und 10.09. samt Begründungen — die wären beim Abtippen als Erstes
+verlorengegangen.
+➡️ Neu ist nur: sind alle drei Erinnerungen erledigt, steht **„Für heute ist alles
+eingetragen ✓"** statt einer leeren Spalte.
+
+#### 🔴 Was am Umzug beinahe still kaputtgegangen wäre
+
+**Die Admin-Konsole.** Sie geht über fünf Tipser auf Brock — und Brock ist mit dem
+Trainings-Teil auf den zweiten Reiter gezogen. Die Geste prüfte weiter auf `home`.
+**Kein Fehler, keine Meldung: die Konsole wäre einfach nie wieder aufgegangen.**
+
+⚠️ Und der Hauptknopf-Gedanke (06.09., Hick's Law) galt über **eine** Seite: *laufendes
+Training > heutiger Plan > wiegen > essen*. Jetzt sind es zwei Seiten mit je einem ersten
+Knopf — **strenger als vorher**, vorher konkurrierten vier Kandidaten um einen grünen Knopf.
+Dazu zwei neue Prüfungen, damit auch die zweite Seite geprüft ist und nicht nur die erste.
+
+#### 📐 Die Spaltmaße im Profil — nachgemessen
+
+| zwischen | war |
+|---|---|
+| Rang-Karte ↔ Kacheln | 12 px |
+| **Kacheln ↔ Freunde** | **4 px** |
+| Freunde ↔ Einstellungen | 12 px |
+
+Zwei Karten trugen ein eigenes `margin-top:4px` und überschrieben damit die 12 px von
+`.card`. **Ein Spalt war schmaler als alle anderen.**
+➡️ Raus damit. Dagegen steht jetzt eine Prüfung, die die Abstände **wirklich misst** und sie
+untereinander vergleicht — im Quelltext sieht `margin-top:4px` nach einer Kleinigkeit aus.
+Die Gegenprobe meldet wörtlich: `ungleich: 12 / 12 / 4 / 12 px`.
+
+#### ✂️ Zwei Kleinigkeiten
+
+- **„Profil" steht jetzt als Überschrift** über dem letzten Reiter — die anderen haben alle eine.
+- Der Satz *„Tipp die Karte an für die Rang-Leiter …"* ist raus (Karls Ansage).
+
+#### 🧪 Am Prüfstand
+
+**972 Prüfungen** (waren 969), alle grün. Sieben bestehende sind **mitgezogen statt gelöscht**:
+Hauptknopf-Rangfolge (jetzt je Seite), Brock-Geste, Reiter-Reihenfolge und -Anzahl.
+**Eine Gegenprobe**, mit dem erwarteten Rot.
+
 ### v0.088 — Freunde: eigener Code, Anfrage mit Bestätigung, Bestenliste darunter
 
 Karls Entscheidung vom 10.09.2026 auf die Frage, wie man Freunde hinzufügt:

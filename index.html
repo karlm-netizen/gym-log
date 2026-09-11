@@ -972,9 +972,11 @@ setTimeout(function(){
 
 <nav id="nav">
   <button data-nav="home" class="on">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6.5 7.5v9M17.5 7.5v9M3.5 10v4M20.5 10v4M6.5 12h11"/></svg><span class="navtxt">Trainieren</span></button>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.8V20h13V9.8"/><path d="M9.8 20v-5.4h4.4V20"/></svg><span class="navtxt">Home</span></button>
+  <button data-nav="training">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6.5 7.5v9M17.5 7.5v9M3.5 10v4M20.5 10v4M6.5 12h11"/></svg><span class="navtxt">Training</span></button>
   <button data-nav="body">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2.7c3.4 3.3 5.3 5.8 5.3 9a5.3 5.3 0 0 1-10.6 0c0-1.9.7-3.3 1.9-4.7.2 1.3.8 2.1 1.7 2.5.6-2.7-.6-4.9 1.7-6.8z"/></svg><span class="navtxt">Kalorien</span></button>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2.7c3.4 3.3 5.3 5.8 5.3 9a5.3 5.3 0 0 1-10.6 0c0-1.9.7-3.3 1.9-4.7.2 1.3.8 2.1 1.7 2.5.6-2.7-.6-4.9 1.7-6.8z"/></svg><span class="navtxt">Essen</span></button>
   <button data-nav="erfolge">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M8 3h8v5a4 4 0 0 1-8 0z"/><path d="M8 5H5.5a2.5 2.5 0 0 0 2.5 4"/><path d="M16 5h2.5a2.5 2.5 0 0 1-2.5 4"/><path d="M12 12v4"/><path d="M9 20h6"/><path d="M10 16h4l1 4H9z"/></svg><span class="navtxt">Erfolge</span></button>
   <button data-nav="profil">
@@ -2417,7 +2419,7 @@ function splashWeg(){
    🔴 Ohne diese Zeile faende `setNav()` fuer diese sieben Ansichten keinen Knopf mehr
    und die Leiste stuende komplett unmarkiert da: man waere irgendwo in der App, und unten
    leuchtete nichts. Kein Absturz, nur Orientierungslosigkeit -- und nichts wuerde rot. */
-function setNav(){ const map=(view==='erfolge')?'erfolge':(view==='profil'||view==='rang'||view==='freunde'||view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='admin'||view==='privacy'||view==='meldung')?'profil':(view==='body'||view==='food')?'body':'home';
+function setNav(){ const map=(view==='erfolge')?'erfolge':(view==='profil'||view==='rang'||view==='freunde'||view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='admin'||view==='privacy'||view==='meldung')?'profil':(view==='body'||view==='food')?'body':(view==='training'||view==='progs'||view==='plans'||view==='plan'||view==='workout')?'training':'home';
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on', b.dataset.nav===map));
   navPunktZeichnen(); }
 /* Die rote Zahl an der unteren Leiste (25.08.2026).
@@ -2482,7 +2484,7 @@ function render(){
   /* Ein zurueckgehaltener Fassungs-Hinweis wird hier faellig: er erscheint nicht mitten
      im Training, sondern beim naechsten Bild danach. */
   if(window.neueFassungPruefen) window.neueFassungPruefen();
-  ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, profil:renderProfil, freunde:renderFreunde, body:renderBody, food:renderFood, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin, meldung:renderMeldung, erfolge:renderErfolge, comeback:renderComeback}[view]||renderHome)();
+  ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, training:renderTraining, rang:renderRang, profil:renderProfil, freunde:renderFreunde, body:renderBody, food:renderFood, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin, meldung:renderMeldung, erfolge:renderErfolge, comeback:renderComeback}[view]||renderHome)();
   syncSessionClock();
   /* Den Kurzcode fuers Teilen im Hintergrund bauen, solange noch niemand geklickt hat.
      Genau hier, weil auf diesen zwei Seiten der Teilen-Knopf steht -- und weil ein Umbau am
@@ -2977,30 +2979,28 @@ function splitHint(n, anfaenger){
   6:'Push/Pull/Legs, zweimal durch die Woche.'})[n]||''; }
 
 // ---------- Start ----------
+/* ---------- Home: der Ueberblick (11.09.2026) ----------
+   Karls Ansage: "Ich will 5 Buttons unten der erste wird jetzt ein Home Button da sieht man
+   die widgets zb".
+
+   Die alte Startseite trug zwei Dinge auf einmal: den eigenen Stand (Rang, XP) samt den
+   taeglichen Erinnerungen -- und das Training von heute. Das sind zwei Fragen:
+     **"wie stehe ich da und was ist heute noch offen?"**  -> hier
+     **"was trainiere ich heute?"**                        -> `renderTraining()`
+
+   \u26a0\ufe0f Die Bloecke sind WORTWOERTLICH umgezogen, nicht neu geschrieben. An ihnen haengen
+   Karls Ansagen vom 28., 29.08. und 10.09. samt Begruendungen -- die waeren beim Abtippen
+   als Erstes verlorengegangen.
+
+   \U0001f534 Was der Umzug am "einen Hauptknopf je Bildschirm" aendert (06.09.2026, Hick's Law):
+   die Rangfolge war **laufendes Training > heutiger Plan > wiegen > essen** ueber EINE Seite.
+   Jetzt sind es zwei Seiten, und jede hat ihren eigenen ersten Knopf: hier das Wiegen, drueben
+   das Training. **Das ist nicht weniger streng, sondern strenger** -- vorher konkurrierten vier
+   Kandidaten um einen gruenen Knopf, jetzt zwei um zwei. */
 function renderHome(){
-  // Reihenfolge: Fortschritt, dann Heute (mit dem laufenden Training darin), dann Nachschlagen.
-  // Brock sitzt klein in der Heute-Karte, weil sein Spruch sich genau darauf bezieht.
-  // Der Begleiter waechst mit: er zeigt den getragenen Rang, nicht mehr den alten Brock.
-  const brock=`<div class="mascot mini">${monster(56,'',equippedRank())}<div class="bubble">${brockSay()}</div></div>`;
-
-  /* ---------- Ein Hauptknopf je Bildschirm (06.09.2026) ----------
-     Karls Checkliste vom 06.09. (Reel @agenticmatt, Hick's Law): mehrere Knoepfe mit
-     derselben optischen Wichtigkeit zwingen zum Ueberlegen. Vorher konnten hier VIER
-     gruene `btn primary` gleichzeitig stehen -- Fortsetzen, Starten, Gewicht eintragen,
-     Zu den Mahlzeiten -- und alle sahen gleich laut aus.
-
-     Die Rangfolge ist die Antwort auf "was soll der Nutzer als Naechstes tun?":
-     laufendes Training > heutiger Plan > wiegen > essen. Wer nicht Erster ist, wird
-     zum ruhigen Zweitknopf. ⚠️ Die Reihenfolge der Aufrufe unten IST die Rangfolge --
-     wer hier Bloecke verschiebt, verschiebt auch, was gruen ist.
-     ⚠️ `Verwerfen` bleibt aussen vor: es ist kein Kandidat, sondern die gefaehrliche
-     Handlung, und die soll leise bleiben (steht als `btn ghost sm` in Rot). */
   let hauptFrei = true;
   const hauptKlasse = () => { if(hauptFrei){ hauptFrei = false; return 'btn primary'; } return 'btn'; };
-  // Auf dem PC (ab 900 px) stehen die zwei Blöcke nebeneinander, am Handy untereinander.
-  // Dieselben Karten, nur ein Umbruch — kein eigener Bau fürs breite Fenster.
   let h='<div class="cols2"><div>';
-
   // 1 · Fortschritt. Die drei Kacheln (Einheiten / diese Woche / kg Vol.) sind am 05.08. auf
   // Karls Ansage raus — die Zahlen stehen im Verlauf, hier waren sie nur Beiwerk.
   h+=`<div class="row between" style="margin:2px 4px 6px"><h2>Fortschritt</h2></div>`;
@@ -3014,28 +3014,13 @@ function renderHome(){
      🔴 Sie hat damit aber KEINEN Aufrufer mehr in der App. Wer sie wieder braucht, holt
      sich hier eine fertige Funktion -- wer aufraeumt, weiss, dass nichts daran haengt. */
   h+='</div><div>';
-
-  // 2 · Heute. Ein laufendes Training steht seit dem 05.08. NICHT mehr ganz oben, sondern
-  // direkt unter dieser Überschrift — Karls Ansage.
-  const p=planForToday();
-  h+=`<div class="row between" style="margin:2px 4px 6px"><h2>Heute · ${DAYLONG[todayIdx()]}</h2></div>`;
-  if(active){ h+=`<div class="card" style="border-color:var(--accent)">
-    <div class="row between"><h2>Training läuft</h2><span class="pill">${esc(active.planName)}</span></div>
-    <p class="muted tiny" style="margin:6px 0 0"><b data-sesstime style="color:var(--txt)">${fmtClock(Date.now()-active.date)}</b> · ${doneSets(active.exercises)} Sätze · seit ${fmtTime(active.date)}</p>
-    ${brock}
-    <button class="${hauptKlasse()}" style="margin-top:12px" data-act="resume">Fortsetzen</button>
-    <button class="btn ghost sm" style="margin-top:8px;color:var(--danger)" data-act="discard">Verwerfen</button></div>`; }
-  if(p){ h+=`<div class="card" style="border-color:var(--accent);margin-top:${active?'10px':'0'}">
-      <div class="plan-chip"><span class="dot"></span><b>${esc(p.name)}</b></div>
-      <div class="muted tiny" style="margin-top:6px">${p.exercises.length} Übungen · ${esc(p.exercises.map(e=>e.name).filter(Boolean).slice(0,3).join(', '))}${p.exercises.length>3?' …':''}</div>
-      ${active?'':brock}
-      <button class="${hauptKlasse()}" style="margin-top:12px" data-startplan="${p.id}">${active?'Nochmal starten':'Starten'}</button></div>`; }
-  else if(!active){ const nx=nextTrainingDay();
-    h+=`<div class="card"><b>Ruhetag</b>
-      <div class="muted tiny" style="margin-top:6px">${nx?`Weiter geht's am ${DAYLONG[nx.d]} mit ${esc(nx.p.name)}.`:'Noch keine Trainingstage festgelegt.'}</div>
-      ${brock}
-      ${plans.length?'':`<button class="${hauptKlasse()}" style="margin-top:12px" data-act="ob:start">Plan einrichten</button>`}</div>`; }
-
+  h+=`<div class="row between" style="margin:2px 4px 6px"><h2>Heute noch offen</h2></div>`;
+  /* \u26a0\ufe0f Wie viele Erinnerungen faellig sind, wird VORHER gezaehlt und nicht am fertigen
+     Text abgelesen. Eine leere Spalte auf dem PC saehe nach einem Fehler aus, und "alles
+     erledigt" ist eine Nachricht, keine Luecke. */
+  const offen = (erinnerungAn('wiegen') && !gewogenHeute() ? 1 : 0)
+              + (erinnerungAn('essen') && mealsToday().length === 0 ? 1 : 0)
+              + (erinnerungAn('schritte') && !schritteGesternEingetragen() ? 1 : 0);
   /* Erinnerungen (Karls Ansagen vom 28. und 29.08.2026).
      ⚠️ Jede steht NUR da, solange die Sache heute offen ist -- eine Erinnerung, die nach dem
      Erledigen stehen bleibt, ist keine Erinnerung mehr, sondern Deko.
@@ -3110,9 +3095,62 @@ function renderHome(){
         trägst du nichts ein, wird nichts gespeichert.</div></div>`;
   }
 
+  if(!offen){
+    h+=`<div class="card"><div class="tiny muted" style="line-height:1.7">
+        F\u00fcr heute ist alles eingetragen. \u2713</div></div>`;
+  }
+  h+='</div></div>';
+  app.innerHTML=h;
+}
+
+function renderTraining(){
+  // Reihenfolge: Fortschritt, dann Heute (mit dem laufenden Training darin), dann Nachschlagen.
+  // Brock sitzt klein in der Heute-Karte, weil sein Spruch sich genau darauf bezieht.
+  // Der Begleiter waechst mit: er zeigt den getragenen Rang, nicht mehr den alten Brock.
+  const brock=`<div class="mascot mini">${monster(56,'',equippedRank())}<div class="bubble">${brockSay()}</div></div>`;
+
+  /* ---------- Ein Hauptknopf je Bildschirm (06.09.2026) ----------
+     Karls Checkliste vom 06.09. (Reel @agenticmatt, Hick's Law): mehrere Knoepfe mit
+     derselben optischen Wichtigkeit zwingen zum Ueberlegen. Vorher konnten hier VIER
+     gruene `btn primary` gleichzeitig stehen -- Fortsetzen, Starten, Gewicht eintragen,
+     Zu den Mahlzeiten -- und alle sahen gleich laut aus.
+
+     Die Rangfolge ist die Antwort auf "was soll der Nutzer als Naechstes tun?":
+     laufendes Training > heutiger Plan > wiegen > essen. Wer nicht Erster ist, wird
+     zum ruhigen Zweitknopf. ⚠️ Die Reihenfolge der Aufrufe unten IST die Rangfolge --
+     wer hier Bloecke verschiebt, verschiebt auch, was gruen ist.
+     ⚠️ `Verwerfen` bleibt aussen vor: es ist kein Kandidat, sondern die gefaehrliche
+     Handlung, und die soll leise bleiben (steht als `btn ghost sm` in Rot). */
+  let hauptFrei = true;
+  const hauptKlasse = () => { if(hauptFrei){ hauptFrei = false; return 'btn primary'; } return 'btn'; };
+  // Auf dem PC (ab 900 px) stehen die zwei Blöcke nebeneinander, am Handy untereinander.
+  // Dieselben Karten, nur ein Umbruch — kein eigener Bau fürs breite Fenster.
+  let h='';
+
+
+  // 2 · Heute. Ein laufendes Training steht seit dem 05.08. NICHT mehr ganz oben, sondern
+  // direkt unter dieser Überschrift — Karls Ansage.
+  const p=planForToday();
+  h+=`<div class="row between" style="margin:2px 4px 6px"><h2>Heute · ${DAYLONG[todayIdx()]}</h2></div>`;
+  if(active){ h+=`<div class="card" style="border-color:var(--accent)">
+    <div class="row between"><h2>Training läuft</h2><span class="pill">${esc(active.planName)}</span></div>
+    <p class="muted tiny" style="margin:6px 0 0"><b data-sesstime style="color:var(--txt)">${fmtClock(Date.now()-active.date)}</b> · ${doneSets(active.exercises)} Sätze · seit ${fmtTime(active.date)}</p>
+    ${brock}
+    <button class="${hauptKlasse()}" style="margin-top:12px" data-act="resume">Fortsetzen</button>
+    <button class="btn ghost sm" style="margin-top:8px;color:var(--danger)" data-act="discard">Verwerfen</button></div>`; }
+  if(p){ h+=`<div class="card" style="border-color:var(--accent);margin-top:${active?'10px':'0'}">
+      <div class="plan-chip"><span class="dot"></span><b>${esc(p.name)}</b></div>
+      <div class="muted tiny" style="margin-top:6px">${p.exercises.length} Übungen · ${esc(p.exercises.map(e=>e.name).filter(Boolean).slice(0,3).join(', '))}${p.exercises.length>3?' …':''}</div>
+      ${active?'':brock}
+      <button class="${hauptKlasse()}" style="margin-top:12px" data-startplan="${p.id}">${active?'Nochmal starten':'Starten'}</button></div>`; }
+  else if(!active){ const nx=nextTrainingDay();
+    h+=`<div class="card"><b>Ruhetag</b>
+      <div class="muted tiny" style="margin-top:6px">${nx?`Weiter geht's am ${DAYLONG[nx.d]} mit ${esc(nx.p.name)}.`:'Noch keine Trainingstage festgelegt.'}</div>
+      ${brock}
+      ${plans.length?'':`<button class="${hauptKlasse()}" style="margin-top:12px" data-act="ob:start">Plan einrichten</button>`}</div>`; }
+
   h+=`<div class="card" data-nav="progs" style="cursor:pointer;margin-top:10px"><div class="row between">
       <b>Alle Trainingspläne</b><span class="muted">${programs.length} ›</span></div></div>`;
-  h+='</div></div>';
   app.innerHTML=h;
 }
 
@@ -3120,7 +3158,7 @@ function renderHome(){
 const ICON_TEILEN='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
 function renderProgs(){
   const akt=activeProg();
-  let h=`${zurueckPfeil('data-nav="home"', 'Trainieren')}
+  let h=`${zurueckPfeil('data-nav="training"', 'Trainieren')}
     <div class="row between" style="margin:6px 4px 8px"><h2>Alle Trainingspläne</h2></div>`;
   programs.forEach(pr=>{
     const ist=pr.id===akt.id, tage=(pr.plans||[]).filter(x=>x.day!=null).length;
@@ -5903,8 +5941,19 @@ function renderProfil(){
   /* \u2705 11.09.2026: EIN Kasten statt zwei (Karls Meldung, Brock stand doppelt da).
      Der Name ist in die Rang-Karte gewandert; `lp` wird hier nicht mehr gebraucht, die
      Karte rechnet Level und XP selbst. */
-  let h = rankCardHTML(name);
-  h += `<div class="tiny muted" style="text-align:center;margin:-4px 0 14px">Tipp die Karte an f\u00fcr die Rang-Leiter \u2014 dort w\u00e4hlst du, welches Aussehen du tr\u00e4gst.</div>`;
+  /* \u2705 11.09.2026, Karls Ansage: "Profil hinschreiben als Ueberschrift im letzen Reiter".
+     Die anderen Reiter haben alle eine -- "Fortschritt", "Heute", "Erfolge", "Freunde". */
+  /* 🔴 KEIN eigenes `margin-top` an den Karten hier drunter (11.09.2026, Karls
+     Ansage: "Die spaltmasse auf der Profil Seite ueberpruefen"). Nachgemessen war es:
+       Rang-Karte  <-> Kacheln        12 px
+       Kacheln     <-> Freunde         4 px   <- aus einem `margin-top:4px`
+       Freunde     <-> Einstellungen  12 px
+     `.card` bringt seine 12 px selbst mit; jedes zusaetzliche `margin-top` ueberschreibt
+     sie und macht genau EINEN Spalt schmaler als die anderen. Dagegen steht jetzt eine
+     Pruefung, die die Abstaende WIRKLICH MISST -- im Quelltext sieht man so etwas nicht,
+     und auf dem Bildschirm erst, wenn man danach sucht. */
+  let h = `<div class="row between" style="margin:2px 4px 10px"><h2>Profil</h2></div>`;
+  h += rankCardHTML(name);
   h += `<div class="grid3">
       <div class="stat"><b>${sessions.length}</b><span>Einheiten</span></div>
       <div class="stat" data-nav="erfolge"><b>${erfolgeGeschafft()}</b><span>von ${ERFOLGE.length} Erfolgen</span></div>
@@ -5930,7 +5979,7 @@ function renderProfil(){
      \u26a0\ufe0f Die rote Zahl zeigt NUR Anfragen an mich. Was ich selbst abgeschickt habe,
      wartet nicht auf mich -- eine Zahl, die man nicht wegbekommt, ist keine Nachricht. */
   const warten = freundeAnfragenAnMich().length;
-  h += `<div class="card" data-nav="freunde" style="cursor:pointer;margin-top:4px">
+  h += `<div class="card" data-nav="freunde" style="cursor:pointer">
       <div class="row between">
         <div class="row" style="gap:10px;align-items:center">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.4"/><path d="M2.5 20c0-3.4 3.1-5.3 6.5-5.3s6.5 1.9 6.5 5.3"/><path d="M17 5.2a3.4 3.4 0 0 1 0 5.6"/><path d="M19.2 15.1c1.5.8 2.3 2.2 2.3 4.9"/></svg>
@@ -5940,7 +5989,7 @@ function renderProfil(){
           <span class="muted">${freundeAnzahl() || ''} \u203a</span></div>
       </div></div>`;
   const offeneAntworten = postfachUngelesen();
-  h += `<div class="card" data-nav="settings" style="cursor:pointer;margin-top:4px">
+  h += `<div class="card" data-nav="settings" style="cursor:pointer">
       <div class="row between">
         <div class="row" style="gap:10px;align-items:center">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -6310,7 +6359,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.088';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.089';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -8676,7 +8725,12 @@ window.addEventListener('pagehide',flushSync);
 // Lag früher auf dem App-Titel — den gibt es seit dem Entfernen des Kopfbereichs nicht mehr.
 (function(){ let n=0,t0=0;
   document.addEventListener('click',ev=>{
-    if(view!=='home' || !ev.target.closest('.mascot')) return;
+    /* 11.09.2026: `training` statt `home`. Brock ist mit dem Trainings-Teil auf den
+       zweiten Reiter gezogen (Karls Ansage: erster Reiter wird Home mit den Widgets).
+       Die Geste haengt an IHM, nicht an der Seite -- stehengeblieben waere sie eine
+       Geste auf einer Figur, die dort gar nicht mehr steht. Kein Fehler, keine
+       Meldung: die Admin-Konsole waere einfach nie wieder aufgegangen. */
+    if(view!=='training' || !ev.target.closest('.mascot')) return;
     const now=Date.now(); if(now-t0>1500) n=0; t0=now; n++;
     /* 🔴 Frueher stand hier `devAdmin=!devAdmin` -- die Geste hat also auch WIEDER
        ZUGESPERRT. Karl am 27.08.2026: "meine Admin-Konsole auf dem Handy ist ausserdem weg."
@@ -8724,7 +8778,7 @@ window.addEventListener('pagehide',flushSync);
    (dort wischt man den Inhalt), und nicht bei offenem Fenster.
    ⚠️ `passive:true` -- es wird nichts abgefangen, nur zugehoert. Ein Wisch, der das
    normale Scrollen bremst, waere schlimmer als kein Wisch.                                */
-const REITER = ['home','body','erfolge','profil'];
+const REITER = ['home','training','body','erfolge','profil'];
 /* Einen Reiter zeigen -- mit der Bewegung in die Richtung, in die es geht.
    ⚠️ Steht als eigene Funktion da, weil BEIDE Wege sie brauchen: der Wisch und der Tipp
    auf die untere Leiste. Sonst saehe dasselbe Ziel je nach Weg anders aus. */
