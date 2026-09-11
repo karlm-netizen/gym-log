@@ -2530,20 +2530,47 @@ function equippedRank(){
   const r=RANKS.find(x=>x.min===profile.rankSkin);
   return (r && lvl>=r.min) ? r : real;      // nicht (mehr) erreicht → zurück auf echt
 }
-function rankCardHTML(){
+/* ---------- Eine Karte, zwei Fassungen (11.09.2026) ----------
+   Karls Meldung: "die 2 oberen K\u00e4sten bitte zusammenf\u00fcgen brok ist dort doppelt zu sehen
+   das mag ich nicht".
+
+   \U0001f534 Und so war es: das Profil hatte oben einen eigenen Kasten mit Brock (72 px),
+   Name und "Rang \u00b7 Level" -- und direkt darunter diese Rang-Karte mit Brock (56 px),
+   Rang und Level nochmal. Dasselbe Monster zweimal untereinander, dieselben zwei Angaben
+   doppelt.
+
+   \u26a0\ufe0f Der Name kommt deshalb HIER hinein und nicht in einen zweiten Kasten daneben:
+   diese Karte wird an DREI Stellen gezeichnet (Startseite, Rang-Leiter, Profil). Zwei
+   Bauformen nebeneinander zu pflegen hiesse, Aura, Funken und die XP-Leiste doppelt zu
+   haben -- und beim naechsten Umbau faellt die eine mit und die andere nicht.
+   \u27a1\ufe0f Ohne `name` bleibt alles exakt wie bisher; die Startseite und die Rang-Leiter
+   merken von dieser Aenderung nichts. */
+function rankCardHTML(name){
   const lp=levelFromXP(profile.xp), rank=equippedRank(), pct=Math.round(lp.into/lp.need*100);
   const sparks = (rank.aura||0)>=4
     ? '<i class="spark" style="left:12%;top:24%"></i><i class="spark" style="left:84%;top:28%;animation-delay:.6s"></i><i class="spark" style="left:66%;top:72%;animation-delay:1.1s"></i><i class="spark" style="left:26%;top:66%;animation-delay:.35s"></i>'
     : '';
+  const gross = !!name;                 // die Profil-Fassung: Brock groesser, Name statt "Rang"
+  const mg = gross ? 72 : 56;
+  /* \u26a0\ufe0f `min-width:0` an beiden Kaesten, sonst greift `text-overflow` nicht: ein
+     Flex-Kind ist von Haus aus mindestens so breit wie sein Inhalt und waechst lieber aus
+     der Karte heraus, als den Namen zu kuerzen. Trifft nur lange Namen -- also genau die,
+     bei denen es auffaellt. */
+  const links = gross
+    ? `<div style="min-width:0;flex:1">
+            <b style="font-size:19px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</b>
+            <div class="tiny muted" style="margin-top:2px">${esc(rank.name)}</div>
+          </div>`
+    : `<div><div class="tiny muted">Rang</div><b style="font-size:18px">${esc(rank.name)}</b></div>`;
   return `<div class="card rankcard aura-${rank.aura||0}" data-nav="rang" style="--rc:${rank.color}">
     ${sparks}
     <div class="rc-body">
       <div class="row between">
-        <div class="row" style="gap:12px">
-          <div class="badge" style="width:56px;height:56px;flex:0 0 56px">${rankMon(rank,56)}</div>
-          <div><div class="tiny muted">Rang</div><b style="font-size:18px">${esc(rank.name)}</b></div>
+        <div class="row" style="gap:12px;${gross?'min-width:0;flex:1':''}">
+          <div class="badge" style="width:${mg}px;height:${mg}px;flex:0 0 ${mg}px">${rankMon(rank,mg)}</div>
+          ${links}
         </div>
-        <div style="text-align:right"><div class="tiny muted">Level</div><b style="font-size:24px">${lp.level}</b></div>
+        <div style="text-align:right;flex:0 0 auto;padding-left:10px"><div class="tiny muted">Level</div><b style="font-size:24px">${lp.level}</b></div>
       </div>
       <div class="xpbar"><i style="width:${pct}%;background:var(--rc)"></i></div>
       <div class="tiny muted">${lp.into} / ${lp.need} XP bis Level ${lp.level+1}</div>
@@ -5701,20 +5728,15 @@ function renderSettings(){
      den Einstellungen steht -- hier stuende er fest und wuerde mit der Zeit falsch.
      Eine Angabe, die nicht nachkommt, ist schlechter als gar keine. */
 function renderProfil(){
-  const lp = levelFromXP(profile.xp), rank = equippedRank();
+  const rank = equippedRank();
   /* Ohne Sitzung (Pruefrahmen, und nur dort) steht "Du" da statt eines Absturzes an
      `session.user`. Im echten Betrieb kommt man ohne Anmeldung gar nicht hierher --
      `render()` faengt das eine Ebene hoeher ab. */
   const name = session ? (session.username || session.user.email) : 'Du';
-  let h = `<div class="card">
-      <div class="row" style="gap:14px;align-items:center">
-        <div class="badge" style="width:72px;height:72px;flex:0 0 72px">${rankMon(rank,72)}</div>
-        <div style="min-width:0;flex:1">
-          <b style="font-size:19px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</b>
-          <div class="tiny muted" style="margin-top:3px">${esc(rank.name)} \u00b7 Level ${lp.level}</div>
-        </div>
-      </div></div>`;
-  h += rankCardHTML();
+  /* \u2705 11.09.2026: EIN Kasten statt zwei (Karls Meldung, Brock stand doppelt da).
+     Der Name ist in die Rang-Karte gewandert; `lp` wird hier nicht mehr gebraucht, die
+     Karte rechnet Level und XP selbst. */
+  let h = rankCardHTML(name);
   h += `<div class="tiny muted" style="text-align:center;margin:-4px 0 14px">Tipp die Karte an f\u00fcr die Rang-Leiter \u2014 dort w\u00e4hlst du, welches Aussehen du tr\u00e4gst.</div>`;
   h += `<div class="grid3">
       <div class="stat"><b>${sessions.length}</b><span>Einheiten</span></div>
@@ -6088,7 +6110,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.081';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.082';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -8332,6 +8354,57 @@ function reiterZeigen(ziel){
    nachpruefbar, samt der Ruecksicht aufs laufende Training. */
 function fassungsLeisteFaellig(wartet, ansicht){ return wartet === true && ansicht !== 'workout'; }
 
+/* ---------- Von selbst laden, wo nichts verlorengehen kann (11.09.2026) ----------
+   Karls Ansage: "Und wenn die App eh einmal im lade screen ist und es eine neue Fassung
+   gab kann sie dann nicht einfach automatisch reingeladen werden"
+
+   \u2705 Er hat recht, und der Grund steht schon oben: das Fragen gibt es nur, weil ein
+   Neuladen wegreisst, was gerade eingetippt ist. **Auf dem Ladeschirm ist nichts
+   eingetippt** -- die App ist noch nicht mal gezeichnet. Dort zu fragen heisst, jemandem
+   eine Entscheidung abzuverlangen, bei der es nichts zu entscheiden gibt.
+
+   \u26a0\ufe0f Mitgenommen wird der Anmeldeschirm, denn das ist derselbe Fall: wer noch kein
+   Konto offen hat, hat auch nichts offen, was verlorengehen koennte.
+   \U0001f534 ABER: dort steht ein Feld fuer die E-Mail und eines fuers Passwort. Wer gerade
+   die halbe Adresse getippt hat und mittendrin ein Neuladen bekommt, tippt sie noch einmal
+   und weiss nicht, warum. Deshalb `etwasGetippt()` -- und zwar ueber die ganze Seite,
+   nicht nur ueber das Anmeldefeld.
+
+   \U0001f534 **Und die Bremse, die wichtiger ist als die Funktion selbst.** Wenn das Erkennen
+   der neuen Fassung aus irgendeinem Grund haengenbliebe -- ein Service Worker, der sich
+   bei jedem Start neu installiert --, wuerde sich die App auf dem Ladeschirm **endlos neu
+   laden** und waere schlicht nicht mehr benutzbar. Kein Absturz, keine Fehlermeldung, nur
+   eine App, die ewig laedt. Deshalb: hoechstens EIN selbstaendiges Laden je Minute, im
+   Sitzungsspeicher vermerkt (der ueberlebt das Neuladen, der Tab-Wechsel raeumt ihn weg).
+   \u26a0\ufe0f Wirft der Speicher (privater Modus), gilt NICHT erlaubt. Lieber einmal fragen als
+   eine Schleife riskieren. */
+function splashNochDa(){
+  const el = document.getElementById('splash');
+  return !!el && !el.classList.contains('weg');
+}
+function etwasGetippt(){
+  return [...document.querySelectorAll('input, textarea')].some(el =>
+    el.type !== 'checkbox' && el.type !== 'radio' && String(el.value || '').trim() !== '');
+}
+const SELBST_KEY = 'gymlog:selbstgeladen';
+function selbstladenErlaubt(jetzt){
+  try{
+    const zuletzt = +sessionStorage.getItem(SELBST_KEY) || 0;
+    return !(zuletzt > 0 && (jetzt - zuletzt) < 60000);
+  }catch(e){ return false; }
+}
+function selbstladenMerken(jetzt){
+  try{ sessionStorage.setItem(SELBST_KEY, String(jetzt)); }catch(e){}
+}
+/* Die Entscheidung als freie Funktion, aus demselben Grund wie `fassungsLeisteFaellig`:
+   der Service-Worker-Block darunter laeuft im Pruefrahmen nie. */
+function fassungDarfVonSelbst(wartet, ansicht, ladeschirm, angemeldet, getippt){
+  if(wartet !== true) return false;
+  if(ansicht === 'workout') return false;     // dieselbe Ruecksicht wie bei der Leiste
+  if(getippt) return false;
+  return ladeschirm === true || angemeldet === false;
+}
+
 if('serviceWorker' in navigator){
   const leiste = document.getElementById('neufassung');
   let fassungWartet = false;
@@ -8339,6 +8412,14 @@ if('serviceWorker' in navigator){
   /* Beim Zeichnen aus render() heraus: ein Hinweis, der waehrend des Trainings gekommen ist,
      wird hier nachgeholt. */
   window.neueFassungPruefen = () => {
+    const jetzt = Date.now();
+    if(fassungDarfVonSelbst(fassungWartet, view, splashNochDa(), !!session, etwasGetippt())
+       && selbstladenErlaubt(jetzt)){
+      selbstladenMerken(jetzt);
+      flushSync();          // erst wegschreiben, dann neu laden -- wie beim Tippen auf die Leiste
+      location.reload();
+      return;
+    }
     if(fassungsLeisteFaellig(fassungWartet, view)) leiste.classList.add('show');
   };
 

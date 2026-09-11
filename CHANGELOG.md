@@ -4,6 +4,67 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-11
 
+### v0.082 — ein Kasten im Profil, neue Fassung lädt von selbst
+
+Karls zwei Meldungen vom 11.09.2026:
+**„die 2 oberen Kästen bitte zusammenfügen brok ist dort doppelt zu sehen das mag ich nicht"**
+und **„wenn die App eh einmal im lade screen ist und es eine neue Fassung gab kann sie dann
+nicht einfach automatisch reingeladen werden"**.
+
+#### 👤 Im Profil steht Brock nur noch einmal
+
+Das Profil hatte oben einen eigenen Kasten mit Brock (72 px), Name und „Rang · Level" — und
+**direkt darunter die Rang-Karte mit Brock (56 px), Rang und Level nochmal.** Dasselbe
+Monster zweimal untereinander, dieselben zwei Angaben doppelt.
+
+➡️ Der Name ist **in die Rang-Karte selbst** gewandert. Eine Karte, ein Brock.
+
+⚠️ **Warum als Parameter und nicht als zweite Bauform:** diese Karte wird an **drei** Stellen
+gezeichnet — Startseite, Rang-Leiter, Profil. Zwei Bauformen nebeneinander hießen Aura,
+Funken und XP-Leiste doppelt zu pflegen, und beim nächsten Umbau fällt die eine mit und die
+andere nicht. Ohne `name` bleibt alles exakt wie bisher; **dagegen steht eine eigene
+Prüfung**, damit die Profil-Fassung nicht still auf der Startseite durchschlägt.
+
+#### 🔄 Die neue Fassung lädt sich selbst, wo nichts verlorengehen kann
+
+Karl hat recht, und der Grund stand schon im Code: **gefragt wird nur, weil ein Neuladen
+wegreißt, was gerade eingetippt ist.** Auf dem Ladeschirm ist nichts eingetippt — die App ist
+noch nicht mal gezeichnet.
+
+| Lage | Was passiert |
+|---|---|
+| 🖼️ **Ladeschirm** | **lädt von selbst** |
+| 🔑 **Anmeldeschirm** | **lädt von selbst** — wer kein Konto offen hat, hat nichts offen |
+| ⌨️ **Irgendwo steht Getipptes** | fragt, wie bisher |
+| 🏋️ **Laufendes Training** | fragt nie, lädt nie |
+| 📱 **Angemeldet und drin** | fragt, wie bisher |
+
+🔴 **Am Anmeldeschirm stehen zwei Felder — E-Mail und Passwort.** Wer die halbe Adresse
+getippt hat und mittendrin ein Neuladen bekommt, tippt sie noch einmal und weiß nicht,
+warum. Deshalb wird die **ganze Seite** auf Getipptes abgesucht, nicht nur das Anmeldefeld.
+⚠️ Ein gesetzter Haken zählt dabei **nicht** als Text — sonst wäre das selbständige Laden
+gesperrt, sobald irgendwo ein Schalter steht: eingebaut und wirkungslos.
+
+#### 🚨 Die Bremse, die wichtiger ist als die Funktion selbst
+
+Bliebe das Erkennen der neuen Fassung aus irgendeinem Grund hängen — ein Service Worker, der
+sich bei jedem Start neu installiert —, **würde sich die App auf dem Ladeschirm endlos neu
+laden.** Kein Absturz, keine Fehlermeldung, nur eine App, die ewig lädt und nicht mehr zu
+benutzen ist.
+
+➡️ Höchstens **ein** selbständiges Laden je Minute, im Sitzungsspeicher vermerkt.
+⚠️ Wirft der Speicher (privater Modus), gilt **nicht erlaubt** — lieber einmal fragen als
+eine Schleife riskieren.
+
+#### 🧪 Am Prüfstand
+
+**943 Prüfungen** (waren 931), alle grün, dazu die vier Datenschutz-Prüfungen.
+**Drei Gegenproben**, alle mit dem erwarteten Rot:
+
+1. Zweiter Kasten im Profil zurück, Endlos-Bremse entfernt → **3 rot**
+2. Riegel gegen Getipptes und laufendes Training weg, Haken zählt mit → **3 rot**
+3. Die Profil-Fassung der Karte schlägt überall durch → **1 rot**
+
 ### v0.081 — die Leiste schwebt, das Zahnrad ist raus
 
 **Karls Ansage vom 11.09.2026:** *„Also Einstellungen können unten damit aus der Leiste raus

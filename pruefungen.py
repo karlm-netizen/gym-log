@@ -5500,6 +5500,112 @@ window.addEventListener('error', e => {
     return fehlt.length === 0 || fehlt.join(', ');
   });
 
+  /* ============ Ein Kasten statt zwei (11.09.2026) ============
+     Karls Meldung: "die 2 oberen Kaesten bitte zusammenfuegen brok ist dort doppelt zu
+     sehen das mag ich nicht". */
+  t('Brock steht im Profil nur einmal', () => {
+    renderProfil();
+    const brocks = [...document.querySelectorAll('#app img')]
+      .filter(i => /brock/i.test(i.getAttribute('src') || ''));
+    return brocks.length === 1 || 'Brock steht ' + brocks.length + ' mal da';
+  });
+  t('Name und Rang stehen in derselben Karte', () => {
+    const sV = session;
+    session = {username:'Karl', access_token:'x', user:{id:'p1', email:'k@example.org'}};
+    renderProfil();
+    const karte = document.querySelector('#app .rankcard');
+    const txt = karte ? karte.textContent : '';
+    session = sV;
+    if (!karte) return 'keine Rang-Karte im Profil';
+    if (txt.indexOf('Karl') < 0) return 'der Name steht nicht in der Karte';
+    return txt.indexOf(equippedRank().name) >= 0 || 'der Rang steht nicht in derselben Karte';
+  });
+  /* \U0001f534 Die Gegenrichtung, und der Grund, warum der Name als Parameter kommt statt als
+     zweite Bauform: dieselbe Karte wird auf der Startseite und in der Rang-Leiter
+     gezeichnet. Ohne diese Pruefung koennte die Profil-Fassung dort still mit durchschlagen
+     -- ein 72-px-Brock und ein leerer Name mitten auf der Startseite. */
+  t('Ohne Namen bleibt die Rang-Karte, wie sie war', () => {
+    const h = rankCardHTML();
+    if (h.indexOf('>Rang<') < 0) return 'die Beschriftung "Rang" fehlt';
+    if (h.indexOf('width:56px') < 0) return 'Brock hat nicht mehr seine 56 px';
+    return h.indexOf('72px') < 0 || 'die Profil-Groesse schlaegt durch';
+  });
+
+  /* ============ Neue Fassung laedt von selbst (11.09.2026) ============
+     Karls Ansage: "Und wenn die App eh einmal im lade screen ist und es eine neue Fassung
+     gab kann sie dann nicht einfach automatisch reingeladen werden"
+     \u26a0\ufe0f Geprueft wird die ENTSCHEIDUNG, nicht das Neuladen: der
+     Service-Worker-Block laeuft im Pruefrahmen nie (die Seite kommt ueber `file://`). */
+  t('Auf dem Ladeschirm laedt die neue Fassung von selbst', () => {
+    return fassungDarfVonSelbst(true, 'home', true, true, false) === true
+      || 'auf dem Ladeschirm wird immer noch gefragt';
+  });
+  t('Am Anmeldeschirm laedt sie auch von selbst', () => {
+    return fassungDarfVonSelbst(true, 'home', false, false, false) === true
+      || 'am Anmeldeschirm wird immer noch gefragt';
+  });
+  /* \u26a0\ufe0f Wer angemeldet und drin ist, wird weiter GEFRAGT. Das ist der ganze Grund, warum
+     es die Leiste ueberhaupt gibt: ein Neuladen reisst weg, was gerade eingetippt ist. */
+  t('Wer angemeldet und drin ist, wird gefragt statt ueberrumpelt', () => {
+    return fassungDarfVonSelbst(true, 'home', false, true, false) === false
+      || 'laedt mitten im Betrieb einfach neu';
+  });
+  /* \U0001f534 Der Fall, an dem die bequeme Fassung Schaden anrichtet: am Anmeldeschirm stehen
+     zwei Felder, E-Mail und Passwort. Wer die halbe Adresse getippt hat und mittendrin ein
+     Neuladen bekommt, tippt sie noch einmal und weiss nicht, warum. */
+  t('Getipptes verhindert das selbstaendige Laden', () => {
+    const a = fassungDarfVonSelbst(true, 'home', true,  false, true);
+    const b = fassungDarfVonSelbst(true, 'home', false, false, true);
+    return (a === false && b === false) || ('Ladeschirm=' + a + ' Anmeldung=' + b);
+  });
+  t('Aus einer laufenden Einheit wird nie von selbst geladen', () => {
+    return fassungDarfVonSelbst(true, 'workout', true, false, false) === false
+      || 'laedt mitten im Training neu';
+  });
+  t('Ohne wartende Fassung passiert gar nichts', () => {
+    return fassungDarfVonSelbst(false, 'home', true, false, false) === false
+      || 'laedt ohne Anlass';
+  });
+  // Und das Teil darunter: was zaehlt ueberhaupt als "getippt"?
+  t('Getippter Text wird wirklich gefunden', () => {
+    const feld = document.createElement('input');
+    feld.type = 'text'; document.body.appendChild(feld);
+    feld.value = 'kar';
+    const voll = etwasGetippt();
+    feld.value = ''; feld.remove();
+    return voll === true || 'der getippte Text wurde nicht bemerkt';
+  });
+  /* \u26a0\ufe0f Ein gesetzter Haken ist kein getippter Text. Zaehlte er mit, waere das
+     selbstaendige Laden praktisch immer gesperrt, sobald irgendwo ein Schalter steht --
+     die Funktion waere eingebaut und wirkungslos. */
+  t('Ein Haken zaehlt nicht als getippter Text', () => {
+    const vorher = etwasGetippt();
+    const box = document.createElement('input');
+    box.type = 'checkbox'; box.checked = true; document.body.appendChild(box);
+    const nachher = etwasGetippt();
+    box.remove();
+    return nachher === vorher || 'ein Haken gilt als getippter Text';
+  });
+  /* \U0001f534 DIE Pruefung an dieser Aenderung, und sie schuetzt vor etwas Schlimmerem als
+     dem Fehlen der Funktion: bliebe das Erkennen der neuen Fassung haengen, wuerde sich die
+     App auf dem Ladeschirm ENDLOS neu laden. Kein Absturz, keine Meldung -- nur eine App,
+     die ewig laedt und nicht mehr zu benutzen ist. */
+  t('Zweimal hintereinander laedt die App nicht von selbst', () => {
+    const jetzt = Date.now();
+    let alt;
+    try { alt = sessionStorage.getItem(SELBST_KEY); sessionStorage.removeItem(SELBST_KEY); }
+    catch (e) { return 'kein Sitzungsspeicher im Pruefrahmen'; }
+    const ersteMal  = selbstladenErlaubt(jetzt);
+    selbstladenMerken(jetzt);
+    const zweiteMal = selbstladenErlaubt(jetzt + 1000);
+    const spaeter   = selbstladenErlaubt(jetzt + 61000);
+    try { if (alt === null) sessionStorage.removeItem(SELBST_KEY);
+          else sessionStorage.setItem(SELBST_KEY, alt); } catch (e) {}
+    if (ersteMal !== true) return 'schon das erste Mal war verboten';
+    if (zweiteMal !== false) return 'die Bremse greift nicht -- Endlosschleife moeglich';
+    return spaeter === true || 'nach einer Minute bleibt es weiter verboten';
+  });
+
   t('Die Profil-Ansicht laesst sich zeichnen', () => {
     renderProfil();
     const txt = document.getElementById('app').textContent;
