@@ -3511,33 +3511,36 @@ window.addEventListener('error', e => {
       {id:'a', antwort:'Hi', gelesen_am:null},
       {id:'b', antwort:'Auch', gelesen_am:null}]));
     setNav();
-    const p = document.querySelector('#nav button[data-nav="settings"] .navpunkt');
+    const p = document.querySelector('#nav button[data-nav="profil"] .navpunkt');
     return (p && p.textContent === '2') || 'gefunden: ' + (p ? p.textContent : 'nichts');
   });
   t('Ohne ungelesene Antwort verschwindet sie wieder', () => {
     localStorage.setItem(POST_KEY, JSON.stringify([
       {id:'a', antwort:'Hi', gelesen_am:'2026-08-25T05:00:00Z'}]));
     setNav();
-    return !document.querySelector('#nav button[data-nav="settings"] .navpunkt') || 'steht noch da';
+    return !document.querySelector('#nav button[data-nav="profil"] .navpunkt') || 'steht noch da';
   });
-  // ⚠️ Sie sitzt am Zahnrad, weil das Postfach dort drin liegt. An 'Trainieren' waere sie
-  // eine Zahl, hinter der nichts steckt.
-  // ⚠️ Seit dem 27.08.2026 gibt es an der Leiste ZWEI Zahlen: die rote am Zahnrad und
-  // die goldene am Pokal. Die Pruefung fragt deshalb gezielt nach der roten -- vorher stand
-  // hier `#nav .navpunkt` und traf ploetzlich die goldene mit.
-  t('Sie sitzt am Zahnrad, nicht woanders', () => {
+  /* ⚠️ Sie sitzt da, wo der Weg ins Postfach anfaengt -- an 'Trainieren' waere sie eine
+     Zahl, hinter der nichts steckt.
+     ✅ 11.09.2026: das ist ab jetzt der PROFIL-Knopf. Bis heute war es das Zahnrad; das
+     ist an diesem Tag aus der Leiste gefallen (Karls Ansage), und die Einstellungen samt
+     Postfach sind seither vom Profil aus erreichbar.
+     ⚠️ Seit dem 27.08.2026 gibt es an der Leiste ZWEI Zahlen: die rote und die goldene
+     am Pokal. Die Pruefung fragt deshalb gezielt nach der roten -- vorher stand hier
+     `#nav .navpunkt` und traf ploetzlich die goldene mit. */
+  t('Sie sitzt am Profil, nicht woanders', () => {
     localStorage.setItem(POST_KEY, JSON.stringify([{id:'a', antwort:'Hi', gelesen_am:null}]));
     setNav();
     const rote = [...document.querySelectorAll('#nav .navpunkt')].filter(p => !p.classList.contains('gold'));
     if (rote.length !== 1) return rote.length + ' rote Punkte statt einem';
-    return rote[0].closest('button').dataset.nav === 'settings'
+    return rote[0].closest('button').dataset.nav === 'profil'
       || 'sitzt an: ' + rote[0].closest('button').dataset.nav;
   });
   t('Mehr als neun werden zu 9+', () => {
     localStorage.setItem(POST_KEY, JSON.stringify(
       Array.from({length:12}, (_,i) => ({id:'x'+i, antwort:'Hi', gelesen_am:null}))));
     setNav();
-    return eq(document.querySelector('#nav button[data-nav="settings"] .navpunkt').textContent, '9+');
+    return eq(document.querySelector('#nav button[data-nav="profil"] .navpunkt').textContent, '9+');
   });
   // 🔴 Die rote Zahl ist eine Anforderung ("da liegt etwas fuer dich"), die goldene eine
   // Belohnung. Saehen sie gleich aus, waere die Unterscheidung nur in meinem Kopf.
@@ -3549,7 +3552,7 @@ window.addEventListener('error', e => {
     sessions = [{ id:'a1', date:Date.now(), entries:[], xp:0, pr:0 }];
     profile.erfolgeGesehen = {};
     setNav();
-    const rot  = document.querySelector('#nav button[data-nav="settings"] .navpunkt');
+    const rot  = document.querySelector('#nav button[data-nav="profil"] .navpunkt');
     const gold = document.querySelector('#nav button[data-nav="erfolge"] .navpunkt');
     const ok = !!rot && !!gold && !rot.classList.contains('gold') && gold.classList.contains('gold');
     profile.erfolgeGesehen = merkG; sessions = merkS;
@@ -3560,7 +3563,7 @@ window.addEventListener('error', e => {
   t('Die Zahl haengt an der Beschriftung, nicht am Knopf', () => {
     localStorage.setItem(POST_KEY, JSON.stringify([{id:'a', antwort:'Hi', gelesen_am:null}]));
     setNav();
-    const p = document.querySelector('#nav button[data-nav="settings"] .navpunkt');
+    const p = document.querySelector('#nav button[data-nav="profil"] .navpunkt');
     return (!!p && !!p.parentElement && p.parentElement.classList.contains('navtxt'))
       || 'haengt an: ' + (p ? p.parentElement.className || p.parentElement.tagName : 'nichts');
   });
@@ -3591,7 +3594,7 @@ window.addEventListener('error', e => {
     const vorherActive = active, vorherView = view;
     active = { start: Date.now(), ex: [] }; view = 'home';
     postfachSpringen();
-    const p = document.querySelector('#nav button[data-nav="settings"] .navpunkt');
+    const p = document.querySelector('#nav button[data-nav="profil"] .navpunkt');
     const txt = p ? p.textContent : null;
     active = vorherActive; view = vorherView;
     return eq(txt, '1');
@@ -4345,10 +4348,14 @@ window.addEventListener('error', e => {
     view = mV; session = mS; render();
     return /rein-r/.test(kl) || 'Klassen: ' + kl;
   });
+  /* ✅ 11.09.2026: hier stand `view = 'settings'`. Seit `settings` kein Reiter mehr ist,
+     findet `reiterZeigen()` dafuer keinen Platz in `REITER` (indexOf === -1) und animiert
+     bewusst gar nicht -- richtig so, aber als Ausgangspunkt fuer diese Pruefung taugt es
+     nicht mehr. `profil` steht an derselben Stelle der Leiste und ist hinter `home`. */
   t('Zurueck kommt von links herein', () => {
     const mV = view, mS = session;
     if(!session) session = { access_token:'t' };
-    view = 'settings'; reiterZeigen('home');
+    view = 'profil'; reiterZeigen('home');
     const kl = document.getElementById('app').className;
     view = mV; session = mS; render();
     return /rein-l/.test(kl) || 'Klassen: ' + kl;
@@ -4685,7 +4692,7 @@ window.addEventListener('error', e => {
   });
 
   // ================================================ Wischen zwischen den Reitern (v41)
-  /* Geprueft wird die ENTSCHEIDUNG, nicht der Finger: welche fuenf Reiter, in welcher
+  /* Geprueft wird die ENTSCHEIDUNG, nicht der Finger: welche vier Reiter, in welcher
      Reihenfolge, und wo nicht gewischt wird. Ein echter Wisch laesst sich hier nicht
      nachstellen -- headless kennt keine Beruehrung. */
   t('Die Reiter stehen in der Reihenfolge der Leiste', () => {
@@ -4724,10 +4731,18 @@ window.addEventListener('error', e => {
     const t2 = getComputedStyle(nav).transform;
     return (t2 === 'none' || t2 === '') || 'nach einem Viewport-Ereignis steht dort: ' + t2;
   });
-  t('Die Leiste klebt unten, nicht am Inhalt', () => {
+  /* ✅ 11.09.2026 umgedreht, nicht geloescht. Karls Ansage: die Leiste soll "rund und
+     schweben" -- sie klebt also NICHT mehr unten an.
+     🔴 Was diese Pruefung eigentlich schuetzt, bleibt unveraendert und ist der wichtigere
+     Teil: `position:fixed`. Die Leiste darf nicht mit dem Inhalt wegscrollen. Genau das
+     stand hier von Anfang an im Namen ("nicht am Inhalt"), und genau das wird weiter
+     verlangt. Dazu kommt neu: sie muss wirklich Abstand halten, sonst waere aus dem
+     Schweben stillschweigend wieder ein Ankleben geworden. */
+  t('Die Leiste scrollt nicht mit und klebt nicht unten an', () => {
     const st = getComputedStyle(document.getElementById('nav'));
-    return (st.position === 'fixed' && st.bottom === '0px')
-      || 'position=' + st.position + ' bottom=' + st.bottom;
+    if (st.position !== 'fixed') return 'position=' + st.position;
+    return (st.bottom !== '0px' && parseFloat(st.bottom) > 0)
+      || 'die Leiste klebt wieder unten an: bottom=' + st.bottom;
   });
   /* Karls Ansage: der Zuruecksetzen-Knopf gehoert zwischen Abmelden und Konto loeschen.
      ⚠️ Sachlich sind die drei eine Leiter: abmelden (nichts weg), zuruecksetzen (Daten
@@ -4829,10 +4844,10 @@ window.addEventListener('error', e => {
     const mV = view;
     postfachSetzen([{id:'a', nummer:1, text:'x', antwort:'Hi', gelesen_am:null, erstellt:new Date().toISOString()}]);
     setNav();
-    const stand = document.querySelector('#nav button[data-nav="settings"] .navpunkt');
+    const stand = document.querySelector('#nav button[data-nav="profil"] .navpunkt');
     if(!stand) return 'die Zahl stand vorher schon nicht da - Pruefung sagt nichts aus';
     view = 'meldung'; renderMeldung();
-    const punkt = document.querySelector('#nav button[data-nav="settings"] .navpunkt');
+    const punkt = document.querySelector('#nav button[data-nav="profil"] .navpunkt');
     view = mV; postfachSetzen([]);
     return punkt === null || 'die Zahl steht noch da: ' + punkt.textContent;
   });
@@ -5252,12 +5267,16 @@ window.addEventListener('error', e => {
   // ================================================ Der neue Reiter
   t('Es gibt einen Erfolge-Reiter in der unteren Leiste', () =>
     !!document.querySelector('#nav button[data-nav="erfolge"]') || 'nicht da');
-  // Karls Ansage: "als 3ter reiter unten zwischen einstellungen und kalorien"
-  // ✅ 11.09.2026: hinten kam `profil` dazu (Karls Entscheidung vom 10.09.).
-  // Erfolge steht unveraendert zwischen Kalorien und Einstellungen -- genau darum geht es.
-  t('Der Reiter steht zwischen Kalorien und Einstellungen', () => {
+  /* Karls Ansage vom 27.08.2026: "als 3ter reiter unten zwischen einstellungen und kalorien"
+     ✅ 11.09.2026, zweite Aenderung an einem Tag: `profil` kam hinten dazu, und
+     `settings` ist ganz aus der Leiste gefallen (Karls Ansage: "Einstellungen koennen
+     unten damit aus der Leiste raus").
+     ⚠️ Was von der urspruenglichen Ansage bleibt und hier geprueft wird: **Erfolge ist
+     der dritte Knopf und steht direkt hinter Kalorien.** Der Nachbar dahinter heisst
+     seit heute Profil statt Einstellungen -- die Stelle ist dieselbe geblieben. */
+  t('Erfolge steht als dritter Reiter hinter Kalorien', () => {
     const reihe = [...document.querySelectorAll('#nav button')].map(b => b.dataset.nav);
-    return eq(reihe.join('|'), 'home|body|erfolge|settings|profil');
+    return eq(reihe.join('|'), 'home|body|erfolge|profil');
   });
   // ⚠️ renderErfolge() direkt, nicht ueber render(): das prueft `session` und springt ohne
   // Anmeldung ins Login-Fenster. Im Prueframen ist niemand angemeldet.
@@ -5283,9 +5302,16 @@ window.addEventListener('error', e => {
   // ============================== Fuenf Symbole, kein Text, Profil rechts (11.09.2026)
   /* Karls Entscheidung vom 10.09.2026 im Wortlaut: "Fuenf Symbole, kein Text,
      Profil rechts." */
-  t('Die Leiste hat fuenf Knoepfe', () => {
+  t('Die Leiste hat vier Knoepfe', () => {
     const n = document.querySelectorAll('#nav button').length;
-    return n === 5 || 'es sind ' + n;
+    return n === 4 || 'es sind ' + n;
+  });
+  /* 🔴 Und ausdruecklich: das Zahnrad ist WEG. Ohne diese Pruefung koennte es bei einem
+     spaeteren Umbau zurueckkommen, ohne dass jemand es merkt -- die Zahl der Knoepfe oben
+     stuende dann eben auf fuenf, und niemand wuesste, ob das Absicht war. */
+  t('Der Einstellungen-Knopf ist aus der Leiste raus', () => {
+    return !document.querySelector('#nav button[data-nav="settings"]')
+      || 'das Zahnrad steht wieder in der Leiste';
   });
   t('Profil steht ganz rechts', () => {
     const reihe = [...document.querySelectorAll('#nav button')].map(b => b.dataset.nav);
@@ -5306,7 +5332,7 @@ window.addEventListener('error', e => {
     b.classList.remove('gate');
     localStorage.setItem(POST_KEY, JSON.stringify([{id:'a', antwort:'Hi', gelesen_am:null}]));
     setNav();
-    const p = document.querySelector('#nav button[data-nav="settings"] .navpunkt');
+    const p = document.querySelector('#nav button[data-nav="profil"] .navpunkt');
     const r = p ? p.getBoundingClientRect() : null;
     localStorage.removeItem(POST_KEY); setNav();
     if (warGate) b.classList.add('gate');
@@ -5360,6 +5386,120 @@ window.addEventListener('error', e => {
   });
 
   // ---------------------------------------------------------------- Die Profil-Ansicht
+  /* ============ Was am Zahnrad hing und mit umziehen musste (11.09.2026) ============
+     Karls Ansage: "Also Einstellungen koennen unten damit aus der Leiste raus und der
+     Leiste soll so rund und schweben sein und ein bisschen transparent."
+
+     \U0001f534 Die rote Zahl aus dem Postfach hing am Einstellungen-Knopf. `navZahl()` steigt
+     bei `!knopf` STILL aus -- waere der Selektor stehengeblieben, waere die Zahl ersatzlos
+     verschwunden: eine Antwort, die es gibt und die niemand sieht, und nirgends wird etwas
+     rot. Zum zweiten Mal in zwei Tagen dieselbe Bauform an derselben Leiste. */
+  t('Die rote Zahl sitzt am Profil-Knopf, nicht mehr am Zahnrad', () => {
+    const b = document.body, warGate = b.classList.contains('gate');
+    b.classList.remove('gate');
+    localStorage.setItem(POST_KEY, JSON.stringify([{id:'a', antwort:'Hi', gelesen_am:null}]));
+    setNav();
+    const p = document.querySelector('#nav button[data-nav="profil"] .navpunkt');
+    const r = p ? p.getBoundingClientRect() : null;
+    const text = p ? p.textContent : '';
+    localStorage.removeItem(POST_KEY); setNav();
+    if (warGate) b.classList.add('gate');
+    if (!r) return 'am Profil-Knopf haengt gar keine Zahl';
+    if (!(r.width > 8 && r.height > 8)) return 'die Zahl ist ' + Math.round(r.width) + ' x ' + Math.round(r.height);
+    return eq(text, '1');
+  });
+  /* \u26a0\ufe0f Sieben Ansichten haben ihre Markierung verloren, als `settings` aus der Leiste
+     fiel. Ohne den neuen Ast in `setNav()` faende die Funktion fuer sie keinen Knopf und
+     die Leiste stuende komplett unmarkiert da -- kein Absturz, nur Orientierungslosigkeit. */
+  t('Einstellungen, Verlauf und Datenschutz markieren Profil', () => {
+    const merk = view;
+    const schlecht = [];
+    ['settings','history','session','exdetail','admin','privacy','meldung'].forEach(v => {
+      view = v; setNav();
+      const an = [...document.querySelectorAll('#nav button.on')].map(b => b.dataset.nav);
+      if (an.join(',') !== 'profil') schlecht.push(v + '->' + (an.join(',') || 'nichts'));
+    });
+    view = merk; setNav();
+    return schlecht.length === 0 || schlecht.join(' | ');
+  });
+  /* \U0001f534 Der einzige Weg in die Einstellungen fuehrt seit heute ueber das Profil. Ohne
+     Zurueck-Pfeil gaebe es von dort keinen sichtbaren Weg heraus -- vorher war das der
+     Reiter in der Leiste, den es nicht mehr gibt. */
+  t('Aus den Einstellungen fuehrt ein Pfeil zurueck ins Profil', () => {
+    const merk = view, sV = session;
+    session = session || {username:'Pruef', access_token:'x', user:{id:'p1', email:'pruef@example.org'}};
+    view = 'settings'; renderSettings();
+    const h = app.innerHTML;
+    view = merk; session = sV;
+    const z = h.indexOf('class="zurueck"');
+    if (z < 0) return 'kein Zurueck-Pfeil in den Einstellungen';
+    return h.slice(z, z + 200).indexOf('data-nav="profil"') >= 0
+      || 'der Pfeil zeigt nicht aufs Profil';
+  });
+
+  /* ---------------- Die Leiste schwebt (Karls Ansage 11.09.2026) ----------------
+     \u26a0\ufe0f Gelesen wird die echte CSS-Regel und nicht `getComputedStyle`: welche Breite der
+     Pruefrahmen hat, steht nicht fest -- bei 900 px und mehr gilt die PC-Fassung, und die
+     nimmt das Schweben absichtlich zurueck. Eine Messung waere damit je nach Fenster mal
+     gruen und mal rot.
+     \U0001f534 `r.cssRules && r.cssRules.length` -- NICHT nur `r.cssRules`: seit Chrome
+     Verschachtelung kann, hat jede Style-Regel eine (leere) Liste, und ein leeres Objekt
+     ist wahr. Dieselbe Falle hat am 06.09.2026 schon eine Pruefung blind gemacht. */
+  const navRegel = (imPC) => {
+    let gefunden = null;
+    const suche = (regeln, drinPC) => {
+      for (const r of Array.from(regeln)) {
+        const pc = drinPC || !!(r.media && String(r.media.mediaText).indexOf('900px') >= 0);
+        const sel = (r.selectorText || '').split(',').map(s => s.trim());
+        if (pc === imPC && sel.indexOf('nav') >= 0 && r.style) gefunden = r.style;
+        if (r.cssRules && r.cssRules.length) suche(r.cssRules, pc);
+      }
+    };
+    for (const bl of Array.from(document.styleSheets)) {
+      try { suche(bl.cssRules, false); } catch (e) {}
+    }
+    return gefunden;
+  };
+  t('Die Leiste ist rund', () => {
+    const s = navRegel(false);
+    if (!s) return 'keine nav-Regel in der Handy-Fassung gefunden';
+    const r = parseFloat(s.borderRadius);
+    return (r > 8) || 'Eckenradius ist ' + (s.borderRadius || 'nicht gesetzt');
+  });
+  t('Die Leiste klebt nicht mehr unten an', () => {
+    const s = navRegel(false);
+    if (!s) return 'keine nav-Regel in der Handy-Fassung gefunden';
+    const b = s.bottom || '';
+    if (!b) return 'kein Abstand nach unten gesetzt';
+    if (b === '0px' || b === '0') return 'die Leiste klebt weiter unten an';
+    /* \U0001f534 Der Geraete-Balken MUSS in dem Abstand stecken. Ohne ihn stuende die Leiste
+       auf einem iPhone im Wischbalken -- genau das, was `padding-bottom` vorher geleistet
+       hat und was beim Umbau leicht verlorengeht. */
+    return b.indexOf('safe-area-inset-bottom') >= 0
+      || 'der Geraete-Balken fehlt im Abstand: ' + b;
+  });
+  t('Die Leiste ist ein bisschen durchscheinend', () => {
+    const s = navRegel(false);
+    if (!s) return 'keine nav-Regel in der Handy-Fassung gefunden';
+    const bg = s.background || s.backgroundColor || '';
+    return bg.indexOf('color-mix') >= 0 || bg.indexOf('rgba') >= 0
+      || 'der Hintergrund ist deckend: ' + (bg || 'nicht gesetzt');
+  });
+  /* \u26a0\ufe0f Und die Gegenrichtung, die genauso wichtig ist: auf dem PC wird die Leiste zur
+     232 px breiten Seitenleiste. Runde Ecken, Schlagschatten und Milchglas waeren dort
+     ein Kasten, der im Nichts haengt. Was in der PC-Fassung nicht ausdruecklich
+     zurueckgenommen wird, bleibt stehen. */
+  t('Auf dem PC nimmt die Seitenleiste das Schweben zurueck', () => {
+    const s = navRegel(true);
+    if (!s) return 'keine nav-Regel in der PC-Fassung gefunden';
+    const fehlt = [];
+    if (parseFloat(s.borderRadius) !== 0) fehlt.push('Eckenradius ' + (s.borderRadius || 'nicht gesetzt'));
+    if ((s.boxShadow || '') !== 'none') fehlt.push('Schatten ' + (s.boxShadow || 'nicht gesetzt'));
+    const bg = s.background || s.backgroundColor || '';
+    if (bg.indexOf('color-mix') >= 0) fehlt.push('Hintergrund noch durchscheinend');
+    return fehlt.length === 0 || fehlt.join(', ');
+  });
+
   t('Die Profil-Ansicht laesst sich zeichnen', () => {
     renderProfil();
     const txt = document.getElementById('app').textContent;

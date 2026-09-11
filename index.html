@@ -170,7 +170,10 @@ setTimeout(function(){
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     -webkit-font-smoothing:antialiased; transition:background .25s}
   /* Kein Kopfbereich mehr — der Abstand nach oben sitzt jetzt am Body. */
-  body{max-width:520px; margin:0 auto; padding:0 0 96px; padding-top:calc(env(safe-area-inset-top) + 18px)}
+  /* ⚠️ 11.09.2026: die 96 px waren fuer eine Leiste, die unten anklebt. Jetzt schwebt
+     sie 10 px ueber dem Rand und der Geraete-Balken kommt noch darunter -- ohne
+     `env(...)` waere das unterste Stueck jeder Seite auf einem iPhone unerreichbar. */
+  body{max-width:520px; margin:0 auto; padding:0 0 calc(env(safe-area-inset-bottom) + 86px); padding-top:calc(env(safe-area-inset-top) + 18px)}
   h1,h2,h3{margin:0; font-weight:700}
   button{font-family:inherit; cursor:pointer; border:none; color:var(--txt)}
   input{font-family:inherit}
@@ -255,7 +258,7 @@ setTimeout(function(){
      ⚠️ Unten statt oben, weil oben schon drei Baender uebereinander stapeln koennen
      (#neufassung, #speicherwarnung, #fehlerbanner) und jede weitere Kombination dort eine
      eigene CSS-Regel braucht. Unten steht es ueber der Leiste, wie der Toast. */
-  #offlineband{position:fixed; left:50%; transform:translateX(-50%); bottom:78px; z-index:55;
+  #offlineband{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(env(safe-area-inset-bottom) + 84px); z-index:55;
     display:none; max-width:88%; padding:8px 14px; border-radius:999px; font-size:12.5px;
     font-weight:600; background:var(--card2); color:var(--muted);
     border:1px solid var(--line); pointer-events:none; text-align:center}
@@ -378,9 +381,17 @@ setTimeout(function(){
   .rotzahl{min-width:20px; height:20px; padding:0 6px; border-radius:99px; background:var(--danger);
     color:#fff; font-size:12px; font-weight:700; display:inline-flex; align-items:center;
     justify-content:center}
-  /* Dieselbe rote Zahl, aber an der unteren Leiste. Sie sitzt am Zahnrad, weil das
-     Postfach dort drin liegt -- eine Zahl an einer Stelle, hinter der nichts steckt,
-     waere schlimmer als keine. */
+  /* Dieselbe rote Zahl, aber an der unteren Leiste.
+     ✅ 11.09.2026: sie sitzt jetzt am PROFIL-Knopf. Vorher hing sie am Zahnrad, weil das
+     Postfach dort drin liegt -- und das Zahnrad ist an diesem Tag aus der Leiste gefallen
+     (Karls Ansage: "Einstellungen koennen unten damit aus der Leiste raus").
+     🔴 Waere sie beim Zahnrad geblieben, haette `navPunktZeichnen()` auf ein Element
+     gezeigt, das es nicht mehr gibt: `navZahl()` steigt bei `!knopf` still aus, und die
+     rote Zahl waere ersatzlos verschwunden. Eine Antwort im Postfach, die niemand sieht,
+     und nirgends wird etwas rot -- dieselbe Bauform wie bei den Beschriftungen tags zuvor.
+     ⚠️ Der Weg dahinter stimmt weiter: die Einstellungen (und damit das Postfach)
+     sind seit v0.080 vom Profil aus erreichbar. Eine Zahl an einer Stelle, hinter der
+     nichts steckt, waere schlimmer als keine. */
   nav button{position:relative}
   /* ⚠️ `.navtxt` ist auf dem Handy bewusst `position:static`. Die Zahl liegt IM Wort-Span,
      positioniert sich dadurch aber gegen den Knopf (der ist `position:relative`) -- also
@@ -694,7 +705,10 @@ setTimeout(function(){
   .sw i{width:20px;height:20px;border-radius:6px; display:block; border:1px solid rgba(255,255,255,.12)}
   .lock{position:absolute; top:10px; right:10px; color:var(--muted)}
   /* timer */
-  #timerbar{position:fixed; left:0; right:0; bottom:56px; z-index:40; max-width:520px; margin:0 auto;
+  /* ⚠️ 11.09.2026 mit der Leiste nach oben gezogen. Die 56 px lagen auf einem iPhone
+     ohnehin schon IM Geraete-Balken-Bereich der Leiste; mit `env(...)` steht die Uhr auf
+     jedem Geraet ueber der Leiste statt darin. */
+  #timerbar{position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 70px); z-index:40; max-width:520px; margin:0 auto;
     padding:8px var(--sp); display:none}
   #timerbar.show{display:block}
   .timer{background:var(--card); border:1px solid var(--accent); border-radius:14px; padding:10px 12px;
@@ -703,8 +717,28 @@ setTimeout(function(){
   .timer .bar{flex:1; height:8px; background:var(--card2); border-radius:99px; overflow:hidden}
   .timer .bar > i{display:block; height:100%; background:var(--accent)}
   .timer .t-btn{background:var(--card2); border:1px solid var(--line); border-radius:10px; padding:8px 9px; font-size:13px; font-weight:700}
-  nav{position:fixed; left:0; right:0; bottom:0; z-index:30; max-width:520px; margin:0 auto; display:flex;
-    background:var(--card); border-top:1px solid var(--line); padding-bottom:env(safe-area-inset-bottom)}
+  /* ---- Die Leiste schwebt (11.09.2026) ----
+     Karls Ansage: "der Leiste soll so rund und schweben sein und ein bisschen transparent".
+
+     ⚠️ `background` steht ZWEIMAL da, und die erste Zeile ist kein Versehen: `color-mix`
+     kennt nicht jeder Browser, und wer es nicht kennt, ueberspringt die ganze Regel. Ohne
+     die deckende Vorgabe davor stuende die Leiste dort ohne Hintergrund -- der Inhalt
+     liefe sichtbar dahinter durch. Lieber undurchsichtig als unlesbar.
+     ⚠️ Dasselbe bei `backdrop-filter`: ohne ihn ist die Leiste einfach nur
+     durchscheinend statt milchig. Das sieht anders aus, aber nicht kaputt.
+     🔴 `env(safe-area-inset-bottom)` wandert vom Innenabstand in den Abstand nach unten.
+     Bliebe es als `padding-bottom` stehen, waere die Leiste auf einem iPhone unten um die
+     Hoehe des Balkens leer aufgeblaeht -- bei einer schwebenden Leiste sieht man das sofort,
+     bei einer angeklebten fiel es nicht auf.
+     ⚠️ Und drei Dinge weiter unten haengen an der Hoehe der Leiste und sind mitgezogen:
+     der Innenabstand des Body, die Pausenuhr und das Offline-Band. */
+  nav{position:fixed; left:10px; right:10px; bottom:calc(env(safe-area-inset-bottom) + 10px);
+    z-index:30; max-width:500px; margin:0 auto; display:flex; border-radius:26px;
+    background:var(--card);
+    background:color-mix(in srgb, var(--card) 76%, transparent);
+    -webkit-backdrop-filter:blur(18px) saturate(170%); backdrop-filter:blur(18px) saturate(170%);
+    border:1px solid color-mix(in srgb, var(--line) 65%, transparent);
+    box-shadow:0 10px 28px rgba(0,0,0,.30), 0 2px 8px rgba(0,0,0,.16)}
   nav button{flex:1; background:none; padding:12px 0 11px; color:var(--muted); display:flex; flex-direction:column;
     align-items:center; gap:3px; font-size:11px}
   nav button.on{color:var(--accent)} nav svg{width:25px;height:25px}
@@ -766,9 +800,17 @@ setTimeout(function(){
     #app.wrap{max-width:980px; margin:0 auto; padding:0 32px}
 
     /* Untere Leiste wird zur Seitenleiste */
+    /* ⚠️ Das Schweben wird hier vollstaendig zurueckgenommen. Eine 232 px breite
+       Seitenleiste mit runden Ecken, Schlagschatten und Milchglas waere kein
+       "wie Instagram", sondern ein Kasten, der im Nichts haengt.
+       🔴 Jede einzelne Eigenschaft der Handy-Fassung muss hier auftauchen: was hier
+       fehlt, bleibt stehen. `border:none` vor `border-right`, sonst hat die Seitenleiste
+       rundum einen Rahmen. */
     nav{top:0; bottom:0; right:auto; left:0; width:232px; max-width:none; flex-direction:column;
-      justify-content:flex-start; gap:4px; padding:26px 14px; border-top:none;
-      border-right:1px solid var(--line)}
+      justify-content:flex-start; gap:4px; padding:26px 14px;
+      border-radius:0; box-shadow:none; background:var(--card);
+      -webkit-backdrop-filter:none; backdrop-filter:none;
+      border:none; border-right:1px solid var(--line)}
     nav:before{content:'Gym-Log'; display:block; font-size:17px; font-weight:800;
       color:var(--txt); padding:0 12px 18px}
     nav button{flex:0 0 auto; flex-direction:row; justify-content:flex-start; gap:12px;
@@ -865,8 +907,6 @@ setTimeout(function(){
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2.7c3.4 3.3 5.3 5.8 5.3 9a5.3 5.3 0 0 1-10.6 0c0-1.9.7-3.3 1.9-4.7.2 1.3.8 2.1 1.7 2.5.6-2.7-.6-4.9 1.7-6.8z"/></svg><span class="navtxt">Kalorien</span></button>
   <button data-nav="erfolge">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M8 3h8v5a4 4 0 0 1-8 0z"/><path d="M8 5H5.5a2.5 2.5 0 0 0 2.5 4"/><path d="M16 5h2.5a2.5 2.5 0 0 1-2.5 4"/><path d="M12 12v4"/><path d="M9 20h6"/><path d="M10 16h4l1 4H9z"/></svg><span class="navtxt">Erfolge</span></button>
-  <button data-nav="settings">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="navtxt">Einstellungen</span></button>
   <button data-nav="profil">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6.2 8-6.2s8 2.2 8 6.2"/></svg><span class="navtxt">Profil</span></button>
 </nav>
@@ -2301,7 +2341,13 @@ function splashWeg(){
    Aussehen getragen wird) -- das ist Profil-Inhalt, egal ob man ueber die Karte auf
    der Startseite oder ueber den neuen Reiter hinkommt. Vorher stand dort
    "Trainieren" markiert; mit zwei Wegen dorthin waere das in einem davon falsch. */
-function setNav(){ const map=(view==='erfolge')?'erfolge':(view==='profil'||view==='rang')?'profil':(view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='admin'||view==='privacy'||view==='meldung')?'settings':(view==='body'||view==='food')?'body':'home';
+/* ✅ 11.09.2026: `settings` ist kein Reiter mehr. Alles, was frueher dort markiert
+   wurde -- Einstellungen selbst, Verlauf, eine einzelne Einheit, Uebungs-Verlauf, Admin,
+   Datenschutz, Meldung -- markiert ab jetzt `profil`, denn genau dort geht der Weg hinein.
+   🔴 Ohne diese Zeile faende `setNav()` fuer diese sieben Ansichten keinen Knopf mehr
+   und die Leiste stuende komplett unmarkiert da: man waere irgendwo in der App, und unten
+   leuchtete nichts. Kein Absturz, nur Orientierungslosigkeit -- und nichts wuerde rot. */
+function setNav(){ const map=(view==='erfolge')?'erfolge':(view==='profil'||view==='rang'||view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='admin'||view==='privacy'||view==='meldung')?'profil':(view==='body'||view==='food')?'body':'home';
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on', b.dataset.nav===map));
   navPunktZeichnen(); }
 /* Die rote Zahl an der unteren Leiste (25.08.2026).
@@ -2325,7 +2371,7 @@ function navZahl(knopf, n, gold){
   knopf.classList.toggle('hat-neu', !!gold);
 }
 function navPunktZeichnen(){
-  navZahl(document.querySelector('#nav button[data-nav="settings"]'), postfachUngelesen(), false);
+  navZahl(document.querySelector('#nav button[data-nav="profil"]'), postfachUngelesen(), false);
   /* 🔴 Golden, nicht rot. Rot heisst in dieser App "da liegt etwas fuer dich"
      (eine Antwort im Postfach). Ein neuer Erfolg ist kein offener Posten, sondern eine
      Belohnung -- und zwei verschiedene Sachen duerfen nicht gleich aussehen. */
@@ -2342,7 +2388,7 @@ function render(){
   if(!session && view==='privacy'){
     /* ⚠️ `gate` BLEIBT gesetzt (Fund-Sucher, Nachlauf 10.09.2026). Die erste
        Fassung nahm die Klasse weg -- damit erschienen fuer den Ausgeloggten die
-       fuenf Reiter und auf dem PC die volle Seitenleiste, mit "Trainieren"
+       vier Reiter und auf dem PC die volle Seitenleiste, mit "Trainieren"
        statisch auf aktiv. Kaputt war nichts (jeder Reiter fuehrt zurueck zur
        Anmeldung), aber es sah aus, als waere man drin.
        Die drei `body.gate`-Regeln (Zeilen 651, 652, 725) sind genau das, was die
@@ -5522,6 +5568,12 @@ function renderErfolge(){
 function fmtZiel(n){ return Math.round(n).toLocaleString('de-DE'); }
 
 function renderSettings(){
+  /* 🔴 Der Zurueck-Pfeil ist neu am 11.09.2026 und keine Zierde: bis heute war
+     "Einstellungen" ein eigener Reiter in der Leiste -- man kam per Antippen hin und per
+     Antippen wieder weg. Seit der Knopf dort raus ist (Karls Ansage), fuehrt der einzige
+     Weg hinein ueber das Profil, und ohne Pfeil gaebe es keinen sichtbaren Weg zurueck.
+     ⚠️ Er zeigt auf `profil` und nicht auf `home`: dorthin gehoert man zurueck, wenn man
+     von dort gekommen ist. */
   const usr='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>';
   // Reihenfolge nach Karls Ansage (05.08.): Trainingsplan ganz oben, alles Konto-artige unten
   // gebuendelt bei „Konto loeschen" — vorher stand der Benutzer-Kasten allein an der Spitze.
@@ -5530,7 +5582,8 @@ function renderSettings(){
   // 06.08.: „Alle Trainingspläne" ist auch hier weg (Karls Ansage). Der Weg dorthin steht auf
   // „Trainieren" — Trainingssachen gehoeren dorthin, nicht in die Einstellungen. Falls es
   // zurueck soll: dieselbe Karte wie in renderHome, data-nav="progs".
-  let h=`<div class="card" data-nav="history" style="cursor:pointer">
+  let h=`${zurueckPfeil('data-nav="profil"', 'Profil')}
+    <div class="card" data-nav="history" style="cursor:pointer">
       <div class="row between"><div class="row" style="gap:10px">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v5h5"/><path d="M12 8v4l3 2"/></svg>
         <b>Verlauf</b></div><span class="muted">›</span></div></div>`;
@@ -6035,7 +6088,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.080';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.081';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -8161,7 +8214,7 @@ window.addEventListener('pagehide',flushSync);
    Karls Ansage: "man soll auf dem Handy zwischen den einzelnen Reitern hin und her switchen
    koennen."
 
-   ⚠️ **Nur zwischen den fuenf Reitern der unteren Leiste**, und nur wenn man gerade auf
+   ⚠️ **Nur zwischen den vier Reitern der unteren Leiste**, und nur wenn man gerade auf
    einem davon steht. Wer in einer Einheit, im Assistenten oder in einer Unteransicht
    (Verlauf, Datenschutz, Meldung) ist, wischt nichts weg -- dort waere ein Wisch ein
    Datenverlust oder mindestens ein verlorener Platz.
@@ -8170,7 +8223,7 @@ window.addEventListener('pagehide',flushSync);
    (dort wischt man den Inhalt), und nicht bei offenem Fenster.
    ⚠️ `passive:true` -- es wird nichts abgefangen, nur zugehoert. Ein Wisch, der das
    normale Scrollen bremst, waere schlimmer als kein Wisch.                                */
-const REITER = ['home','body','erfolge','settings','profil'];
+const REITER = ['home','body','erfolge','profil'];
 /* Einen Reiter zeigen -- mit der Bewegung in die Richtung, in die es geht.
    ⚠️ Steht als eigene Funktion da, weil BEIDE Wege sie brauchen: der Wisch und der Tipp
    auf die untere Leiste. Sonst saehe dasselbe Ziel je nach Weg anders aus. */
@@ -8189,7 +8242,7 @@ function reiterZeigen(ziel){
    Karls Ansage: "man soll auf dem Handy zwischen den einzelnen Reitern hin und her switchen
    koennen." Und danach: es soll "nach richtig ziehen" aussehen.
 
-   ⚠️ **Nur zwischen den fuenf Reitern der unteren Leiste**, und nur wenn man gerade auf
+   ⚠️ **Nur zwischen den vier Reitern der unteren Leiste**, und nur wenn man gerade auf
    einem davon steht. Wer in einer Einheit, im Assistenten oder in einer Unteransicht ist,
    wischt nichts weg -- dort waere ein Wisch ein Datenverlust oder ein verlorener Platz.
    🔴 **Drei Riegel:** nicht aus einem Eingabefeld heraus (dort wischt man Text), nicht

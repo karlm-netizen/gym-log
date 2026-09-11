@@ -4,6 +4,70 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-11
 
+### v0.081 — die Leiste schwebt, das Zahnrad ist raus
+
+**Karls Ansage vom 11.09.2026:** *„Also Einstellungen können unten damit aus der Leiste raus
+und der Leiste soll so rund und schweben sein und ein bisschen transparent."*
+
+#### Was sich ändert
+
+| | |
+|---|---|
+| 🔢 | **Vier Symbole statt fünf** — Trainieren, Kalorien, Erfolge, Profil |
+| ⚙️ | **Das Zahnrad ist aus der Leiste raus.** Der Weg in die Einstellungen geht über das Profil (seit v0.080) |
+| 🫧 | **Die Leiste schwebt:** runde Ecken, 10 px Abstand zum Rand, durchscheinend mit Milchglas dahinter |
+| 👉 | Gewischt wird zwischen **vier** Reitern |
+| 🖥️ | Auf dem PC bleibt es die angeklebte 232-px-Seitenleiste — **das Schweben wird dort vollständig zurückgenommen** |
+
+#### 🔴 Zum zweiten Mal in zwei Tagen dieselbe Falle an derselben Leiste
+
+**Die rote Zahl aus dem Postfach hing am Zahnrad.** Genau der Knopf ist heute aus der Leiste
+gefallen. `navZahl()` steigt bei einem nicht gefundenen Knopf **still** aus — wäre der
+Selektor stehengeblieben, wäre die Zahl **ersatzlos verschwunden**: eine Antwort, die es
+gibt und die niemand sieht, und nirgends wird etwas rot.
+
+➡️ Sie sitzt jetzt am **Profil-Knopf** — dort, wo der Weg ins Postfach anfängt. Die Prüfung
+dazu **misst** die Zahl, statt im Quelltext zu lesen.
+
+#### ⚠️ Drei weitere Sachen, die am Zahnrad hingen
+
+1. **Sieben Ansichten haben ihre Markierung verloren.** Einstellungen, Verlauf, eine
+   einzelne Einheit, Übungs-Verlauf, Admin, Datenschutz und Meldung markierten alle
+   `settings`. Ohne neuen Ast in `setNav()` hätte die Leiste in diesen sieben Ansichten
+   **komplett unmarkiert** dagestanden — kein Absturz, nur Orientierungslosigkeit.
+   Sie markieren jetzt `profil`.
+2. **Die Einstellungen hatten keinen Weg zurück.** Bis heute war es ein Reiter: antippen
+   hin, antippen weg. Jetzt gibt es oben einen **Zurück-Pfeil ins Profil**.
+3. **Der Rückwärts-Wisch.** `settings` steht nicht mehr in `REITER`; die Prüfung dafür
+   ist auf `profil` umgezogen. (Aus den Einstellungen heraus wird jetzt gar nicht mehr
+   animiert — richtig so, es ist kein Reiter mehr.)
+
+#### 📐 Drei Maße hingen an der Höhe der Leiste
+
+Sie schwebt 10 px höher als vorher, und der Geräte-Balken kommt darunter. Mitgezogen:
+der **Innenabstand des Body**, die **Pausenuhr** und das **Offline-Band** — alle drei jetzt
+mit `env(safe-area-inset-bottom)`.
+🔴 **Die Pausenuhr stand mit ihren festen 56 px auf einem iPhone ohnehin schon im
+Balkenbereich der Leiste.** Das ist mit repariert.
+
+#### 🫧 Zwei Zeilen, die doppelt dastehen, und warum
+
+`background` steht **zweimal** in der Regel: `color-mix` kennt nicht jeder Browser, und wer
+es nicht kennt, überspringt die ganze Zeile. Ohne die deckende Vorgabe davor stünde die
+Leiste dort **ohne Hintergrund** und der Inhalt liefe sichtbar dahinter durch.
+**Lieber undurchsichtig als unlesbar.**
+
+#### 🧪 Am Prüfstand
+
+**931 Prüfungen** (waren 923), alle grün, dazu die vier Datenschutz-Prüfungen.
+**Drei Gegenproben**, alle mit dem erwarteten Rot:
+
+1. Den Zahl-Selektor am Zahnrad gelassen → **9 rot**
+2. `setNav`-Ast weg, Zurück-Pfeil weg → **2 rot**
+3. Schweben zurückgedreht, PC nimmt nichts zurück → **5 rot**
+
+Vier Kommentare nachgezogen, die „fünf Reiter" sagten.
+
 ### v0.080 — Schritte-Erinnerung verschwindet, Einstellungen im Profil
 
 Karls zwei Ansagen vom 11.09.2026:
