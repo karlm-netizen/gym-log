@@ -4,6 +4,72 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-11
 
+### v0.083 — die Leiste sitzt tiefer, der Ladeschirm sagt Bescheid
+
+Karls Meldung vom 11.09.2026 mit Bildschirmfoto: **„da sieht man ganz klar das die Leiste
+viel höher ist als bei den anderen"** — und: **„mach es doch so das der Balken dann einfach
+doppelt solange lädt und dort dann steht lade neue Version."**
+
+#### 📐 Nachgemessen statt geraten
+
+Das Foto (iPhone, 1179 × 2556 px = 393 × 852 pt) hat die Sache entschieden:
+
+| | gemessen | angefordert |
+|---|---|---|
+| Leiste seitlich | **11,3 pt** | 10 pt ✅ |
+| Leiste nach unten | **108 pt** | 44 pt ❌ |
+
+Die Seitenränder stimmen **auf 1,3 pt genau** — dieselbe Regel, dieselbe Zeile. Nur der
+Abstand nach unten ist zweieinhalbmal so groß wie angefordert.
+➡️ Damit ist klar, wo es liegt: `env(safe-area-inset-bottom)` meldet auf dem Gerät viel mehr
+als die 34 pt, mit denen hier gerechnet wurde. **Warum, ist von außen nicht zu sehen.**
+
+#### 🧢 Deshalb ein Deckel statt einer Rechnung
+
+Der Abstand nach unten ist jetzt **höchstens 26 px**, egal was `env()` meldet.
+Die Lage der Leiste hängt damit nicht mehr an einer Zahl, die niemand nachprüfen kann.
+
+⚠️ **`min()` steht in einer zweiten Zeile, mit einer einfachen Vorgabe davor** — genau wie
+`color-mix` beim Hintergrund. Ein Browser, der `min()` nicht kennt, überspringt die Zeile;
+ohne die Vorgabe stünde `bottom` auf `auto` und **die Leiste klebte plötzlich oben am
+Bildschirm.** Dagegen steht eine eigene Prüfung, die im Quelltext nachsieht — im Regelwerk
+ist die Vorgabe nicht mehr zu sehen, zwei gleiche Eigenschaften fallen dort zu einer zusammen.
+
+#### 🧹 Und drei Maße, die auf derselben falschen Annahme standen
+
+Innenabstand des Body, Pausenuhr und Offline-Band rechneten seit v0.081 alle mit
+`env(safe-area-inset-bottom)`. **Beim Body wären das rund 184 px totes Feld unter jeder
+Seite gewesen** — vermutlich der zweite Grund, warum das Profil so leer aussah.
+➡️ Alle drei sind jetzt feste Zahlen: die Leiste steht höchstens 26 px über dem Rand und ist
+rund 52 px hoch, ihre Oberkante liegt also nie höher als 78 px. 94 px räumen sie frei.
+⚠️ Dazu eine Prüfung, die die Leiste **wirklich misst** und verlangt, dass der Inhalt
+oberhalb endet.
+
+#### 🔄 Der Ladeschirm sagt jetzt, warum er nochmal kommt
+
+Seit v0.082 lädt die App auf dem Ladeschirm von selbst neu. **Ohne Hinweis sähe man denselben
+Schirm zweimal und hielte es für einen Hänger.**
+
+| | |
+|---|---|
+| 📝 | Statt „Wird geladen…" steht dort **„Lade neue Version…"** |
+| ⏱️ | Der Balken läuft **doppelt so lange** (3600 statt 1800 ms) |
+| 👆 | Auch beim Tippen auf die Leiste — wer tippt, soll genauso sehen, dass gearbeitet wird |
+
+🔴 **Die Prüfung, die dabei wirklich zählt:** der Ladeschirm liegt über der ganzen App, und
+es gibt eine harte Obergrenze (5000 ms), die ihn notfalls wegräumt. Liefe die Mindestzeit
+darüber hinaus, **liefen zwei Uhren gegeneinander** — die Obergrenze nimmt den Schirm weg,
+während die Mindestzeit ihn noch hält. Davor warnt der Kommentar seit dem 23.08.2026, und
+die verdoppelte Zeit ist der erste Fall, der wirklich nah herankommt (3600 gegen 5000).
+
+⚠️ Die Marke liegt im **Sitzungsspeicher** und wird **sofort beim Lesen gelöscht**: bricht
+der Start ab, ist der nächste Versuch wieder ein ganz normaler Start.
+
+#### 🧪 Am Prüfstand
+
+**950 Prüfungen** (waren 943), alle grün, dazu die vier Datenschutz-Prüfungen.
+**Zwei Gegenproben**, beide mit dem erwarteten Rot (**3** und **3**).
+
 ### v0.082 — ein Kasten im Profil, neue Fassung lädt von selbst
 
 Karls zwei Meldungen vom 11.09.2026:

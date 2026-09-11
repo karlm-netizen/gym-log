@@ -80,7 +80,36 @@ var SPLASH_HOECHSTENS = 5000;
 //
 // ⚠️ Muss unter SPLASH_HOECHSTENS liegen, sonst laufen zwei Uhren gegeneinander:
 // die Obergrenze raeumte den Schirm weg, waehrend die Mindestzeit ihn noch haelt.
-var SPLASH_MINDESTENS = 1800;
+/* ---- Kommt dieser Start von einer neuen Fassung? (11.09.2026) ----
+   Karls Ansage: "Wenn die neue Fassung geladen wird dann laedst du es ja nochmal aber mach
+   es doch so das der Balken dann einfach doppelt solange laedt und dort dann steht lade
+   neue Version."
+
+   \u2705 Der Punkt dahinter: seit heute laedt die App auf dem Ladeschirm von selbst neu.
+   Ohne einen Hinweis saehe man denselben Schirm zweimal und wuesste nicht, warum -- das
+   sieht nach Haenger aus, nicht nach Arbeit.
+
+   \u26a0\ufe0f `sessionStorage` und nicht `localStorage`: die Marke gilt fuer GENAU diesen einen
+   Neustart. Im localStorage stuende sie auch noch beim naechsten Oeffnen in einer Woche.
+   \u26a0\ufe0f Sofort geloescht, nicht erst am Ende: bricht der Start ab, soll der naechste
+   Versuch wieder ein ganz normaler Start sein. */
+var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
+var NEUE_FASSUNG = false;
+try {
+  if (sessionStorage.getItem(NEUE_FASSUNG_KEY) === '1') {
+    NEUE_FASSUNG = true;
+    sessionStorage.removeItem(NEUE_FASSUNG_KEY);
+  }
+} catch (e) {}
+/* Als eigene Funktionen, damit der Pruefstand sie anfassen kann -- der Rest dieses Blocks
+   laeuft beim Start genau einmal und ist danach nicht mehr zu erreichen.
+   \U0001f534 `splashDauer(true)` MUSS unter `SPLASH_HOECHSTENS` bleiben. Sonst raeumt die
+   Obergrenze den Schirm weg, waehrend die Mindestzeit ihn noch haelt -- zwei Uhren, die
+   gegeneinander laufen. Genau davor warnt der Kommentar an `SPLASH_MINDESTENS` seit dem
+   23.08.2026, und die doppelte Zeit ist der erste Fall, der wirklich nahe herankommt. */
+function splashDauer(neueFassung){ return neueFassung ? 3600 : 1800; }
+function splashSatz(neueFassung){ return neueFassung ? 'Lade neue Version\u2026' : 'Wird geladen\u2026'; }
+var SPLASH_MINDESTENS = splashDauer(NEUE_FASSUNG);
 var splashSeit = Date.now();
 
 // ---- Der Balken misst jetzt etwas (10.09.2026) ----
@@ -170,10 +199,13 @@ setTimeout(function(){
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     -webkit-font-smoothing:antialiased; transition:background .25s}
   /* Kein Kopfbereich mehr — der Abstand nach oben sitzt jetzt am Body. */
-  /* ⚠️ 11.09.2026: die 96 px waren fuer eine Leiste, die unten anklebt. Jetzt schwebt
-     sie 10 px ueber dem Rand und der Geraete-Balken kommt noch darunter -- ohne
-     `env(...)` waere das unterste Stueck jeder Seite auf einem iPhone unerreichbar. */
-  body{max-width:520px; margin:0 auto; padding:0 0 calc(env(safe-area-inset-bottom) + 86px); padding-top:calc(env(safe-area-inset-top) + 18px)}
+  /* ✅ 11.09.2026, zweiter Anlauf: feste Zahl statt `env(...)`. Die Leiste steht seit der
+     Messung an Karls Bildschirmfoto **hoechstens 26 px** ueber dem Rand und ist rund 52 px
+     hoch -- ihre Oberkante liegt also nie hoeher als 78 px. 94 px Abstand raeumen sie mit
+     Luft frei, auf jedem Geraet und ohne eine Zahl, die von hier aus niemand nachmessen kann.
+     🔴 Der erste Anlauf rechnete `env(safe-area-inset-bottom) + 86px`. Meldet `env()`
+     (wie gemessen) rund 98 pt, waeren das **184 px totes Feld** unter jeder Seite. */
+  body{max-width:520px; margin:0 auto; padding:0 0 94px; padding-top:calc(env(safe-area-inset-top) + 18px)}
   h1,h2,h3{margin:0; font-weight:700}
   button{font-family:inherit; cursor:pointer; border:none; color:var(--txt)}
   input{font-family:inherit}
@@ -258,7 +290,7 @@ setTimeout(function(){
      ⚠️ Unten statt oben, weil oben schon drei Baender uebereinander stapeln koennen
      (#neufassung, #speicherwarnung, #fehlerbanner) und jede weitere Kombination dort eine
      eigene CSS-Regel braucht. Unten steht es ueber der Leiste, wie der Toast. */
-  #offlineband{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(env(safe-area-inset-bottom) + 84px); z-index:55;
+  #offlineband{position:fixed; left:50%; transform:translateX(-50%); bottom:100px; z-index:55;
     display:none; max-width:88%; padding:8px 14px; border-radius:999px; font-size:12.5px;
     font-weight:600; background:var(--card2); color:var(--muted);
     border:1px solid var(--line); pointer-events:none; text-align:center}
@@ -705,10 +737,10 @@ setTimeout(function(){
   .sw i{width:20px;height:20px;border-radius:6px; display:block; border:1px solid rgba(255,255,255,.12)}
   .lock{position:absolute; top:10px; right:10px; color:var(--muted)}
   /* timer */
-  /* ⚠️ 11.09.2026 mit der Leiste nach oben gezogen. Die 56 px lagen auf einem iPhone
-     ohnehin schon IM Geraete-Balken-Bereich der Leiste; mit `env(...)` steht die Uhr auf
-     jedem Geraet ueber der Leiste statt darin. */
-  #timerbar{position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 70px); z-index:40; max-width:520px; margin:0 auto;
+  /* ✅ 88 px: knapp ueber der Oberkante der Leiste (hoechstens 78 px). Feste Zahl aus
+     demselben Grund wie beim Body -- siehe die Messung dort. Die alten 56 px lagen auf
+     einem iPhone im Bereich der Leiste, das ist damit mit erledigt. */
+  #timerbar{position:fixed; left:0; right:0; bottom:88px; z-index:40; max-width:520px; margin:0 auto;
     padding:8px var(--sp); display:none}
   #timerbar.show{display:block}
   .timer{background:var(--card); border:1px solid var(--accent); border-radius:14px; padding:10px 12px;
@@ -732,7 +764,21 @@ setTimeout(function(){
      bei einer angeklebten fiel es nicht auf.
      ⚠️ Und drei Dinge weiter unten haengen an der Hoehe der Leiste und sind mitgezogen:
      der Innenabstand des Body, die Pausenuhr und das Offline-Band. */
-  nav{position:fixed; left:10px; right:10px; bottom:calc(env(safe-area-inset-bottom) + 10px);
+  /* 🔴 11.09.2026 NACHGEMESSEN an Karls Bildschirmfoto (iPhone, 1179 x 2556 = 393 x 852 pt):
+     seitlich kamen die 10 px auf 1,3 pt genau an -- **der Abstand nach unten war 108 pt
+     statt der angeforderten 44.** `env(safe-area-inset-bottom)` meldet auf dem Geraet also
+     deutlich mehr als die 34 pt, mit denen hier gerechnet wurde. Warum, ist von aussen nicht
+     zu sehen; nachgerechnet ist dagegen, DASS es so ist.
+     ➡️ Der Wert wird deshalb GEDECKELT statt addiert: nach unten hoechstens 26 px, egal
+     was `env()` meldet. Damit haengt die Lage der Leiste nicht mehr an einer Zahl, die von
+     hier aus niemand nachpruefen kann -- sie steht ueber dem Wischbalken und nie wieder
+     mitten auf der Seite.
+     ⚠️ `min()` steht wie `color-mix` weiter unten in einer ZWEITEN Zeile. Ein Browser,
+     der es nicht kennt, ueberspringt die Zeile -- ohne die einfache Vorgabe davor stuende
+     `bottom` dann auf `auto`, und die Leiste klebte ploetzlich OBEN am Bildschirm. */
+  nav{position:fixed; left:10px; right:10px;
+    bottom:14px;
+    bottom:min(calc(env(safe-area-inset-bottom) + 10px), 26px);
     z-index:30; max-width:500px; margin:0 auto; display:flex; border-radius:26px;
     background:var(--card);
     background:color-mix(in srgb, var(--card) 76%, transparent);
@@ -894,6 +940,9 @@ setTimeout(function(){
   <div class="unter">Dein Training. Dein Fortschritt.</div>
   <img id="splashMon" src="brock.png" width="132" height="132" alt="" aria-hidden="true">
   <div class="laedt">Wird geladen…</div>
+  <script>/* Direkt hinter dem Element, damit der Satz steht, bevor gezeichnet wird. */
+  (function(){ var l = document.querySelector('#splash .laedt');
+    if (l) l.textContent = splashSatz(NEUE_FASSUNG); })();</script>
   <div class="balken"><i></i></div>
 </div>
 <main id="app" class="wrap"></main>
@@ -6110,7 +6159,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.082';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.083';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -8416,6 +8465,7 @@ if('serviceWorker' in navigator){
     if(fassungDarfVonSelbst(fassungWartet, view, splashNochDa(), !!session, etwasGetippt())
        && selbstladenErlaubt(jetzt)){
       selbstladenMerken(jetzt);
+      neueFassungMerken();
       flushSync();          // erst wegschreiben, dann neu laden -- wie beim Tippen auf die Leiste
       location.reload();
       return;
@@ -8423,7 +8473,16 @@ if('serviceWorker' in navigator){
     if(fassungsLeisteFaellig(fassungWartet, view)) leiste.classList.add('show');
   };
 
+  /* Die Marke setzen, damit der Ladeschirm gleich weiss, warum er nochmal kommt.
+     ⚠️ Auf BEIDEN Wegen -- von Hand getippt wie von selbst. Wer tippt, weiss zwar,
+     was er ausgeloest hat; er soll aber genauso sehen, dass der Schirm arbeitet und
+     nicht haengt. */
+  function neueFassungMerken(){
+    try{ sessionStorage.setItem(NEUE_FASSUNG_KEY, '1'); }catch(e){}
+  }
+
   leiste.addEventListener('click', () => {
+    neueFassungMerken();
     flushSync();            // erst wegschreiben, dann neu laden -- sonst kostet der Klick Daten
     location.reload();
   });

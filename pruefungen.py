@@ -5478,6 +5478,72 @@ window.addEventListener('error', e => {
     return b.indexOf('safe-area-inset-bottom') >= 0
       || 'der Geraete-Balken fehlt im Abstand: ' + b;
   });
+  /* \U0001f534 NACHGEMESSEN am 11.09.2026 an Karls Bildschirmfoto (iPhone, 1179 x 2556):
+     seitlich kamen die 10 px auf 1,3 pt genau an -- der Abstand nach unten war 108 pt
+     statt der angeforderten 44. `env(safe-area-inset-bottom)` meldet dort also viel mehr
+     als die 34 pt, mit denen gerechnet wurde. Seitdem ist der Wert gedeckelt.
+     \u26a0\ufe0f Diese Pruefung haelt genau den Deckel fest. Ohne ihn haengt die Lage der Leiste
+     wieder an einer Zahl, die von hier aus niemand nachmessen kann -- und sie stuende beim
+     naechsten Mal wieder mitten auf der Seite, ohne dass irgendwo etwas rot wird. */
+  t('Der Abstand der Leiste nach unten ist gedeckelt', () => {
+    const s = navRegel(false);
+    if (!s) return 'keine nav-Regel in der Handy-Fassung gefunden';
+    const b = s.bottom || '';
+    return b.indexOf('min(') >= 0 || 'ohne Deckel: bottom=' + (b || 'nicht gesetzt');
+  });
+  /* \U0001f534 Und die einfache Vorgabe DAVOR. Ein Browser, der `min()` nicht kennt, ueberspringt
+     die Zeile -- ohne sie stuende `bottom` auf `auto` und die Leiste klebte OBEN am
+     Bildschirm. Im Regelwerk ist sie nicht mehr zu sehen (zwei gleiche Eigenschaften fallen
+     dort zu einer zusammen), deshalb wird hier im Quelltext nachgesehen. */
+  t('Vor dem Deckel steht eine einfache Vorgabe', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const i = q.indexOf('bottom:min(calc(env(safe-area-inset-bottom)');
+    if (i < 0) return 'die gedeckelte Zeile steht nicht im Quelltext';
+    return q.slice(Math.max(0, i - 120), i).indexOf('bottom:14px') >= 0
+      || 'keine einfache Vorgabe vor der min()-Zeile';
+  });
+  /* \u26a0\ufe0f Und das Verhaeltnis, an dem beim naechsten Umbau am ehesten etwas verrutscht:
+     der Inhalt jeder Seite muss UEBER der Leiste enden. Gemessen wird die Leiste wirklich,
+     statt die Zahlen aus dem Regelwerk gegeneinanderzuhalten. */
+  t('Der Inhalt endet oberhalb der Leiste', () => {
+    const b = document.body, warGate = b.classList.contains('gate');
+    b.classList.remove('gate');
+    const nav = document.getElementById('nav');
+    const hoehe = nav.getBoundingClientRect().height;
+    const unten = parseFloat(getComputedStyle(nav).bottom) || 0;
+    const luft  = parseFloat(getComputedStyle(b).paddingBottom) || 0;
+    if (warGate) b.classList.add('gate');
+    if (!(hoehe > 10)) return 'die Leiste ist ' + Math.round(hoehe) + ' px hoch - nicht messbar';
+    return (luft >= unten + hoehe)
+      || ('Luft ' + Math.round(luft) + ' px, Leiste braucht ' + Math.round(unten + hoehe) + ' px');
+  });
+
+  /* ============ Der Ladeschirm sagt Bescheid (11.09.2026) ============
+     Karls Ansage: "mach es doch so das der Balken dann einfach doppelt solange laedt und
+     dort dann steht lade neue Version."
+     \u2705 Der Punkt dahinter: seit v0.082 laedt die App auf dem Ladeschirm von selbst neu.
+     Ohne Hinweis saehe man denselben Schirm zweimal und hielte es fuer einen Haenger. */
+  t('Bei einer neuen Fassung laedt der Balken doppelt so lange', () => {
+    return splashDauer(true) === splashDauer(false) * 2
+      || (splashDauer(false) + ' -> ' + splashDauer(true));
+  });
+  /* \U0001f534 DIE Pruefung an dieser Aenderung. Der Ladeschirm liegt UEBER der ganzen App; es
+     gibt deshalb eine harte Obergrenze, die ihn notfalls wegraeumt. Liefe die Mindestzeit
+     darueber hinaus, liefen zwei Uhren gegeneinander: die Obergrenze nimmt den Schirm weg,
+     waehrend die Mindestzeit ihn noch haelt. Davor warnt der Kommentar seit dem 23.08.2026 --
+     und die verdoppelte Zeit ist der erste Fall, der wirklich nahe herankommt. */
+  t('Die doppelte Ladezeit bleibt unter der harten Obergrenze', () => {
+    return splashDauer(true) < SPLASH_HOECHSTENS
+      || (splashDauer(true) + ' ms Mindestzeit gegen ' + SPLASH_HOECHSTENS + ' ms Obergrenze');
+  });
+  t('Der Ladeschirm sagt, dass eine neue Fassung kommt', () => {
+    return /neue Version/i.test(splashSatz(true)) || 'dort steht: ' + splashSatz(true);
+  });
+  t('Ohne neue Fassung steht der gewohnte Satz da', () => {
+    const s = splashSatz(false);
+    return (/Wird geladen/.test(s) && !/Version/i.test(s)) || 'dort steht: ' + s;
+  });
+
   t('Die Leiste ist ein bisschen durchscheinend', () => {
     const s = navRegel(false);
     if (!s) return 'keine nav-Regel in der Handy-Fassung gefunden';
