@@ -4,6 +4,50 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-11
 
+### v0.087 — die Leiste sitzt auf jeder Seite gleich hoch
+
+**Karls Meldung**, mit zwei Bildern vom selben Moment: *„guck dochmal wie unterschiedlich
+hoch die sind"*.
+
+#### 📐 Nachgemessen — gleiche Methode, gleiche Leiste
+
+| Seite | Abstand der Leiste nach unten |
+|---|---|
+| **Erfolge** (lange Seite, gescrollt) | **46,0 pt** |
+| **Profil** (kurze Seite, scrollt nicht) | **104,7 pt** |
+
+**58,7 pt Unterschied.** Erkannt wurde die Leiste dabei an ihrer Breite — sie reicht weiter
+nach außen als jede Karte, dadurch lässt sie sich nicht mit dem Inhalt verwechseln.
+
+#### 🔴 Die Ursache lag nicht an der Leiste
+
+Auf einer Seite, die **scrollt**, schrumpft iOS die Browserleiste weg und gibt der Seite mehr
+Platz. Die Leiste hängt am unteren Rand des **nutzbaren** Bereichs — und der ist auf einer
+kurzen Seite kleiner.
+
+➡️ **Das Profil war die einzige Seite der App, die kürzer als der Bildschirm ist.** Genau
+deshalb fiel es dort auf und sonst nirgends.
+
+#### ✅ Die Gegenmaßnahme
+
+`body{min-height:calc(100vh + 1px)}` — jede Seite ist mindestens bildschirmhoch, der nutzbare
+Bereich damit überall gleich groß, die Leiste überall an derselben Stelle.
+
+⚠️ **`vh` und nicht `dvh`, und das ist der Punkt, an dem es unsichtbar falsch geworden wäre:**
+`dvh` ist der *geschrumpfte* Bereich — die Seite wäre darin genau bildschirmhoch, würde
+**nicht** scrollen, die Browserleiste bliebe stehen und der Unterschied genauso. Auf iOS
+meint `vh` seit jeher den großen Bereich. **Gegen diese Falle steht eine eigene Prüfung.**
+
+⚠️ Auf dem PC zurückgenommen: dort gibt es keine Browserleiste, die wegschrumpft — der eine
+Pixel wäre nur ein Rollbalken, der immer dasteht und nichts tut.
+
+💬 **Der Preis, offen gesagt:** ein Pixel Leerlauf am Ende kurzer Seiten. Das ist alles.
+
+#### 🧪 Am Prüfstand
+
+**959 Prüfungen**, alle grün. **Zwei Gegenproben**, beide mit dem erwarteten Rot: Mindesthöhe
+entfernt → rot, und `dvh` statt `vh` → ebenfalls rot.
+
 ### v0.086 — alle stehen wieder in der Bestenliste
 
 **Karls Ansage:** *„mach es bitte so wie vorher ganz einfach das man alle xp sieht

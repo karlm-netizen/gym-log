@@ -5460,6 +5460,48 @@ window.addEventListener('error', e => {
     }
     return gefunden;
   };
+  /* ============ Die Leiste sass je nach Seite anders hoch (11.09.2026) ============
+     Karls Meldung mit zwei Bildern vom selben Moment: "guck dochmal wie unterschiedlich
+     hoch die sind". NACHGEMESSEN, gleiche Methode, gleiche Leiste:
+       Erfolge (lange Seite, gescrollt)      46,0 pt Abstand nach unten
+       Profil  (kurze Seite, scrollt nicht) 104,7 pt   -> 58,7 pt Unterschied
+
+     \U0001f534 Die Ursache lag NICHT an der Leiste: auf einer Seite, die scrollt, schrumpft iOS
+     die Browserleiste weg und gibt der Seite mehr Platz. Die Leiste haengt am unteren Rand
+     des NUTZBAREN Bereichs -- und der ist auf einer kurzen Seite kleiner. Das Profil war
+     die einzige Seite der App, die kuerzer als der Bildschirm ist.
+     \u26a0\ufe0f Diese Pruefung haelt die Gegenmassnahme fest. Faellt sie weg, kommt der
+     Unterschied zurueck -- und zwar nur auf kurzen Seiten und nur auf dem Handy, also
+     genau dort, wo beim Durchsehen am PC niemand hinsieht. */
+  t('Jede Seite ist mindestens bildschirmhoch', () => {
+    const s = (() => {
+      let gefunden = null;
+      const suche = (regeln, imPC) => {
+        for (const r of Array.from(regeln)) {
+          const pc = imPC || !!(r.media && String(r.media.mediaText).indexOf('900px') >= 0);
+          const sel = (r.selectorText || '').split(',').map(x => x.trim());
+          if (!pc && sel.indexOf('body') >= 0 && r.style && r.style.minHeight) gefunden = r.style.minHeight;
+          if (r.cssRules && r.cssRules.length) suche(r.cssRules, pc);
+        }
+      };
+      for (const bl of Array.from(document.styleSheets)) {
+        try { suche(bl.cssRules, false); } catch (e) {}
+      }
+      return gefunden;
+    })();
+    if (!s) return 'keine Mindesthoehe am body in der Handy-Fassung';
+    if (s.indexOf('vh') < 0) return 'die Mindesthoehe haengt nicht am Bildschirm: ' + s;
+    /* \U0001f534 `dvh` waere hier falsch und zwar unsichtbar falsch: das ist der GESCHRUMPFTE
+       Bereich, die Seite waere darin genau bildschirmhoch und scrollte NICHT -- die
+       Browserleiste bliebe stehen und der Unterschied genauso. Auf iOS meint `vh` seit
+       jeher den grossen Bereich, und genau der wird gebraucht. */
+    if (/\ddvh|\(dvh|\s dvh|dvh/.test(s)) return 'mit dvh gerechnet statt vh: ' + s;
+    /* Der Browser schreibt `calc(100vh + 1px)` zu `calc(1px + 100vh)` um -- gefragt wird
+       deshalb NUR, ob der eine Pixel drinsteht, nicht an welcher Stelle. Eine Pruefung,
+       die an der Schreibweise haengt, prueft die Schreibweise und nicht die Sache. */
+    return /1px/.test(s) || 'ohne den einen Pixel Ueberlauf scrollt die Seite nicht: ' + s;
+  });
+
   t('Die Leiste ist rund', () => {
     const s = navRegel(false);
     if (!s) return 'keine nav-Regel in der Handy-Fassung gefunden';

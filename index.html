@@ -205,6 +205,24 @@ setTimeout(function(){
      Luft frei, auf jedem Geraet und ohne eine Zahl, die von hier aus niemand nachmessen kann.
      🔴 Der erste Anlauf rechnete `env(safe-area-inset-bottom) + 86px`. Meldet `env()`
      (wie gemessen) rund 98 pt, waeren das **184 px totes Feld** unter jeder Seite. */
+  /* ---- Jede Seite mindestens bildschirmhoch (11.09.2026) ----
+     Karls Meldung mit zwei Bildern vom selben Moment: "guck dochmal wie unterschiedlich
+     hoch die sind".
+     NACHGEMESSEN, gleiche Methode, gleiche Leiste:
+       Erfolge (lange Seite, gescrollt)      46,0 pt Abstand nach unten
+       Profil  (kurze Seite, scrollt nicht) 104,7 pt
+     Das sind 58,7 pt Unterschied, und die Ursache liegt NICHT im CSS der Leiste: auf einer
+     Seite, die scrollt, schrumpft iOS die Browserleiste weg und gibt der Seite mehr Platz.
+     Die Leiste haengt am unteren Rand des nutzbaren Bereichs -- und der ist auf einer
+     kurzen Seite kleiner.
+     Das Profil war die einzige Seite der App, die kuerzer als der Bildschirm ist.
+     Mit dieser Zeile ist JEDE Seite mindestens bildschirmhoch, der nutzbare Bereich damit
+     ueberall gleich gross und die Leiste ueberall an derselben Stelle.
+     `100vh` und nicht `100dvh`: auf iOS meint `vh` seit jeher den GROSSEN Bereich (ohne
+     Browserleiste). Genau den braucht es hier -- mit `dvh` waere die Seite im
+     geschrumpften Zustand wieder genau bildschirmhoch und scrollte nicht.
+     Der Preis ist ein Pixel Leerlauf am Ende kurzer Seiten. Das ist der ganze Preis. */
+  body{min-height:calc(100vh + 1px)}
   body{max-width:520px; margin:0 auto; padding:0 0 94px; padding-top:calc(env(safe-area-inset-top) + 18px)}
   h1,h2,h3{margin:0; font-weight:700}
   button{font-family:inherit; cursor:pointer; border:none; color:var(--txt)}
@@ -842,7 +860,10 @@ setTimeout(function(){
      alles ueber Umbrueche, damit es eine App bleibt.
      ============================================================ */
   @media (min-width: 900px){
-    body{max-width:none; padding:0 0 40px 232px; padding-top:32px}
+    /* Auf dem PC zurueckgenommen: dort gibt es keine Browserleiste, die je nach
+       Seitenlaenge wegschrumpft -- der eine Pixel Ueberlauf waere nur ein
+       Rollbalken, der immer dasteht und nichts tut. */
+    body{max-width:none; padding:0 0 40px 232px; padding-top:32px; min-height:auto}
     #app.wrap{max-width:980px; margin:0 auto; padding:0 32px}
 
     /* Untere Leiste wird zur Seitenleiste */
@@ -6163,7 +6184,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.086';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.087';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
