@@ -4,6 +4,63 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-11
 
+### v0.088 — Freunde: eigener Code, Anfrage mit Bestätigung, Bestenliste darunter
+
+Karls Entscheidung vom 10.09.2026 auf die Frage, wie man Freunde hinzufügt:
+**„Mit Code und Bestätigung."** Und am 11.09.: *„FreundeFeature hinzufügen bitte da soll man
+bitte auch über Profil machen können"*.
+
+#### Was es kann
+
+| | |
+|---|---|
+| 🔑 | **Ein eigener Code** — anzeigen, kopieren, weitergeben |
+| ➕ | **Code eintippen → Anfrage** · die andere Seite muss bestätigen, vorher passiert nichts |
+| 📥 | **Anfragen stehen ganz oben** auf der Seite, mit Annehmen und Ablehnen |
+| 🏆 | **Bestenliste unter Freunden** — Name und XP, sonst nichts |
+| 👤 | **Einstieg im Profil**, mit roter Zahl, wenn eine Anfrage wartet |
+| ✂️ | Freundschaft beenden, mit doppeltem Tippen |
+
+#### 🔴 Der Code wird nie nachgeschlagen, nur mitgeschickt
+
+`gym_freunde_code` hat **mit Absicht keine Leseregel.** Gäbe es eine, wäre
+`GET /gym_freunde_code?select=*` eine Anfrage ohne Filter — und damit **die komplette Liste
+aller Codes**. Genau der Fehler, den `email_for_username` am 24.08.2026 hatte.
+➡️ Der Abgleich passiert **innerhalb der Datenbank**, in `freund_anfragen()`.
+
+#### ⚠️ Zwei Stellen, an denen es still falsch geworden wäre
+
+1. **Eine Anfrage, die ICH abgeschickt habe, wartet nicht auf mich.** Zählte sie mit, stünde
+   im Profil eine rote Zahl, **die man nicht wegbekommt** — die eigene Anfrage kann man ja
+   nicht annehmen. Eine Nachricht, die nie verschwindet, ist keine mehr.
+2. **Eine Freundschaft ist EINE Zeile je Paar**, und die kleinere Kennung steht immer in `a`
+   (dafür steht ein `check` in der Datenbank). Wer die Reihenfolge rät, trifft **in der
+   Hälfte der Fälle nichts** — und ohne `Prefer: return=representation` sähe auch das nach
+   Erfolg aus. Dieselbe Falle wie in der Bestenliste am 10.09.2026.
+
+#### ⏸️ Die Datenbank fehlt noch — und das sagt die App auch
+
+`supabase-freunde.sql` wird von Hand eingespielt. Solange das nicht passiert ist, antwortet
+der Server mit **404**, und die Seite sagt es: *„Die Freunde-Funktion ist noch nicht
+eingerichtet."* Alles andere heißt „gerade nicht" und lässt den alten Stand stehen — dieselbe
+Trennung wie an der Bestenliste seit dem 01.09.2026, und aus demselben Grund.
+
+#### 🛡️ Die Datenschutzerklärung ist mitgezogen
+
+Neu darin: der **Freundes-Code**, die **Anfragen mit dem Namen des Absenders** und die Liste,
+**mit wem man befreundet ist**. Dazu ein eigener Abschnitt: beim Anfragen geht der Name mit,
+der Code selbst ist nicht abfragbar, und **Freunde sehen voneinander nur Name und XP** —
+dieselben zwei Angaben wie in der Bestenliste.
+⚠️ **Der Prüfstand hat das nicht angemahnt.** Neue Tabellen in Supabase sind für ihn nichts
+Auffälliges — die Erklärung wäre still hinter dem Code zurückgeblieben.
+
+#### 🧪 Am Prüfstand
+
+**969 Prüfungen** (waren 959), alle grün, dazu die vier Datenschutz-Prüfungen.
+**Zehn neue**, zwei davon asynchron mit ausgetauschtem `fetch` — die prüfen die tatsächlich
+abgeschickte Adresse, nicht nur den Rückgabewert.
+**Zwei Gegenproben**, beide mit dem erwarteten Rot (**3** und **3**).
+
 ### v0.087 — die Leiste sitzt auf jeder Seite gleich hoch
 
 **Karls Meldung**, mit zwei Bildern vom selben Moment: *„guck dochmal wie unterschiedlich

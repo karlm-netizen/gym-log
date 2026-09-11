@@ -2417,7 +2417,7 @@ function splashWeg(){
    🔴 Ohne diese Zeile faende `setNav()` fuer diese sieben Ansichten keinen Knopf mehr
    und die Leiste stuende komplett unmarkiert da: man waere irgendwo in der App, und unten
    leuchtete nichts. Kein Absturz, nur Orientierungslosigkeit -- und nichts wuerde rot. */
-function setNav(){ const map=(view==='erfolge')?'erfolge':(view==='profil'||view==='rang'||view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='admin'||view==='privacy'||view==='meldung')?'profil':(view==='body'||view==='food')?'body':'home';
+function setNav(){ const map=(view==='erfolge')?'erfolge':(view==='profil'||view==='rang'||view==='freunde'||view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='admin'||view==='privacy'||view==='meldung')?'profil':(view==='body'||view==='food')?'body':'home';
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on', b.dataset.nav===map));
   navPunktZeichnen(); }
 /* Die rote Zahl an der unteren Leiste (25.08.2026).
@@ -2482,7 +2482,7 @@ function render(){
   /* Ein zurueckgehaltener Fassungs-Hinweis wird hier faellig: er erscheint nicht mitten
      im Training, sondern beim naechsten Bild danach. */
   if(window.neueFassungPruefen) window.neueFassungPruefen();
-  ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, profil:renderProfil, body:renderBody, food:renderFood, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin, meldung:renderMeldung, erfolge:renderErfolge, comeback:renderComeback}[view]||renderHome)();
+  ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, profil:renderProfil, freunde:renderFreunde, body:renderBody, food:renderFood, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin, meldung:renderMeldung, erfolge:renderErfolge, comeback:renderComeback}[view]||renderHome)();
   syncSessionClock();
   /* Den Kurzcode fuers Teilen im Hintergrund bauen, solange noch niemand geklickt hat.
      Genau hier, weil auf diesen zwei Seiten der Teilen-Knopf steht -- und weil ein Umbau am
@@ -2493,6 +2493,10 @@ function render(){
      und ein render() im render() waere eine Schleife. So steht erst die Seite (mit
      „Wird geladen …"), dann kommen die Zahlen nach. */
   if(view==='erfolge') bestenlisteAuffrischen();
+  /* \u26a0\ufe0f Auch aus dem PROFIL heraus, nicht nur auf der Freunde-Seite: die rote Zahl am
+     Eintrag "Freunde" steht dort, und ohne Abruf stuende sie nie auf dem neuesten Stand.
+     Wer nie auf die Freunde-Seite geht, erfuehre sonst nie von einer Anfrage. */
+  if(view==='freunde' || view==='profil') freundeAuffrischen();
   // Geteilter Plan aus dem Link: erst anbieten, wenn jemand angemeldet ist und nicht gerade
   // im Assistenten steckt — sonst laege das Fenster ueber der Pflicht-Einrichtung.
   if(planImport && !importGezeigt && view!=='onboard'){ importGezeigt=true;
@@ -5801,6 +5805,95 @@ function renderSettings(){
    · **`syncState` steht nicht drin.** Der Wert wird nur neu gezeichnet, solange man in
      den Einstellungen steht -- hier stuende er fest und wuerde mit der Zeit falsch.
      Eine Angabe, die nicht nachkommt, ist schlechter als gar keine. */
+/* ---------- Die Freunde-Seite (11.09.2026) ----------
+   Vier Bloecke, in dieser Reihenfolge: was auf MICH wartet zuerst, dann die Liste, dann
+   der eigene Code, dann das Hinzufuegen.
+   \u26a0\ufe0f Anfragen stehen ganz oben, weil sie das Einzige sind, was jemand anderes
+   angestossen hat und was ohne mich liegenbleibt. */
+function renderFreunde(){
+  let h = `${zurueckPfeil('data-nav="profil"', 'Profil')}
+    <div class="row between" style="margin:6px 4px 10px"><h2>Freunde</h2>
+      <span class="tiny muted">${freundeAnzahl()} ${freundeAnzahl() === 1 ? 'Freund' : 'Freunde'}</span></div>`;
+
+  if(freundeFehlt){
+    h += `<div class="card"><div class="tiny muted" style="line-height:1.7">
+        Die Freunde-Funktion ist noch nicht eingerichtet.<br>
+        Daf\u00fcr muss <b style="color:var(--txt)">supabase-freunde.sql</b> einmal im
+        Supabase-Dashboard ausgef\u00fchrt werden.</div></div>`;
+    app.innerHTML = h; return;
+  }
+  if(freundeFehler){
+    h += `<div class="card" style="border-color:var(--danger)">
+        <div class="tiny" style="line-height:1.7;color:var(--danger)">Die Freunde-Liste konnte nicht geladen werden.</div>
+        <div class="tiny muted" style="line-height:1.7;margin-top:5px">
+          Der Server hat mit <b style="color:var(--txt)">${esc(String(freundeFehler.status))}</b> geantwortet${
+            freundeFehler.meldung ? ` \u2014 \u201e${esc(freundeFehler.meldung)}\u201c` : ''}.<br>
+          <b style="color:var(--txt)">Deine Trainingsdaten sind davon nicht betroffen.</b></div></div>`;
+  }
+
+  // ---- 1. Offene Anfragen an mich ----
+  const warten = freundeAnfragenAnMich();
+  if(warten.length){
+    h += `<div class="row between" style="margin:16px 4px 6px"><h2 style="font-size:17px">Anfragen</h2>
+        <span class="pill" style="background:var(--danger);color:#fff">${warten.length}</span></div><div class="card">`;
+    warten.forEach((a, i) => {
+      h += `<div class="row between" style="align-items:center;gap:10px;${i ? 'border-top:1px solid var(--line);padding-top:10px;margin-top:10px' : ''}">
+          <b style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.von_name || 'Jemand')}</b>
+          <div class="row" style="gap:8px;flex:0 0 auto">
+            <button class="btn sm primary" data-act="freund:an:${esc(a.id)}">Annehmen</button>
+            <button class="btn sm ghost" data-act="freund:ab:${esc(a.id)}">Ablehnen</button>
+          </div></div>`;
+    });
+    h += `</div>`;
+  }
+
+  // ---- 2. Die Bestenliste unter Freunden ----
+  /* \u27a1\ufe0f Das ist der Punkt der ganzen Sache (Karls Entscheidung vom 10.09.: "Leaderboard
+     fuer Freunde"). Ohne Freunde steht man allein da -- und genau das steht dann auch da,
+     statt einer leeren Karte. */
+  const rang = freundeRangliste();
+  h += `<div class="row between" style="margin:22px 4px 6px"><h2 style="font-size:17px">Bestenliste</h2>
+      <span class="tiny muted">nach XP</span></div><div class="card">`;
+  rang.forEach((z, i) => {
+    const farbe = i === 0 ? 'var(--ok)' : i < 3 ? 'var(--txt)' : 'var(--muted)';
+    h += `<div class="sess"${i ? ' style="border-top:1px solid var(--line)"' : ''}>
+      <span class="row" style="gap:10px;min-width:0;align-items:center">
+        <b style="color:${farbe};width:22px;flex:0 0 auto;text-align:right">${i + 1}</b>
+        <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap${z.ich ? ';font-weight:700' : ''}">${esc(z.name)}${z.ich ? ' <span class="tiny muted">\u00b7 du</span>' : ''}</span></span>
+      <span class="row" style="gap:10px;align-items:center;flex:0 0 auto">
+        <b style="white-space:nowrap">${z.xp.toLocaleString('de-DE')}</b>
+        ${z.ich ? '' : `<button class="del-x" data-freundweg="${esc(z.user_id)}" aria-label="Freundschaft beenden">\u2715</button>`}</span></div>`;
+  });
+  h += `</div>`;
+  if(rang.length === 1){
+    h += `<div class="tiny muted" style="margin:8px 4px 0;line-height:1.6">
+        Noch niemand dabei \u2014 gib deinen Code weiter oder trag den Code eines Freundes ein.</div>`;
+  }
+
+  // ---- 3. Der eigene Code ----
+  h += `<div class="row between" style="margin:22px 4px 6px"><h2 style="font-size:17px">Dein Code</h2></div>
+    <div class="card"><div class="row between" style="align-items:center;gap:10px">
+      <b style="font-size:24px;letter-spacing:3px;font-variant-numeric:tabular-nums">${
+        esc((freundeStand && freundeStand.code) || '\u2026')}</b>
+      <button class="btn sm" data-act="freund:kopieren" style="flex:0 0 auto">Kopieren</button></div>
+    <div class="tiny muted" style="margin-top:8px;line-height:1.6">
+      Gib ihn weiter, wem du folgen willst. <b style="color:var(--txt)">Der Code allein gibt
+      niemandem Zugriff auf deine Daten</b> \u2014 er landet nur in einer Liste, die du ansiehst.</div></div>`;
+
+  // ---- 4. Einen Freund hinzufuegen ----
+  h += `<div class="row between" style="margin:22px 4px 6px"><h2 style="font-size:17px">Freund hinzuf\u00fcgen</h2></div>
+    <div class="card"><div class="row" style="gap:8px;align-items:flex-end">
+      <div class="field" style="flex:1;margin:0">
+        <input id="freundCode" type="text" inputmode="text" autocapitalize="characters"
+               autocomplete="off" maxlength="12" placeholder="Code eintippen"></div>
+      <button class="btn primary" style="width:auto;padding:12px 18px" data-act="freund:anfragen">Anfragen</button>
+    </div>
+    <div class="tiny muted" style="margin-top:8px;line-height:1.6">
+      Die Anfrage muss best\u00e4tigt werden \u2014 vorher passiert nichts.</div></div>`;
+
+  app.innerHTML = h;
+}
+
 function renderProfil(){
   const rank = equippedRank();
   /* Ohne Sitzung (Pruefrahmen, und nur dort) steht "Du" da statt eines Absturzes an
@@ -5833,6 +5926,19 @@ function renderProfil(){
      die es gibt und die niemand sieht.
      ⚠️ Bewusst `.pill` und nicht `.navpunkt`: der Punkt ist `position:absolute` und
      hängt an der Leiste; hier wäre er falsch platziert statt einfach anders auszusehen. */
+  /* \u2705 11.09.2026, Karls Ansage: "da soll man bitte auch ueber Profil machen koennen".
+     \u26a0\ufe0f Die rote Zahl zeigt NUR Anfragen an mich. Was ich selbst abgeschickt habe,
+     wartet nicht auf mich -- eine Zahl, die man nicht wegbekommt, ist keine Nachricht. */
+  const warten = freundeAnfragenAnMich().length;
+  h += `<div class="card" data-nav="freunde" style="cursor:pointer;margin-top:4px">
+      <div class="row between">
+        <div class="row" style="gap:10px;align-items:center">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.4"/><path d="M2.5 20c0-3.4 3.1-5.3 6.5-5.3s6.5 1.9 6.5 5.3"/><path d="M17 5.2a3.4 3.4 0 0 1 0 5.6"/><path d="M19.2 15.1c1.5.8 2.3 2.2 2.3 4.9"/></svg>
+          <b>Freunde</b></div>
+        <div class="row" style="gap:8px;align-items:center">
+          ${warten ? `<span class="pill" style="background:var(--danger);color:#fff">${warten > 9 ? '9+' : warten}</span>` : ''}
+          <span class="muted">${freundeAnzahl() || ''} \u203a</span></div>
+      </div></div>`;
   const offeneAntworten = postfachUngelesen();
   h += `<div class="card" data-nav="settings" style="cursor:pointer;margin-top:4px">
       <div class="row between">
@@ -5873,6 +5979,11 @@ function renderPrivacy(){
           Gerät</b>; die Zahl kommt nur von dir. Sie geht in keine Rechnung ein — weder ins
           Tagesziel noch in XP — und wird nur gespeichert und angezeigt</li>
         <li>XP, Level und deine Einstellungen</li>
+        <li>wenn du <b style="color:var(--txt)">Freunde</b> benutzt: ein
+          <b style="color:var(--txt)">Freundes-Code</b> für dein Konto, offene
+          <b style="color:var(--txt)">Anfragen mit dem Namen des Absenders</b> und die Liste,
+          <b style="color:var(--txt)">mit wem du befreundet bist</b>. Der Code entsteht erst,
+          wenn du die Freunde-Seite zum ersten Mal öffnest</li>
         <li>eine <b style="color:var(--txt)">Geräte-Kennung für Benachrichtigungen</b>, wenn du Push
           erlaubst — damit eine Antwort auf deine Meldung ankommt. Ohne Push wird nichts gespeichert.
           Diese Kennung ist eine <b style="color:var(--txt)">Adresse beim Mitteilungsdienst deines
@@ -5981,6 +6092,21 @@ function renderPrivacy(){
         ⚠️ <b style="color:var(--txt)">Hat dein Konto keinen Username, steht dort der vordere Teil deiner
         E-Mail-Adresse</b> (alles vor dem @). Wenn du das nicht willst, trag in den Einstellungen einen
         Username ein.</p>
+
+      <b>Freunde</b>
+      <p class="muted" style="margin:4px 0 14px">Freunde werden über einen
+        <b style="color:var(--txt)">Code</b> hinzugefügt, und beide Seiten müssen zustimmen —
+        eine Anfrage allein bewirkt nichts.
+        ⚠️ <b style="color:var(--txt)">Beim Anfragen geht dein Name mit</b>, damit der andere
+        weiß, wer da fragt. Er steht in der Anfrage, bis sie angenommen oder abgelehnt wird.
+        <b style="color:var(--txt)">Dein Code selbst ist nicht abfragbar</b> — niemand kann
+        eine Liste aller Codes holen, und aus einem Code folgt kein Zugriff auf deine Daten.
+        Er führt nur dazu, dass eine Anfrage bei dir ankommt.
+        <b style="color:var(--txt)">Was Freunde voneinander sehen, sind Name und XP-Stand</b> —
+        dieselben zwei Angaben wie in der Bestenliste, sonst nichts. Keine Trainings, keine
+        Gewichte, keine Mahlzeiten.
+        Eine Freundschaft kann <b style="color:var(--txt)">jede Seite jederzeit beenden</b>;
+        die Zeile wird dann gelöscht.</p>
 
       <b>Wer sie sehen kann</b>
       <p class="muted" style="margin:4px 0 14px">Du. Und technisch bedingt der Betreiber der App —
@@ -6184,7 +6310,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.087';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.088';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -6598,6 +6724,177 @@ async function bestenlisteHolen(){
 
 /* ⚠️ Erst schieben, dann holen. Sonst sieht man beim ersten Oeffnen eine Liste, in der man
    selbst noch fehlt -- und haelt das fuer einen Fehler. */
+/* ---------- Freunde (11.09.2026) ----------
+   Karls Entscheidung vom 10.09.2026 auf die Frage, wie man Freunde hinzufuegt:
+   **"Mit Code und Bestaetigung."** Und am 11.09.: *"FreundeFeature hinzufuegen bitte da
+   soll man bitte auch ueber Profil machen koennen"*.
+
+   \U0001f534 **Der Code wird NIE nachgeschlagen, sondern nur mitgeschickt.** Die Tabelle
+   `gym_freunde_code` hat mit Absicht keine Leseregel: eine Anfrage ohne Filter
+   (`GET /gym_freunde_code?select=*`) gaebe sonst die komplette Liste aller Codes zurueck --
+   genau der Fehler, den `email_for_username` am 24.08.2026 hatte. Der Abgleich passiert
+   deshalb in `freund_anfragen()` INNERHALB der Datenbank.
+   \u26a0\ufe0f Deshalb gibt es hier auch keine Funktion, die "den Code zu einem Namen sucht".
+   Wenn eine spaeter gebraucht wird, gehoert sie in die Datenbank, nicht hierher.
+
+   \u26a0\ufe0f **Die drei Tabellen gibt es vielleicht noch gar nicht.** `supabase-freunde.sql`
+   wird von Hand eingespielt; solange das nicht passiert ist, antwortet PostgREST mit 404.
+   Das wird sauber unterschieden -- 404 heisst "noch nicht eingerichtet" und wird gesagt,
+   alles andere heisst "gerade nicht" und laesst den alten Stand stehen. Dieselbe Trennung
+   wie bei der Bestenliste seit dem 01.09.2026, und aus demselben Grund: eine falsche
+   Arbeitsanweisung ist schlimmer als gar keine Antwort. */
+const FREUNDE_KEY = 'freunde';
+let freundeStand = DB.get(FREUNDE_KEY, null);   // {code, anfragen, freunde} oder null
+let freundeLaeuft = false;
+let freundeFehlt = false;                       // true = die Tabellen gibt es nicht (404)
+let freundeFehler = null;                       // {status, meldung} bei einem Nein vom Server
+
+/* Ein Aufruf einer Datenbank-Funktion, mit Anmeldung.
+   \u26a0\ufe0f `supaRPC` weiter oben geht bewusst OHNE Token (es fragt nur nach freien Namen).
+   Hier braucht es das Token, denn alle drei Funktionen arbeiten mit `auth.uid()`. */
+async function freundRPC(fn, args){
+  if(!await ensureToken()) return null;
+  try{
+    const r = await fetch(`${SUPA_URL}/rest/v1/rpc/${fn}`,
+      { method:'POST', headers: authHeaders(true), body: JSON.stringify(args || {}) });
+    if(r.status === 404){ freundeFehlt = true; return null; }
+    if(!r.ok){
+      let text = '';
+      try{ const j = await r.json(); text = (j && (j.message || j.hint)) || ''; }catch(e){}
+      freundeFehler = { status: r.status, meldung: String(text).slice(0,160) };
+      return null;
+    }
+    freundeFehlt = false; freundeFehler = null;
+    return await r.json();
+  }catch(e){ return null; }
+}
+
+/* Holt alles auf einmal: Code, offene Anfragen, Freunde und deren XP-Staende.
+   \u26a0\ufe0f Die Zeilensperre erledigt das Filtern -- `gym_freunde_anfragen` gibt nur her, was
+   an mich geht oder von mir kommt, `gym_freunde` nur meine eigenen Paare. Trotzdem steht
+   hier eine ausdrueckliche Spaltenliste und kein `select=*`: eine Spalte, die spaeter
+   dazukommt, soll nicht automatisch mit herauskommen. Dieselbe Regel wie an der
+   Bestenliste. */
+async function freundeAuffrischen(){
+  if(!session || freundeLaeuft) return;
+  freundeLaeuft = true;
+  const wer = session.user && session.user.id;
+  try{
+    const code = await freundRPC('freund_code_holen', {});
+    if(freundeFehlt){ if(view === 'freunde') render(); return; }
+
+    const hole = async (pfad) => {
+      if(!await ensureToken()) return null;
+      try{
+        const r = await fetch(`${SUPA_URL}/rest/v1/${pfad}`, { headers: authHeaders(true) });
+        if(r.status === 404){ freundeFehlt = true; return null; }
+        if(!r.ok) return null;
+        const rows = await r.json();
+        return Array.isArray(rows) ? rows : null;
+      }catch(e){ return null; }
+    };
+
+    const anfragen = await hole('gym_freunde_anfragen?select=id,von,an,von_name,erstellt');
+    const paare    = await hole('gym_freunde?select=a,b,seit');
+    if(!session || (session.user && session.user.id) !== wer) return;   // inzwischen gewechselt
+    if(freundeFehlt){ if(view === 'freunde') render(); return; }
+
+    /* Aus den Paaren die Kennungen der anderen Seite. Eine Zeile je Paar, die kleinere
+       Kennung steht in `a` -- welche der beiden ich bin, entscheidet sich hier. */
+    const ich = wer;
+    const freundIds = (paare || []).map(x => (x.a === ich ? x.b : x.a)).filter(Boolean);
+
+    /* Die XP-Staende kommen aus der Bestenliste -- die Freundes-Tabellen wissen mit Absicht
+       nichts ueber Training. \u26a0\ufe0f Ohne Freunde wird gar nicht erst gefragt: `in.()` waere
+       eine Anfrage ohne Inhalt. */
+    let staende = [];
+    if(freundIds.length){
+      const liste = freundIds.map(encodeURIComponent).join(',');
+      staende = await hole(`gym_bestenliste?select=user_id,name,xp&user_id=in.(${liste})`) || [];
+    }
+    freundeStand = {
+      code: (typeof code === 'string' && code) || (freundeStand && freundeStand.code) || '',
+      anfragen: anfragen || [],
+      freunde: freundIds,
+      staende: staende
+    };
+    DB.set(FREUNDE_KEY, freundeStand);
+    if(view === 'freunde') render();
+  } finally { freundeLaeuft = false; }
+}
+
+/* Wie viele Anfragen warten AUF MICH -- die von mir abgeschickten zaehlen nicht.
+   \u26a0\ufe0f Steht als eigene Funktion da, weil sie an zwei Stellen gebraucht wird: die Zahl
+   am Profil und die Ueberschrift auf der Freunde-Seite. Zwei Rechnungen fuer dieselbe Zahl
+   waeren zwei Gelegenheiten, sich zu widersprechen. */
+function freundeAnfragenAnMich(){
+  if(!freundeStand || !Array.isArray(freundeStand.anfragen) || !session || !session.user) return [];
+  const ich = session.user.id;
+  return freundeStand.anfragen.filter(a => a && a.an === ich);
+}
+function freundeAnzahl(){
+  return (freundeStand && Array.isArray(freundeStand.freunde)) ? freundeStand.freunde.length : 0;
+}
+/* Die Bestenliste unter Freunden: ich selbst und meine Freunde, nach XP.
+   \u26a0\ufe0f Der eigene Eintrag kommt aus dem Geraet und nicht aus der Bestenliste -- der Stand
+   dort ist erst nach dem naechsten Abgleich aktuell, und die eigene Zahl kennt die App
+   genauer als der Server. */
+/* Eine Anfrage wegnehmen -- ablehnen (ich bin gemeint) oder zurueckziehen (ich habe sie
+   geschickt). Die Zeilensperre laesst beides zu und nichts sonst.
+   \U0001f534 `Prefer: return=representation` ist hier Pflicht, nicht Geschmack: ohne das
+   antwortet PostgREST auf ein DELETE, das NICHTS trifft, mit **204 -- genau wie bei
+   Erfolg**. Dann saehe Ablehnen aus wie Ablehnen, und die Anfrage stuende weiter da.
+   Genau daran ist der Loeschcode der Bestenliste am 10.09.2026 gescheitert. */
+async function freundAnfrageWeg(id){
+  if(!id || !await ensureToken()) return false;
+  try{
+    const r = await fetch(`${SUPA_URL}/rest/v1/gym_freunde_anfragen?id=eq.${encodeURIComponent(id)}`,
+      { method:'DELETE', headers:{...authHeaders(true), 'Prefer':'return=representation'} });
+    if(!r.ok) return false;
+    const weg = await r.json().catch(()=>[]);
+    return Array.isArray(weg) && weg.length > 0;
+  }catch(e){ return false; }
+}
+/* Eine Freundschaft beenden. \u26a0\ufe0f EINE Zeile je Paar, und die kleinere Kennung steht
+   immer in `a` (so ist die Tabelle gebaut, mit einem `check` darauf). Wer hier die
+   Reihenfolge raet, trifft in der Haelfte der Faelle nichts -- und ohne
+   `return=representation` saehe auch das nach Erfolg aus. */
+async function freundschaftBeenden(uid){
+  const ich = session && session.user ? session.user.id : '';
+  if(!ich || !uid || !await ensureToken()) return false;
+  const a = ich < uid ? ich : uid, b = ich < uid ? uid : ich;
+  try{
+    const r = await fetch(`${SUPA_URL}/rest/v1/gym_freunde?a=eq.${encodeURIComponent(a)}&b=eq.${encodeURIComponent(b)}`,
+      { method:'DELETE', headers:{...authHeaders(true), 'Prefer':'return=representation'} });
+    if(!r.ok) return false;
+    const weg = await r.json().catch(()=>[]);
+    return Array.isArray(weg) && weg.length > 0;
+  }catch(e){ return false; }
+}
+/* Was die Datenbank auf eine Anfrage antwortet, in Karls Sprache.
+   \u26a0\ufe0f Als eigene Tabelle und nicht als `if`-Kette: die Woerter kommen aus
+   `supabase-freunde.sql` (dort steht ausdruecklich "Rueckgabe ist ein kurzes Wort, kein
+   Satz -- die App schreibt den Text"). Kommt ein Wort dazu, faellt es hier sofort auf,
+   statt in einem `else` zu verschwinden. */
+const FREUND_ANTWORT = {
+  unbekannt: 'Diesen Code gibt es nicht',
+  selbst:    'Das ist dein eigener Code',
+  schon:     'Ihr seid schon Freunde',
+  offen:     'Da ist schon eine Anfrage unterwegs',
+  ok:        'Anfrage abgeschickt \u2014 sie muss best\u00e4tigt werden'
+};
+function freundAntwortText(wort){ return FREUND_ANTWORT[wort] || ('Unerwartete Antwort: ' + wort); }
+
+function freundeRangliste(){
+  const ich = session && session.user ? session.user.id : '';
+  const meiner = { user_id: ich, name: (session && session.username) || 'Du',
+                   xp: Math.max(0, Math.round(+profile.xp || 0)), ich: true };
+  const andere = ((freundeStand && freundeStand.staende) || [])
+    .filter(z => z && z.user_id !== ich)
+    .map(z => ({ user_id: z.user_id, name: z.name || '?', xp: +z.xp || 0, ich: false }));
+  return [meiner].concat(andere).sort((x, y) => y.xp - x.xp);
+}
+
 async function bestenlisteAuffrischen(erzwingen){
   if(!session || bestenlisteLaeuft) return;
   if(!erzwingen && Date.now() - bestenlisteZuletzt < 30000) return;
@@ -7763,7 +8060,7 @@ function confirmTwice(key,btn,label,run){ if(armed[key]){ clearTimeout(armed[key
 if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ if((profile.theme||'system')==='system') applyTheme(); }); }
 
 document.addEventListener('click',ev=>{
-  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-planwarm],[data-libnew],[data-useprog],[data-editprog],[data-delprog],[data-shareprog],[data-moveex],[data-openex],[data-delweight],[data-skin],[data-sdel],[data-sdelex],[data-sadd],[data-delmeal],[data-delfood],[data-foodfav],[data-pickfood],[data-zielart],[data-testverbindung]');
+  const t=ev.target.closest('[data-nav],[data-act],[data-editplan],[data-startplan],[data-check],[data-addset],[data-delset],[data-focusex],[data-opensess],[data-rest],[data-delex],[data-theme],[data-libadd],[data-setbase],[data-admin],[data-fav],[data-planday],[data-exvol],[data-planwarm],[data-libnew],[data-useprog],[data-editprog],[data-delprog],[data-shareprog],[data-moveex],[data-openex],[data-delweight],[data-freundweg],[data-skin],[data-sdel],[data-sdelex],[data-sadd],[data-delmeal],[data-delfood],[data-foodfav],[data-pickfood],[data-zielart],[data-testverbindung]');
   if(!t) return;
   // ---- Eine abgeschlossene Einheit korrigieren (Verlauf › Bearbeiten) ----
   if(t.dataset.sdel){ const [ei,si]=t.dataset.sdel.split(':').map(Number);
@@ -7778,6 +8075,15 @@ document.addEventListener('click',ev=>{
     const e=s.entries[ei], last=e.sets[e.sets.length-1]||{};
     e.sets.push({weight:last.weight||'',reps:last.reps||'',done:true});
     sessRecalc(s); render(); return; }
+  /* \u26a0\ufe0f Zweimal tippen, wie bei allem anderen, was etwas wegnimmt. Eine Freundschaft
+     ist mit einem Fingerzeig wieder aufgebaut -- aber nicht ohne dass der andere es merkt. */
+  if(t.dataset.freundweg){ const uid = t.dataset.freundweg;
+    confirmTwice('fw' + uid, t, 'Wirklich?', () => {
+      freundschaftBeenden(uid).then(ok => {
+        toast(ok ? 'Freundschaft beendet' : 'Ging gerade nicht');
+        freundeAuffrischen();
+      });
+    }); return; }
   if(t.dataset.delweight){ const ts=+t.dataset.delweight;
     confirmTwice('dw'+ts,t,'Löschen?',()=>{ profile.weights=(profile.weights||[]).filter(x=>x.date!==ts);
       grabsteinSetzen('weights', ts); save(); render(); }); return; }
@@ -8166,6 +8472,46 @@ document.addEventListener('click',ev=>{
   else if(a==='delsess'){ const wegId=detailSessionId;
     confirmTwice('ds',t,'Einheit löschen?',()=>{ sessions=sessions.filter(x=>x.id!==wegId);
       grabsteinSetzen('sessions', wegId); save(); view='history'; render(); }); }
+  // ---------------- Freunde (11.09.2026) ----------------
+  else if(a==='freund:kopieren'){
+    const c = (freundeStand && freundeStand.code) || '';
+    if(!c){ toast('Noch kein Code da'); return; }
+    (navigator.clipboard ? navigator.clipboard.writeText(c) : Promise.reject())
+      .then(()=>toast('Code kopiert')).catch(()=>toast('Kopieren ging nicht'));
+    return; }
+  else if(a==='freund:anfragen'){
+    const el = document.getElementById('freundCode'); if(!el) return;
+    /* \u26a0\ufe0f Gross geschrieben und ohne Leerzeichen: der Code wird abgetippt oder
+       vorgelesen, und das Alphabet in der Datenbank kennt nur Grossbuchstaben. Ein
+       kleingeschriebener Code waere sonst "unbekannt" -- die unfreundlichste aller
+       Antworten auf einen Tippfehler, den die App selbst haette glattziehen koennen. */
+    const code = (el.value || '').trim().toUpperCase().replace(/\s+/g, '');
+    if(!code){ toast('Kein Code eingetragen'); return; }
+    freundRPC('freund_anfragen', { p_code: code, p_name: (session && session.username) || '' })
+      .then(antwort => {
+        if(antwort === null){
+          toast(freundeFehlt ? 'Freunde sind noch nicht eingerichtet' : 'Ging gerade nicht');
+          if(view === 'freunde') render();
+          return;
+        }
+        toast(freundAntwortText(antwort));
+        if(antwort === 'ok'){ el.value = ''; freundeAuffrischen(); }
+      });
+    return; }
+  else if(a.startsWith('freund:an:')){
+    freundRPC('freund_annehmen', { p_id: a.slice('freund:an:'.length) }).then(antwort => {
+      if(antwort === 'ok') toast('Ihr seid jetzt Freunde');
+      else if(antwort === 'weg') toast('Die Anfrage gibt es nicht mehr');
+      else toast('Ging gerade nicht');
+      freundeAuffrischen();
+    });
+    return; }
+  else if(a.startsWith('freund:ab:')){
+    freundAnfrageWeg(a.slice('freund:ab:'.length)).then(ok => {
+      toast(ok ? 'Abgelehnt' : 'Ging gerade nicht');
+      freundeAuffrischen();
+    });
+    return; }
   else if(a==='closemodal'){ closeModal(); }
 });
 

@@ -5862,6 +5862,138 @@ window.addEventListener('error', e => {
       || 'POST auf gym_bestenliste: ' + geschrieben.length + ' (Anfragen gesamt: ' + rufe.length + ')';
   });
 
+  /* ======================= Freunde (11.09.2026) =======================
+     Karls Entscheidung vom 10.09.: "Mit Code und Bestaetigung."
+     Karls Ansage vom 11.09.: "FreundeFeature hinzufuegen bitte da soll man bitte auch
+     ueber Profil machen koennen". */
+  const mitFreunden = (stand, fehlt, fn) => {
+    const mS = freundeStand, mF = freundeFehlt, mFe = freundeFehler, mV = view, mSess = session;
+    session = { username:'Karl', access_token:'x', expires_at: Date.now() + 3600e3,
+                user:{ id:'ich', email:'k@example.org' } };
+    freundeStand = stand; freundeFehlt = !!fehlt; freundeFehler = null;
+    view = 'freunde'; renderFreunde();
+    const h = app.innerHTML;
+    freundeStand = mS; freundeFehlt = mF; freundeFehler = mFe; view = mV; session = mSess;
+    return fn(h);
+  };
+
+  t('Die Freunde-Seite laesst sich zeichnen', () => {
+    return mitFreunden({code:'AB2C4D', anfragen:[], freunde:[], staende:[]}, false,
+      h => (h.includes('Dein Code') && h.includes('AB2C4D') && h.includes('Freund hinzuf'))
+        || 'die Seite ist unvollstaendig');
+  });
+  /* \U0001f534 Solange `supabase-freunde.sql` nicht eingespielt ist, antwortet PostgREST mit 404.
+     Dann MUSS das dastehen -- sonst sieht eine Funktion, die es noch gar nicht gibt, aus
+     wie eine, die kaputt ist. Dieselbe Trennung wie bei der Bestenliste. */
+  t('Ohne die Tabellen sagt die Seite, dass es noch nicht eingerichtet ist', () => {
+    return mitFreunden(null, true,
+      h => (h.includes('noch nicht eingerichtet') && h.includes('supabase-freunde.sql'))
+        || 'der Hinweis fehlt');
+  });
+  t('Eine wartende Anfrage steht ganz oben mit Namen', () => {
+    return mitFreunden({code:'X', freunde:[], staende:[],
+        anfragen:[{id:'a1', von:'fremd', an:'ich', von_name:'Bruno'}]}, false,
+      h => {
+        if (h.indexOf('Bruno') < 0) return 'der Name des Absenders fehlt';
+        if (h.indexOf('freund:an:a1') < 0) return 'kein Annehmen-Knopf';
+        return h.indexOf('freund:ab:a1') >= 0 || 'kein Ablehnen-Knopf';
+      });
+  });
+  /* \U0001f534 DER Fall, an dem eine bequeme Fassung still falsch waere: eine Anfrage, die ICH
+     abgeschickt habe, wartet nicht auf mich. Zaehlte sie mit, stuende im Profil eine rote
+     Zahl, die man **nicht wegbekommt** -- man kann die eigene Anfrage ja nicht annehmen.
+     Eine Nachricht, die nie verschwindet, ist keine Nachricht mehr. */
+  t('Eine von mir abgeschickte Anfrage wartet nicht auf mich', () => {
+    const mS = freundeStand, mSess = session;
+    session = { username:'Karl', access_token:'x', user:{ id:'ich', email:'k@example.org' } };
+    freundeStand = { code:'X', freunde:[], staende:[], anfragen:[
+      { id:'a1', von:'ich',   an:'fremd', von_name:'Karl'  },   // von mir  -> zaehlt nicht
+      { id:'a2', von:'fremd', an:'ich',   von_name:'Bruno' }    // an mich  -> zaehlt
+    ]};
+    const warten = freundeAnfragenAnMich();
+    freundeStand = mS; session = mSess;
+    if (warten.length !== 1) return 'es warten ' + warten.length + ' statt einer';
+    return warten[0].id === 'a2' || 'die falsche Anfrage: ' + warten[0].id;
+  });
+  /* \u26a0\ufe0f Die eigene Zeile kommt aus dem GERAET, nicht aus der Bestenliste: der Stand dort
+     ist erst nach dem naechsten Abgleich aktuell. Wer gerade trainiert hat, saehe sonst
+     eine Zahl, die er selbst als falsch erkennt -- und zwar an sich selbst. */
+  t('Ich stehe selbst in der Freundes-Rangliste, mit meiner eigenen Zahl', () => {
+    const mS = freundeStand, mSess = session, mX = profile.xp;
+    session = { username:'Karl', access_token:'x', user:{ id:'ich', email:'k@example.org' } };
+    profile.xp = 4242;
+    freundeStand = { code:'X', anfragen:[], freunde:['fremd'],
+                     staende:[{user_id:'ich', name:'Alt', xp:1}, {user_id:'fremd', name:'Bruno', xp:9999}] };
+    const r = freundeRangliste();
+    freundeStand = mS; session = mSess; profile.xp = mX;
+    if (r.length !== 2) return 'die Liste hat ' + r.length + ' Zeilen statt zwei';
+    if (r[0].name !== 'Bruno') return 'nicht nach XP sortiert: ' + r.map(z => z.name).join(', ');
+    const meiner = r.find(z => z.ich);
+    if (!meiner) return 'ich stehe gar nicht drin';
+    return meiner.xp === 4242 || 'meine Zahl kommt vom Server (' + meiner.xp + ') statt vom Geraet';
+  });
+  t('Vom Profil aus kommt man zu den Freunden', () => {
+    renderProfil();
+    return document.getElementById('app').innerHTML.indexOf('data-nav="freunde"') >= 0
+      || 'kein Weg zu den Freunden im Profil';
+  });
+  t('Die Freunde-Ansicht markiert den Profil-Reiter', () => {
+    const merk = view; view = 'freunde'; setNav();
+    const an = [...document.querySelectorAll('#nav button.on')].map(b => b.dataset.nav);
+    view = merk; setNav();
+    return eq(an.join(','), 'profil');
+  });
+  /* \u26a0\ufe0f Die Datenbank antwortet mit einem kurzen Wort, den Satz schreibt die App (steht
+     so in `supabase-freunde.sql`). Kommt ein Wort dazu oder wird eines umbenannt, muss es
+     hier auffallen -- sonst stuende bei einem echten Fall "undefined" auf dem Bildschirm. */
+  t('Jede Antwort der Datenbank hat einen Text', () => {
+    const woerter = ['unbekannt', 'selbst', 'schon', 'offen', 'ok', 'weg'];
+    const ohne = woerter.filter(w => w !== 'weg' && !FREUND_ANTWORT[w]);
+    if (ohne.length) return 'ohne Text: ' + ohne.join(', ');
+    return /Unerwartete Antwort/.test(freundAntwortText('quatsch'))
+      || 'ein unbekanntes Wort faellt nicht auf';
+  });
+  /* \U0001f534 Die Tabelle haelt EINE Zeile je Paar, und die kleinere Kennung steht immer in
+     `a` (dafuer steht ein `check` in der Datenbank). Wer hier die Reihenfolge raet, trifft
+     in der Haelfte der Faelle nichts -- und ohne `return=representation` saehe auch DAS
+     nach Erfolg aus. Geprueft wird deshalb die tatsaechlich abgeschickte Adresse. */
+  await tA('Freundschaft beenden trifft das Paar in der richtigen Reihenfolge', async () => {
+    const mSess = session, echtesFetch = window.fetch;
+    const rufe = [];
+    session = { username:'Karl', access_token:'x', expires_at: Date.now() + 3600e3,
+                user:{ id:'mmm', email:'k@example.org' } };
+    window.fetch = (url, opt) => {
+      rufe.push({ url:String(url), methode:(opt && opt.method) || 'GET',
+                  prefer:(opt && opt.headers && opt.headers.Prefer) || '' });
+      return Promise.resolve({ ok:true, status:200, json: () => Promise.resolve([{a:1}]) });
+    };
+    let a1, a2;
+    try {
+      a1 = await freundschaftBeenden('zzz');   // ich bin kleiner -> a=mmm, b=zzz
+      a2 = await freundschaftBeenden('aaa');   // ich bin groesser -> a=aaa, b=mmm
+    } finally { window.fetch = echtesFetch; session = mSess; }
+    if (a1 !== true || a2 !== true) return 'Rueckgabe ' + a1 + ' / ' + a2;
+    if (rufe.length !== 2) return rufe.length + ' Anfragen statt zwei';
+    if (rufe[0].url.indexOf('a=eq.mmm') < 0 || rufe[0].url.indexOf('b=eq.zzz') < 0)
+      return 'erste Adresse falsch: ' + rufe[0].url.slice(-60);
+    if (rufe[1].url.indexOf('a=eq.aaa') < 0 || rufe[1].url.indexOf('b=eq.mmm') < 0)
+      return 'zweite Adresse falsch: ' + rufe[1].url.slice(-60);
+    const ohnePrefer = rufe.filter(r => r.prefer.indexOf('return=representation') < 0);
+    return ohnePrefer.length === 0
+      || 'ohne return=representation -- ein Treffer auf nichts saehe nach Erfolg aus';
+  });
+  /* \u26a0\ufe0f Dasselbe fuer das Wegnehmen einer Anfrage. */
+  await tA('Eine Anfrage wegnehmen merkt, wenn nichts getroffen wurde', async () => {
+    const mSess = session, echtesFetch = window.fetch;
+    session = { username:'Karl', access_token:'x', expires_at: Date.now() + 3600e3,
+                user:{ id:'ich', email:'k@example.org' } };
+    window.fetch = () => Promise.resolve({ ok:true, status:200, json: () => Promise.resolve([]) });
+    let leer;
+    try { leer = await freundAnfrageWeg('a1'); }
+    finally { window.fetch = echtesFetch; session = mSess; }
+    return leer === false || 'ein DELETE ohne Treffer gilt als Erfolg';
+  });
+
   t('Die Profil-Ansicht laesst sich zeichnen', () => {
     renderProfil();
     const txt = document.getElementById('app').textContent;
