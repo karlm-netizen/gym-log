@@ -4,8 +4,10 @@ Gegenprobe zu datenschutz-pruefen.py - findet die Pruefung auch etwas?
 
 Am 09.09.2026 meldete die Pruefung "keine Funde". Das ist die haeufigste Art,
 wie eine Pruefung luegt: sie ist gruen, weil sie nichts SEHEN kann. Deshalb
-werden hier vier Schadensfaelle in eine Kopie von index.html eingebaut; jeder
-davon MUSS als SCHWER herauskommen.
+werden hier Schadensfaelle eingebaut; jeder davon MUSS auffallen.
+⚠️ Die meisten arbeiten auf einer Kopie von index.html. Die zwei letzten
+(Ablauf-Pruefung, 11.09.2026) arbeiten auf einer Kopie des PRUEFSKRIPTS - sie
+fragen, ob jede Pruefung auch wirklich gerufen wird.
 
 Die echte index.html wird dabei nicht angefasst - gearbeitet wird auf einer
 Kopie im Temp-Ordner, und die Modul-Konstante INDEX zeigt darauf.
@@ -319,10 +321,84 @@ probe(
     "nicht auffindbar",
 )
 
-# --- 14. Und die Gegenprobe zur Gegenprobe: die echte Datei muss sauber bleiben ---
+# ===========================================================================
+#  15.-18. Die zwei Pruefungen vom 11.09.2026
+# ===========================================================================
+#  🔴 WARUM SIE EIGENE PROBEN BRAUCHEN: an genau diesem Tag wurde eine neue
+#  Pruefung eingebaut, die denselben Namen trug wie eine bestehende. Python nahm
+#  die letzte Definition - die aeltere war damit tot, samt Textsuche- und
+#  Tracking-Regel. **Das waere nie aufgefallen**, wenn nicht zufaellig eine
+#  Ausgabe doppelt erschienen waere.
+#  💡 Das Muster ueber alle Laeufe seit dem 09.09.: jede Sicherung mit eigener
+#  Gegenprobe traegt, jede ohne hat ein Loch.
+
+# --- 15. Der Text verspricht den Kurzbefehl, den Code gibt es nicht mehr ---
+probe(
+    "Versprechen ohne Code: der Kurzbefehl",
+    lambda t: t.replace(
+        '<li>deine <b style="color:var(--txt)">Schritte</b>, wenn du sie selbst',
+        '<li>die Zahl kommt aus dem Kurzbefehl auf deinem iPhone. '
+        '<b style="color:var(--txt)">Schritte</b>, wenn du sie selbst', 1),
+    [dp.pruefe_eingeloest],
+    'Kurzbefehl',
+)
+
+# --- 16. Der Text verspricht einzelnes Loeschen, es gibt keinen Knopf ---
+#  ⚠️ Genau der Fund vom 11.09.2026: die Gewichtsliste war auf Karls Ansage
+#  entfernt worden, der Satz im Rechtstext blieb stehen.
+probe(
+    "Versprechen ohne Code: einzeln loeschen",
+    lambda t: t.replace(
+        "<b>Wo die Daten liegen</b>",
+        '<p class="muted">Du kannst sie jederzeit einzeln loeschen.</p>\n'
+        "      <b>Wo die Daten liegen</b>", 1),
+    [dp.pruefe_eingeloest],
+    'einzeln loeschen',
+)
+
+# --- 17./18. Die Ablauf-Pruefung ---
+#  ⚠️ Diese zwei laufen ANDERS als alle Proben darueber: die Ablauf-Pruefung
+#  liest ihren EIGENEN Quelltext, nicht index.html. `dp.INDEX` umzubiegen bringt
+#  hier also nichts - der Schaden muss in eine Kopie des Pruefskripts, und die
+#  muss als eigener Vorgang laufen.
+def ablauf_probe(name, umbau, erwartet):
+    global gescheitert
+    import subprocess
+    o = tmp / "ablauf"
+    o.mkdir(exist_ok=True)
+    (o / "index.html").write_text(ECHTE, encoding="utf-8")
+    (o / "datenschutz-pruefen.py").write_text(
+        umbau(QUELLE.read_text(encoding="utf-8")), encoding="utf-8")
+    r = subprocess.run([sys.executable, str(o / "datenschutz-pruefen.py")],
+                       capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", timeout=120)
+    bericht = (r.stdout or "") + (r.stderr or "")
+    if erwartet.lower() in bericht.lower():
+        print(f"[  OK  ] {name}")
+    else:
+        print(f"[FEHLER] {name}")
+        print(f"         Erwartet wurde '{erwartet}' im Bericht.")
+        print(f"         Bericht endete mit: {bericht.strip()[-300:]}")
+        gescheitert += 1
+
+
+ablauf_probe(
+    "eine Pruefung ist definiert, wird aber nicht gerufen",
+    lambda t: t.replace("    pruefe_eingeloest()\n", "", 1),
+    "`pruefe_eingeloest` ist definiert, wird aber in `main()` nicht gerufen",
+)
+
+ablauf_probe(
+    "ein Funktionsname ist zweimal definiert",
+    lambda t: t + "\n\ndef pruefe_handler():\n    pass\n",
+    "`pruefe_handler` ist in dieser Datei zweimal definiert",
+)
+
+# --- 19. Und die Gegenprobe zur Gegenprobe: die echte Datei muss sauber bleiben ---
 dp._funde.clear()
 dp.INDEX = HIER / "index.html"
 dp.pruefe_ziele(); dp.pruefe_versprechen(); dp.pruefe_pflichtangaben()
+dp.pruefe_eingeloest()
 echte_funde = [t for s, t, _ in dp._funde if s == "SCHWER"]
 if echte_funde:
     print("[FEHLER] die echte index.html meldet Funde, obwohl sie sauber sein sollte:")

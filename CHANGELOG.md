@@ -4,6 +4,146 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-10
 
+### v0.078 — zehn Punkte von Karls Liste, und die Schritte fliegen aus der Rechnung
+
+Karl war den ganzen Tag nicht zu Hause und hat die Liste vom Handy geschickt.
+**Nichts davon kam aus einem Agentenlauf** — alles sind Dinge, die er auf dem Schirm
+gesehen hat.
+
+#### 🔴 Der Fund, den er gesehen hat und achtzehn Tage lang niemand sonst
+
+*„Neben der Flammen Streak bei Kalorien Startseite ist irgendein komisches Zeichen?"*
+
+Neben der Serie stand das Zeichen **U+0082** — ein unsichtbares Steuerzeichen — und
+dahinter eine glatte **2**. Es steht seit dem **23.08.2026** da, seit die Flamme gebaut
+wurde, und **nichts ist davon je rot geworden.**
+
+Entstanden ist es beim Schreiben durch ein Skript: gemeint war die CSS-Fluchtfolge fuer
+den Punkt. In einem gewoehnlichen Python-Text sind Rueckstrich und die ersten drei
+Ziffern aber eine **Oktalzahl** — 202 oktal ist genau U+0082 — und die letzte Ziffer
+blieb als sichtbare 2 stehen.
+
+⚠️ **Und derselbe Fehler ist beim Aufschreiben des Kommentars sofort wieder passiert.**
+Die Erklaerung enthielt die Fluchtfolge als Beispiel und wurde auf dem Weg durch die
+Shell erneut in das Steuerzeichen verwandelt. **Gefunden hat es die Pruefung, die genau
+dafuer angelegt worden war, im ersten Lauf.**
+➡️ Neue Pruefung: **kein unsichtbares Steuerzeichen irgendwo im Quelltext**, nicht nur
+an dieser Stelle.
+
+#### 🔴 Die Schritte sind aus jeder Rechnung raus
+
+*„Schritte Feature nur als manuellen Feature reinnehmen, es soll ein Widget auf der
+Startseite geben um die vom Vortag einzutragen — die sollen aber aus allen Rechnungen
+rausgehalten werden."*
+
+Das kehrt Karls eigene Entscheidung vom 22.08.2026 um. Weg sind:
+
+- der Faktor **kg × 26** (`ERHALT_SITZEND`) — gerechnet wird wieder mit **× 30** fuer alle
+- `kcalAusSchritten()`, die kcal je Schritt und das **bewegliche Tagesziel**
+- der **Ein/Aus-Schalter** und der ganze Einstellungen-Block
+- der **Kurzbefehl-Weg** aus der Adresszeile samt Anleitung und Adresse zum Kopieren
+
+Neu: ein Feld **„Schritte gestern"** auf der Startseite. Der Vortag und nicht heute —
+ein laufender Tag hat keine fertige Zahl, und weil das Eintragen den Tageswert
+ueberschreibt, muesste man abends daran denken, es noch einmal zu tun.
+
+⚠️ **Wer den Schalter anhatte, behaelt sein altes Grundziel.** Es wurde mit × 26
+gerechnet, ist also tiefer, als es ohne Schritte sein muesste. **Es wird hier bewusst
+nicht angefasst** — jemandem ueber Nacht die Tagesvorgabe zu aendern, ohne dass er es
+merkt, waere schlimmer als eine Zahl, die er selbst neu vorschlagen lassen kann.
+
+#### Was Karl sonst auf dem Schirm hatte
+
+| | |
+|---|---|
+| 🔄 | **Der Ladebalken laedt jetzt wirklich von 0 auf 100 %.** Vorher lief ein 40-%-Streifen im Kreis — eine Bewegung, die nichts misst und beim haengenden Start genauso aussah wie beim normalen. Die Breite haengt an vier echten Wegmarken des Starts; die letzte Strecke laeuft ueber die restliche Mindestzeit voll |
+| ⮕ | **Zwei Zurueckpfeile beim Essen-Eintragen — einer ist weg.** Nebenwirkung der Reparatur vom 04.09.: seit `h` dort von `=` auf `+=` umgestellt wurde, stand der Pfeil der Kopfzeile unter dem allgemeinen. Der Fehlerkasten sitzt jetzt unter der Kopfzeile statt darueber |
+| 🗑️ | **„0 Einträge" neben „Ernährung" ist weg** — die Zahl sagte nichts, was die vier Mahlzeiten-Zeilen darunter nicht schon zeigen |
+| 🗑️ | **Die Gewichts-Eintraege sind raus.** Der Kurvenverlauf reicht. ⚠️ **Damit gibt es keinen Weg mehr, einen einzelnen Wert zu loeschen** — ein Satz unter der Kurve sagt das jetzt: ein falscher Wert von heute wird ueberschrieben, wenn man sich heute noch einmal wiegt |
+| ⚖️ | **Wiegen zaehlt einmal am Tag.** Die Erfolge zaehlten **Zeilen**, und der Kommentar daneben hielt das fuer dasselbe wie Tage, weil das Eintragen den Tag ueberschreibt. 🔴 **Das gilt nur fuer ein Geraet** — morgens am Handy, abends am PC, und der Abgleich legt zwei Zeilen fuer denselben Tag zusammen. Jetzt werden Tage gezaehlt |
+| 🏆 | **Admin-XP stehen nicht mehr in der Bestenliste.** Es reicht nicht, das Hochschreiben zu lassen — die alte Zeile bliebe mit ihrem Stand fuer immer stehen. Sie wird **geloescht**, und das Ergebnis wird **gezaehlt**: kommt keine Zeile zurueck, sagt die Erfolge-Seite, dass die Loeschregel fehlt |
+| 🔄 | **Zuruecksetzen zieht die Bestenliste mit.** Karls Fund: seine Freundin hat ihr Konto zurueckgesetzt, und ihre Admin-XP standen weiter in der Liste. Absichtlich ein Schreiben mit 0 und kein Loeschen — die `update`-Regel gibt es seit dem ersten Tag, die `delete`-Regel erst seit heute Mittag und **noch nicht eingespielt** |
+| 🟥 | **„Problem melden" steht in Rot** — Warndreieck und Wort, nicht der ganze Kasten |
+
+#### 🔴 Beim Bauen selbst fast ein Schaden angerichtet
+
+Ein Schnitt sollte vier Klick-Behandler entfernen und haette **20 fremde mitgenommen**
+(`kob:*`, `ob:*`, `addweight`, `kcalgoal`, `newplan` …). Die Bedingung dafuer war
+**gruen**: sie pruefte, was im Schnitt drin sein *muss* — nicht, was **nicht** drin sein
+darf. Aufgefallen ist es an einer Laengenangabe (−6870 statt −905 Zeichen) und daran,
+dass das Skript vorher an etwas anderem abstuerzte.
+➡️ Jeder Schnitt hat jetzt beide Bedingungen, und am Ende zaehlt das Skript nach, ob
+alle Behandler noch da sind.
+
+#### 🔴 Der Datenschutz-Durchgang — drei schwere Funde, zwei davon selbst verursacht
+
+Die Datenschutzerklärung wurde bei diesem Umbau **nicht angefasst** — nachgemessen: von
+42 geänderten Stellen berührt keine einzige den Abschnitt. Umgebaut wurden daneben
+Löschweg, Schrittdaten und Bestenliste.
+
+| | Fund |
+|---|---|
+| 🔴 | **Der Text versprach einen Widerruf, den es nicht mehr gibt.** *„Du kannst sie jederzeit einzeln löschen oder den Schalter wieder ausmachen"* — die Gewichtsliste ist auf Karls Ansage weg, der Schritte-Schalter beim Umbau. **Die App widersprach ihrem eigenen Rechtstext in derselben Datei:** unter der Kurve stand *„Eintragungen lassen sich nicht mehr löschen"*, 1.340 Zeilen weiter das Gegenteil |
+| 🔴 | **Der Text nannte den iOS-Kurzbefehl als Quelle der Schrittzahl.** Den Weg gibt es seit v0.078 nicht mehr — und der Satz war in die ungünstige Richtung falsch: er ließ die Zahl wie etwas aussehen, das ein Automatismus einsammelt |
+| 🔴 | *„nie deine E-Mail-Adresse"* — geht weiter raus, weil `supabase-meldungen.sql` nicht eingespielt ist. **Kein Code-Fehler, ein Handgriff** |
+| 🟡 | „Zwei Dinge kann die App nicht erreichen" — es sind **drei**, die Bestenlisten-Zeile fehlte |
+| 🟡 | Für Art.-9-Daten wurde gar keine Einwilligung mehr eingeholt, seit der Schalter weg ist |
+| 🔵 | „die drei Fälle oben" sind **vier** — ausgerechnet die Textsuche fehlte |
+
+✅ **Karls Entscheidung: nur der Text wird ehrlich gemacht**, kein Löschknopf zurück. Die
+Erklärung sagt jetzt, wie es ist: einzelne Werte kann man nicht selbst löschen, der heutige
+wird durch erneutes Eintragen überschrieben, ältere auf Zuruf, sonst Konto löschen.
+
+#### 🔴 Warum keine der damals 898 Prüfungen das gefangen hat — und was jetzt dagegen steht
+
+`ZUSAGEN` lief **nur in eine Richtung**: *Kennzeichen im Code → Wortfolge muss im Text
+stehen.* Das fängt, wenn die App etwas Neues tut, das niemand aufgeschrieben hat. **Die
+Gegenrichtung hat niemand gemessen** — der Text verspricht etwas, und das Stück Code dazu
+ist verschwunden. Auch die Datums-Prüfung kann es bauartbedingt nicht sehen: sie fragt
+*„ist der Stand älter als der Text?"*, nicht *„hat sich der Code bewegt, ohne dass der Text
+mitging?"*
+
+➡️ **Neu: `pruefe_eingeloest()` mit der Tabelle `VERSPRECHEN`.** Vier Regeln, jede eine
+Wortfolge im Text plus das Kennzeichen im Code, das sie einlöst. **Drei davon hätten die
+heutigen Funde gefangen.**
+⚠️ Eine Regel schläft, solange ihre Wortfolge nicht im Text steht — das ist richtig, aber
+wer eine Zusage *umformuliert* statt sie zu streichen, legt sie unbemerkt schlafen. Deshalb
+**zählt der Lauf die schlafenden Regeln und nennt sie beim Namen.**
+
+#### 🔴 Und beim Einbau genau dieser Prüfung derselbe Fehler noch einmal
+
+Die neue Funktion hieß zuerst `pruefe_versprechen` — **und die gab es schon.** Python nimmt
+die letzte Definition: die ältere war damit tot, samt ihrer Textsuche- und Tracking-Regel.
+**Beide hätten nie wieder etwas geprüft und nie etwas gesagt.** Aufgefallen ist es nur
+daran, dass eine Ausgabe doppelt erschien.
+
+➡️ **`pruefe_ablauf_vollstaendig()`** liest jetzt den eigenen Quelltext und meldet, wenn
+eine `pruefe_*`-Funktion definiert, aber in `main()` nicht gerufen wird — oder wenn ein Name
+zweimal vergeben ist. **Sie nimmt sich selbst nicht aus.**
+
+#### Zwei Funde aus dem eigenen Durchgang über v0.078
+
+| | |
+|---|---|
+| 🔴 | **„Gestern" war nicht immer gestern.** `Date.now() - 864e5` mit der Begründung, an Umstelltagen sei das gleichwertig. **Nachgerechnet: falsch.** An einem 23-Stunden-Tag landet ein Eintrag um 00:30 auf **vorgestern**. Zweimal im Jahr, ein Zeitfenster von einer Stunde, und aufgefallen wäre es nie — die Zahl steht ja da. Jetzt wird im Kalender gerechnet |
+| 🟡 | Der Ladebalken lief über **genau** die Restzeit und brach beim Verschwinden bei etwa 99 % ab. Jetzt ist er vorher voll |
+
+#### Gegenproben
+
+**Vier neue Schadensfälle** in `datenschutz-gegenprobe.py` (jetzt 23 statt 19): Versprechen
+ohne Code (zweimal), eine Prüfung ohne Aufruf, ein Name zweimal definiert. ⚠️ Die zwei
+letzten arbeiten auf einer Kopie des **Prüfskripts**, nicht von `index.html` — die
+Ablauf-Prüfung liest ihren eigenen Quelltext.
+
+#### Pruefstand
+
+**899 Pruefungen** (waren 894), alle gruen, dazu die vier Datenschutz-Pruefungen.
+⚠️ **Sechs Pruefungen wurden nicht geloescht, sondern umgedreht**: sie verlangten, dass
+die Schritte mitrechnen und dass die Gewichts-Eintraege dastehen. Jetzt verlangen sie
+das Gegenteil — dieselbe Stelle, andere Aussage. Geloescht waeren sie Stellen ohne Wache,
+an denen die alte Rechnung stillschweigend zurueckkommen koennte.
+
+
 ### v0.077 — der Löschcode von heute Mittag tat nichts
 
 **Der dritte Agentenlauf: 13 Funde, 5 schwer.** Von den 12 Funden des Laufs davor

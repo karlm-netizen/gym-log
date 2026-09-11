@@ -2764,7 +2764,7 @@ window.addEventListener('error', e => {
      gelten fuer die Verlauf-Seite nicht -- sie war schon vorher ohne Anmeldung erreichbar
      (der Trainingsverlauf ist es auch). Weniger Aufbau bedeutet hier nicht weniger
      Pruefung, sondern dass die Huerde nie existiert hat. */
-  t('Der Gewichts-Verlauf zeigt die Eintraege mit Datum und Kilogramm', () => {
+  t('Im Verlauf stehen keine Gewichts-Eintraege mehr', () => {
     // ⚠️ `render()` verlangt fuer JEDE Ansicht eine Sitzung (die Anmeldeseite kommt sonst
     // zuerst) -- das ist keine Eigenheit des Koerper-Tabs.
     const wVorher = profile.weights, sessVorher = sessions, sVorher = session;
@@ -2778,14 +2778,20 @@ window.addEventListener('error', e => {
     const h = app.innerHTML;
     profile.weights = wVorher; sessions = sessVorher; session = sVorher;
     view = 'home'; render();
-    /* 🔴 Die Gegenprobe zur Ansage vom 03.09.2026 („die kurve fuer gewicht soll nicht im
-       verlauf stehen, nur die eintragungen"): es reicht nicht, dass die Eintraege da sind
-       -- es darf auch keine Kurve mehr da sein. Ohne diese Zeile waere die Pruefung auch
-       dann gruen, wenn die Kurve einfach stehengeblieben waere. */
-    if (h.includes('chart-plot')) return 'die Kurve steht noch im Verlauf';
-    if (h.includes('gw:fenster:')) return 'die Zeitraum-Wahl steht noch da';
-    if (!h.includes('01.08.') || !h.includes('20.08.')) return 'Datum fehlt';
-    if (!h.includes('80 kg') || !h.includes('77 kg')) return 'Kilogramm fehlen';
+    /* 🔴 10.09.2026 UMGEDREHT -- Karls Ansage: „Gewicht Einträge können raus."
+       Diese Pruefung hat bis heute verlangt, dass Datum und Kilogramm hier STEHEN.
+       Jetzt verlangt sie das Gegenteil, und das ist der Punkt: sie bewacht weiter
+       dieselbe Stelle, nur mit der Aussage, die heute gilt. Eine geloeschte Pruefung
+       haette die Stelle unbewacht gelassen.
+       ⚠️ Drei Wege werden geprueft, nicht einer: kein Datum, keine Kilogramm-Zeile und
+       vor allem KEIN Loeschknopf. Der Behandler dafuer steht absichtlich noch in der
+       Klick-Weiche (siehe Kommentar in index.html) -- taucht hier je wieder ein Knopf
+       auf, ist die Liste versehentlich zurueckgekommen. */
+    if (h.includes('chart-plot')) return 'die Kurve steht im Verlauf';
+    if (h.includes('gw:fenster:')) return 'die Zeitraum-Wahl steht da';
+    if (h.includes('data-delweight')) return 'der Loeschknopf ist wieder da';
+    if (h.includes('01.08.') || h.includes('20.08.')) return 'die Eintraege stehen noch da';
+    if (h.includes('80 kg') || h.includes('77 kg')) return 'die Kilogramm stehen noch da';
     return true;
   });
   /* ➡️ Am 03.09.2026 zum zweiten Mal umgedreht -- und diesmal ist es die richtige Runde.
@@ -2794,7 +2800,7 @@ window.addEventListener('error', e => {
      zog dann in den Verlauf, wurde am 03.09. versehentlich ganz geloescht und ist jetzt
      zurueck im Koerper-Tab.
      ⚠️ Geprueft wird beides: die Kurve ist hier UND der Weg zu den Eintragungen auch. */
-  t('Im Koerper-Tab steht die Kurve, dazu der Weg zu den Eintragungen', () => {
+  t('Im Koerper-Tab steht die Kurve, dazu der Satz zum Ueberschreiben', () => {
     const wVorher = profile.weights, sVorher = session, ezVorher = kobErzwingen;
     session = {user:{id:'test'}, expires_at: Date.now() + 3600e3, access_token:'x'};
     kobErzwingen = false;
@@ -2807,7 +2813,97 @@ window.addEventListener('error', e => {
     view = 'home'; render();
     if (!h.includes('chart-plot')) return 'die Kurve fehlt im Koerper-Tab';
     if (!h.includes('gw:fenster:')) return 'die Zeitraum-Wahl fehlt';
-    return /data-nav="history"/.test(h) || 'kein Weg zu den Eintragungen';
+    /* 🔴 10.09.2026: Hier stand `data-nav="history"` -- der Knopf „Alle Eintragungen
+       ansehen". Er ist mit der Liste gegangen; im Verlauf gibt es nichts mehr zu sehen.
+       ⚠️ Statt des Wegweisers wird jetzt der SATZ geprueft, der die Folge benennt (ein
+       falscher Wert laesst sich nur noch durch erneutes Wiegen am selben Tag geradeziehen).
+       Ohne diese Zeile koennte der Satz still verschwinden und die Loeschung waere
+       wieder eine, die niemand ankuendigt. */
+    if (/data-nav="history"/.test(h)) return 'der Weg zu den Eintragungen steht noch da';
+    return h.includes('\u00fcberschrieben') || 'der Satz zum Ueberschreiben fehlt';
+  });
+
+  /* ---- Was am 10.09.2026 abends dazukam (Karls Liste vom Handy) ---- */
+
+  /* 🔴 Der Fund, der achtzehn Tage still dastand: neben der Flammen-Serie stand ein
+     unsichtbares Steuerzeichen (U+0082) und dahinter eine glatte 2.
+     ⚠️ Diese Pruefung sucht die GANZE Datei ab, nicht nur diese eine Stelle: entstanden
+     ist der Fehler beim Schreiben durch ein Skript, und der naechste entstuende woanders. */
+  t('Nirgends ein unsichtbares Steuerzeichen im Quelltext', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const treffer = [];
+    for (let i = 0; i < q.length; i++) {
+      const c = q.charCodeAt(i);
+      // C0 ohne Tab/Zeilenumbruch, dazu C1 (U+0080..U+009F) -- alles unsichtbar.
+      const boese = (c < 32 && c !== 9 && c !== 10 && c !== 13) || (c >= 128 && c <= 159);
+      if (boese) treffer.push('U+' + c.toString(16) + ' bei ' + i + ': ' + JSON.stringify(q.slice(Math.max(0,i-25), i+15)));
+      if (treffer.length > 2) break;
+    }
+    return treffer.length === 0 || treffer.join(' // ');
+  });
+
+  t('Die Flammen-Serie trennt den Rekord mit einem Punkt', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const m = q.match(/\.flamme \.rek:before\{content:'(.*?)'/);
+    if (!m) return 'die Regel fuer .rek gibt es nicht mehr';
+    return m[1] === '\u2022' || 'da steht ' + JSON.stringify(m[1]);
+  });
+
+  /* 🔴 Karls Fund: „Es gibt 2 Zurückpfeile bei Ernährung eintragen."
+     ⚠️ Gezaehlt wird auf dem SCHIRM, nicht im Quelltext -- dort stehen die Aufrufe voellig
+     zu Recht mehrfach. Es kommt darauf an, wie viele davon gleichzeitig gezeichnet werden;
+     genau dieser Unterschied ist sechs Tage lang niemandem aufgefallen. */
+  t('Beim Essen-Eintragen steht genau EIN Zurueckpfeil', () => {
+    const sVorher = session, ezVorher = kobErzwingen, stepVorher = foodStep;
+    session = {user:{id:'test'}, expires_at: Date.now() + 3600e3, access_token:'x'};
+    kobErzwingen = false;
+    const k = kcalInit(); k.setup = true; k.goal = 2000;
+    foodStep = 'list'; view = 'food'; render();
+    const liste = (app.innerHTML.match(/class="zurueck"/g) || []).length;
+    // Gegenprobe: der Mengen-Schritt hat keine Kopfzeile, dort MUSS einer stehen.
+    foodStep = 'menge'; foodDraft = leerDraft(); render();
+    const menge = (app.innerHTML.match(/class="zurueck"/g) || []).length;
+    foodStep = stepVorher; foodDraft = null; session = sVorher; kobErzwingen = ezVorher;
+    view = 'home'; render();
+    if (liste !== 1) return 'Listen-Schritt: ' + liste + ' Pfeile statt 1';
+    if (menge !== 1) return 'Mengen-Schritt: ' + menge + ' Pfeile statt 1';
+    return true;
+  });
+
+  t('Neben der Ueberschrift Ernaehrung steht keine Zahl mehr', () => {
+    const sVorher = session, ezVorher = kobErzwingen;
+    session = {user:{id:'test'}, expires_at: Date.now() + 3600e3, access_token:'x'};
+    kobErzwingen = false;
+    const k = kcalInit(); k.setup = true; k.goal = 2000; k.meals = [];
+    view = 'body'; render();
+    const h = app.innerHTML;
+    session = sVorher; kobErzwingen = ezVorher; view = 'home'; render();
+    if (h.includes('0 Eintr\u00e4ge')) return 'die Zahl steht noch da';
+    return h.includes('Ern\u00e4hrung') || 'die Ueberschrift ist mitgegangen';
+  });
+
+  /* 🔴 Karls Ansage: „Wiegen darf nur 1mal am Tag zu den Erfolgen gezählt werden."
+     Die Gegenprobe ist der Kern: zwei Eintraege am SELBEN Tag muessen eins ergeben.
+     Genau der Fall kommt ueber den Abgleich zweier Geraete zustande -- `addWeight()`
+     verhindert ihn nur auf dem eigenen. */
+  t('Zweimal am selben Tag gewogen zaehlt einmal', () => {
+    const wVorher = profile.weights;
+    profile.weights = [{date:new Date(2026,7,5,7,0).getTime(), kg:80},
+                       {date:new Date(2026,7,5,21,0).getTime(), kg:79.8},
+                       {date:new Date(2026,7,6,7,0).getTime(), kg:79.5}];
+    const tage = wiegeTage();
+    profile.weights = wVorher;
+    return tage === 2 || 'gezaehlt: ' + tage + ' statt 2';
+  });
+
+  t('Der Wiege-Erfolg haengt an den Tagen, nicht an den Zeilen', () => {
+    const wVorher = profile.weights;
+    const tag = new Date(2026,7,5,7,0).getTime();
+    profile.weights = [0,1,2,3,4].map(i => ({date: tag + i*1000, kg: 80 - i/10}));
+    const e = ERFOLGE.find(x => x.id === 'k2');
+    const ist = e.ist();
+    profile.weights = wVorher;
+    return ist === 1 || 'k2 zaehlt ' + ist + ' statt 1';
   });
 
   /* ---- Der Zeitraum der Gewichtskurve ist am 03.09.2026 entfallen ----
@@ -6047,99 +6143,127 @@ window.addEventListener('error', e => {
 
 
 
-  // ================================================ Schritte (22.08.2026)
-  // Karls Ansage: "soll mit der health app verbunden werden können um schritte zutracken
-  // und die einrechnet." Health direkt geht nicht (HealthKit ist nativen Apps vorbehalten),
-  // der Weg laeuft ueber die Kurzbefehle-App und `?schritte=`.
+  // ================================================ Schritte (22.08. / 10.09.2026)
+  // Karls Ansage vom 22.08.2026 war: "soll mit der health app verbunden werden koennen um
+  // schritte zutracken und die einrechnet." Daraus wurde ein Schalter, der den Grundumsatz
+  // von kg x 30 auf x 26 senkte und jeden Schritt obendrauf rechnete, gefuettert von einem
+  // Kurzbefehl ueber `?schritte=`.
+  //
+  // 🔴 Am 10.09.2026 hat Karl das umgedreht: "Schritte Feature nur als manuellen
+  // Feature reinnehmen ... die sollen aber aus allen Rechnungen rausgehalten werden."
+  //
+  // ⚠️ Dieser Block ist deshalb nicht geloescht, sondern UMGEDREHT. Vier Pruefungen hier
+  // haben frueher verlangt, dass die Schritte mitrechnen -- jetzt verlangen sie, dass sie es
+  // nicht tun. Dieselbe Stelle, andere Aussage. Waeren sie geloescht worden, koennte die alte
+  // Rechnung stillschweigend zurueckkommen, ohne dass irgendwo etwas rot wird.
   const SCH_SICHER = JSON.stringify(profile.kcal || {});
-  const einstellungenBauen = () => {
+  const startseiteBauen = () => {
     const s0 = session, v = view;
     session = session || {username:'Pruef', access_token:'x', user:{id:'p1', email:'pruef@example.org'}};
-    view = 'settings'; renderSettings();
+    view = 'home'; renderHome();
     session = s0; view = v;
   };
-  const schFrisch = (an) => {
-    profile.kcal = {goal:2000, art:'abnehmen', setup:true, schritte:!!an, steps:[], foods:[], meals:[]};
+  const schFrisch = () => {
+    profile.kcal = {goal:2000, art:'abnehmen', setup:true, steps:[], foods:[], meals:[]};
     profile.weights = [{date:Date.now(), kg:80}];
   };
 
-  t('Ohne Schritt-Modus bleibt das Ziel fest', () => {
-    schFrisch(false); setzeSchritte(12000);
-    return eq(zielHeute(), 2000);
+  t('Das Tagesziel bleibt fest, egal wie viel gelaufen wurde', () => {
+    schFrisch(); setzeSchritte(12000); setzeSchritte(40000, Date.now() - 864e5);
+    return (zielHeute() === 2000 && zielAmTag(Date.now() - 864e5) === 2000)
+           || ('Ziel ' + zielHeute() + ' / ' + zielAmTag(Date.now() - 864e5));
   });
-  t('Mit Schritt-Modus kommen die Schritte obendrauf', () => {
-    schFrisch(true); setzeSchritte(10000);
-    // 10.000 x 80 kg x 0,0004 = 320
-    return (zielHeute() === 2320 && kcalAusSchritten(10000) === 320) || ('Ziel ' + zielHeute());
-  });
-  // ⚠️ DIE Falle: der Kurzbefehl schickt den TAGESSTAND, nicht die Schritte seit dem letzten
-  // Aufruf. Wer addiert, hat nach drei Automatik-Laeufen das Dreifache stehen.
+  // ⚠️ Bleibt aus dem Kurzbefehl-Zeitalter, und zwar zu Recht: `setzeSchritte()`
+  // ueberschreibt den Tag. Von Hand ist das die Korrektur eines Vertippers.
   t('Ein zweiter Eintrag ueberschreibt, statt zu addieren', () => {
-    schFrisch(true);
+    schFrisch();
     setzeSchritte(4000); setzeSchritte(9000); setzeSchritte(9000);
-    return (schritteHeute() === 9000 && schrittListe().length === 1) || (schritteHeute() + ' / ' + schrittListe().length);
+    return (schritteAmTag(Date.now()) === 9000 && schrittListe().length === 1)
+           || (schritteAmTag(Date.now()) + ' / ' + schrittListe().length);
+  });
+  /* ⚠️ Was diese Pruefung NICHT kann, ausdruecklich: den Umstelltag messen. Dafuer
+     muesste sie die Uhr des Browsers stellen, und das kann sie nicht. Sie faengt den
+     groben Bruch (gestern ist nicht der Vortag), nicht den Sonderfall zweimal im Jahr.
+     🔴 Der Sonderfall war am 11.09.2026 echt: der Abzug von 864e5 ms landete an einem
+     23-Stunden-Tag um 00:30 auf VORGESTERN. Behoben durch Rechnen im Kalender. */
+  t('Gestern ist der Kalendertag vor heute', () => {
+    const g = new Date(gesternTs()), h = new Date();
+    const einTag = new Date(h.getFullYear(), h.getMonth(), h.getDate());
+    einTag.setDate(einTag.getDate() - 1);
+    return (g.getFullYear() === einTag.getFullYear()
+            && g.getMonth() === einTag.getMonth()
+            && g.getDate() === einTag.getDate())
+           || ('gestern steht auf ' + g.toISOString().slice(0,10));
   });
   t('Gestern und heute stehen getrennt', () => {
-    schFrisch(true);
-    setzeSchritte(7000, Date.now() - 864e5);
+    schFrisch();
+    setzeSchritte(7000, gesternTs());
     setzeSchritte(3000);
-    return (schritteHeute() === 3000 && schritteAmTag(Date.now() - 864e5) === 7000
+    return (schritteAmTag(Date.now()) === 3000 && schritteGestern() === 7000
             && schrittListe().length === 2) || 'Tage vermischt';
   });
   t('Unsinnige Werte werden abgewiesen', () => {
-    schFrisch(true); setzeSchritte(5000);
+    schFrisch(); setzeSchritte(5000);
     const a = setzeSchritte(-5), b = setzeSchritte(999999), c = setzeSchritte('abc');
-    return (!a && !b && !c && schritteHeute() === 5000) || 'etwas ist durchgerutscht';
+    return (!a && !b && !c && schritteAmTag(Date.now()) === 5000) || 'etwas ist durchgerutscht';
   });
-  // ⚠️ Ohne Gewicht laesst sich der Verbrauch nicht rechnen. Dann lieber 0 als eine
-  // erfundene Zahl - die App wuerde sonst zum Mehressen einladen.
-  t('Ohne Gewicht gibt es keine kcal aus Schritten', () => {
-    schFrisch(true); profile.weights = []; setzeSchritte(10000);
-    return (kcalAusSchritten(10000) === 0 && zielHeute() === 2000) || 'rechnet trotzdem';
+  // 🔴 UMGEDREHT am 10.09.2026. Hier stand "Der Grundumsatz-Faktor haengt am Modus"
+  // (30 ohne, 26 mit). Den Modus gibt es nicht mehr -- und diese Pruefung ist der Ort, an dem
+  // die 26 auffiele, wenn sie je zurueckkaeme.
+  t('Der Grundumsatz-Faktor ist fuer alle derselbe', () => {
+    schFrisch();
+    const f = erhaltFaktor(), z = kcalVorschlagFuer('halten');
+    return (f === 30 && z === 2400) || ('Faktor ' + f + ', Vorschlag ' + z);
   });
-  t('Null Schritte aendern nichts', () => {
-    schFrisch(true); setzeSchritte(0);
-    return (zielHeute() === 2000 && kcalAusSchritten(0) === 0) || 'Null wirkt';
-  });
-  // ⚠️ Der Grundumsatz-Faktor ist der ganze Punkt: kg x 30 enthaelt Alltagsbewegung schon,
-  // kg x 26 nicht. Ohne den Wechsel wuerde dieselbe Bewegung zweimal gezaehlt.
-  t('Der Grundumsatz-Faktor haengt am Modus', () => {
-    schFrisch(false); const ohne = erhaltFaktor(), zOhne = kcalVorschlagFuer('halten');
-    schFrisch(true);  const mit  = erhaltFaktor(), zMit  = kcalVorschlagFuer('halten');
-    // 80 x 30 = 2400, 80 x 26 = 2080
-    return (ohne === 30 && mit === 26 && zOhne === 2400 && zMit === 2100)
-           || (zOhne + ' / ' + zMit);
-  });
-  t('Einschalten rechnet das Grundziel neu', () => {
-    schFrisch(false);
-    // ⚠️ renderSettings() direkt statt render(): ohne Anmeldung steigt render() sofort in
-    // die Anmeldemaske aus, und die Knoepfe stuenden gar nicht im Dokument. Die Ansicht
-    // zeigt den Benutzernamen, deshalb muss eine Sitzung vorgetaeuscht werden.
-    einstellungenBauen();
-    document.querySelector('[data-act="schritt:an"]').click();
-    const k = kcalInit();
-    // 80 x 26 = 2080, abnehmen -400 = 1680, auf 50 gerundet
-    return (schrittModus() && k.goal === 1700) || (schrittModus() + ' / ' + k.goal);
-  });
-  t('Ausschalten rechnet zurueck', () => {
-    einstellungenBauen();
-    document.querySelector('[data-act="schritt:aus"]').click();
-    // 80 x 30 = 2400, abnehmen -400 = 2000
-    return (!schrittModus() && kcalInit().goal === 2000) || kcalInit().goal;
-  });
-  t('Die Adresse fuer den Kurzbefehl endet richtig', () => {
-    return /\?schritte=$/.test(schrittLinkBasis()) || schrittLinkBasis();
-  });
-  t('Die Schritt-Zeile steht nur im Modus in der Ansicht', () => {
-    schFrisch(true); setzeSchritte(8432);
-    const v = view; view = 'body'; renderBody(); const mit = app.innerHTML;
-    schFrisch(false); renderBody(); const ohne = app.innerHTML; view = v;
-    return (mit.includes('8.432') && !ohne.includes('8.432')) || 'Zeile stimmt nicht';
-  });
-  t('Der Ring zeigt das Ziel MIT Schritten', () => {
-    schFrisch(true); setzeSchritte(10000);
+  // 🔴 UMGEDREHT: hier stand "Die Schritt-Zeile steht nur im Modus in der Ansicht".
+  // Der Kalorien-Kasten ist der Ort, an dem gerechnet wird -- die Zahl darf dort nicht mehr
+  // auftauchen, in keiner Form.
+  t('Im Kalorien-Kasten steht keine Schritt-Zahl mehr', () => {
+    schFrisch(); setzeSchritte(8432);
     const v = view; view = 'body'; renderBody(); const h = app.innerHTML; view = v;
-    return (h.includes('von 2320') && !h.includes('von 2000')) || 'Ring zeigt das Grundziel';
+    if (h.includes('8.432') || h.includes('8432')) return 'die Zahl steht im Kalorien-Kasten';
+    return !/Schritte/.test(h) || 'das Wort Schritte steht noch im Kalorien-Kasten';
+  });
+  // 🔴 UMGEDREHT: hier stand "Der Ring zeigt das Ziel MIT Schritten" (von 2320).
+  t('Der Ring zeigt das Grundziel', () => {
+    schFrisch(); setzeSchritte(10000);
+    const v = view; view = 'body'; renderBody(); const h = app.innerHTML; view = v;
+    return (h.includes('von 2000') && !h.includes('von 2320')) || 'der Ring rechnet Schritte mit';
+  });
+
+  // ---- Das Widget auf der Startseite (10.09.2026) ----
+  t('Auf der Startseite steht ein Feld fuer die Schritte von gestern', () => {
+    schFrisch(); startseiteBauen();
+    const feld = document.getElementById('schrittGestern');
+    const knopf = document.querySelector('[data-act="schritt:gestern"]');
+    return (!!feld && !!knopf) || ('Feld ' + !!feld + ', Knopf ' + !!knopf);
+  });
+  /* 🔴 Die eigentliche Gegenprobe, und der Grund, warum es diese Pruefung gibt: das Feld
+     heisst "gestern". Traegt es in Wahrheit auf HEUTE ein, faellt das niemandem auf -- die
+     Zahl steht ja da. Erst am naechsten Tag stuende sie am falschen Datum, und dann weiss
+     keiner mehr, woher sie kam. */
+  t('Das Feld traegt auf GESTERN ein, nicht auf heute', () => {
+    schFrisch(); startseiteBauen();
+    document.getElementById('schrittGestern').value = '7321';
+    document.querySelector('[data-act="schritt:gestern"]').click();
+    if (schritteGestern() !== 7321) return 'gestern steht auf ' + schritteGestern();
+    if (schritteAmTag(Date.now()) !== 0) return 'heute wurde mitbeschrieben: ' + schritteAmTag(Date.now());
+    return schrittListe().length === 1 || 'Eintraege: ' + schrittListe().length;
+  });
+  t('Ein leeres Feld traegt nichts ein', () => {
+    schFrisch(); setzeSchritte(5000, gesternTs()); startseiteBauen();
+    document.getElementById('schrittGestern').value = '';
+    document.querySelector('[data-act="schritt:gestern"]').click();
+    return schritteGestern() === 5000 || 'der alte Wert ist weg: ' + schritteGestern();
+  });
+
+  // ---- Der automatische Weg ist wirklich weg, nicht nur unsichtbar ----
+  t('Der Kurzbefehl-Weg ist aus dem Quelltext raus', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const reste = ['?schritte=', 'schrittLinkBasis', 'leseSchritteAusLink', 'schritt:kopieren',
+                   'ERHALT_SITZEND = ', 'function kcalAusSchritten']
+      .filter(w => q.includes(w));
+    return reste.length === 0 || 'noch da: ' + reste.join(', ');
   });
   profile.kcal = JSON.parse(SCH_SICHER);
 

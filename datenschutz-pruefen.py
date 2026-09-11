@@ -495,6 +495,156 @@ def pruefe_zusagen():
                  warum)
 
 
+# ---------------------------------------------------------------------------
+#  VERSPRECHEN - die Gegenrichtung zu ZUSAGEN (11.09.2026)
+# ---------------------------------------------------------------------------
+#  🔴 WARUM ES DAS GIBT. Am 11.09.2026 standen drei schwere Funde in der
+#  Erklaerung, waehrend 898 Pruefungen und alle vier Datenschutz-Pruefungen
+#  gruen waren:
+#    · Der Text versprach, man koenne Gewicht und Schritte "jederzeit einzeln
+#      loeschen" - beide Loeschwege waren in v0.078 abgebaut worden.
+#    · Der Text nannte den "Kurzbefehl auf deinem iPhone" als Quelle der
+#      Schrittzahl - den Weg gab es seit v0.078 nicht mehr.
+#    · Der Text nannte einen "Schalter in den Einstellungen" - auch der war weg.
+#
+#  ZUSAGEN oben laeuft nur in EINE Richtung: Kennzeichen im Code -> Wortfolge
+#  muss im Text stehen. Es faengt, wenn die App etwas Neues TUT, das niemand
+#  aufgeschrieben hat. **Die andere Richtung hat niemand gemessen**: der Text
+#  verspricht etwas, und das Stueck Code dazu ist verschwunden.
+#
+#  ⚠️ Die Datums-Pruefung kann es bauartbedingt nicht sehen. Sie fragt "ist der
+#  Stand aelter als der Text?". Die gefaehrliche Frage ist "hat sich der CODE
+#  bewegt, ohne dass der Text mitging?" - und fuer den Leser sieht ein Text mit
+#  frischem Stand vollkommen in Ordnung aus.
+#
+#  ⚠️ EINE GRENZE, AUSDRUECKLICH: eine Regel schlaeft, solange ihre Wortfolge
+#  nicht im Text steht. Das ist richtig so - was nicht versprochen wird, muss
+#  auch nicht eingeloest werden. Aber wer eine Zusage UMFORMULIERT, statt sie zu
+#  streichen, legt die Regel schlafen, ohne es zu merken. Deshalb zaehlt
+#  `pruefe_eingeloest()` am Ende, wie viele Regeln scharf sind und wie viele
+#  schlafen, und nennt die schlafenden beim Namen. **Eine Regel, die von selbst
+#  einschlaeft, ist genau die Bauform, die dieses Werkzeug jagen soll.**
+VERSPRECHEN = [
+    ("Kurzbefehl",
+     "?schritte=",
+     "Der Text nennt den iOS-Kurzbefehl als Quelle der Schrittzahl. Ohne den "
+     "Leser fuer `?schritte=` in der Adresszeile gibt es diesen Weg nicht - und "
+     "der Leser haelt seine Zahl fuer etwas, das ein Automatismus einsammelt."),
+    ("Schalter in den Einstellungen",
+     "schritt:an",
+     "Der Text nennt einen Schalter als Weg, die Einwilligung zurueckzunehmen. "
+     "Gibt es den Schalter nicht, ist der Widerruf nach Art. 7 Abs. 3 nicht so "
+     "einfach wie die Erteilung - er ist gar nicht da."),
+    ("jederzeit einzeln\n        loeschen",
+     'data-delweight="',
+     "Der Text verspricht, einzelne Gewichtseintraege loeschen zu koennen. Dazu "
+     "muss ein Element `data-delweight` ERZEUGEN - der blosse Zweig im "
+     "Klick-Verteiler genuegt nicht, den erreicht ohne Knopf niemand."),
+    ("jede Zeile hat ein",
+     'data-delmeal="',
+     "Der Text verspricht das Kreuz an jeder Mahlzeit. Verschwindet der Knopf, "
+     "bleibt der einzige Loeschweg fuer Gesundheitsdaten ohne Ankuendigung weg."),
+]
+
+
+def pruefe_eingeloest():
+    """Verspricht der Text etwas, das der Code nicht mehr kann?
+
+    🔴 HIESS BEIM ERSTEN ANLAUF `pruefe_versprechen` - und es gibt diese
+    Funktion weiter oben SCHON. Python nimmt die letzte Definition: meine haette
+    die aeltere ueberschrieben und damit die Textsuche-Regel und die
+    Tracking-Regel **still ausgeschaltet**. Beide waeren nie wieder gelaufen, und
+    nichts waere rot geworden - dieselbe Bauform, gegen die diese Datei gebaut
+    ist, eingefuehrt durch eine Pruefung gegen genau diese Bauform.
+    ⚠️ Aufgefallen ist es nur daran, dass die Ausgabe doppelt erschien.
+    Der Name ist deshalb jetzt ein anderer, und `pruefe_ablauf_vollstaendig()`
+    unten zaehlt nach, dass beide im Ablauf stehen.
+    """
+    abschnitt = erklaerungs_text()
+    if abschnitt is None:
+        return                        # pruefe_stand meldet das schon laut
+    quelltext = lies(INDEX)
+    code = kommentare_weg(quelltext)
+
+    # ⚠️ Die Wortfolge wird im TEXT gesucht, das Kennzeichen aber im GANZEN
+    # Quelltext ohne Kommentare. Ein `data-delweight` darf ueberall stehen -
+    # es kommt nur darauf an, dass es ueberhaupt erzeugt wird.
+    schlafend = []
+    for wortfolge, kennzeichen, warum in VERSPRECHEN:
+        # Zeilenumbrueche im Text zaehlen nicht: die Erklaerung ist umbrochener
+        # HTML-Quelltext, und wo genau umbrochen wird, ist Zufall der Formatierung.
+        nadel = " ".join(wortfolge.split())
+        heuhaufen = " ".join(abschnitt.split())
+        if nadel not in heuhaufen:
+            schlafend.append(nadel)
+            continue
+        if kennzeichen not in code:
+            fund("SCHWER",
+                 f"Die Erklaerung verspricht \"{nadel}\", aber `{kennzeichen}` "
+                 f"gibt es im Code nicht mehr",
+                 warum,
+                 "Entweder den Weg wieder einbauen oder den Satz streichen -",
+                 "ein Rechtstext, der mehr verspricht als der Code kann, ist der",
+                 "schlechtere der beiden Fehler.")
+
+    if schlafend:
+        # Kein Fund, sondern Sicht: so faellt auf, wenn eine Regel durch eine
+        # Umformulierung still eingeschlafen ist.
+        print("   (VERSPRECHEN: %d von %d Regeln schlafen, weil ihre Wortfolge "
+              "nicht im Text steht)" % (len(schlafend), len(VERSPRECHEN)))
+        for s in schlafend:
+            print("      schlaeft: \"%s\"" % s)
+
+
+def pruefe_ablauf_vollstaendig():
+    """Wird jede Pruefung, die es hier gibt, auch wirklich gerufen?
+
+    🔴 WARUM (11.09.2026, an dieser Datei selbst passiert): eine neu
+    hinzugefuegte Funktion hiess wie eine bestehende. Python nimmt die letzte
+    Definition - die aeltere war damit weg, samt ihrer Textsuche- und
+    Tracking-Regel. **Beide haetten nie wieder etwas geprueft und nie etwas
+    gesagt.** Aufgefallen ist es nur daran, dass eine Ausgabe doppelt erschien;
+    ohne diese Zufaelligkeit waere die Luecke geblieben.
+
+    ⚠️ Zwei Faelle werden gemeldet, beide fuehren zu einer stillen Luecke:
+      · eine `pruefe_*`-Funktion ist definiert, steht aber nicht in `main()`
+      · ein Name ist zweimal definiert (die erste Fassung ist dann tot)
+
+    💡 Diese Pruefung liest den eigenen Quelltext. Das ist Absicht: sie soll
+    auch dann greifen, wenn jemand eine Funktion anlegt und den Aufruf vergisst -
+    und genau dann kann sie nicht davon ausgehen, dass irgendjemand hinsieht.
+    """
+    eigener = lies(Path(__file__))
+    if not eigener:
+        fund("HINWEIS", "Die Ablauf-Pruefung kann den eigenen Quelltext nicht lesen",
+             "Damit prueft sie nichts. Nicht stehen lassen.")
+        return
+
+    namen = re.findall(r"(?m)^def (pruefe_[a-zA-Z0-9_]*)\(", eigener)
+
+    doppelt = sorted({x for x in namen if namen.count(x) > 1})
+    for d in doppelt:
+        fund("SCHWER", f"`{d}` ist in dieser Datei zweimal definiert",
+             "Python nimmt die letzte - die erste Fassung ist toter Code und",
+             "prueft nichts mehr, ohne dass irgendwo etwas rot wird.")
+
+    m = re.search(r"(?ms)^def main\(\):(.*?)(?=^def |\Z)", eigener)
+    if not m:
+        fund("HINWEIS", "Die Ablauf-Pruefung findet `main()` nicht",
+             "Umbenannt? Dann hier nachziehen.")
+        return
+    ablauf = m.group(1)
+
+    # ⚠️ Sich selbst ausgenommen waere bequem und falsch: faellt DIESER Aufruf
+    # weg, faellt mit ihm jede andere Meldung dieser Funktion. Sie steht deshalb
+    # mit in der Liste - und meldet dann eben, dass sie selbst nicht laeuft.
+    fehlend = [x for x in sorted(set(namen)) if (x + "(") not in ablauf]
+    for f in fehlend:
+        fund("SCHWER", f"`{f}` ist definiert, wird aber in `main()` nicht gerufen",
+             "Eine Pruefung, die niemand startet, ist keine Pruefung -",
+             "sie sieht nur so aus. Entweder aufrufen oder loeschen.")
+
+
 def pruefe_handler():
     """Hat jedes `data-act` im HTML auch einen Zweig im Klick-Verteiler?
 
@@ -566,7 +716,9 @@ def main():
     pruefe_versprechen()
     pruefe_pflichtangaben()
     pruefe_zusagen()
+    pruefe_eingeloest()
     pruefe_handler()
+    pruefe_ablauf_vollstaendig()
 
     if not kurz:
         print("\n--- Wohin die App zur Laufzeit spricht ---")
