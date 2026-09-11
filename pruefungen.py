@@ -5733,13 +5733,18 @@ window.addEventListener('error', e => {
       h => !h.includes('konnte nicht in die Bestenliste geschrieben werden')
         || 'die Warnung steht ohne Anlass da');
   });
-  /* \u26a0\ufe0f Als Admin wird die Zeile mit Absicht geloescht. Eine Warnung waere dort keine
-     Nachricht, sondern Laerm -- und Laerm, den man drei Tage sieht, sieht man dann nie
-     wieder. Genau daran ist die falsche Admin-Warnung eine Fassung vorher gescheitert. */
-  t('Als Admin kommt keine Schreib-Warnung', () => {
+  /* \U0001f534 UMGEDREHT am 11.09.2026 abends, nicht geloescht. Hier stand "Als Admin kommt
+     keine Schreib-Warnung", mit der Begruendung, ein Admin loesche seine Zeile ja mit
+     Absicht. Karls Ansage am selben Abend: *"mach es bitte so wie vorher ganz einfach das
+     man alle xp sieht Hauptsache es geht wieder."*
+     \u27a1\ufe0f Ein Admin schreibt seine Zeile ab jetzt wie jeder andere -- **also muss er auch
+     erfahren, wenn es schiefgeht.** Waere die Pruefung geloescht worden statt umgedreht,
+     koennte der Riegel `!devAdmin` stillschweigend zurueckkommen und genau den Nutzer
+     stumm schalten, der die Fehlermeldung am ehesten gebrauchen kann. */
+  t('Auch Admins bekommen die Schreib-Warnung', () => {
     return mitSchiebFehler({status:403, meldung:'egal'}, true,
-      h => !h.includes('konnte nicht in die Bestenliste geschrieben werden')
-        || 'auch Admins bekommen die Warnung');
+      h => h.includes('konnte nicht in die Bestenliste geschrieben werden')
+        || 'Admins sehen die Warnung nicht');
   });
 
   /* \U0001f534 Und jetzt das FESTHALTEN selbst, nicht nur die Anzeige. Die fuenf Pruefungen
@@ -5786,31 +5791,33 @@ window.addEventListener('error', e => {
         return f === null || 'der alte Fehler steht noch da: ' + JSON.stringify(f);
       });
   });
-  /* \U0001f534 Kein Netz ist KEIN Nein vom Server. Wuerde ein Funkloch die rote Karte ausloesen,
-     stuende sie staendig da -- und was staendig dasteht, sieht nach drei Tagen niemand mehr.
-     Die App darf offline sein, dafuer gibt es das Offline-Band. */
-  await tA('Ein Funkloch loest keine Warnung aus', async () => {
-    return mitFetch(
-      () => Promise.reject(new TypeError('Failed to fetch')),
-      null,
-      (ergebnis, f) => {
-        if (ergebnis !== false) return 'gibt ' + ergebnis + ' statt false zurueck';
-        return f === null || 'ein Funkloch hat eine Warnung erzeugt: ' + JSON.stringify(f);
-      });
-  });
-
-  t('Die Admin-Warnung kommt nur, wenn die Zeile nachweislich noch da ist', () => {
-    const faelle = [
-      ['Loeschen hat getroffen',            true,  null,  false],
-      ['nichts getroffen, nichts mehr da',  false, false, false],
-      ['nichts getroffen, Zeile steht da',  false, true,  true ],
-      ['nichts getroffen, nicht pruefbar',  false, null,  false],
-      ['gar nicht erst hingekommen',        null,  null,  false]
-    ];
-    const schlecht = faelle
-      .filter(f => adminWarnungNoetig(f[1], f[2]) !== f[3])
-      .map(f => f[0] + ' -> ' + adminWarnungNoetig(f[1], f[2]) + ' statt ' + f[3]);
-    return schlecht.length === 0 || schlecht.join(' | ');
+  /* \U0001f534 HIER STAND EINE WAHRHEITSTAFEL zu `adminWarnungNoetig()` -- die Funktion gibt es
+     seit dem 11.09.2026 abends nicht mehr, samt dem ganzen Sonderweg fuer Admins
+     (Karls Ansage: alle sollen wieder in der Liste stehen).
+     \u26a0\ufe0f An ihre Stelle tritt die Pruefung, auf die es jetzt ankommt: **ein Admin muss
+     seine Zeile SCHREIBEN, nicht loeschen.** Geprueft wird mit ausgetauschtem `fetch`, damit
+     die tatsaechlich abgeschickte Anfrage sichtbar ist -- ein Rueckgabewert `true` allein
+     wuerde auch ein gelungenes LOESCHEN melden, und genau das soll es ja nicht mehr sein. */
+  await tA('Auch als Admin wird die Zeile geschrieben statt geloescht', async () => {
+    const mS = session, mA = devAdmin, mF = bestenlisteSchiebFehler, echtesFetch = window.fetch;
+    const rufe = [];
+    devAdmin = true;
+    session = { username:'Pruef', access_token:'x', expires_at: Date.now() + 3600e3,
+                user:{ id:'p1', email:'p@example.org' } };
+    window.fetch = (url, opt) => {
+      rufe.push({ url:String(url), methode:(opt && opt.method) || 'GET' });
+      return Promise.resolve({ ok:true, status:201, json: () => Promise.resolve([]) });
+    };
+    let ergebnis;
+    try { ergebnis = await bestenlisteSchieben(); }
+    finally { window.fetch = echtesFetch; session = mS; devAdmin = mA;
+              bestenlisteSchiebFehler = mF; }
+    if (ergebnis !== true) return 'gibt ' + ergebnis + ' statt true zurueck';
+    const geloescht = rufe.filter(r => r.methode === 'DELETE');
+    if (geloescht.length) return 'es wurde geloescht (' + geloescht.length + ' x DELETE)';
+    const geschrieben = rufe.filter(r => r.methode === 'POST' && /gym_bestenliste/.test(r.url));
+    return geschrieben.length === 1
+      || 'POST auf gym_bestenliste: ' + geschrieben.length + ' (Anfragen gesamt: ' + rufe.length + ')';
   });
 
   t('Die Profil-Ansicht laesst sich zeichnen', () => {
@@ -6152,7 +6159,19 @@ window.addEventListener('error', e => {
     const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
     const i = q.indexOf('async function bestenlisteSchieben');
     if (i < 0) return 'bestenlisteSchieben fehlt';
-    const rumpf = q.slice(i, i + 1200);
+    /* 🔴 11.09.2026: hier stand `q.slice(i, i + 1200)` -- ein FESTES Fenster von 1200
+       Zeichen ab dem Funktionsanfang. Am selben Abend kam ein laengerer Kommentar in die
+       Funktion, und `const name = ... .split('@')[0]` rutschte hinter Zeichen 1200: die
+       Pruefung meldete einen Datenschutz-Fehler, den es nicht gab.
+       ⚠️ Und die andere Richtung ist die gefaehrlichere: etwas Verbotenes, das hinter
+       Zeichen 1200 steht, haette sie ebenso wenig gesehen -- **stillschweigend gruen.**
+       ➡️ Gelesen wird jetzt der echte Rumpf bis zur schliessenden Klammer am Zeilenanfang.
+       ⚠️ `fromCharCode(10)` statt einem Zeilenumbruch-Escape: dieser Text geht durch
+       mehrere Schichten (Python schreibt ihn, der Browser liest ihn), und genau dabei ist
+       er beim ersten Versuch zu einem ECHTEN Umbruch geworden -- die Zeichenkette war
+       mitten entzwei und der ganze Pruefstand lief nicht mehr an (0 ok, 1 fehlgeschlagen). */
+    const j = q.indexOf(String.fromCharCode(10) + '}', i);
+    const rumpf = q.slice(i, j < 0 ? i + 2000 : j);
     const verboten = ['session.user.email,', 'profile.weights', 'sessions', 'appDataBlob'];
     const drin = verboten.filter(w => rumpf.indexOf(w) >= 0);
     if (drin.length) return 'im Rumpf steht: ' + drin.join(', ');

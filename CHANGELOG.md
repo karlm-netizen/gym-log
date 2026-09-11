@@ -4,6 +4,54 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-11
 
+### v0.086 — alle stehen wieder in der Bestenliste
+
+**Karls Ansage:** *„mach es bitte so wie vorher ganz einfach das man alle xp sieht
+Hauptsache es geht wieder."*
+
+#### 🔄 Die Entscheidung vom 10.09. ist zurückgenommen
+
+Dort stand: *„Sobald man admin bekommt werden XP nicht mehr auf dem leaderboard angezeigt.
+Ich z.b habe 50k xp aber über admin, die sollen andere nicht sehen."* Daraufhin **löschte**
+die App die eigene Zeile, statt sie zu schreiben.
+
+➡️ Ein Admin ist an dieser Stelle wieder ein **ganz normaler Nutzer**. Kein Sonderweg, keine
+Sonderanzeige — und damit auch keine zweite Bauform, die still falsch werden kann.
+
+⚠️ **Was das kostet, offen gesagt:** der XP-Stand kommt zu einem guten Teil aus der
+Admin-Konsole und nicht aus dem Training. Er steht ab jetzt wieder für alle sichtbar in der
+Liste. Genau das war der Grund für die alte Regel — sie ist in Kenntnis dessen zurückgenommen
+worden, weil die leere Liste schlimmer war.
+
+#### 🧹 Was dabei alles weggefallen ist
+
+`adminZeileHaengt`, `bestenlisteZeileDa()`, `adminWarnungNoetig()`, zwei Karten auf der
+Erfolge-Seite und der Riegel `!devAdmin` vor der Fehlermeldung — **rund 40 Zeilen, die es nur
+gab, um einen Sonderfall zu erklären.**
+⚠️ `bestenlisteZeileLoeschen()` **bleibt**: „Konto löschen" räumt damit die eigene Zeile weg.
+Dafür kam die Löschregel am 10.09. in die Datenbank, und dieser Fall besteht weiter.
+
+#### 🔴 Ein Fund nebenbei — an einer Datenschutz-Prüfung
+
+**„Hochgeschickt werden nur Name, XP und Zeitpunkt"** schnitt **feste 1200 Zeichen** ab dem
+Funktionsanfang aus. Durch den neuen Kommentar rutschte `split('@')[0]` aus dem Fenster, und
+die Prüfung meldete einen Datenschutz-Fehler, den es nicht gab.
+
+⚠️ **Die andere Richtung ist die gefährlichere:** etwas Verbotenes hinter Zeichen 1200 hätte
+sie ebenso wenig gesehen — **stillschweigend grün.**
+➡️ Gelesen wird jetzt der **echte Funktionsrumpf**. Die Gegenprobe belegt es: ein
+`appDataBlob()` ganz am Ende der Funktion wird jetzt erkannt — im alten Fenster wäre es
+unsichtbar geblieben.
+
+#### 🧪 Am Prüfstand
+
+**958 Prüfungen**, alle grün. Zwei Prüfungen **umgedreht statt gelöscht**:
+„Als Admin kommt keine Schreib-Warnung" → **„Auch Admins bekommen die Schreib-Warnung"**, und
+die Wahrheitstafel zur alten Sonderlogik ist einer Prüfung gewichen, die mit ausgetauschtem
+`fetch` nachsieht, dass ein Admin seine Zeile wirklich **schreibt** statt sie zu löschen.
+
+**Zwei Gegenproben**, beide mit dem erwarteten Rot (**2** und **1**).
+
 ### v0.085 — ein Fehlschlag beim Bestenlisten-Schreiben wird sichtbar
 
 **Karls Meldung:** *„eigentlich sollten dort 3 Leute drauf stehen ich meine Freundin und

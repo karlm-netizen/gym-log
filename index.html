@@ -5579,27 +5579,14 @@ function renderErfolge(){
      verschiebt er nichts mehr. */
   h += `<div class="row between" style="margin:22px 4px 6px"><h2>Bestenliste</h2>
       <span class="tiny muted">nach XP</span></div>`;
-  /* ➡️ 10.09.2026: Wer Admin ist, steht nicht in der Liste (Karls Ansage). Ohne diesen
-     Satz saehe das eigene Fehlen aus wie ein Fehler — und der zweite Fall waere noch
-     schlimmer: die Zeile haengt noch da, und niemand wuesste, warum. */
-  if(devAdmin){
-    h += adminZeileHaengt
-      ? `<div class="card" style="border-color:var(--danger)"><div class="tiny" style="line-height:1.7;color:var(--danger)">
-          Deine Zeile steht noch in der Bestenliste.<br>
-          <span class="muted">Zum Entfernen fehlt die Löschregel — dafür muss
-          <b style="color:var(--txt)">supabase-bestenliste.sql</b> einmal im Supabase-Dashboard
-          ausgeführt werden.</span></div></div>`
-      : `<div class="card"><div class="tiny muted" style="line-height:1.7">
-          Als Admin stehst du nicht in der Bestenliste — XP aus der Admin-Konsole
-          sollen andere nicht sehen.</div></div>`;
-  }
   /* \U0001f534 Der Fehlschlag beim Hochschreiben, sichtbar gemacht (11.09.2026).
-     \u26a0\ufe0f NICHT fuer Admins: die loeschen ihre Zeile mit Absicht, dort waere es keine
-     Nachricht, sondern Laerm.
+     \u26a0\ufe0f gilt seit dem 11.09.2026 abends fuer ALLE -- der Riegel `!devAdmin` ist mit
+     der Admin-Ausnahme gefallen. Ein Admin schreibt seine Zeile wieder wie jeder
+     andere, also soll er auch erfahren, wenn es schiefgeht.
      \u26a0\ufe0f Der letzte Satz ist der wichtigste. Ohne ihn liest sich eine rote Karte an
      dieser Stelle wie "deine Daten sind weg" -- und das waere schlicht falsch: die
      Bestenliste ist eine Kopie, die Einheiten liegen woanders. */
-  if(!devAdmin && bestenlisteSchiebFehler){
+  if(bestenlisteSchiebFehler){
     const f = bestenlisteSchiebFehler;
     h += `<div class="card" style="border-color:var(--danger)">
         <div class="tiny" style="line-height:1.7;color:var(--danger)">
@@ -6176,7 +6163,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.085';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.086';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -6475,45 +6462,18 @@ async function bestenlisteZeileLoeschen(uid){
   }catch(e){ return null; }
 }
 
-/* 🔴 Steht die Zeile trotz Admin noch in der Liste? Dann fehlt die Loeschregel in der
-   Datenbank. Wird auf der Erfolge-Seite gesagt, statt still hingenommen zu werden — sonst
-   waere es dieselbe Falle wie oben: es sieht erledigt aus und ist es nicht. */
-let adminZeileHaengt = false;
+/* 🔴 HIER STANDEN BIS ZUM 11.09.2026 ABENDS DREI SACHEN, und dass sie weg sind, ist
+   die eigentliche Nachricht: `adminZeileHaengt`, `bestenlisteZeileDa()` und
+   `adminWarnungNoetig()`. Alle drei gab es nur, weil ein Admin NICHT in der Bestenliste
+   stehen sollte (Entscheidung vom 10.09.2026).
 
-/* ---------- Karls Meldung vom 11.09.2026 ----------
-   "Warum ist jetzt niemand mehr auf dem Leaderboard mit der roten Nachricht darunter"
+   Karls Ansage am Abend des 11.09.: *"mach es bitte so wie vorher ganz einfach das man
+   alle xp sieht Hauptsache es geht wieder."* Der Sonderweg ist damit weg -- und mit ihm
+   rund 40 Zeilen, die es nur gab, um einen Sonderfall zu erklaeren.
 
-   🔴 Der Fehler: `bestenlisteZeileLoeschen()` gibt `false` fuer "nichts geloescht"
-   zurueck -- und das hat ZWEI Ursachen, die der Rueckgabewert nicht auseinanderhalten kann:
-
-     a) die Loeschregel fehlt, die Zeile steht weiter da        <- die Warnung ist richtig
-     b) es war schlicht nichts mehr da                          <- alles in Ordnung
-
-   Bis heute galt beides als (a). **Sobald die Zeile einmal erfolgreich geloescht war, war
-   ab dann immer (b) der Fall** -- und bei jedem Abgleich stand die rote Warnung da, die
-   Karl auffordert, ein SQL einzuspielen, das laengst gelaufen ist.
-   ⚠️ Dieselbe Bauform wie am 01.09.2026 eine Funktion weiter unten, und mit derselben
-   Folge: **eine falsche Arbeitsanweisung ist schlimmer als gar keine Antwort.**
-
-   ➡️ Jetzt wird NACHGESEHEN statt geraten: hat das Loeschen nichts getroffen, fragt die
-   App gezielt nach der eigenen Zeile. Kommt sie zurueck, haengt sie wirklich.
-   ⚠️ Nur in dem einen Fall -- traf das Loeschen etwas, ist die Zeile sicher weg; kam es
-   gar nicht erst hin (`null`), sagt die Anzeige lieber nichts. */
-async function bestenlisteZeileDa(uid){
-  if(!uid || !await ensureToken()) return null;
-  try{
-    const r = await fetch(`${SUPA_URL}/rest/v1/gym_bestenliste?user_id=eq.${uid}&select=user_id&limit=1`,
-                          { headers: authHeaders(true) });
-    if(!r.ok) return null;
-    const rows = await r.json().catch(()=>[]);
-    return Array.isArray(rows) && rows.length > 0;
-  }catch(e){ return null; }
-}
-/* Die Entscheidung als eigene Funktion, damit sie ohne Netz nachpruefbar ist.
-   ⚠️ Gewarnt wird NUR, wenn beides zusammenkommt: das Loeschen hat nichts getroffen
-   UND die Zeile ist nachweislich noch da. Alles andere -- kein Netz, keine Antwort,
-   erfolgreich geloescht -- ist keine Warnung wert. */
-function adminWarnungNoetig(weg, zeileDa){ return weg === false && zeileDa === true; }
+   ⚠️ `bestenlisteZeileLoeschen()` BLEIBT und wird weiter gebraucht: "Konto loeschen"
+   raeumt damit die eigene Zeile weg (siehe `deleteAccount`). Das ist der Fall, fuer den
+   die Loeschregel am 10.09. in die Datenbank kam -- der bleibt bestehen. */
 
 /* ---------- Ein Fehlschlag beim Hochschreiben wird sichtbar (11.09.2026) ----------
    Karls Meldung: "eigentlich sollten dort 3 Leute drauf stehen ich meine Freundin und mein
@@ -6552,14 +6512,19 @@ async function bestenlisteSchieben(){
      sehen."
      ⚠️ Es reicht nicht, das Hochschreiben zu lassen: die Zeile von vorher bliebe mit den
      50.000 stehen, fuer immer, weil sie niemand mehr anfasst. Sie muss WEG. */
-  if(devAdmin){
-    const weg = await bestenlisteZeileLoeschen(session.user.id);
-    // Nur nachfragen, wenn das Loeschen nichts getroffen hat -- sonst ist nichts zu klaeren.
-    const daDrin = (weg === false) ? await bestenlisteZeileDa(session.user.id) : null;
-    adminZeileHaengt = adminWarnungNoetig(weg, daDrin);
-    return weg !== null;
-  }
-  adminZeileHaengt = false;
+  /* ✅ 11.09.2026 abends, Karls Ansage: "mach es bitte so wie vorher ganz einfach
+     das man alle xp sieht Hauptsache es geht wieder."
+     🔴 **Damit ist die Entscheidung vom 10.09.2026 zurueckgenommen**, und zwar
+     ausdruecklich: dort stand *"Sobald man admin bekommt werden XP nicht mehr auf dem
+     leaderboard angezeigt. Ich z.b habe 50k xp aber ueber admin, die sollen andere
+     nicht sehen."* Hier stand daraufhin ein Zweig, der die eigene Zeile LOESCHTE,
+     statt sie zu schreiben.
+     ⚠️ **Was das kostet, offen gesagt:** Karls XP-Stand kommt zu einem guten Teil
+     aus der Admin-Konsole und nicht aus dem Training. Er steht ab jetzt wieder in der
+     Liste, fuer alle sichtbar. Genau das war der Grund fuer die alte Regel -- Karl hat
+     sie in Kenntnis dessen zurueckgenommen, weil die leere Liste schlimmer war.
+     ➡️ Ein Admin ist hier wieder ein ganz normaler Nutzer. Kein Sonderweg, keine
+     Sonderanzeige -- und damit auch keine zweite Bauform, die still falsch werden kann. */
   const name = (session.username || session.user.email || '').split('@')[0].slice(0,40);
   /* \u26a0\ufe0f Ohne Namen gibt es nichts zu schreiben -- und das ist KEIN Serverfehler.
      Trotzdem gehoert es gesagt, sonst fehlt man in der Liste und niemand weiss, warum. */
