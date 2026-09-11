@@ -2524,20 +2524,22 @@ window.addEventListener('error', e => {
   // ---- Der Kippschalter (Karls Ansage 29.08.2026) ----
   // Vorher stand dort ein Knopf mit "Ausschalten"/"Einschalten" -- der sagt, was PASSIEREN
   // WUERDE, nicht was IST.
-  t('Beide Erinnerungen haben einen echten Schalter, keinen Knopf mit Text', () => {
+  // ✅ 11.09.2026: aus zwei Schaltern sind DREI geworden -- "Schritte gestern" ist
+  // dazugekommen (Karls Ansage: "genau wie die anderen 2 Widgets ... entfernen koennen").
+  t('Alle drei Erinnerungen haben einen echten Schalter, keinen Knopf mit Text', () => {
     const eV = profile.erinnerungen, sV = session;
     session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
-    profile.erinnerungen = {wiegen:true, essen:false, ts:Date.now()};
+    profile.erinnerungen = {wiegen:true, essen:false, schritte:true, ts:Date.now()};
     view = 'settings'; render();
     const alle = [...document.querySelectorAll('[data-act^="erinn:"]')];
     const h = app.innerHTML;
     profile.erinnerungen = eV; session = sV;
-    if (alle.length !== 2) return 'erwartet 2 Schalter, gefunden ' + alle.length;
+    if (alle.length !== 3) return 'erwartet 3 Schalter, gefunden ' + alle.length;
     const keinSchalter = alle.filter(b => b.getAttribute('role') !== 'switch');
     if (keinSchalter.length) return keinSchalter.length + ' ohne role="switch"';
     // aria-checked muss den ZUSTAND spiegeln, nicht die Absicht des Klicks.
     const anZustand = alle.map(b => b.getAttribute('aria-checked')).join(',');
-    if (anZustand !== 'true,false') return 'aria-checked: ' + anZustand;
+    if (anZustand !== 'true,false,true') return 'aria-checked: ' + anZustand;
     if (h.includes('Ausschalten') || h.includes('Einschalten')) return 'der alte Text-Knopf ist zurueck';
     return true;
   });
@@ -5406,6 +5408,37 @@ window.addEventListener('error', e => {
       .filter(a => h.indexOf('data-act="' + a + '"') >= 0);
     return drin.length === 0 || 'im Profil gefunden: ' + drin.join(', ');
   });
+  /* ================== Einstellungen gehoeren ins Profil (11.09.2026) ==================
+     Karls Ansage: "Einstellungen muessen aufjedenfall bei Profil rein weil Einstellungen
+     stehen nie allein." */
+  t('Die Einstellungen sind vom Profil aus erreichbar', () => {
+    renderProfil();
+    const h = document.getElementById('app').innerHTML;
+    return h.indexOf('data-nav="settings"') >= 0 || 'kein Weg in die Einstellungen';
+  });
+  /* \U0001f534 Die rote Zahl muss mit. Sie haengt sonst nur am Reiter unten -- wer im Profil
+     steht und von dort in die Einstellungen geht, saehe ohne sie nicht, dass eine Antwort
+     auf seine Meldung wartet. Dieselbe Bauform wie gestern bei der Leiste: eine
+     Benachrichtigung, die es gibt und die niemand sieht.
+     \u26a0\ufe0f Gemessen wird am Inhalt, nicht am Vorhandensein eines Elements: eine Zahl, die
+     da ist, aber leer bleibt, waere genauso nutzlos. */
+  t('Eine ungelesene Antwort steht auch im Profil', () => {
+    localStorage.setItem(POST_KEY, JSON.stringify([{id:'a', antwort:'Hi', gelesen_am:null}]));
+    renderProfil();
+    const h = document.getElementById('app').innerHTML;
+    localStorage.removeItem(POST_KEY);
+    const schnitt = h.indexOf('data-nav="settings"');
+    if (schnitt < 0) return 'die Einstellungen fehlen im Profil';
+    return />1</.test(h.slice(schnitt)) || 'keine Zahl an der Einstellungen-Zeile';
+  });
+  t('Ohne offene Antwort steht keine Zahl im Profil', () => {
+    localStorage.removeItem(POST_KEY);
+    renderProfil();
+    const h = document.getElementById('app').innerHTML;
+    const schnitt = h.indexOf('data-nav="settings"');
+    if (schnitt < 0) return 'die Einstellungen fehlen im Profil';
+    return !/background:var\(--danger\)/.test(h.slice(schnitt)) || 'eine rote Zahl ohne Anlass';
+  });
   /* \u26a0\ufe0f Und der Verlauf auch nicht: sein Zurueck-Pfeil sagt "Zurueck zu
      Einstellungen" -- von hier aus waere das gelogen. */
   t('Der Verlauf wird aus dem Profil NICHT verlinkt', () => {
@@ -6356,11 +6389,29 @@ window.addEventListener('error', e => {
   // 🔴 UMGEDREHT: hier stand "Die Schritt-Zeile steht nur im Modus in der Ansicht".
   // Der Kalorien-Kasten ist der Ort, an dem gerechnet wird -- die Zahl darf dort nicht mehr
   // auftauchen, in keiner Form.
+  /* ✅ 11.09.2026 ENGER GEFASST, und das ist bewusst aufgeschrieben, weil das Aufweichen
+     einer Pruefung sonst genau die Bewegung ist, die spaeter Geld kostet.
+
+     Diese Pruefung hiess immer "Im Kalorien-KASTEN", hat aber die GANZE Seite abgesucht.
+     Das ging gut, solange auf der Seite sonst nirgends Schritte vorkamen. Seit heute steht
+     ganz unten -- hinter der Gewichtskurve -- die Karte "Schritte gestern": der feste
+     Platz zum Nachsehen und Korrigieren, seit die Karte auf der Startseite nach dem
+     Eintragen verschwindet (Karls Ansage vom 11.09.).
+
+     🔴 Was die Pruefung schuetzen soll, schuetzt sie unveraendert weiter: dass die Zahl
+     nicht in die RECHNUNG zurueckkommt. Geprueft wird der Teil der Seite VOR der neuen
+     Karte -- Kopfzeile, Brock, Ring, Tagesziel, Mahlzeiten, Kurve. Und die zweite Haelfte
+     der Absicherung steht unveraendert daneben: 'Der Ring zeigt das Grundziel'.
+     ⚠️ Zusaetzlich pruefen zwei neue Faelle weiter unten, dass die neue Karte GESTERN
+     zeigt und nicht heute, und dass sie selbst sagt, dass sie nichts mitrechnet. */
   t('Im Kalorien-Kasten steht keine Schritt-Zahl mehr', () => {
-    schFrisch(); setzeSchritte(8432);
+    schFrisch(); setzeSchritte(8432);                  // HEUTE, nicht gestern
     const v = view; view = 'body'; renderBody(); const h = app.innerHTML; view = v;
-    if (h.includes('8.432') || h.includes('8432')) return 'die Zahl steht im Kalorien-Kasten';
-    return !/Schritte/.test(h) || 'das Wort Schritte steht noch im Kalorien-Kasten';
+    const schnitt = h.indexOf('Schritte gestern');
+    if (schnitt < 0) return 'die Karte "Schritte gestern" fehlt ganz auf der Seite';
+    const kasten = h.slice(0, schnitt);
+    if (kasten.includes('8.432') || kasten.includes('8432')) return 'die Zahl steht im Kalorien-Kasten';
+    return !/Schritte/.test(kasten) || 'das Wort Schritte steht noch im Kalorien-Kasten';
   });
   // 🔴 UMGEDREHT: hier stand "Der Ring zeigt das Ziel MIT Schritten" (von 2320).
   t('Der Ring zeigt das Grundziel', () => {
@@ -6388,11 +6439,110 @@ window.addEventListener('error', e => {
     if (schritteAmTag(Date.now()) !== 0) return 'heute wurde mitbeschrieben: ' + schritteAmTag(Date.now());
     return schrittListe().length === 1 || 'Eintraege: ' + schrittListe().length;
   });
+  /* 11.09.2026 UMGEZOGEN, und der Umzug ist selbst der Befund: diese Pruefung stellte
+     sich auf die Startseite und trug VORHER 5000 Schritte ein -- genau dann ist die Karte
+     dort seit heute weg (Karls Ansage: "muss verschwinden sobald man sie eingetragen hat").
+     Sie lief prompt auf `getElementById(...) is null`.
+     \U0001f534 Die Frage, die sie stellt, bleibt dieselbe und ist die wichtigere von beiden:
+     ein leeres Feld darf einen bestehenden Wert NICHT loeschen. `setzeSchritte()`
+     ueberschreibt den Tag, und eine 0 aus einem leeren Feld waere ein stiller Verlust.
+     Gefragt wird jetzt dort, wo das Feld nach dem Eintragen steht: auf der Kalorien-Seite. */
   t('Ein leeres Feld traegt nichts ein', () => {
-    schFrisch(); setzeSchritte(5000, gesternTs()); startseiteBauen();
-    document.getElementById('schrittGestern').value = '';
+    schFrisch(); setzeSchritte(5000, gesternTs());
+    const v = view; view = 'body'; renderBody();
+    const feld = document.getElementById('schrittGestern');
+    if (!feld) { view = v; return 'kein Feld auf der Kalorien-Seite'; }
+    feld.value = '';
     document.querySelector('[data-act="schritt:gestern"]').click();
+    view = v;
     return schritteGestern() === 5000 || 'der alte Wert ist weg: ' + schritteGestern();
+  });
+
+  // ================== Die Erinnerung verschwindet und ist abschaltbar (11.09.2026)
+  /* Karls Ansage: "Schritte gestern muss verschwinden sobald man sie eingetragen hat und
+     man muss es genau wie die anderen 2 Widgets auf der Startseite entfernen koennen." */
+  t('Solange nichts eingetragen ist, steht die Schritt-Erinnerung da', () => {
+    schFrisch(); startseiteBauen();
+    return app.innerHTML.includes('Schritte gestern') || 'die Erinnerung fehlt';
+  });
+  t('Nach dem Eintragen ist die Schritt-Erinnerung weg', () => {
+    schFrisch(); setzeSchritte(8000, gesternTs()); startseiteBauen();
+    return !app.innerHTML.includes('Schritte gestern') || 'die Karte steht trotz Eintrag noch da';
+  });
+  /* \U0001f534 Der Fall, an dem eine naheliegende Fassung still falsch gewesen waere:
+     `schritteAmTag()` gibt 0 zurueck, wenn NICHTS dasteht -- und ebenso, wenn eine 0
+     dasteht. Mit `if(!schritteGestern())` bliebe die Erinnerung fuer jemanden, der gestern
+     wirklich nicht gelaufen ist, fuer immer stehen: eine Aufforderung, der er nachkommt,
+     ohne dass sie je verschwindet. Deshalb fragt der Code nach dem EINTRAG, nicht der Zahl. */
+  t('Eine eingetragene Null zaehlt als eingetragen', () => {
+    schFrisch(); setzeSchritte(0, gesternTs());
+    if (!schritteGesternEingetragen()) return 'die Null gilt nicht als Eintrag';
+    startseiteBauen();
+    return !app.innerHTML.includes('Schritte gestern') || 'die Karte steht trotz eingetragener Null';
+  });
+  // Nur GESTERN zaehlt. Wer heute schon Schritte stehen hat, ist die Erinnerung nicht los.
+  t('Ein Eintrag von heute raeumt die Erinnerung fuer gestern nicht weg', () => {
+    schFrisch(); setzeSchritte(9000);                  // heute
+    startseiteBauen();
+    return app.innerHTML.includes('Schritte gestern') || 'die Karte fehlt, obwohl gestern offen ist';
+  });
+  /* \U0001f534 Der Einbau, nicht nur das Teil: der Schalter in den Einstellungen muss die
+     Karte auf der Startseite wirklich verschwinden lassen. Mit echtem Klick, nicht
+     durch Setzen der Variablen. */
+  t('Der Schalter nimmt die Schritt-Erinnerung von der Startseite', () => {
+    const eV = profile.erinnerungen, sV = session;
+    session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    schFrisch();
+    profile.erinnerungen = {wiegen:true, essen:true, schritte:true, ts:0};
+    view = 'settings'; render();
+    const knopf = document.querySelector('[data-act="erinn:schritte:aus"]');
+    if (!knopf) { profile.erinnerungen = eV; session = sV; return 'kein Schalter in den Einstellungen'; }
+    knopf.click();
+    const nachAus = erinnerungAn('schritte');
+    startseiteBauen();
+    const h = app.innerHTML;
+    profile.erinnerungen = eV; session = sV; view = 'home';
+    if (nachAus !== false) return 'der Schalter hat nichts umgestellt';
+    return !h.includes('Schritte gestern') || 'die Karte steht trotz ausgeschaltetem Schalter';
+  });
+
+  // ---------------- Der feste Platz auf der Kalorien-Seite ----------------
+  /* \U0001f534 DER Grund, warum es diese drei Pruefungen gibt. Die Karte auf der Startseite
+     war bis zum 11.09.2026 der EINZIGE Ort in der ganzen App, an dem eine Schrittzahl
+     eingetragen oder korrigiert werden konnte. Haette sie nach dem Eintragen nur noch
+     aufgehoert zu erscheinen, waere ein Zahlendreher unumkehrbar gewesen -- 84.320 statt
+     8.432, und kein Weg zurueck. Fiele dieser Platz wieder weg, waere das sofort wieder so,
+     und niemandem fiele es auf: eingetragen wird ja weiterhin. */
+  t('Die Schritte lassen sich nach dem Eintragen noch aendern', () => {
+    schFrisch(); setzeSchritte(84320, gesternTs());
+    const v = view; view = 'body'; renderBody();
+    const feld = document.getElementById('schrittGestern');
+    const knopf = document.querySelector('[data-act="schritt:gestern"]');
+    if (!feld || !knopf) { view = v; return 'Feld ' + !!feld + ', Knopf ' + !!knopf; }
+    feld.value = '8432';
+    knopf.click();
+    const jetzt = schritteGestern();
+    view = v;
+    if (jetzt !== 8432) return 'der Wert steht auf ' + jetzt;
+    return schrittListe().length === 1 || 'es sind ' + schrittListe().length + ' Eintraege';
+  });
+  t('Die Karte auf der Kalorien-Seite zeigt GESTERN, nicht heute', () => {
+    schFrisch(); setzeSchritte(8432); setzeSchritte(1234, gesternTs());
+    const v = view; view = 'body'; renderBody(); const h = app.innerHTML; view = v;
+    const schnitt = h.indexOf('Schritte gestern');
+    if (schnitt < 0) return 'die Karte fehlt';
+    const karte = h.slice(schnitt);
+    if (karte.includes('8.432') || karte.includes('8432')) return 'die Karte zeigt die Zahl von heute';
+    return karte.includes('1.234') || 'die Zahl von gestern steht nicht in der Karte';
+  });
+  /* \u26a0\ufe0f Der Satz ist keine Deko. Eine Zahl, die auf der Kalorien-Seite steht, sieht aus
+     wie eine, die mitrechnet -- genau das war sie bis zum 10.09.2026 auch. */
+  t('Die Karte sagt selbst, dass Schritte nicht mitrechnen', () => {
+    schFrisch();
+    const v = view; view = 'body'; renderBody(); const h = app.innerHTML; view = v;
+    const schnitt = h.indexOf('Schritte gestern');
+    if (schnitt < 0) return 'die Karte fehlt';
+    return h.slice(schnitt).includes('keine Rechnung') || 'der Satz dazu fehlt';
   });
 
   // ---- Der automatische Weg ist wirklich weg, nicht nur unsichtbar ----

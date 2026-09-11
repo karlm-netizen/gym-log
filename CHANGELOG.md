@@ -4,6 +4,81 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-11
 
+### v0.080 — Schritte-Erinnerung verschwindet, Einstellungen im Profil
+
+Karls zwei Ansagen vom 11.09.2026:
+**„Schritte gestern muss verschwinden sobald man sie eingetragen hat und man muss es genau
+wie die anderen 2 Widgets auf der Startseite entfernen können."** und
+**„Einstellungen müssen aufjedenfall bei Profil rein weil Einstellungen stehen nie allein."**
+
+#### Was sich ändert
+
+| | |
+|---|---|
+| 👟 | **„Schritte gestern" ist jetzt eine Erinnerung wie die anderen zwei** — steht da, solange gestern offen ist, und ist danach weg |
+| 🔘 | **Dritter Schalter in den Einstellungen** — die Erinnerung lässt sich abstellen |
+| 📍 | **Die Zahl hat einen festen Platz bekommen:** unten auf der Kalorien-Seite, unter der Gewichtskurve |
+| ⚙️ | **Die Einstellungen sind vom Profil aus erreichbar** — samt der roten Zahl aus dem Postfach |
+
+#### 🔴 Der Fund, der die Ansage sonst zur Falle gemacht hätte
+
+Die Karte auf der Startseite war **der einzige Ort in der ganzen App**, an dem eine
+Schrittzahl eingetragen *oder korrigiert* werden konnte. Hätte sie nach dem Eintragen nur
+noch aufgehört zu erscheinen, wäre ein Zahlendreher **unumkehrbar** gewesen — 84.320 statt
+8.432, und kein Weg zurück. `setzeSchritte()` überschreibt den Tag; die Korrektur *ist*
+das erneute Eintragen, und genau das Feld dafür wäre verschwunden.
+
+➡️ Deshalb hat die Zahl einen festen Platz auf der Kalorien-Seite bekommen. Dieselbe
+Aufteilung wie bei den anderen zwei Erinnerungen: **die Startseite erinnert, die Sachseite
+hält den Wert und lässt ihn ändern.**
+
+#### ⚠️ Die zweite Stelle, an der eine naheliegende Fassung falsch gewesen wäre
+
+`schritteAmTag()` gibt **0** zurück, wenn nichts dasteht — und ebenso, wenn eine **0**
+dasteht. Mit `if(!schritteGestern())` wäre die Erinnerung für jemanden, der gestern
+wirklich nicht gelaufen ist und das einträgt, **für immer stehengeblieben**: eine
+Aufforderung, der man nachkommt, ohne dass sie je verschwindet.
+➡️ Gefragt wird deshalb nach dem **Eintrag**, nicht nach der Zahl (`schritteGesternEingetragen()`).
+
+#### 🚫 Einstellungen: verlinkt, nicht hineinkopiert
+
+Abmelden, Alles zurücksetzen und Konto löschen stehen seit dem 27.08.2026 in genau der
+Reihenfolge in den Einstellungen, die Karl angeordnet hat. **Drei gefährliche Knöpfe ein
+zweites Mal aufzustellen wäre die schlechtere Art, dieser Ansage nachzukommen** — die
+Prüfung von gestern („stehen NICHT im Profil") bleibt gültig und grün.
+🔴 **Die rote Zahl steht mit im Profil.** Sie hängt sonst nur am Reiter unten; wer im Profil
+steht und von dort in die Einstellungen geht, sähe ohne sie nicht, dass eine Antwort wartet.
+Dieselbe Bauform wie gestern bei der Leiste.
+
+#### 🧪 Am Prüfstand
+
+**923 Prüfungen** (waren 912), alle grün, dazu die vier Datenschutz-Prüfungen.
+**Drei Gegenproben gelaufen**, alle mit dem erwarteten Rot:
+
+1. `schritteGesternEingetragen()` auf die Zahl statt den Eintrag umgestellt und die rote
+   Zahl aus dem Profil genommen → **2 rot**
+2. Die Schritt-Karte von der Kalorien-Seite genommen und das Zahnrad umgehängt → **8 rot**
+3. Die Bedingung auf der Startseite auf `true` gesetzt → **3 rot**
+
+#### ✂️ Zwei bestehende Prüfungen sind mitgezogen
+
+- **„Beide Erinnerungen haben einen echten Schalter"** heißt jetzt **„Alle drei"** und
+  erwartet drei statt zwei.
+- **„Im Kalorien-Kasten steht keine Schritt-Zahl mehr"** ist **enger gefasst**, und das ist
+  bewusst aufgeschrieben: sie hieß immer „im Kalorien-*Kasten*", hat aber die ganze Seite
+  abgesucht. Geprüft wird jetzt der Teil **vor** der neuen Karte — Kopfzeile, Brock, Ring,
+  Tagesziel, Mahlzeiten, Kurve. **Was sie schützt, schützt sie unverändert:** dass die Zahl
+  nicht in die Rechnung zurückkommt. Daneben steht unverändert „Der Ring zeigt das
+  Grundziel", und zwei neue Prüfungen verlangen, dass die neue Karte *gestern* zeigt und
+  selbst sagt, dass sie nichts mitrechnet.
+- **„Ein leeres Feld trägt nichts ein"** ist auf die Kalorien-Seite umgezogen — sie trug
+  vorher ein und stand danach auf der Startseite vor einer Karte, die es nicht mehr gibt.
+  **Sie ist beim ersten Lauf prompt umgefallen**, und zwar zu Recht.
+
+#### 🧹 Datenschutzerklärung nachgezogen
+
+Dort stand, die Schritte würden „auf der Startseite" eingetragen. Es sind jetzt zwei Orte.
+
 ### v0.079 — fünf Symbole, kein Text, Profil rechts
 
 Karls Entscheidung vom 10.09.2026 im Wortlaut: die untere Leiste soll **„wie Instagram"**
