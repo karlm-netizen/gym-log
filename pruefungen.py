@@ -4683,7 +4683,7 @@ window.addEventListener('error', e => {
   });
 
   // ================================================ Wischen zwischen den Reitern (v41)
-  /* Geprueft wird die ENTSCHEIDUNG, nicht der Finger: welche vier Reiter, in welcher
+  /* Geprueft wird die ENTSCHEIDUNG, nicht der Finger: welche fuenf Reiter, in welcher
      Reihenfolge, und wo nicht gewischt wird. Ein echter Wisch laesst sich hier nicht
      nachstellen -- headless kennt keine Beruehrung. */
   t('Die Reiter stehen in der Reihenfolge der Leiste', () => {
@@ -5251,9 +5251,11 @@ window.addEventListener('error', e => {
   t('Es gibt einen Erfolge-Reiter in der unteren Leiste', () =>
     !!document.querySelector('#nav button[data-nav="erfolge"]') || 'nicht da');
   // Karls Ansage: "als 3ter reiter unten zwischen einstellungen und kalorien"
+  // ✅ 11.09.2026: hinten kam `profil` dazu (Karls Entscheidung vom 10.09.).
+  // Erfolge steht unveraendert zwischen Kalorien und Einstellungen -- genau darum geht es.
   t('Der Reiter steht zwischen Kalorien und Einstellungen', () => {
     const reihe = [...document.querySelectorAll('#nav button')].map(b => b.dataset.nav);
-    return eq(reihe.join('|'), 'home|body|erfolge|settings');
+    return eq(reihe.join('|'), 'home|body|erfolge|settings|profil');
   });
   // ⚠️ renderErfolge() direkt, nicht ueber render(): das prueft `session` und springt ohne
   // Anmeldung ins Login-Fenster. Im Prueframen ist niemand angemeldet.
@@ -5274,6 +5276,142 @@ window.addEventListener('error', e => {
     const an = document.querySelector('#nav button[data-nav="erfolge"]').classList.contains('on');
     view = merkView; setNav();
     return an || 'bleibt grau';
+  });
+
+  // ============================== Fuenf Symbole, kein Text, Profil rechts (11.09.2026)
+  /* Karls Entscheidung vom 10.09.2026 im Wortlaut: "Fuenf Symbole, kein Text,
+     Profil rechts." */
+  t('Die Leiste hat fuenf Knoepfe', () => {
+    const n = document.querySelectorAll('#nav button').length;
+    return n === 5 || 'es sind ' + n;
+  });
+  t('Profil steht ganz rechts', () => {
+    const reihe = [...document.querySelectorAll('#nav button')].map(b => b.dataset.nav);
+    return eq(reihe[reihe.length - 1], 'profil');
+  });
+  /* \U0001f534 DIE Pruefung an dieser Aenderung, und der Grund, warum sie misst statt liest:
+     der Text ist weg -- aber die rote Zahl haengt IM Wort-Span (siehe `navZahl`). Waere
+     der Span `display:none` statt `font-size:0`, verschwaende die Zahl lautlos mit ihm:
+     eine Antwort im Postfach, die niemand sehen kann, und nirgends wird etwas rot.
+     Genau die Bauform, die hier schon mehrfach Geld gekostet hat. */
+  t('Die Zahl an der Leiste ist trotz fehlendem Text noch zu sehen', () => {
+    /* ⚠️ Im Pruefrahmen ist niemand angemeldet, und `body.gate #nav{display:none}`
+       blendet die ganze Leiste aus -- gemessen haette man 0 x 0, egal wie richtig das CSS
+       ist. Die Klasse wird deshalb fuer die Dauer der Messung abgenommen und danach
+       wieder gesetzt. (Beim ersten Lauf am 11.09.2026 war genau das der Fehlschlag: die
+       Pruefung mass die Anmeldemaske, nicht die Leiste.) */
+    const b = document.body, warGate = b.classList.contains('gate');
+    b.classList.remove('gate');
+    localStorage.setItem(POST_KEY, JSON.stringify([{id:'a', antwort:'Hi', gelesen_am:null}]));
+    setNav();
+    const p = document.querySelector('#nav button[data-nav="settings"] .navpunkt');
+    const r = p ? p.getBoundingClientRect() : null;
+    localStorage.removeItem(POST_KEY); setNav();
+    if (warGate) b.classList.add('gate');
+    if (!r) return 'gar keine Zahl da';
+    return (r.width > 8 && r.height > 8)
+      || 'sie ist ' + Math.round(r.width) + ' x ' + Math.round(r.height) + ' gross';
+  });
+  /* 🔴 Und die Gegenprobe zur Messung selbst: haette die Leiste im Pruefrahmen
+     weiterhin `display:none`, waere die Pruefung oben ein Gruen ohne Aussage. Deshalb
+     wird hier nachgesehen, dass ohne `gate` wirklich etwas zu sehen ist. */
+  t('Ohne gate ist die Leiste im Pruefrahmen sichtbar', () => {
+    const b = document.body, warGate = b.classList.contains('gate');
+    b.classList.remove('gate');
+    const r = document.getElementById('nav').getBoundingClientRect();
+    if (warGate) b.classList.add('gate');
+    return (r.width > 0 && r.height > 0)
+      || 'die Leiste bleibt ' + Math.round(r.width) + ' x ' + Math.round(r.height);
+  });
+  t('Die Beschriftung ist da, aber auf Null geschrumpft', () => {
+    const el = document.querySelector('#nav button[data-nav="home"] .navtxt');
+    if (!el) return 'kein .navtxt am ersten Knopf';
+    const s = getComputedStyle(el);
+    if (s.display === 'none') return 'display:none -- damit waere auch die Zahl weg';
+    return parseFloat(s.fontSize) === 0 || 'Schriftgroesse ist ' + s.fontSize;
+  });
+  /* \u26a0\ufe0f Auf dem PC wird die Leiste zur 232 px breiten Seitenleiste, und dort MUSS die
+     Schrift zurueck -- fuenf nackte Symbole in einer Spalte waeren kein Instagram,
+     sondern kaputt. Die Fensterbreite laesst sich im Pruefrahmen nicht umstellen, also
+     wird die Regel selbst gelesen: in der 900-px-Fassung muss `.navtxt` eine
+     Schriftgroesse setzen.
+     \U0001f534 `r.cssRules && r.cssRules.length` -- NICHT nur `r.cssRules`. Seit Chrome
+     Verschachtelung kann, hat jede Style-Regel eine (leere) Liste, und ein leeres Objekt
+     ist wahr. Dieselbe Falle hat am 06.09.2026 schon eine Pruefung blind gemacht. */
+  t('Auf dem PC bekommt die Beschriftung ihre Schrift zurueck', () => {
+    let gefunden = false;
+    const fehler = [];
+    const suche = (regeln, imPC) => {
+      for (const r of Array.from(regeln)) {
+        const drin = imPC || !!(r.media && String(r.media.mediaText).indexOf('900px') >= 0);
+        if (drin && (r.selectorText || '').indexOf('.navtxt') >= 0 && r.style && r.style.fontSize)
+          gefunden = true;
+        if (r.cssRules && r.cssRules.length) suche(r.cssRules, drin);
+      }
+    };
+    for (const bl of Array.from(document.styleSheets)) {
+      try { suche(bl.cssRules, false); } catch (err) { fehler.push(err.name + ': ' + err.message); }
+    }
+    if (gefunden) return true;
+    return fehler.length ? ('die Regeln waren nicht lesbar - ' + fehler[0])
+                         : 'keine .navtxt-Regel mit Schriftgroesse in der PC-Fassung';
+  });
+
+  // ---------------------------------------------------------------- Die Profil-Ansicht
+  t('Die Profil-Ansicht laesst sich zeichnen', () => {
+    renderProfil();
+    const txt = document.getElementById('app').textContent;
+    return (txt.includes('Einheiten') && txt.includes('XP gesamt') && txt.includes('Level'))
+      || 'Inhalt fehlt';
+  });
+  t('Das Profil zeigt den getragenen Rang', () => {
+    renderProfil();
+    const txt = document.getElementById('app').textContent;
+    const rang = equippedRank();
+    return txt.includes(rang.name) || 'Rang "' + rang.name + '" fehlt';
+  });
+  t('Das Profil zeigt die Zahl der Einheiten', () => {
+    const merk = sessions;
+    sessions = [{id:'a', date: Date.now(), planName:'X', entries:[], dur:0},
+                {id:'b', date: Date.now(), planName:'Y', entries:[], dur:0}];
+    renderProfil();
+    const txt = document.getElementById('app').textContent;
+    sessions = merk;
+    return txt.includes('2') || 'die Zwei steht nicht da';
+  });
+  t('Der Profil-Reiter wird eingefaerbt, wenn man drin ist', () => {
+    const merk = view; view = 'profil'; setNav();
+    const an = document.querySelector('#nav button[data-nav="profil"]').classList.contains('on');
+    view = merk; setNav();
+    return an || 'bleibt grau';
+  });
+  /* \u2705 Die Rang-Leiter gehoert seit dem 11.09.2026 zum Profil und nicht mehr zu
+     "Trainieren": man kommt jetzt auf ZWEI Wegen dorthin (Karte auf der Startseite,
+     Karte im Profil), und bei "Trainieren" waere die Markierung auf einem davon falsch. */
+  t('Die Rang-Ansicht markiert Profil, nicht Trainieren', () => {
+    const merk = view; view = 'rang'; setNav();
+    const an = [...document.querySelectorAll('#nav button.on')].map(b => b.dataset.nav);
+    view = merk; setNav();
+    return eq(an.join(','), 'profil');
+  });
+  /* \U0001f534 Der Konto-Kasten darf NICHT ins Profil wandern. Abmelden, Alles zuruecksetzen
+     und Konto loeschen stehen seit dem 27.08.2026 in genau dieser Reihenfolge in den
+     Einstellungen, weil Karl sie so angeordnet hat. Drei gefaehrliche Knoepfe an zwei
+     Orten waeren schlimmer als ein duennes Profil -- und beim naechsten Ausbau des
+     Profils waere es still passiert. */
+  t('Abmelden, Zuruecksetzen und Loeschen stehen NICHT im Profil', () => {
+    renderProfil();
+    const h = document.getElementById('app').innerHTML;
+    const drin = ['logout', 'resetall', 'delaccount']
+      .filter(a => h.indexOf('data-act="' + a + '"') >= 0);
+    return drin.length === 0 || 'im Profil gefunden: ' + drin.join(', ');
+  });
+  /* \u26a0\ufe0f Und der Verlauf auch nicht: sein Zurueck-Pfeil sagt "Zurueck zu
+     Einstellungen" -- von hier aus waere das gelogen. */
+  t('Der Verlauf wird aus dem Profil NICHT verlinkt', () => {
+    renderProfil();
+    const h = document.getElementById('app').innerHTML;
+    return h.indexOf('data-nav="history"') < 0 || 'der Verlauf haengt am Profil';
   });
 
   // Aufraeumen, damit die Reihenfolge der Pruefungen egal bleibt.

@@ -388,8 +388,18 @@ setTimeout(function(){
      und holt die Zahl damit ans Wort heran. Ein Umhaengen im DOM je Bildschirmbreite waere
      die Alternative gewesen; ein Wort, das seinen eigenen Bezugsrahmen mitbringt, ist
      weniger beweglich und faellt bei Umbauten nicht auf die Nase. */
-  .navtxt{position:static}
-  .navpunkt{position:absolute; top:4px; left:50%; margin-left:6px; min-width:16px; height:16px;
+  /* ---- Fuenf Symbole, kein Text (11.09.2026) ----
+     Karls Entscheidung vom 10.09.2026: "Fuenf Symbole, kein Text, Profil rechts."
+     🔴 `font-size:0` und NICHT `display:none`, und das ist der ganze Trick hier:
+     die rote/goldene Zahl haengt IM Wort-Span (siehe `navZahl`). Mit `display:none`
+     waere sie unsichtbar geworden -- eine Benachrichtigung, die es gibt, die aber
+     niemand sehen kann, und nichts waere dabei rot geworden. Der Span bleibt stehen,
+     schrumpft auf null und traegt die Zahl weiter. Nebenbei behaelt jeder Knopf damit
+     seinen Namen fuer eine Vorlesehilfe; ohne Text waeren es fuenf namenlose Bilder.
+     ⚠️ Die PC-Fassung weiter unten holt die Schrift wieder zurueck -- eine 232 px
+     breite Seitenleiste mit fuenf nackten Symbolen waere kein Instagram, sondern kaputt. */
+  .navtxt{position:static; font-size:0; line-height:0}
+  .navpunkt{position:absolute; top:5px; left:50%; margin-left:4px; min-width:16px; height:16px;
     padding:0 4px; border-radius:99px; background:var(--danger); color:#fff; font-size:10px;
     font-weight:700; display:flex; align-items:center; justify-content:center; line-height:1}
 
@@ -695,9 +705,9 @@ setTimeout(function(){
   .timer .t-btn{background:var(--card2); border:1px solid var(--line); border-radius:10px; padding:8px 9px; font-size:13px; font-weight:700}
   nav{position:fixed; left:0; right:0; bottom:0; z-index:30; max-width:520px; margin:0 auto; display:flex;
     background:var(--card); border-top:1px solid var(--line); padding-bottom:env(safe-area-inset-bottom)}
-  nav button{flex:1; background:none; padding:9px 0 8px; color:var(--muted); display:flex; flex-direction:column;
+  nav button{flex:1; background:none; padding:12px 0 11px; color:var(--muted); display:flex; flex-direction:column;
     align-items:center; gap:3px; font-size:11px}
-  nav button.on{color:var(--accent)} nav svg{width:22px;height:22px}
+  nav button.on{color:var(--accent)} nav svg{width:25px;height:25px}
   body.gate #nav, body.gate #timerbar, body.setup #nav, body.setup #timerbar{display:none}
   body.gate main, body.setup main{padding-bottom:32px}
   .gate-hero{text-align:center; margin:18px 0 22px}
@@ -770,8 +780,13 @@ setTimeout(function(){
        breiten Knopfes -- die Zahl schwebte hinter dem Wort im Leeren. Hier wird der
        Wort-Span zum Bezugsrahmen, damit die Zahl an der Schrift klebt und nicht an der
        Knopfbreite. Mitgewandert waere sie sonst bei jeder Aenderung an der Leiste. */
-    .navtxt{position:relative}
+    /* ⚠️ `font-size` und `line-height` muessen hier ZURUECKGESETZT werden: die
+       Handy-Regel oben dreht die Schrift auf 0, und ein `nav button{font-size:14.5px}`
+       hilft dagegen nichts, weil der Span seinen eigenen Wert hat. Ohne diese zwei
+       Zeilen waere die Seitenleiste auf dem PC voellig unbeschriftet. */
+    .navtxt{position:relative; font-size:inherit; line-height:normal}
     .navpunkt{top:-7px; left:auto; right:-15px; margin-left:0}
+    nav svg{width:22px;height:22px}
     body.gate{padding-left:0} body.setup{padding-left:0}
 
     /* Pausen-Timer sitzt rechts unten statt ueber der Leiste */
@@ -852,6 +867,8 @@ setTimeout(function(){
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M8 3h8v5a4 4 0 0 1-8 0z"/><path d="M8 5H5.5a2.5 2.5 0 0 0 2.5 4"/><path d="M16 5h2.5a2.5 2.5 0 0 1-2.5 4"/><path d="M12 12v4"/><path d="M9 20h6"/><path d="M10 16h4l1 4H9z"/></svg><span class="navtxt">Erfolge</span></button>
   <button data-nav="settings">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="navtxt">Einstellungen</span></button>
+  <button data-nav="profil">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6.2 8-6.2s8 2.2 8 6.2"/></svg><span class="navtxt">Profil</span></button>
 </nav>
 
 <button id="neufassung" type="button">Neue Fassung ist da — tippen zum Laden</button>
@@ -2274,9 +2291,16 @@ function splashWeg(){
 }
 
 // ---------- Rendering ----------
-// Die Rang-Ansicht hat keinen eigenen Platz mehr in der Leiste — man kommt nur über die
-// Rang-Karte auf der Startseite dorthin, deshalb bleibt dort „Start" markiert.
-function setNav(){ const map=(view==='erfolge')?'erfolge':(view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='admin'||view==='privacy'||view==='meldung')?'settings':(view==='body'||view==='food')?'body':'home';
+// 🔴 Was hier bis zum 11.09.2026 stand, stimmt nicht mehr und ist deshalb weg:
+// „die Rang-Ansicht hat keinen eigenen Platz mehr in der Leiste, man kommt nur über die
+// Rang-Karte auf der Startseite dorthin, deshalb bleibt dort Start markiert.“
+// Es gibt jetzt ZWEI Wege dorthin (Startseite und Profil), und markiert wird Profil.
+/* ✅ 11.09.2026: `rang` gehoert ab jetzt zu `profil` und nicht mehr zu `home`.
+   Die Rang-Leiter ist das Einzige, was man an sich selbst einstellen kann (welches
+   Aussehen getragen wird) -- das ist Profil-Inhalt, egal ob man ueber die Karte auf
+   der Startseite oder ueber den neuen Reiter hinkommt. Vorher stand dort
+   "Trainieren" markiert; mit zwei Wegen dorthin waere das in einem davon falsch. */
+function setNav(){ const map=(view==='erfolge')?'erfolge':(view==='profil'||view==='rang')?'profil':(view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='admin'||view==='privacy'||view==='meldung')?'settings':(view==='body'||view==='food')?'body':'home';
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on', b.dataset.nav===map));
   navPunktZeichnen(); }
 /* Die rote Zahl an der unteren Leiste (25.08.2026).
@@ -2317,7 +2341,7 @@ function render(){
   if(!session && view==='privacy'){
     /* ⚠️ `gate` BLEIBT gesetzt (Fund-Sucher, Nachlauf 10.09.2026). Die erste
        Fassung nahm die Klasse weg -- damit erschienen fuer den Ausgeloggten die
-       vier Reiter und auf dem PC die volle Seitenleiste, mit "Trainieren"
+       fuenf Reiter und auf dem PC die volle Seitenleiste, mit "Trainieren"
        statisch auf aktiv. Kaputt war nichts (jeder Reiter fuehrt zurueck zur
        Anmeldung), aber es sah aus, als waere man drin.
        Die drei `body.gate`-Regeln (Zeilen 651, 652, 725) sind genau das, was die
@@ -2341,7 +2365,7 @@ function render(){
   /* Ein zurueckgehaltener Fassungs-Hinweis wird hier faellig: er erscheint nicht mitten
      im Training, sondern beim naechsten Bild danach. */
   if(window.neueFassungPruefen) window.neueFassungPruefen();
-  ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, body:renderBody, food:renderFood, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin, meldung:renderMeldung, erfolge:renderErfolge, comeback:renderComeback}[view]||renderHome)();
+  ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, rang:renderRang, profil:renderProfil, body:renderBody, food:renderFood, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin, meldung:renderMeldung, erfolge:renderErfolge, comeback:renderComeback}[view]||renderHome)();
   syncSessionClock();
   /* Den Kurzcode fuers Teilen im Hintergrund bauen, solange noch niemand geklickt hat.
      Genau hier, weil auf diesen zwei Seiten der Teilen-Knopf steht -- und weil ein Umbau am
@@ -5549,6 +5573,48 @@ function renderSettings(){
   app.innerHTML=h;
 }
 
+/* ---------- Profil (11.09.2026) ----------
+   Karls Entscheidung vom 10.09.2026: untere Leiste "wie Instagram" + Profil.
+   Antwort: **Fuenf Symbole, kein Text, Profil rechts.**
+
+   🔴 Was hier BEWUSST NICHT drinsteht, und warum:
+   · **Der Konto-Kasten bleibt in den Einstellungen.** Abmelden, Zuruecksetzen und
+     Konto loeschen stehen dort seit dem 27.08.2026 in genau dieser Reihenfolge, weil
+     Karl sie so angeordnet hat ("den Alles-zuruecksetzen-Knopf brauchen wir zwischen
+     Abmelden und Konto loeschen"). Drei gefaehrliche Knoepfe still an einen zweiten
+     Ort zu kopieren, waere schlimmer als ein Profil ohne sie.
+   · **Der Verlauf wird von hier NICHT verlinkt.** Sein Zurueck-Pfeil sagt
+     "Zurueck zu Einstellungen" -- von hier aus waere das schlicht gelogen.
+   · **Die Wochen-Serie steht nicht drin.** Sie ist am 29.08.2026 auf Karls Ansage von
+     der Startseite geflogen; sie hier wieder aufzumachen hiesse, seine Entscheidung
+     zurueckzudrehen, nur an anderer Stelle.
+   · **`syncState` steht nicht drin.** Der Wert wird nur neu gezeichnet, solange man in
+     den Einstellungen steht -- hier stuende er fest und wuerde mit der Zeit falsch.
+     Eine Angabe, die nicht nachkommt, ist schlechter als gar keine. */
+function renderProfil(){
+  const lp = levelFromXP(profile.xp), rank = equippedRank();
+  /* Ohne Sitzung (Pruefrahmen, und nur dort) steht "Du" da statt eines Absturzes an
+     `session.user`. Im echten Betrieb kommt man ohne Anmeldung gar nicht hierher --
+     `render()` faengt das eine Ebene hoeher ab. */
+  const name = session ? (session.username || session.user.email) : 'Du';
+  let h = `<div class="card">
+      <div class="row" style="gap:14px;align-items:center">
+        <div class="badge" style="width:72px;height:72px;flex:0 0 72px">${rankMon(rank,72)}</div>
+        <div style="min-width:0;flex:1">
+          <b style="font-size:19px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</b>
+          <div class="tiny muted" style="margin-top:3px">${esc(rank.name)} \u00b7 Level ${lp.level}</div>
+        </div>
+      </div></div>`;
+  h += rankCardHTML();
+  h += `<div class="tiny muted" style="text-align:center;margin:-4px 0 14px">Tipp die Karte an f\u00fcr die Rang-Leiter \u2014 dort w\u00e4hlst du, welches Aussehen du tr\u00e4gst.</div>`;
+  h += `<div class="grid3">
+      <div class="stat"><b>${sessions.length}</b><span>Einheiten</span></div>
+      <div class="stat" data-nav="erfolge"><b>${erfolgeGeschafft()}</b><span>von ${ERFOLGE.length} Erfolgen</span></div>
+      <div class="stat"><b>${profile.xp.toLocaleString('de-DE')}</b><span>XP gesamt</span></div>
+    </div>`;
+  app.innerHTML = h;
+}
+
 // ---------- Datenschutz ----------
 function renderPrivacy(){
   /* ⚠️ Ohne Sitzung fuehrt der Pfeil zurueck zur Anmeldung, nicht zu den
@@ -5887,7 +5953,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.078';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.079';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -8013,7 +8079,7 @@ window.addEventListener('pagehide',flushSync);
    Karls Ansage: "man soll auf dem Handy zwischen den einzelnen Reitern hin und her switchen
    koennen."
 
-   ⚠️ **Nur zwischen den vier Reitern der unteren Leiste**, und nur wenn man gerade auf
+   ⚠️ **Nur zwischen den fuenf Reitern der unteren Leiste**, und nur wenn man gerade auf
    einem davon steht. Wer in einer Einheit, im Assistenten oder in einer Unteransicht
    (Verlauf, Datenschutz, Meldung) ist, wischt nichts weg -- dort waere ein Wisch ein
    Datenverlust oder mindestens ein verlorener Platz.
@@ -8022,7 +8088,7 @@ window.addEventListener('pagehide',flushSync);
    (dort wischt man den Inhalt), und nicht bei offenem Fenster.
    ⚠️ `passive:true` -- es wird nichts abgefangen, nur zugehoert. Ein Wisch, der das
    normale Scrollen bremst, waere schlimmer als kein Wisch.                                */
-const REITER = ['home','body','erfolge','settings'];
+const REITER = ['home','body','erfolge','settings','profil'];
 /* Einen Reiter zeigen -- mit der Bewegung in die Richtung, in die es geht.
    ⚠️ Steht als eigene Funktion da, weil BEIDE Wege sie brauchen: der Wisch und der Tipp
    auf die untere Leiste. Sonst saehe dasselbe Ziel je nach Weg anders aus. */
@@ -8041,7 +8107,7 @@ function reiterZeigen(ziel){
    Karls Ansage: "man soll auf dem Handy zwischen den einzelnen Reitern hin und her switchen
    koennen." Und danach: es soll "nach richtig ziehen" aussehen.
 
-   ⚠️ **Nur zwischen den vier Reitern der unteren Leiste**, und nur wenn man gerade auf
+   ⚠️ **Nur zwischen den fuenf Reitern der unteren Leiste**, und nur wenn man gerade auf
    einem davon steht. Wer in einer Einheit, im Assistenten oder in einer Unteransicht ist,
    wischt nichts weg -- dort waere ein Wisch ein Datenverlust oder ein verlorener Platz.
    🔴 **Drei Riegel:** nicht aus einem Eingabefeld heraus (dort wischt man Text), nicht

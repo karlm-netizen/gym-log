@@ -2,6 +2,86 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-09-11
+
+### v0.079 — fünf Symbole, kein Text, Profil rechts
+
+Karls Entscheidung vom 10.09.2026 im Wortlaut: die untere Leiste soll **„wie Instagram"**
+aussehen, und dazu ein Profil. Seine Antwort auf die Rückfrage:
+**„Fünf Symbole, kein Text, Profil rechts."**
+
+#### Was sich ändert
+
+| | |
+|---|---|
+| 🔤 | **Die Beschriftungen sind auf dem Handy weg.** Fünf Symbole, sonst nichts |
+| 👤 | **Ein fünfter Reiter „Profil" ganz rechts** — Bild, Name, Rang, Level, drei Zahlen |
+| 🔍 | Symbole etwas größer (25 statt 22 px), die Leiste etwas höher |
+| 🏅 | **Die Rang-Leiter gehört jetzt zum Profil**, nicht mehr zu „Trainieren" |
+| 👉 | Gewischt wird zwischen **fünf** Reitern statt vier |
+| 🖥️ | **Auf dem PC bleibt alles beschriftet** — dort ist die Leiste eine 232 px breite Seitenleiste |
+
+#### 🔴 Die Stelle, an der es still hätte schiefgehen können
+
+Der Text ist weg — aber **die rote Zahl aus dem Postfach hängt IM Wort-Span.** Das war
+eine bewusste Entscheidung vom 27.08.2026 (damit die Zahl auf dem PC an der Schrift klebt
+statt in der Mitte eines 204 px breiten Knopfes zu schweben).
+
+**Der naheliegende Weg wäre `display:none` gewesen** — und damit wäre die Zahl lautlos
+mitverschwunden: eine Antwort im Postfach, die niemand sehen kann, und **nirgends wäre
+etwas rot geworden.**
+
+➡️ Stattdessen `font-size:0`: der Span bleibt stehen, schrumpft auf null und trägt die
+Zahl weiter. Nebenbei behält jeder Knopf damit seinen Namen für eine Vorlesehilfe — ohne
+das wären es fünf namenlose Bilder.
+⚠️ **Und die PC-Fassung muss die Schriftgröße ausdrücklich zurücksetzen.** Ein
+`nav button{font-size:14.5px}` hilft dort nicht: der Span hat seinen eigenen Wert.
+
+#### 🧪 Am Prüfstand
+
+**912 Prüfungen** (waren 898), alle grün, dazu die vier Datenschutz-Prüfungen.
+Neu dabei und **beide gegengeprobt**:
+
+- **„Die Zahl an der Leiste ist trotz fehlendem Text noch zu sehen"** — sie *misst* die
+  Zahl (`getBoundingClientRect`), statt im Quelltext zu lesen. Mit `display:none` statt
+  `font-size:0` wird sie rot.
+  🔴 **Beim ersten Lauf ist sie selbst umgefallen, und das zu Recht:** im Prüfrahmen ist
+  niemand angemeldet, und `body.gate` blendet die ganze Leiste aus. Gemessen wurden
+  0 × 0 — egal wie richtig das CSS war. Jetzt nimmt die Prüfung die Klasse für die Dauer
+  der Messung ab und setzt sie zurück, **und eine zweite Prüfung sichert genau das ab.**
+- **„Auf dem PC bekommt die Beschriftung ihre Schrift zurück"** — liest die echte
+  CSS-Regel aus `document.styleSheets`, weil sich die Fensterbreite im Prüfrahmen nicht
+  umstellen lässt.
+- **„Abmelden, Zurücksetzen und Löschen stehen NICHT im Profil"** — siehe unten.
+
+#### 🚫 Was bewusst NICHT ins Profil gewandert ist
+
+- **Der Konto-Kasten bleibt in den Einstellungen.** Abmelden, Alles zurücksetzen und Konto
+  löschen stehen dort seit dem 27.08.2026 in genau der Reihenfolge, die Karl angeordnet
+  hat. **Drei gefährliche Knöpfe still an einen zweiten Ort zu kopieren, wäre schlimmer
+  als ein dünnes Profil** — dagegen steht jetzt eine Prüfung.
+- **Der Verlauf wird von hier nicht verlinkt.** Sein Zurück-Pfeil sagt „Zurück zu
+  Einstellungen" — von hier aus wäre das gelogen.
+- **Die Wochen-Serie nicht.** Sie ist am 29.08.2026 auf Karls Ansage von der Startseite
+  geflogen; sie im Profil wieder aufzumachen hieße, seine Entscheidung zurückzudrehen,
+  nur an anderer Stelle.
+- **`syncState` nicht.** Der Wert wird nur nachgezogen, solange man in den Einstellungen
+  steht — im Profil stünde er fest und würde mit der Zeit falsch.
+
+#### ❓ Eine Frage bleibt offen
+
+Karls Stichwort war **„Profil einrichten"**. Gebaut ist jetzt die Ansicht — wer man ist
+und wie weit man ist. **Ob „einrichten" auch heißt: Namen ändern, eigenes Bild**, ist
+damit nicht beantwortet. Ein Namenswechsel rührt an die Username-Zuordnung in Supabase
+und wird deshalb nicht nebenbei gebaut, sondern vorgelegt.
+
+#### 🧹 Nebenbei: vier Kommentare, die nicht mehr stimmten
+
+„Nur zwischen den **vier** Reitern der unteren Leiste" (zweimal), „welche **vier**
+Reiter" im Prüfstand — und über `setNav` stand seit Längerem, die Rang-Ansicht habe
+keinen eigenen Platz in der Leiste, weshalb dort „Trainieren" markiert bleibe.
+**Das stimmt seit heute nicht mehr.** Alle vier nachgezogen.
+
 ## 2026-09-10
 
 ### v0.078 — zehn Punkte von Karls Liste, und die Schritte fliegen aus der Rechnung
