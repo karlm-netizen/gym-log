@@ -3751,6 +3751,28 @@ window.addEventListener('error', e => {
     if(ids.indexOf('ein') >= 0) return 'die alte Sammel-Aufgabe steht noch da';
     return (ids.indexOf('mahlzeit')>=0 && ids.indexOf('gewicht')>=0) || 'ids: ' + ids.join(',');
   });
+  /* 🔴 12.09.2026, Karls Ansage: „Und Gewicht und Mahlzeit tauschen bei den Daily
+     Aufgaben." Die Reihenfolge in AUFGABEN IST die Reihenfolge auf dem Bildschirm --
+     `renderHome()` laeuft die Liste schlicht durch.
+     ⚠️ Deshalb steht sie hier als Pruefung und nicht nur im Kommentar: eine Anordnung,
+     die Karl entschieden hat, kann sonst beim naechsten Anfassen der Liste still
+     zurueckrutschen, und auf dem Bildschirm faellt eine vertauschte Zeile niemandem auf,
+     der nicht genau danach sucht. */
+  t('Die Tagesaufgaben stehen in Karls Reihenfolge', () => {
+    return eq(AUFGABEN.map(a=>a.id).join(','), 'auf,gewicht,mahlzeit,train');
+  });
+  /* Und dass die Karte sie WIRKLICH in dieser Folge zeichnet -- die Liste allein waere
+     das Teil, nicht der Einbau.
+     ⚠️ Die Karte „Heute" steht im ERFOLGE-Reiter, nicht auf Home. Beim Schreiben dieser
+     Pruefung stand hier zuerst `view='home'`, und sie meldete „Gewicht oder Mahlzeit steht
+     nicht auf der Karte" -- richtig gemeldet, nur ueber die falsche Seite. */
+  t('Die Karte Heute zeichnet sie in derselben Folge', () => {
+    const v = view; view = 'erfolge'; renderErfolge(); const h = app.innerHTML; view = v;
+    const pos = n => h.indexOf('>' + n + '<');
+    const g = pos('Gewicht'), m = pos('Mahlzeit');
+    if (g < 0 || m < 0) return 'Gewicht oder Mahlzeit steht nicht auf der Karte';
+    return g < m || 'Mahlzeit steht vor Gewicht';
+  });
   t('Gewicht eintragen laesst die Mahlzeit-Aufgabe offen', () => {
     const aV = profile.aufgaben, xV = profile.xp;
     profile.aufgaben = { tag:'', fertig:{} };

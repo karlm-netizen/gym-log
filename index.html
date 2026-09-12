@@ -1941,11 +1941,14 @@ function zaehleRekorde(en){ let n=0; en.forEach(e=>arbeit(e.sets).forEach(s=>{ i
    ⚠️ Zurueckgenommen wird nichts (Regel vom 27.08.): die 5 XP der letzten fuenf Tage kommen
    niemandem nachtraeglich aufs Konto, es gilt ab heute.                                   */
 /* ➡️ Aufgeteilt am 03.09.2026 in Mahlzeit und Gewicht (Karls Ansage). Vorher war es EINE
-   Aufgabe, die beides abdeckte -- wer nur wog, sah nicht mehr, dass das Essen noch fehlt. */
+   Aufgabe, die beides abdeckte -- wer nur wog, sah nicht mehr, dass das Essen noch fehlt.
+   ➡️ **12.09.2026: Gewicht und Mahlzeit sind getauscht** (Karls Ansage). Die Reihenfolge
+   HIER ist die Reihenfolge auf dem Bildschirm -- die Anzeige laeuft die Liste schlicht
+   durch. Wer hier sortiert, sortiert die Karte „Heute". */
 const AUFGABEN = [
   { id:'auf',      xp:5,  svg:'auge',   name:'Reingeschaut', text:'Die App heute geöffnet' },
-  { id:'mahlzeit', xp:10, svg:'stift',  name:'Mahlzeit',     text:'Eine Mahlzeit eingetragen' },
   { id:'gewicht',  xp:5,  svg:'waage',  name:'Gewicht',      text:'Gewicht eingetragen' },
+  { id:'mahlzeit', xp:10, svg:'stift',  name:'Mahlzeit',     text:'Eine Mahlzeit eingetragen' },
   { id:'train',    xp:15, svg:'hantel', name:'Trainiert',    text:'Eine Einheit abgeschlossen' },
 ];
 const AUFGABEN_MAX = AUFGABEN.reduce((n,a)=>n+a.xp,0);   // 35 -- der Deckel steht in den Daten
@@ -6433,7 +6436,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.090';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.091';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */

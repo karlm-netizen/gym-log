@@ -4,6 +4,22 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-12
 
+### v0.091 — Gewicht steht jetzt vor Mahlzeit
+
+**Karls Ansage:** *„Und Gewicht und Mahlzeit tauschen bei den Daily Aufgaben."*
+
+Die Karte „Heute" im Erfolge-Reiter zeigt die vier Aufgaben jetzt in dieser Folge:
+**Reingeschaut · Gewicht · Mahlzeit · Trainiert.**
+
+Die Reihenfolge in der Liste `AUFGABEN` **ist** die Reihenfolge auf dem Bildschirm — die
+Karte läuft sie schlicht durch. Deshalb hängen daran jetzt zwei Prüfungen: eine auf die
+Liste, eine auf die gezeichnete Karte. Eine vertauschte Zeile fällt auf dem Bildschirm
+niemandem auf, der nicht danach sucht — und eine Anordnung, die Karl entschieden hat, soll
+nicht beim nächsten Anfassen still zurückrutschen.
+
+🧪 **984 grün** (waren 982). Gegenprobe: Reihenfolge zurückgedreht → beide rot.
+
+
 ### v0.090 — Schritte-Kurve, Gewicht gibt 5 XP, zwei Texte raus
 
 **Karls Ansagen:** *„Gewicht eintragen soll nur 5 xp geben am Tag"* · *„Ich will eine Kurve
