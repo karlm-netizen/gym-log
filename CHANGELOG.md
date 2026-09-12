@@ -4,6 +4,43 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-13
 
+### v0.094 — Einführung für Neue: Brock zeigt die fünf Reiter
+
+**Karl am 10.09.:** das Tutorial ist *„hohe Prio, da ein Freund von mir die App gerade vielen
+Leuten weiter empfiehlt und das muss jetzt passen"*. Am 13.09. gewählt: **Einführung für Neue.**
+
+Sieben kurze Schritte: Brock stellt sich vor, zeigt nacheinander **Home, Training, Essen,
+Erfolge und Profil** — der jeweilige Knopf unten ist hell umrandet, der Rest abgedunkelt — und
+verabschiedet sich. Jederzeit **Überspringen**.
+
+| | |
+|---|---|
+| **Wer sie bekommt** | jedes neue Konto, einmal, direkt nach dem Trainings-Assistenten — egal ob „Bau ihn für mich" oder „Selbst anlegen" |
+| **Wer nicht** | alle Bestandskonten, und wer den Assistenten später noch einmal durchläuft |
+| **App zwischendurch zu** | beim nächsten Start geht sie weiter |
+| **Ansehen** | Admin-Konsole › Tutorials abspielen › **Einführung für Neue** — merkt sich nichts |
+
+⚠️ **Die Sätze sind ein Entwurf** — Karl korrigiert sie.
+
+Die Einführung **wechselt die Reiter nicht**, sie zeigt nur auf die Knöpfe: ein Wechsel auf
+„Essen" würde bei einem neuen Konto mitten in der Einführung den Ernährungs-Assistenten
+hochholen. Und Brock nennt jeden Reiter **mit dem Namen aus der Leiste** — wird einer
+umbenannt, spricht er den neuen Namen, statt einen alten zu behaupten.
+
+Brock ohne Rang, also das alte Bild — so steht es seit dem 05.08.: das gehört auf den
+Anmeldeschirm und ins Tutorial.
+
+#### 🧪 Prüfstand
+
+**1025 grün** (waren 1011), **14 neu**. Elf Gegenproben, alle rot — darunter: ein Ziel heißt
+anders als sein Knopf, ein Reiter fehlt, der Name kommt nicht aus der Leiste, der Ring sitzt
+daneben, Bestandskonten bekommen sie doch, die Vorschau merkt sich etwas.
+
+Dazu drei Bildschirmfotos aus dem unsichtbaren Chrome angesehen (hell/dunkel, mit und ohne
+Ring). ⚠️ Chrome am PC wird nicht schmaler als 504 px — ein Foto mit „390" ist nur ein
+Ausschnitt und schneidet rechts ab. Nicht die App.
+
+
 ### v0.093 — Besitzer-Kennung: beim Anmelden verschwindet kein Training mehr
 
 **Karls Kollege am 11.09.:** *„ein Training ist bei ihm verschwunden."*

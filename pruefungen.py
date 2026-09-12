@@ -2187,6 +2187,133 @@ window.addEventListener('error', e => {
     }
   });
 
+  /* ================= Einfuehrung fuer Neue (13.09.2026) =================
+     Karl: das Tutorial *„muss jetzt passen"*, ein Freund empfiehlt die App gerade vielen.
+     Brock zeigt die fuenf Reiter, einmal je Konto, nach dem Einrichtungs-Assistenten. */
+  const tourBuehne = (lauf) => {
+    const V = { profile, programs, active, view, session, schritt: tourSchritt, vorschau: tourVorschau };
+    const pSicher = JSON.stringify(profile);
+    try {
+      session = V.session || { user:{id:'t'}, expires_at: Date.now()+3600e3, access_token:'x' };
+      return lauf();
+    } finally {
+      tourSchritt = -1; tourVorschau = false; const el = document.getElementById('tour'); if (el) el.remove();
+      profile = JSON.parse(pSicher); programs = V.programs; active = V.active; view = V.view;
+      session = V.session; bindPlans(); render();
+    }
+  };
+  const tourDa = () => !!document.getElementById('tour');
+  const tourKlick = (act) => { const k = document.querySelector('#tour [data-act="' + act + '"]');
+                               if (k) k.click(); return !!k; };
+
+  /* 🔴 Der Einbau zuerst: jeder Schritt mit Ziel muss auf einen Knopf zeigen, den es in der
+     Leiste WIRKLICH gibt. Wird ein Reiter umbenannt (`data-nav`), faende die Einfuehrung
+     ihn still nicht mehr -- Brock redete dann ins Leere, ohne Ring, und nichts wuerde rot. */
+  t('Jeder Schritt der Einfuehrung zeigt auf einen echten Knopf', () => {
+    const fehlt = TOUR.filter(x => x.ziel && !document.querySelector('#nav button[data-nav="' + x.ziel + '"]'));
+    return fehlt.length === 0 || 'kein Knopf fuer: ' + fehlt.map(x => x.ziel).join(', ');
+  });
+  t('Die Einfuehrung zeigt alle fuenf Reiter', () => {
+    const reiter = Array.from(document.querySelectorAll('#nav button[data-nav]')).map(b => b.dataset.nav);
+    const gezeigt = TOUR.map(x => x.ziel).filter(Boolean);
+    const fehlt = reiter.filter(r => gezeigt.indexOf(r) < 0);
+    return fehlt.length === 0 || 'nicht gezeigt: ' + fehlt.join(', ');
+  });
+  // Der Name im Satz kommt aus der Leiste -- nicht abgeschrieben.
+  t('Brock nennt jeden Reiter mit dem Namen aus der Leiste', () => tourBuehne(() => {
+    const falsch = [];
+    TOUR.forEach((x, i) => { if (!x.ziel) return;
+      tourSchritt = i; tourZeichnen();
+      const name = document.querySelector('#nav button[data-nav="' + x.ziel + '"] .navtxt').textContent.trim();
+      const blase = document.querySelector('#tour .bubble');
+      if (!blase || blase.textContent.indexOf(name) < 0) falsch.push(x.ziel + ' ohne „' + name + '"'); });
+    return falsch.length === 0 || falsch.join('; ');
+  }));
+  t('Der Ring sitzt auf dem gezeigten Knopf', () => tourBuehne(() => {
+    /* ⚠️ Erst angemeldet zeichnen: ohne Sitzung traegt <body> die Klasse `gate`, die Leiste
+       ist ausgeblendet und jeder Knopf meldet 0x0. Genau so ist diese Pruefung beim ersten
+       Lauf gescheitert -- im echten Ablauf startet die Einfuehrung erst NACH `render()`. */
+    view = 'home'; render();
+    const i = TOUR.findIndex(x => x.ziel === 'erfolge');
+    tourSchritt = i; tourZeichnen();
+    const ring = document.querySelector('#tour .tour-ring');
+    if (!ring) return 'kein Ring (Knopf ohne Flaeche?)';
+    if (ring.dataset.ziel !== 'erfolge') return 'Ring zeigt auf ' + ring.dataset.ziel;
+    const k = document.querySelector('#nav button[data-nav="erfolge"]').getBoundingClientRect();
+    const r = ring.getBoundingClientRect();
+    const drin = r.left <= k.left && r.top <= k.top && r.right >= k.right && r.bottom >= k.bottom;
+    return drin || 'der Ring umschliesst den Knopf nicht';
+  }));
+
+  // ---- Wer sie bekommt ----
+  t('Nach dem Assistenten kommt die Einfuehrung, einmal', () => tourBuehne(() => {
+    delete profile.tour; profile.onboarded = false;
+    startOnboard(); obStep = OB_LAST; renderOnboard();
+    const fertig = app.querySelector('[data-act="ob:finish"]');
+    if (!fertig) return 'kein Fertig-Knopf im Assistenten';
+    fertig.click();
+    if (!tourDa()) return 'keine Einfuehrung nach „Bau ihn fuer mich"';
+    return profile.tour === 'offen' || 'tour steht auf ' + profile.tour;
+  }));
+  t('Auch „Selbst anlegen" fuehrt in die Einfuehrung', () => tourBuehne(() => {
+    delete profile.tour; profile.onboarded = false;
+    startOnboard();
+    const selbst = app.querySelector('[data-act="ob:manual"]');
+    if (!selbst) return 'kein „Selbst anlegen"';
+    selbst.click();
+    return tourDa() || 'keine Einfuehrung nach „Selbst anlegen"';
+  }));
+  /* ⚠️ Wer den Assistenten spaeter noch einmal durchlaeuft (neuer Plan), hat die
+     Einfuehrung laengst gesehen. Sie darf dann nicht wiederkommen. */
+  t('Den Assistenten nochmal durchlaufen bringt keine Einfuehrung', () => tourBuehne(() => {
+    profile.tour = true; profile.onboarded = true;
+    startOnboard(); obStep = OB_LAST; renderOnboard();
+    app.querySelector('[data-act="ob:finish"]').click();
+    return !tourDa() || 'die Einfuehrung kam wieder';
+  }));
+  // Bestandskonten: eingerichtet, aber das Feld gibt es noch nicht.
+  t('Bestandskonten gelten als gesehen', () => tourBuehne(() => {
+    delete profile.tour; profile.onboarded = true; normalizeProfile();
+    if (profile.tour !== true) return 'Bestandskonto: tour = ' + profile.tour;
+    delete profile.tour; profile.onboarded = false; normalizeProfile();
+    return profile.tour === undefined || 'neues Konto: tour = ' + profile.tour;
+  }));
+
+  // ---- Durchklicken ----
+  t('Weiter bis zum Ende merkt sich die Einfuehrung', () => tourBuehne(() => {
+    profile.tour = 'offen'; tourStarten(false);
+    for (let i = 0; i < TOUR.length; i++) if (!tourKlick('tour:weiter')) return 'Weiter fehlt bei Schritt ' + (i+1);
+    if (tourDa()) return 'die Einfuehrung steht noch';
+    return profile.tour === true || 'tour = ' + profile.tour;
+  }));
+  t('Ueberspringen merkt sich die Einfuehrung auch', () => tourBuehne(() => {
+    profile.tour = 'offen'; tourStarten(false);
+    tourKlick('tour:weiter');
+    if (!tourKlick('tour:ueber')) return 'kein Ueberspringen';
+    return (!tourDa() && profile.tour === true) || 'da: ' + tourDa() + ', tour = ' + profile.tour;
+  }));
+  t('Der letzte Schritt hat kein Ueberspringen mehr', () => tourBuehne(() => {
+    tourStarten(true); tourSchritt = TOUR.length - 1; tourZeichnen();
+    return !document.querySelector('#tour [data-act="tour:ueber"]') || 'Ueberspringen am Ende';
+  }));
+  /* ⚠️ Karl muss sie ansehen koennen, um die Saetze zu korrigieren -- ohne dass sein
+     eigenes Konto sich danach „gesehen" merkt oder etwas verliert. */
+  t('Aus der Admin-Konsole abgespielt merkt sich nichts', () => tourBuehne(() => {
+    profile.tour = 'offen'; tourStarten(true);
+    for (let i = 0; i < TOUR.length; i++) tourKlick('tour:weiter');
+    return profile.tour === 'offen' || 'tour = ' + profile.tour;
+  }));
+  t('Die Admin-Konsole bietet die Einfuehrung an', () => {
+    const q = window.APP_QUELLE || ''; if (!q) return 'APP_QUELLE fehlt';
+    if (q.indexOf('data-admin="tut:einfuehrung"') < 0) return 'kein Knopf';
+    return /arg===['"]einfuehrung['"]\)\{\s*tourStarten\(true\)/.test(q) || 'der Knopf startet sie nicht als Vorschau';
+  });
+  // Wer die App mitten in der Einfuehrung zumacht, bekommt sie beim naechsten Start weiter.
+  t('Eine offene Einfuehrung kommt beim Start wieder', () => {
+    const q = window.APP_QUELLE || ''; if (!q) return 'APP_QUELLE fehlt';
+    return /if\(session && profile\.tour === 'offen'[^\n]*tourStarten\(false\)/.test(q) || 'kein Fortsetzen beim Start';
+  });
+
   /* ================= Besitzer-Kennung (13.09.2026) =================
      Karls Kollege: *„ein Training ist bei ihm verschwunden."* Das Anmelden schrieb den
      Cloud-Stand ueber das Geraet, statt zusammenzufuehren. Jeder Fall unten wird ECHT

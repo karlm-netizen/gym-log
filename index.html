@@ -658,6 +658,17 @@ setTimeout(function(){
   .ob-favs{display:flex; flex-wrap:wrap; gap:7px}
   .ob-favs .chip{padding:8px 11px; font-size:12.5px; font-weight:500}
   .ob-dots{display:flex; gap:6px; justify-content:center; margin:2px 0 16px}
+  /* Einfuehrung (13.09.2026). Der Ring dunkelt ALLES um sich herum ab (der riesige Schatten)
+     und laesst den Knopf darin frei -- so bleibt die Leiste an ihrem Platz, statt fuer die
+     Einfuehrung nachgebaut zu werden. Ohne Ziel dunkelt die Flaeche selbst ab.
+     ⚠️ Ueber dem Fenster (80) und unter dem Startbildschirm (9000). */
+  #tour{position:fixed; inset:0; z-index:85}
+  #tour.ohneziel{background:rgba(0,0,0,.62)}
+  .tour-ring{position:fixed; border-radius:18px; border:2px solid var(--accent);
+    box-shadow:0 0 0 9999px rgba(0,0,0,.62); pointer-events:none; transition:all .25s ease}
+  .tour-karte{position:fixed; left:50%; transform:translateX(-50%); top:max(16px, 14vh);
+    width:calc(100% - 32px); max-width:420px; background:var(--bg); border:1px solid var(--line);
+    border-radius:20px; padding:16px}
   .ob-dots i{width:26px; height:4px; border-radius:99px; background:var(--line)}
   .ob-dots i.on{background:var(--accent)}
   .ob-opt{display:block; width:100%; text-align:left; background:var(--card2); border:1px solid var(--line);
@@ -1679,6 +1690,11 @@ function normalizeProfile(){
   if(profile.rankSkin===undefined) profile.rankSkin=null;   // ausgerüsteter Rang (null = der echte)
   if(!profile.aufgaben||typeof profile.aufgaben!=='object') profile.aufgaben={tag:'',fertig:{}};  // Tagesaufgaben
   if(!profile.erfolge||typeof profile.erfolge!=='object') profile.erfolge={};              // schon ausgezahlte Erfolge
+  /* Einfuehrung (13.09.2026): wer den Assistenten schon hinter sich hat, bekommt sie nicht
+     nachtraeglich vorgesetzt -- dieselbe Ueberlegung wie beim Ernaehrungs-Assistenten fuer
+     Bestandskonten. `undefined` bleibt nur, wer noch nie eingerichtet hat.
+     Werte: undefined (noch nicht dran) · 'offen' (faellig) · true (gesehen). */
+  if(profile.tour===undefined && profile.onboarded) profile.tour=true;
   /* Erinnerungen auf der Startseite (29.08.2026, Karls Ansage: abschaltbar).
      ⚠️ `ts` ist kein Schmuck: die Schalter muessen ueber den Abgleich zwischen Handy und PC
      wandern, und ohne Zeitstempel gibt es keine Regel, welche Seite gewinnt. Wer sie am
@@ -2740,6 +2756,73 @@ function rankMon(r,size,locked){
   return `<img src="${esc(brockSrc(r))}" width="${size}" height="${size}" alt="" aria-hidden="true"
     style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain${locked?';filter:brightness(0) invert(.55);opacity:.55':''}">`; }
 function mascot(text,mood,size,rank){ return `<div class="mascot">${monster(size,mood,rank)}<div class="bubble">${text}</div></div>`; }
+
+/* ---------- Einfuehrung fuer Neue (13.09.2026) ----------
+   Karl am 10.09.: das Tutorial ist *„hohe Prio, da ein Freund von mir die App gerade vielen
+   Leuten weiter empfiehlt und das muss jetzt passen"*. Am 13.09. aufgerufen und gewaehlt:
+   **eine Einfuehrung fuer Neue -- Brock zeigt mit Sprechblase die fuenf Reiter.**
+   Die Saetze sind MEIN Entwurf; Karl korrigiert sie. Abspielbar in der Admin-Konsole.
+
+   ⚠️ Das ist NICHT der Einrichtungs-Assistent („Trainingsplan einrichten"). Sie laeuft
+   DANACH, einmal je Konto, sobald die Leiste zum ersten Mal da ist.
+   ⚠️ Brock ohne Rang (das alte Bild) -- so steht es seit dem 05.08.: das alte Bild gehoert
+   auf den Anmeldeschirm und ins Tutorial, ueberall sonst traegt Brock den Rang.
+   ⚠️ Die Einfuehrung wechselt die Reiter NICHT, sie zeigt nur auf die Knoepfe. Ein
+   Wechsel auf „Essen" wuerde bei einem neuen Konto den Ernaehrungs-Assistenten
+   hochholen -- mitten in der Einfuehrung ein zweiter Assistent.
+   ⚠️ Der Name im Satz kommt aus der Leiste selbst, nicht aus diesem Text. Wird ein Reiter
+   umbenannt, spricht Brock den neuen Namen -- sonst stuende hier „Essen", waehrend unten
+   laengst etwas anderes steht. */
+const TOUR = [
+  { ziel:null,       text:() => 'Hi, ich bin <b>Brock</b>! In einer halben Minute weißt du, wo hier was ist.' },
+  { ziel:'home',     text:n => `<b>${n}</b> — dein Tag auf einen Blick: wie weit du im Rang bist und was heute noch offen ist.` },
+  { ziel:'training', text:n => `<b>${n}</b> — hier startest du deine Einheit und findest alle Trainingspläne.` },
+  { ziel:'body',     text:n => `<b>${n}</b> — Mahlzeiten, Gewicht und Schritte. Die Kalorien rechne ich mit.` },
+  { ziel:'erfolge',  text:n => `<b>${n}</b> — für jedes Training und jeden Tag gibt’s XP. Hier siehst du, was du geschafft hast, und die Bestenliste.` },
+  { ziel:'profil',   text:n => `<b>${n}</b> — dein Rang, deine Freunde und die Einstellungen.` },
+  { ziel:null,       text:() => 'Das war’s. Jetzt bist du dran — ich schau zu.' }
+];
+let tourSchritt = -1, tourVorschau = false;
+function tourKnopf(ziel){ return ziel ? document.querySelector('#nav button[data-nav="' + ziel + '"]') : null; }
+function tourName(ziel){ const k = tourKnopf(ziel), t = k && k.querySelector('.navtxt');
+  return t ? t.textContent.trim() : ''; }
+/* `vorschau` = aus der Admin-Konsole: zeigt alles, merkt sich aber nichts. */
+function tourStarten(vorschau){ tourVorschau = !!vorschau; tourSchritt = 0; tourZeichnen(); }
+function tourZeichnen(){
+  let el = document.getElementById('tour');
+  if(tourSchritt < 0){ if(el) el.remove(); return; }
+  if(!el){ el = document.createElement('div'); el.id = 'tour'; document.body.appendChild(el); }
+  const st = TOUR[tourSchritt], letzter = tourSchritt === TOUR.length - 1, knopf = tourKnopf(st.ziel);
+  let ring = '';
+  /* ⚠️ Nur ein Knopf, der wirklich eine Flaeche hat, bekommt den Ring. Ein ausgeblendeter
+     Knopf meldet 0x0 -- der Ring saesse dann als Punkt in der Ecke. Dann lieber ohne Ring,
+     der Satz nennt den Reiter ohnehin beim Namen. */
+  const r = knopf ? knopf.getBoundingClientRect() : null;
+  if(r && r.width > 0 && r.height > 0){ const pad = 6;
+    ring = `<div class="tour-ring" data-ziel="${st.ziel}" style="left:${(r.left-pad).toFixed(1)}px;top:${(r.top-pad).toFixed(1)}px;width:${(r.width+2*pad).toFixed(1)}px;height:${(r.height+2*pad).toFixed(1)}px"></div>`; }
+  el.className = ring ? '' : 'ohneziel';
+  el.innerHTML = ring + `<div class="tour-karte" role="dialog" aria-label="Einführung">
+      <div class="ob-dots">${TOUR.map((_, i) => `<i class="${i <= tourSchritt ? 'on' : ''}"></i>`).join('')}</div>
+      ${mascot(st.text(tourName(st.ziel)), 'happy', tourSchritt === 0 ? 96 : 72)}
+      <div class="row between" style="align-items:center;gap:10px">
+        ${letzter ? '<span></span>' : '<button class="btn sm ghost link" data-act="tour:ueber">Überspringen</button>'}
+        <button class="btn primary" style="width:auto;padding:12px 22px" data-act="tour:weiter">${letzter ? 'Los geht’s' : 'Weiter'}</button>
+      </div></div>`;
+}
+function tourBeenden(){
+  tourSchritt = -1; tourZeichnen();
+  if(!tourVorschau && profile.tour !== true){ profile.tour = true; save(); }
+  tourVorschau = false;
+}
+/* Nach dem Einrichtungs-Assistenten, von BEIDEN Ausgaengen („Bau ihn fuer mich" und
+   „Selbst anlegen"). Wer den Assistenten spaeter noch einmal durchlaeuft, hat `tour`
+   laengst gesetzt und bekommt sie nicht wieder. */
+function einfuehrungNachAssistent(){
+  if(profile.tour !== undefined) return;
+  profile.tour = 'offen'; save(); tourStarten(false);
+}
+// Drehen oder Fenstergroesse aendern: der Ring muss mit dem Knopf wandern.
+window.addEventListener('resize', () => { if(tourSchritt >= 0) tourZeichnen(); });
 
 // Brocks Sprüche hängen an der Lage: heute schon trainiert, heute noch was vor,
 // gestern einen Trainingstag verpasst, oder einfach Ruhetag.
@@ -6510,6 +6593,9 @@ function renderAdmin(){
       <button class="btn" style="width:100%" data-admin="tut:kcal">Ernährungs-Assistent</button>
       <div class="tiny muted" style="margin:6px 0 12px">Die sechs Schritte inklusive KI-Schlüssel.
         Läuft im Betrieb nur beim allerersten Öffnen des Kalorien-Teils.</div>
+      <button class="btn" style="width:100%" data-admin="tut:einfuehrung">Einführung für Neue</button>
+      <div class="tiny muted" style="margin:6px 0 12px">Brock zeigt die fünf Reiter. Läuft im Betrieb
+        einmal je Konto, direkt nach dem Trainings-Assistenten. Das Abspielen hier merkt sich nichts.</div>
       <button class="btn" style="width:100%" data-admin="tut:comeback">Wiederkommen</button>
       <div class="tiny muted" style="margin-top:6px">Läuft im Betrieb nach
         ${COMEBACK_TAGE} Tagen ohne Öffnen. ⚠️ Das Abspielen hier rührt
@@ -6570,7 +6656,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.093';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.094';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -8551,6 +8637,7 @@ document.addEventListener('click',ev=>{
     else if(cmd==='tut'){
       if(arg==='plan'){ startOnboard(); return; }
       if(arg==='kcal'){ startKcalOb(); return; }
+      if(arg==='einfuehrung'){ tourStarten(true); return; }
       // Vorgetaeuscht, nicht gespeichert: comebackTage ist nur der Text in der Ansicht.
       comebackTage = COMEBACK_TAGE + 3; view='comeback'; render(); return; }
     else if(cmd==='demo') genDemo();
@@ -8686,11 +8773,13 @@ document.addEventListener('click',ev=>{
     k.setup=true; save(); kobDraft=null; kobErzwingen=false; render();
     toast(k.goal+' kcal am Tag — los geht’s'); }
   else if(a==='ob:start'){ startOnboard(); }
+  else if(a==='tour:weiter'){ if(tourSchritt >= TOUR.length - 1) tourBeenden(); else { tourSchritt++; tourZeichnen(); } }
+  else if(a==='tour:ueber'){ tourBeenden(); }
   // Selbst anlegen: nichts wird gebaut und nichts ersetzt — nur der Assistent gilt als erledigt,
   // damit die untere Leiste zurückkommt. Das Volumen bleibt auf dem Standard 'high' (8–12 Wdh),
   // weil auf diesem Weg nie danach gefragt wird.
   else if(a==='ob:manual'){ profile.onboarded=true;
-    save(); view='plans'; render(); toast('Du legst selbst an'); }
+    save(); view='plans'; render(); toast('Du legst selbst an'); einfuehrungNachAssistent(); }
   else if(a==='ob:next'){ if(obStep===2&&!obDraft.days.length) obDraft.days=(OB_DEFDAYS[obDraft.n]||OB_DEFDAYS[3]).slice();
     obStep=Math.min(OB_LAST,obStep+1); renderOnboard(); }
   else if(a==='ob:back'){ if(obStep>0){ obStep--; renderOnboard(); }
@@ -8714,7 +8803,7 @@ document.addEventListener('click',ev=>{
     const nm=(obDraft.name||'').trim() || splitName(obDraft.days.length);
     const prog=neuerPlan(nm, buildPlans());
     programs.push(prog); profile.prog=prog.id; bindPlans();
-    active=null; save(); view='home'; render(); toast(`„${nm}" steht — viel Erfolg!`); }
+    active=null; save(); view='home'; render(); toast(`„${nm}" steht — viel Erfolg!`); einfuehrungNachAssistent(); }
   else if(a==='newplan'){ const p={id:uid(),name:'Neues Training',day:null,warmup:!!profile.warmup,exercises:[{id:uid(),name:'',sets:volSets(),reps:10,vol:profile.vol}]}; editPlans().push(p); save(); editPlanId=p.id; view='plan'; render(); }
   // sets war hier fest auf 3, waehrend der Assistent 4 gibt — jetzt beides aus volSets()
   else if(a==='addex'){ editPlans().find(x=>x.id===editPlanId).exercises.push({id:uid(),name:'',sets:volSets(),reps:10,vol:profile.vol}); save(); render(); }
@@ -9011,6 +9100,9 @@ splashProz(90);           // Wegmarke: die erste Ansicht ist da
 splashWeg();              // die Ansicht steht — der Schirm hat seine Aufgabe erfuellt
 cloudSyncStart();         // im Hintergrund; ohne Netz startet die App trotzdem normal
 postfachAuffrischen();    // ist waehrend der Abwesenheit eine Antwort gekommen?
+/* Die Einfuehrung ist faellig, wurde aber nie zu Ende gesehen (App zwischendurch zu).
+   ⚠️ Nicht im Assistenten und nicht auf dem Wiederkommen-Schirm -- dort ist die Leiste weg. */
+if(session && profile.tour === 'offen' && view !== 'onboard' && view !== 'comeback') tourStarten(false);
 // Auf die Mitteilung getippt. Zwei Wege, weil zwei Faelle:
 //   App lief noch  -> der Service Worker schickt eine Nachricht ins offene Fenster
 //   App war zu     -> sie wird mit '#postfach' geoeffnet
