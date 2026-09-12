@@ -2781,8 +2781,15 @@ window.addEventListener('error', e => {
       .filter(s => !s.startsWith('vals,w,h,opt'));
     /* ⚠️ Wieder drei (03.09.2026 abends): die Gewichtskurve war an diesem Abend kurz
        geloescht und ist zurueck -- im Koerper-Tab, wo gewogen wird. Dazu die zwei
-       Kurven der Uebungs-Historie. */
-    if (rufe.length !== 3) return 'erwartet 3 Aufrufe, gefunden ' + rufe.length;
+       Kurven der Uebungs-Historie.
+       ➡️ **Vier seit dem 12.09.2026**: die Schritte-Kurve ist dazugekommen (Karls Ansage).
+       🔴 **Diese Zaehlung liest den Quelltext als TEXT.** Wer in einem Kommentar
+       `lineChart` MIT Klammer schreibt, wird hier als Aufruf mitgezaehlt -- die Pruefung
+       geht rot, ohne dass ein Aufruf dazugekommen waere. Beim Bauen der Schritte-Kurve
+       ist genau das passiert. Kein stiller Fehler, aber einer, dessen Meldung in die
+       falsche Richtung zeigt -- deshalb steht der Hinweis jetzt in der Meldung selbst. */
+    if (rufe.length !== 4) return 'erwartet 4 Aufrufe, gefunden ' + rufe.length
+      + ' (Achtung: `lineChart` mit Klammer in einem KOMMENTAR zaehlt hier mit)';
     const ohne = rufe.filter(s => s.indexOf('{x:') < 0);
     return ohne.length === 0 || 'ohne Datum: ' + ohne.join(' // ');
   });
@@ -2830,7 +2837,7 @@ window.addEventListener('error', e => {
      zog dann in den Verlauf, wurde am 03.09. versehentlich ganz geloescht und ist jetzt
      zurueck im Koerper-Tab.
      ⚠️ Geprueft wird beides: die Kurve ist hier UND der Weg zu den Eintragungen auch. */
-  t('Im Koerper-Tab steht die Kurve, dazu der Satz zum Ueberschreiben', () => {
+  t('Im Koerper-Tab steht die Kurve, ohne den Satz zum Ueberschreiben', () => {
     const wVorher = profile.weights, sVorher = session, ezVorher = kobErzwingen;
     session = {user:{id:'test'}, expires_at: Date.now() + 3600e3, access_token:'x'};
     kobErzwingen = false;
@@ -2844,13 +2851,19 @@ window.addEventListener('error', e => {
     if (!h.includes('chart-plot')) return 'die Kurve fehlt im Koerper-Tab';
     if (!h.includes('gw:fenster:')) return 'die Zeitraum-Wahl fehlt';
     /* 🔴 10.09.2026: Hier stand `data-nav="history"` -- der Knopf „Alle Eintragungen
-       ansehen". Er ist mit der Liste gegangen; im Verlauf gibt es nichts mehr zu sehen.
-       ⚠️ Statt des Wegweisers wird jetzt der SATZ geprueft, der die Folge benennt (ein
-       falscher Wert laesst sich nur noch durch erneutes Wiegen am selben Tag geradeziehen).
-       Ohne diese Zeile koennte der Satz still verschwinden und die Loeschung waere
-       wieder eine, die niemand ankuendigt. */
+       ansehen". Er ist mit der Liste gegangen; im Verlauf gibt es nichts mehr zu sehen. */
     if (/data-nav="history"/.test(h)) return 'der Weg zu den Eintragungen steht noch da';
-    return h.includes('\u00fcberschrieben') || 'der Satz zum Ueberschreiben fehlt';
+    /* 🔴 12.09.2026, Karls Ansage: der Satz zum Ueberschreiben ist RAUS.
+       *„Gewicht Eintragungen sollen nur einmal am Tag zaehlen immer das letzte eingetragene
+       Wert so loesen wir das man kann keinen Wert loeschen Problem."*
+       ⚠️ Hier stand bis heute die Umkehrung -- der Satz MUSSTE da sein. Jetzt darf er es
+       nicht mehr, und zwar aus demselben Grund wie damals: damit die Entscheidung nicht
+       still zurueckrutscht.
+       💡 Die Regel selbst haengt nicht an diesem Satz, sondern an `addWeight()` und
+       `gewichteZusammen()` -- beide sind eigens geprueft („Zweimal am selben Tag
+       ueberschreibt" und „Gleicher Tag: der spaetere Wert gewinnt"). Der Satz war die
+       Erklaerung, nicht die Sache. */
+    return !h.includes('\u00fcberschrieben') || 'der geloeschte Satz zum Ueberschreiben ist zurueck';
   });
 
   /* ---- Was am 10.09.2026 abends dazukam (Karls Liste vom Handy) ---- */
@@ -3699,10 +3712,12 @@ window.addEventListener('error', e => {
   // JEDE verbliebene Aufgabe verlangt eine Handlung -- „App geoeffnet" ist ersatzlos raus.
   /* ➡️ 25 -> 40 am 03.09.2026, Karls Werte: Reingeschaut 5 · Mahlzeit 10 · Gewicht 10 ·
      Trainiert 15. Die Zahl steht hier als eigene Pruefung, damit ein Verschieben der
-     Werte auffaellt und nicht stillschweigend durchgeht. */
-  t('Aufgaben bringen hoechstens 40 XP am Tag', () => eq(AUFGABEN_MAX, 40));
+     Werte auffaellt und nicht stillschweigend durchgeht.
+     ➡️ 40 -> 35 am 12.09.2026, Karls Ansage: „Gewicht eintragen soll nur 5 xp geben am
+     Tag." Gewicht 10 -> 5, alles andere unveraendert. */
+  t('Aufgaben bringen hoechstens 35 XP am Tag', () => eq(AUFGABEN_MAX, 35));
   t('Die vier Aufgaben tragen Karls Werte', () => {
-    const soll = { auf:5, mahlzeit:10, gewicht:10, train:15 };
+    const soll = { auf:5, mahlzeit:10, gewicht:5, train:15 };
     const ist = {}; AUFGABEN.forEach(a => ist[a.id] = a.xp);
     for(const k in soll) if(ist[k] !== soll[k]) return k + ' gibt ' + ist[k] + ' statt ' + soll[k];
     return AUFGABEN.length === 4 || AUFGABEN.length + ' Aufgaben statt vier';
@@ -4839,7 +4854,7 @@ window.addEventListener('error', e => {
   /* ➡️ Umgedreht am 03.09.2026 (Karls Ansage: den Zaehler entfernen). Bis dahin verlangte
      diese Pruefung genau den Satz, der jetzt weg soll -- sie haette den Umbau rot gemeldet.
      ⚠️ Geprueft wird jetzt beides: der Satz ist weg UND der Stand ist trotzdem ablesbar
-     (die Kopfzeile „X von 40 XP"). Nur „ist weg" waere auch gruen, wenn die ganze Karte
+     (die Kopfzeile „X von 35 XP"). Nur „ist weg" waere auch gruen, wenn die ganze Karte
      verschwunden waere. */
   t('Der Aufgaben-Zaehler ist weg, der Stand steht trotzdem da', () => {
     const mV = view; view = 'erfolge'; renderErfolge();
@@ -7246,7 +7261,16 @@ window.addEventListener('error', e => {
     const v = view; view = 'body'; renderBody(); const h = app.innerHTML; view = v;
     const schnitt = h.indexOf('Schritte gestern');
     if (schnitt < 0) return 'die Karte fehlt';
-    const karte = h.slice(schnitt);
+    /* 🔴 GEFUNDEN AM 12.09.2026: hier stand `h.slice(schnitt)` -- also alles ab der Karte
+       bis zum SEITENENDE, nicht die Karte. Gruen war das nur, weil unter der Karte nichts
+       stand. Mit der Schritte-Kurve darunter stehen dort jetzt Zahlen, und die Pruefung
+       meldete „die Karte zeigt die Zahl von heute", obwohl die Karte voellig richtig war.
+       ⚠️ **Eine Pruefung, die mehr liest, als ihr Name sagt, ist nicht strenger, sondern
+       unzuverlaessig** -- sie geht rot bei Dingen, die sie nie pruefen wollte, und waere
+       bei einem echten Fehler daneben genauso rot. Man kann ihr dann in keine Richtung
+       mehr glauben. Der Schnitt endet jetzt an der naechsten Ueberschrift. */
+    const ende = h.indexOf('<h2', schnitt);
+    const karte = ende < 0 ? h.slice(schnitt) : h.slice(schnitt, ende);
     if (karte.includes('8.432') || karte.includes('8432')) return 'die Karte zeigt die Zahl von heute';
     return karte.includes('1.234') || 'die Zahl von gestern steht nicht in der Karte';
   });
@@ -7257,7 +7281,120 @@ window.addEventListener('error', e => {
     const v = view; view = 'body'; renderBody(); const h = app.innerHTML; view = v;
     const schnitt = h.indexOf('Schritte gestern');
     if (schnitt < 0) return 'die Karte fehlt';
-    return h.slice(schnitt).includes('keine Rechnung') || 'der Satz dazu fehlt';
+    // ⚠️ Derselbe Schnitt wie eine Pruefung hoeher, aus demselben Grund (12.09.2026).
+    const ende = h.indexOf('<h2', schnitt);
+    return (ende < 0 ? h.slice(schnitt) : h.slice(schnitt, ende)).includes('keine Rechnung')
+      || 'der Satz dazu fehlt';
+  });
+
+  /* ================= Schritte-Kurve (12.09.2026) =================
+     Karls Ansage: „Ich will eine Kurve fuer die Schritte so wie bei Gewicht."
+     ⚠️ Die vier Zeitraum-Pruefungen der GEWICHTSkurve sind am 03.09.2026 mit der Sache
+     geloescht worden und nie zurueckgekommen, obwohl die Sache zurueckkam. Der geteilte
+     Filter `imFenster()` traegt jetzt BEIDE Kurven -- deshalb wird er hier gepruefte
+     Grundlage und nicht noch einmal vergessen. */
+  const schTage = n => Date.now() - n*864e5;
+  const schSetzen = liste => { schFrisch(); profile.kcal.steps = liste.slice(); };
+
+  t('Der Zeitraum-Filter schneidet nach Tagen', () => {
+    const l = [{date:schTage(200), n:1000},{date:schTage(20), n:2000},{date:schTage(2), n:3000}];
+    const zahl = id => imFenster(l, id).length;
+    return (zahl('woche')===1 && zahl('monat')===2 && zahl('jahr')===3 && zahl('max')===3)
+      || ['woche','monat','jahr','max'].map(id=>id+':'+zahl(id)).join(' ');
+  });
+  /* 🔴 Die Grenze zaehlt ab HEUTE, nicht ab dem letzten Eintrag -- dieselbe Regel wie
+     beim Gewicht. Wer drei Monate nichts eingetragen hat, soll unter „1 Woche" eine
+     LEERE Woche sehen und nicht die Woche von vor drei Monaten. */
+  t('Ein leerer Zeitraum bleibt leer, statt zurueckzurutschen', () => {
+    const l = [{date:schTage(90), n:8000},{date:schTage(88), n:9000}];
+    return eq(imFenster(l, 'woche').length, 0);
+  });
+  t('Ein unbekannter Zeitraum faellt auf Max zurueck', () => {
+    const l = [{date:schTage(400), n:1000},{date:schTage(1), n:2000}];
+    return eq(imFenster(l, 'quatsch').length, 2);
+  });
+  t('schritteImFenster liest wirklich die Schritte', () => {
+    schSetzen([{date:schTage(40), n:5000},{date:schTage(3), n:7000}]);
+    const s = schritteImFenster('woche');
+    return (s.length===1 && s[0].n===7000) || JSON.stringify(s);
+  });
+  /* ⚠️ Unsortierte Daten sind kein erfundener Fall: `blobsZusammen()` fuehrt zwei Geraete
+     zusammen, und eine Kurve, deren Punkte zeitlich zurueckspringen, zeichnet Zickzack. */
+  t('Die Schritt-Kurve bekommt ihre Punkte in Zeitfolge', () => {
+    schSetzen([{date:schTage(2), n:3000},{date:schTage(9), n:1000},{date:schTage(5), n:2000}]);
+    const d = schritteImFenster('max').map(x=>x.n).join(',');
+    return eq(d, '1000,2000,3000');
+  });
+
+  t('Ab zwei Tagen steht die Schritt-Kurve im Koerper-Tab', () => {
+    schSetzen([{date:schTage(4), n:6000},{date:schTage(1), n:9000}]);
+    const v = view; view = 'body'; renderBody(); const h = app.innerHTML; view = v;
+    const schnitt = h.indexOf('Schritte-Verlauf');
+    if (schnitt < 0) return 'die Ueberschrift fehlt';
+    if (!h.slice(schnitt).includes('chart-plot')) return 'die Kurve fehlt';
+    return h.slice(schnitt).includes('sch:fenster:') || 'die Zeitraum-Wahl fehlt';
+  });
+  t('Bei einem einzigen Tag steht ein Hinweis statt einer Kurve', () => {
+    schSetzen([{date:schTage(1), n:9000}]);
+    const v = view; view = 'body'; renderBody(); const h = app.innerHTML; view = v;
+    if (h.includes('Schritte-Verlauf')) return 'die Kurve wird schon bei einem Tag gebaut';
+    return h.includes('Ab dem zweiten Tag') || 'der Hinweis fehlt';
+  });
+  /* ⚠️ Ohne einen einzigen Eintrag steht BEWUSST nichts da: die Karte darueber sagt
+     schon „noch nichts" und bietet das Feld an. Zwei leere Kaesten untereinander waeren
+     dieselbe Auskunft zweimal. */
+  t('Ohne Eintrag steht kein zweiter leerer Kasten da', () => {
+    schSetzen([]);
+    const v = view; view = 'body'; renderBody(); const h = app.innerHTML; view = v;
+    return (!h.includes('Schritte-Verlauf') && !h.includes('Ab dem zweiten Tag'))
+      || 'da steht doch etwas';
+  });
+
+  /* 🔴 DER EIGENTLICHE FALLSTRICK DIESES UMBAUS. Beide Kurven stehen untereinander auf
+     EINEM Bildschirm und teilen sich die Liste der Zeitraeume (`ZEIT_FENSTER`). Teilten
+     sie sich auch die AUSWAHL, naehme ein Tipp auf „1 Woche" unter den Schritten der
+     Gewichtskurve darueber ihren Zeitraum weg -- sichtbar sofort, erklaerbar nie.
+     ⚠️ Geprueft wird ueber die Klick-Weiche, nicht ueber die Variablen: der Fehler
+     entstuende in der Weiche, nicht in der Deklaration. */
+  t('Die beiden Kurven haben getrennte Zeitraeume', () => {
+    const gV = gwFenster, sV = schFenster, wV = profile.weights, v = view;
+    const seV = session, ezV = kobErzwingen;
+    const auf = () => { gwFenster = gV; schFenster = sV; profile.weights = wV; view = v;
+                        session = seV; kobErzwingen = ezV; };
+    /* 🔴 Anmeldung und Kalorien-Assistent muessen hier wirklich gesetzt sein, anders als
+       bei den Pruefungen darueber: ein Klick loest `render()` aus -- und `render()` laeuft
+       durch die Huerden vor dem Koerper-Tab, waehrend `renderBody()` sie uebergeht.
+       ⚠️ Genau daran ist diese Pruefung beim Schreiben zuerst gescheitert, und die
+       Meldung lautete „der Zeitraum-Knopf des Gewichts fehlt" -- er fehlte nicht, es war
+       die Anmeldemaske. Eine Pruefung, die den Umbau nur halb aufbaut, misst den Umbau
+       auch nur halb. */
+    session = {user:{id:'test'}, expires_at: Date.now() + 3600e3, access_token:'x'};
+    kobErzwingen = false;
+    schSetzen([{date:schTage(40), n:5000},{date:schTage(1), n:9000}]);
+    profile.weights = [{date:schTage(40), kg:80},{date:schTage(1), kg:79}];
+    gwFenster = 'max'; schFenster = 'max';
+    view = 'body'; render();
+    /* ⚠️ Echte Knoepfe aus der Seite, kein Aufruf der Weiche von Hand: so faellt auch auf,
+       wenn ein Knopf gar nicht erst gezeichnet wird. Eine Weiche, die richtig schaltet,
+       nuetzt nichts, wenn niemand sie erreicht. */
+    const schChip = app.querySelector('[data-act="sch:fenster:woche"]');
+    if(!schChip){ auf(); return 'der Zeitraum-Knopf der Schritte fehlt'; }
+    schChip.click();
+    const nachSchritt = gwFenster + '/' + schFenster;
+    const gwChip = app.querySelector('[data-act="gw:fenster:monat"]');
+    if(!gwChip){ auf(); return 'der Zeitraum-Knopf des Gewichts fehlt'; }
+    gwChip.click();
+    const nachGewicht = gwFenster + '/' + schFenster;
+    auf();
+    if (nachSchritt !== 'max/woche') return 'der Schritt-Tipp traf auch das Gewicht: ' + nachSchritt;
+    return nachGewicht === 'monat/woche' || 'der Gewicht-Tipp traf auch die Schritte: ' + nachGewicht;
+  });
+
+  /* ⚠️ `lineChart` beschriftet die MITTE der Achse mit (min+max)/2. Bei ungerader Spanne
+     ist das eine halbe Zahl -- „8.432,5 Schritte" gibt es nicht. */
+  t('Schrittzahlen stehen ohne Nachkomma da', () => {
+    return (fmtSchritt(8432.5) === '8.433' && fmtSchritt(8432) === '8.432')
+      || (fmtSchritt(8432.5) + ' / ' + fmtSchritt(8432));
   });
 
   // ---- Der automatische Weg ist wirklich weg, nicht nur unsichtbar ----

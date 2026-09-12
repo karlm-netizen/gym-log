@@ -1922,6 +1922,20 @@ function zaehleRekorde(en){ let n=0; en.forEach(e=>arbeit(e.sets).forEach(s=>{ i
    ➡️ **Die Sorge war ueberzogen.** Wer 4,6 Jahre lang jeden Tag die App aufmacht und wiegt,
    ohne ein einziges Mal zu trainieren, ist kein Schlupfloch -- das ist laenger, als es diese
    App gibt. **Eine Grenze, die nie ausgerechnet wurde, war eine Vermutung, keine Grenze.**
+
+   ✅ **12.09.2026 -- Karls Ansage: „Gewicht eintragen soll nur 5 xp geben am Tag."**
+   Gewicht 10 -> **5**. Damit: Reingeschaut 5 · Mahlzeit 10 · Gewicht 5 · Trainiert 15.
+   🔴 **Die Tabelle darueber ist ab hier Geschichte, nicht der Stand.** Neu gerechnet,
+   dieselbe Rechnung wie am 03.09. mit `xpForLevel(45)` = 42.240 XP:
+
+     ohne Training, seit 12.09. (20/Tag)   2.112 Tage =  5,8 Jahre
+     mit taeglichem Training  (35/Tag)     1.207 Tage =  3,3 Jahre
+
+   ⚠️ **„Am Tag" war schon erfuellt und bleibt es:** `aufgabeErledigen()` hakt jede Aufgabe
+   hoechstens einmal je Kalendertag ab -- wer sich dreimal wiegt, bekommt einmal 5 XP.
+   Geaendert hat sich allein die Hoehe.
+   ⚠️ Zurueckgenommen wird nichts (Regel vom 27.08.): wer gestern 10 XP fuers Wiegen
+   bekommen hat, behaelt sie. Es gilt ab heute.
    ⚠️ Was bleibt: eine Einheit gibt 260-380 XP. Training ist weiter der Hauptweg, um ein
    Vielfaches -- und das ist der Punkt, auf den es ankam.
    ⚠️ Zurueckgenommen wird nichts (Regel vom 27.08.): die 5 XP der letzten fuenf Tage kommen
@@ -1931,10 +1945,10 @@ function zaehleRekorde(en){ let n=0; en.forEach(e=>arbeit(e.sets).forEach(s=>{ i
 const AUFGABEN = [
   { id:'auf',      xp:5,  svg:'auge',   name:'Reingeschaut', text:'Die App heute geöffnet' },
   { id:'mahlzeit', xp:10, svg:'stift',  name:'Mahlzeit',     text:'Eine Mahlzeit eingetragen' },
-  { id:'gewicht',  xp:10, svg:'waage',  name:'Gewicht',      text:'Gewicht eingetragen' },
+  { id:'gewicht',  xp:5,  svg:'waage',  name:'Gewicht',      text:'Gewicht eingetragen' },
   { id:'train',    xp:15, svg:'hantel', name:'Trainiert',    text:'Eine Einheit abgeschlossen' },
 ];
-const AUFGABEN_MAX = AUFGABEN.reduce((n,a)=>n+a.xp,0);   // 40 -- der Deckel steht in den Daten
+const AUFGABEN_MAX = AUFGABEN.reduce((n,a)=>n+a.xp,0);   // 35 -- der Deckel steht in den Daten
 
 function heuteKey(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 /* ⚠️ Der Tageswechsel wird beim LESEN geprueft, nicht per Timer. Ein Timer um Mitternacht
@@ -3794,6 +3808,10 @@ function gesternTs(){
   return d.getTime();
 }
 function schritteGestern(){ return schritteAmTag(gesternTs()); }
+/* Tausenderpunkte. ⚠️ `Math.round` steht davor, weil `lineChart` auch ZWISCHENwerte
+   beschriftet: die mittlere Zahl an der Achse ist (min+max)/2 und damit bei ungerader
+   Spanne eine halbe. „8.432,5 Schritte" gibt es nicht. */
+function fmtSchritt(n){ return Math.round(n).toLocaleString('de-DE'); }
 /* 🔴 EXISTIERT ein Eintrag -- und ausdruecklich NICHT "ist die Zahl groesser als 0".
    `schritteAmTag()` gibt 0 zurueck, wenn nichts dasteht UND wenn eine 0 dasteht. Wer gestern
    wirklich nicht gelaufen ist (krank, Ruhetag) und das eintraegt, hat eingetragen -- mit
@@ -4459,7 +4477,7 @@ function renderBody(){
     const wf = weightImFenster(gwFenster);
     h+=`<div class="row between" style="margin:20px 4px 6px"><h2>Verlauf</h2>
         ${wf.length>1?`<span class="tiny muted">${fmtKg(Math.min(...wf.map(x=>x.kg)))}–${fmtKg(Math.max(...wf.map(x=>x.kg)))} kg</span>`:''}</div>
-      <div class="zeitwahl" style="margin:0 4px 8px">${GW_FENSTER.map(f=>
+      <div class="zeitwahl" style="margin:0 4px 8px">${ZEIT_FENSTER.map(f=>
         `<button class="chip ${f.id===gwFenster?'on':''}" data-act="gw:fenster:${f.id}">${f.name}</button>`).join('')}</div>`;
     if(wf.length>1){
       h+=`<div class="card" style="padding:10px 8px">${lineChart(wf.map(x=>x.kg),300,110,{x:wf.map(x=>x.date),einheit:'kg'})}</div>`;
@@ -4467,20 +4485,23 @@ function renderBody(){
       /* Kein toter Punkt: der naechste Zeitraum, in dem wirklich eine Kurve steht, wird
          gleich beim Namen genannt. `w.length>1` gilt hier oben schon, also findet die
          Suche spaetestens bei „Max" etwas. */
-      const passt = GW_FENSTER.find(f=>weightImFenster(f.id).length>1);
+      const passt = ZEIT_FENSTER.find(f=>weightImFenster(f.id).length>1);
       h+=`<div class="empty" style="margin-top:4px">${wf.length?'Nur ein Eintrag':'Kein Eintrag'} in diesem Zeitraum — eine Kurve braucht zwei.${
         passt&&passt.id!==gwFenster?`<br>Unter „${passt.name}" siehst du eine.`:''}</div>`;
     }
   } else {
     h+=`<div class="empty" style="margin-top:4px">Ab dem zweiten Eintrag siehst du hier eine Kurve.</div>`;
   }
-  /* ➡️ 10.09.2026: der Knopf „Alle Eintragungen ansehen" ist mit der Liste gegangen.
-     Er fuehrte in den Verlauf, und dort stehen ab jetzt nur noch Trainings-Einheiten —
-     unter einer Gewichtskurve waere das ein Versprechen auf etwas, was es nicht mehr
-     gibt. An seiner Stelle der Satz, der die Folge der Loeschung benennt. */
-  if(w.length) h+=`<div class="tiny muted" style="margin:14px 4px 0;line-height:1.6">
-      Einzelne Eintragungen lassen sich nicht mehr löschen. Ein falscher Wert von heute
-      wird überschrieben, sobald du dich heute noch einmal wiegst.</div>`;
+  /* ➡️ 10.09.2026 stand hier ein Satz ueber das Loeschen („Einzelne Eintragungen lassen
+     sich nicht mehr loeschen ..."). **12.09.2026, Karls Ansage: raus.**
+     *„Gewicht Eintragungen sollen nur einmal am Tag zaehlen immer das letzte eingetragene
+     Wert so loesen wir das man kann keinen Wert loeschen Problem."*
+     ✅ **Die Regel steht und ist geprueft, in beide Richtungen:** `addWeight()` ersetzt den
+     Eintrag desselben Tages statt einen zweiten anzulegen, und `gewichteZusammen()` behaelt
+     beim Abgleich zweier Geraete je Tag den spaeteren. Ein Tag, ein Wert, der letzte gilt.
+     💡 **Und genau deshalb kann der Satz weg:** er erklaerte einen Mangel, den die Regel
+     nicht mehr hat. Ein Hinweis, der auf etwas zeigt, was nicht mehr passieren kann, ist
+     kein Hinweis mehr, sondern Text. */
 
   /* ---------- Schritte gestern: der feste Platz (11.09.2026) ----------
      Die Karte auf der Startseite ist seit heute eine reine Erinnerung und verschwindet,
@@ -4506,9 +4527,41 @@ function renderBody(){
                  placeholder="${schGestern===null?'z. B. 8432':schGestern}"></div>
         <button class="btn" style="width:auto;padding:12px 18px" data-act="schritt:gestern">${schGestern===null?'Eintragen':'Ändern'}</button>
       </div>
-      <div class="tiny muted" style="margin-top:6px">${schGestern===null
-        ? 'Schritte gehen in keine Rechnung ein — weder ins Tagesziel noch in XP.'
-        : 'Vertippt? Neu eintragen ersetzt den Wert von gestern.'}</div></div>`;
+      ${schGestern===null ? `<div class="tiny muted" style="margin-top:6px">Schritte gehen in keine Rechnung ein — weder ins Tagesziel noch in XP.</div>` : ''}</div>`;
+
+  /* ---------- Schritte-Kurve (12.09.2026) ----------
+     Karls Ansage: *„Ich will eine Kurve fuer die Schritte so wie bei Gewicht."*
+     ➡️ Deshalb wirklich DIESELBE Bauform: dieselbe Zeitraum-Wahl (`ZEIT_FENSTER`), derselbe
+     `lineChart`, dieselbe Spanne neben der Ueberschrift, dieselben zwei leeren Faelle.
+     ⚠️ Die Ueberschrift heisst „Schritte-Verlauf" und nicht „Verlauf" wie beim Gewicht:
+     auf dieser Seite steht weiter oben schon ein „Verlauf", und zwei gleich benannte
+     Ueberschriften auf einem Bildschirm waeren am Telefon nicht auseinanderzuhalten.
+     ⚠️ Keine Einheit an der Achse. „Schritte" waere dort drei- bis viermal so breit wie
+     die Zahl daneben und schoebe die Kurve zusammen -- die Ueberschrift sagt es ohnehin. */
+  const sAlle = schrittListe();
+  if(sAlle.length > 1){
+    const sf = schritteImFenster(schFenster);
+    h+=`<div class="row between" style="margin:20px 4px 6px"><h2>Schritte-Verlauf</h2>
+        ${sf.length>1?`<span class="tiny muted">${fmtSchritt(Math.min(...sf.map(x=>x.n)))}–${fmtSchritt(Math.max(...sf.map(x=>x.n)))}</span>`:''}</div>
+      <div class="zeitwahl" style="margin:0 4px 8px">${ZEIT_FENSTER.map(f=>
+        `<button class="chip ${f.id===schFenster?'on':''}" data-act="sch:fenster:${f.id}">${f.name}</button>`).join('')}</div>`;
+    if(sf.length>1){
+      h+=`<div class="card" style="padding:10px 8px">${lineChart(sf.map(x=>x.n),300,110,{x:sf.map(x=>x.date),fmt:fmtSchritt})}</div>`;
+    } else {
+      /* Kein toter Punkt -- derselbe Ausweg wie bei der Gewichtskurve: der naechste
+         Zeitraum, in dem wirklich eine Kurve steht, wird beim Namen genannt.
+         `sAlle.length>1` gilt hier oben schon, also findet die Suche spaetestens bei „Max"
+         etwas. */
+      const passt = ZEIT_FENSTER.find(f=>schritteImFenster(f.id).length>1);
+      h+=`<div class="empty" style="margin-top:4px">${sf.length?'Nur ein Tag':'Kein Tag'} in diesem Zeitraum — eine Kurve braucht zwei.${
+        passt&&passt.id!==schFenster?`<br>Unter „${passt.name}" siehst du eine.`:''}</div>`;
+    }
+  } else if(sAlle.length === 1){
+    h+=`<div class="empty" style="margin-top:4px">Ab dem zweiten Tag siehst du hier eine Kurve.</div>`;
+  }
+  /* ⚠️ Bei NULL Eintraegen steht hier bewusst nichts: die Karte darueber sagt schon
+     „noch nichts" und bietet das Feld an. Ein zweiter leerer Kasten daneben waere
+     dieselbe Auskunft ein zweites Mal. */
   app.innerHTML=h;
 }
 
@@ -5309,7 +5362,12 @@ function weightList(){ return (profile.weights||[]).slice().sort((a,b)=>a.date-b
    (*„the Weight Progress Chart is missing"*).
    💡 Der Unterschied im Satz ist ein einziges Wort: „nicht im Verlauf" sagt, wo sie NICHT
    hingehoert -- nicht, dass es sie nicht geben soll. */
-const GW_FENSTER = [
+/* ➡️ Hiess bis zum 12.09.2026 `GW_FENSTER` -- „GW" fuer Gewicht. Seit die Schritte
+   dieselbe Zeitraum-Wahl haben (Karls Ansage: „Ich will eine Kurve fuer die Schritte so
+   wie bei Gewicht"), traegt die Liste zwei Kurven. **Ein Name, der nur die eine Haelfte
+   nennt, ist genau die Bauform, die hier schon Geld gekostet hat** -- er sieht richtig
+   aus und stimmt nicht mehr. */
+const ZEIT_FENSTER = [
   {id:'woche', name:'1 Woche', tage:7},
   {id:'monat', name:'1 Monat', tage:30},
   {id:'jahr',  name:'1 Jahr',  tage:365},
@@ -5320,16 +5378,32 @@ const GW_FENSTER = [
    Maschinerie dafuer, dass beim naechsten Oeffnen ohnehin die volle Kurve die richtige
    Voreinstellung ist. */
 let gwFenster = 'max';
+/* Die Schritte haben ihre EIGENE Blickrichtung, nicht dieselbe wie das Gewicht. Beide
+   Kurven stehen auf einem Bildschirm untereinander -- eine geteilte Variable hiesse, dass
+   ein Tipp auf „1 Woche" unter den Schritten der Gewichtskurve darueber ihren Zeitraum
+   wegnimmt. Sichtbar waere das sofort, erklaerbar nicht.
+   ⚠️ Ebenfalls bewusst NICHT im Profil abgelegt, aus demselben Grund wie beim Gewicht:
+   eine Blickrichtung ist keine Messung und muss nicht ueber zwei Geraete abgeglichen werden. */
+let schFenster = 'max';
 /* ⚠️ Die Grenze zaehlt ab HEUTE, nicht ab dem letzten Eintrag. „1 Woche" soll die letzte
    Woche zeigen — auch wenn nichts darin steht. Eine leere Woche ist eine Antwort; ein
    stillschweigend zurueckgeschobenes Fenster waere eine falsche, denn dann zeigte
    „1 Woche" bei drei Monaten Pause die Woche von vor drei Monaten. */
-function weightImFenster(id){
-  const f = GW_FENSTER.find(x=>x.id===id) || GW_FENSTER[GW_FENSTER.length-1];
-  const w = weightList();
-  if(!f.tage) return w;
+/* Der Schnitt selbst kennt weder Gewicht noch Schritte -- er braucht nur `date`.
+   ⚠️ Bewusst EINE Funktion fuer beide Kurven: zwei Abschriften desselben Filters waeren
+   zwei Orte, an denen die naechste Korrektur nur an einem ankommt. */
+function imFenster(liste, id){
+  const f = ZEIT_FENSTER.find(x=>x.id===id) || ZEIT_FENSTER[ZEIT_FENSTER.length-1];
+  if(!f.tage) return liste;
   const grenze = Date.now() - f.tage*864e5;
-  return w.filter(x=>x.date>=grenze);
+  return liste.filter(x=>x.date>=grenze);
+}
+function weightImFenster(id){ return imFenster(weightList(), id); }
+/* Die Schritte liegen schon nach Datum sortiert (`setzeSchritte()` sortiert bei jedem
+   Eintrag, `blobsZusammen()` beim Zusammenfuehren) -- hier wird trotzdem sortiert, damit
+   die Kurve nicht davon abhaengt, dass das an beiden Stellen so bleibt. */
+function schritteImFenster(id){
+  return imFenster(schrittListe().slice().sort((a,b)=>a.date-b.date), id);
 }
 function lastWeight(){ const w=weightList(); return w.length?w[w.length-1]:null; }
 // Fuer die Erinnerung auf der Startseite. Bewusst „heute", nicht „in den letzten 24 Stunden":
@@ -5600,7 +5674,7 @@ function renderErfolge(){
   });
   /* ➡️ Der Zaehler „Noch X Aufgaben offen." ist am 03.09.2026 auf Karls Ansage entfallen.
      Er stand unter einer Liste, in der jede Zeile ihren Stand schon selbst zeigt (Symbol
-     grau oder farbig, XP grau oder gruen) -- und die Kopfzeile nennt „X von 40 XP".
+     grau oder farbig, XP grau oder gruen) -- und die Kopfzeile nennt „X von 35 XP".
      Dieselbe Auskunft ein drittes Mal, in Worten. */
   h += `</div>`;
 
@@ -6359,7 +6433,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.089';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.090';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -8517,6 +8591,7 @@ document.addEventListener('click',ev=>{
     if(s&&sessEdit) sessRecalc(s);        // was noch im Feld stand, ist ueber 'change' schon drin
     sessEdit=!sessEdit; render(); }
   else if(a.startsWith('gw:fenster:')){ gwFenster=a.split(':')[2]; render(); }
+  else if(a.startsWith('sch:fenster:')){ schFenster=a.split(':')[2]; render(); }
   else if(a==='backhist'){ view='history'; render(); }
   else if(a==='delsess'){ const wegId=detailSessionId;
     confirmTwice('ds',t,'Einheit löschen?',()=>{ sessions=sessions.filter(x=>x.id!==wegId);

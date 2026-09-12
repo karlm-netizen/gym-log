@@ -2,6 +2,71 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-09-12
+
+### v0.090 — Schritte-Kurve, Gewicht gibt 5 XP, zwei Texte raus
+
+**Karls Ansagen:** *„Gewicht eintragen soll nur 5 xp geben am Tag"* · *„Ich will eine Kurve
+für die Schritte so wie bei Gewicht"* · *„Texte löschen"* · *„Gewicht Eintragungen sollen nur
+einmal am Tag zählen immer das letzte eingetragene Wert so lösen wir das man kann keinen Wert
+löschen Problem"*.
+
+#### ⚖️ Gewicht eintragen: 10 → 5 XP
+
+Die Tagesaufgaben stehen damit auf **35 statt 40 XP**: Reingeschaut 5 · Mahlzeit 10 ·
+Gewicht 5 · Trainiert 15.
+
+„Am Tag" war schon erfüllt und bleibt es — eine Aufgabe wird höchstens einmal je Kalendertag
+abgehakt. Wer sich dreimal wiegt, bekommt einmal 5 XP. Geändert hat sich allein die Höhe.
+**Zurückgenommen wird nichts:** wer gestern 10 XP bekommen hat, behält sie.
+
+#### 📈 Die Schritte haben eine Kurve
+
+Dieselbe Bauform wie beim Gewicht: dieselbe Zeitraum-Wahl (1 Woche / 1 Monat / 1 Jahr / Max),
+dieselbe Kurve, die Spanne neben der Überschrift, dieselben leeren Fälle.
+
+| | |
+|---|---|
+| **Ab zwei Tagen** | die Kurve |
+| **Bei einem Tag** | „Ab dem zweiten Tag siehst du hier eine Kurve." |
+| **Ohne Eintrag** | nichts — die Karte darüber sagt schon „noch nichts" |
+
+Die Zeitraum-Wahl der Schritte ist **von der des Gewichts getrennt**. Beide Kurven stehen
+untereinander auf einem Bildschirm; eine geteilte Auswahl hieße, dass ein Tipp unter den
+Schritten der Gewichtskurve darüber ihren Zeitraum wegnimmt.
+
+#### 🗑️ Zwei Texte sind raus
+
+- *„Vertippt? Neu eintragen ersetzt den Wert von gestern."*
+- *„Einzelne Eintragungen lassen sich nicht mehr löschen. Ein falscher Wert von heute wird
+  überschrieben, sobald du dich heute noch einmal wiegst."*
+
+Beide erklärten einen Mangel, den die Regel nicht mehr hat: **ein Tag, ein Wert, der letzte
+gilt.** Das steht in `addWeight()` (ersetzt den Eintrag desselben Tages) und in
+`gewichteZusammen()` (behält beim Abgleich zweier Geräte je Tag den späteren) — beides seit
+längerem so und eigens geprüft.
+
+#### 🔴 Der Fund des Tages: eine Prüfung las bis zum Seitenende
+
+„Die Karte auf der Kalorien-Seite zeigt GESTERN, nicht heute" schnitt mit `h.slice(schnitt)`
+**alles ab der Karte bis zum Seitenende** heraus und nannte das „die Karte". **Grün war sie
+nur, weil unter der Karte nichts stand.** Mit der Schritte-Kurve darunter meldete sie einen
+Fehler, den die Karte nicht hatte.
+
+⚠️ Eine Prüfung, die mehr liest, als ihr Name sagt, ist nicht strenger, sondern unzuverlässig
+— sie geht rot bei Dingen, die sie nie prüfen wollte, und wäre bei einem echten Fehler daneben
+genauso rot. Sie endet jetzt an der nächsten Überschrift; dieselbe Korrektur in der
+Nachbarprüfung.
+
+#### 🧪 Prüfstand
+
+**982 grün** (waren 972), davon **zehn neu** für die Schritte-Kurve. Alle sieben Gegenproben
+rot: geteilter Zeitraum, fehlende Kurve, zurückgekehrter Text, 10 XP, ungeschnittener
+Zeitraum-Filter, Nachkomma bei Schrittzahlen, und die Kartenprüfung ohne ihre Grenze.
+
+`GW_FENSTER` heißt jetzt `ZEIT_FENSTER` — die Liste trägt zwei Kurven, und ein Name, der nur
+die eine Hälfte nennt, sieht richtig aus und stimmt nicht mehr.
+
 ## 2026-09-11
 
 ### v0.089 — fünf Reiter: Home, Training, Essen, Erfolge, Profil
