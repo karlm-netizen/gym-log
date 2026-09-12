@@ -2187,6 +2187,217 @@ window.addEventListener('error', e => {
     }
   });
 
+  /* ================= Besitzer-Kennung (13.09.2026) =================
+     Karls Kollege: *„ein Training ist bei ihm verschwunden."* Das Anmelden schrieb den
+     Cloud-Stand ueber das Geraet, statt zusammenzufuehren. Jeder Fall unten wird ECHT
+     durchgespielt: Frage-Fenster, Klick, Schieben -- nur `fetch` ist ausgetauscht.
+     ⚠️ Die Buehne sichert Zustand UND Speicher und stellt beides im finally zurueck.
+     Ohne das hinge jede Pruefung von der Reihenfolge ab, in der sie laeuft. */
+  const bKey = 'gymlog:besitzer';
+  const bEinheit = (id, tage) => ({ id, date: Date.now() - (tage||1)*864e5, planName:'Probe',
+                                    entries:[], xp:0, pr:0, dur:0 });
+  const besitzerBuehne = async (aufbau, lauf) => {
+    const V = { session, programs, sessions, profile, settings, active, dirty,
+                fetch: window.fetch, schieben: bestenlisteSchieben };
+    const speicher = {};
+    ['besitzer','session','programs','sessions','profile','settings','active']
+      .forEach(k => speicher[k] = localStorage.getItem('gymlog:' + k));
+    const geschoben = [];
+    try {
+      bestenlisteSchieben = async () => true;
+      window.fetch = async (url, opt) => {
+        if (String(url).indexOf('/rest/v1/gymlog_data') >= 0 && opt && opt.method === 'POST')
+          geschoben.push(JSON.parse(opt.body)[0].data);
+        return { ok: true, status: 200, json: async () => [] };
+      };
+      session = { user:{id:'ich'}, expires_at: Date.now()+3600e3, access_token:'x', refresh_token:'r' };
+      sessions = []; dirty = false;
+      aufbau();
+      return await lauf(geschoben);
+    } finally {
+      const m = document.getElementById('modal'); if (m) m.classList.remove('show');
+      keyDialogAbbrechen = null;
+      window.fetch = V.fetch; bestenlisteSchieben = V.schieben;
+      session = V.session; programs = V.programs; sessions = V.sessions; profile = V.profile;
+      settings = V.settings; active = V.active; dirty = V.dirty; bindPlans();
+      Object.keys(speicher).forEach(k => speicher[k] === null
+        ? localStorage.removeItem('gymlog:' + k) : localStorage.setItem('gymlog:' + k, speicher[k]));
+    }
+  };
+  // Wartet, bis das Frage-Fenster steht (oder eben nicht), und liefert den Knopf.
+  const fremdKnopf = async (id) => {
+    for (let i = 0; i < 20; i++) { const k = document.getElementById(id);
+      if (k && document.getElementById('modal').classList.contains('show')) return k;
+      await new Promise(f => setTimeout(f, 0)); }
+    return null;
+  };
+  const cloudMit = (...ids) => ({ programs:[], sessions: ids.map(id => bEinheit(id, 5)),
+                                  profile:{xp:0, weights:[]}, settings:{rest:90} });
+
+  // ---- 1. Der Fall des Kollegen: unbekannter Besitzer, eine Einheit nur hier ----
+  await tA('Unbekannter Besitzer: es wird gefragt, und Ja uebernimmt die Einheit', async () =>
+    besitzerBuehne(() => { localStorage.removeItem(bKey); sessions = [bEinheit('nur-hier')]; },
+    async (geschoben) => {
+      const lauf = anmeldungAbgleichen({ ok:true, data: cloudMit('in-cloud') });
+      const ja = await fremdKnopf('fremdJa');
+      if (!ja) return 'es kam keine Frage';
+      ja.click();
+      if (await lauf !== 'fertig') return 'Ergebnis nicht fertig';
+      const ids = sessions.map(x => x.id).sort().join(',');
+      if (ids !== 'in-cloud,nur-hier') return 'auf dem Geraet: ' + ids;
+      if (besitzerLesen() !== 'ich') return 'Besitzer ist ' + besitzerLesen();
+      const oben = geschoben.length ? geschoben[geschoben.length-1].sessions.map(x => x.id).sort().join(',') : '';
+      return oben === 'in-cloud,nur-hier' || 'hochgeschoben wurde: ' + (oben || 'nichts');
+    }));
+  await tA('Unbekannter Besitzer: Nein laesst die Cloud gelten', async () =>
+    besitzerBuehne(() => { localStorage.removeItem(bKey); sessions = [bEinheit('nur-hier')]; },
+    async () => {
+      const lauf = anmeldungAbgleichen({ ok:true, data: cloudMit('in-cloud') });
+      const nein = await fremdKnopf('fremdNein');
+      if (!nein) return 'es kam keine Frage';
+      nein.click(); await lauf;
+      const ids = sessions.map(x => x.id).join(',');
+      return (ids === 'in-cloud' && besitzerLesen() === 'ich') || 'Geraet: ' + ids + ', Besitzer ' + besitzerLesen();
+    }));
+  /* ⚠️ Die Frage selbst muss sagen, WORUM es geht -- „3 Trainings" erkennt man als die
+     eigenen oder nicht; „Daten" erkennt niemand. */
+  await tA('Die Frage nennt die Zahl der Trainings', async () =>
+    besitzerBuehne(() => { localStorage.removeItem(bKey); sessions = [bEinheit('a'), bEinheit('b', 2)]; },
+    async () => {
+      const lauf = anmeldungAbgleichen({ ok:true, data: cloudMit('c') });
+      const ja = await fremdKnopf('fremdJa'); if (!ja) return 'es kam keine Frage';
+      const txt = document.getElementById('modal').textContent;
+      ja.click(); await lauf;
+      return txt.indexOf('2 Trainings') > -1 || 'im Fenster steht: ' + txt.slice(0, 120);
+    }));
+
+  // ---- 2. Gleiches Konto: nicht fragen, zusammenfuehren ----
+  await tA('Gleiches Konto: keine Frage, beides bleibt', async () =>
+    besitzerBuehne(() => { besitzerSetzen('ich'); sessions = [bEinheit('nur-hier')]; },
+    async () => {
+      const lauf = anmeldungAbgleichen({ ok:true, data: cloudMit('in-cloud') });
+      if (await fremdKnopf('fremdJa')) { document.getElementById('fremdJa').click(); await lauf; return 'es wurde gefragt'; }
+      await lauf;
+      const ids = sessions.map(x => x.id).sort().join(',');
+      return ids === 'in-cloud,nur-hier' || 'auf dem Geraet: ' + ids;
+    }));
+
+  // ---- 3. Anderes bekanntes Konto: nicht fragen, Cloud gilt ----
+  await tA('Anderes Konto: keine Frage, die Cloud gilt', async () =>
+    besitzerBuehne(() => { besitzerSetzen('vorgaenger'); sessions = [bEinheit('vom-vorgaenger')]; },
+    async (geschoben) => {
+      const lauf = anmeldungAbgleichen({ ok:true, data: cloudMit('meins') });
+      if (await fremdKnopf('fremdJa')) { document.getElementById('fremdNein').click(); await lauf; return 'es wurde gefragt'; }
+      await lauf;
+      const ids = sessions.map(x => x.id).join(',');
+      if (ids !== 'meins') return 'auf dem Geraet: ' + ids;
+      const fremdOben = geschoben.some(b => (b.sessions||[]).some(x => x.id === 'vom-vorgaenger'));
+      return !fremdOben || 'die Einheit des Vorgaengers wurde hochgeschoben';
+    }));
+
+  // ---- 4. Ein frisches Geraet fragt nie ----
+  /* 🔴 Sonst kaeme die Frage bei JEDEM gewoehnlichen ersten Anmelden -- auf einem Geraet,
+     auf dem nichts liegt als der Startplan. Eine Frage, die immer kommt, klickt man weg. */
+  await tA('Ein frisches Geraet zaehlt nichts Fremdes', async () =>
+    besitzerBuehne(() => { localStorage.removeItem(bKey); geraetLeeren(); },
+    async () => {
+      const leer = fremderStand({profile:{}}).gesamt, voll = fremderStand(cloudMit('x')).gesamt;
+      return (leer === 0 && voll === 0) || 'gezaehlt: leeres Konto ' + leer + ', volles Konto ' + voll;
+    }));
+
+  // ---- 5. Kein Netz: nichts entscheiden, nichts schieben ----
+  await tA('Ohne Netz bleibt alles, wie es ist', async () =>
+    besitzerBuehne(() => { localStorage.removeItem(bKey); sessions = [bEinheit('nur-hier')]; },
+    async () => {
+      const r = await anmeldungAbgleichen({ ok:false, data:null });
+      if (r !== 'offen') return 'Ergebnis ' + r;
+      if (besitzerLesen() !== undefined) return 'Besitzer wurde gesetzt: ' + besitzerLesen();
+      return sessions.map(x => x.id).join(',') === 'nur-hier' || 'das Geraet hat sich veraendert';
+    }));
+  /* 🔴 Die zweite Luecke, gefunden beim Bauen: `cloudPush` ersetzt die GANZE Zeile. Nach
+     einem Anmelden ohne Netz haette der erste Tipp einen ungeklaerten Stand ueber das
+     Konto geschrieben. */
+  await tA('Ein ungeklaerter Stand wird nicht hochgeschoben', async () =>
+    besitzerBuehne(() => { localStorage.removeItem(bKey); sessions = [bEinheit('nur-hier')]; },
+    async (geschoben) => {
+      const r = await cloudPush();
+      return (r === false && geschoben.length === 0) || 'geschoben: ' + geschoben.length;
+    }));
+  await tA('Der eigene Stand wird weiter hochgeschoben', async () =>
+    besitzerBuehne(() => { besitzerSetzen('ich'); sessions = [bEinheit('meins')]; },
+    async (geschoben) => {
+      const r = await cloudPush();
+      return (r === true && geschoben.length === 1) || 'Ergebnis ' + r + ', geschoben ' + geschoben.length;
+    }));
+
+  // ---- 6. Das Fenster wird von aussen ueberschrieben ----
+  /* ⚠️ Keine Antwort ist keine Antwort. Weder Ja noch Nein darf daraus werden -- beide
+     veraendern etwas. Die Sitzung wird zurueckgenommen, das Geraet bleibt wie es war. */
+  await tA('Ein fremdes Fenster bricht die Frage ab, ohne etwas zu aendern', async () =>
+    besitzerBuehne(() => { localStorage.removeItem(bKey); sessions = [bEinheit('nur-hier')]; },
+    async (geschoben) => {
+      const lauf = anmeldungAbgleichen({ ok:true, data: cloudMit('in-cloud') });
+      if (!await fremdKnopf('fremdJa')) return 'es kam keine Frage';
+      showModal('etwas anderes');
+      const r = await lauf;
+      if (r !== 'abgebrochen') return 'Ergebnis ' + r;
+      if (session !== null) return 'die Sitzung steht noch';
+      if (geschoben.length) return 'es wurde geschoben';
+      return sessions.map(x => x.id).join(',') === 'nur-hier' || 'das Geraet hat sich veraendert';
+    }));
+
+  // ---- 7. Registrieren: das neue Konto bekommt keinen fremden Stand ungefragt ----
+  await tA('Registrieren mit fremdem Stand: Nein faengt frisch an', async () =>
+    besitzerBuehne(() => { localStorage.removeItem(bKey); sessions = [bEinheit('vom-vorgaenger')]; },
+    async (geschoben) => {
+      const lauf = anmeldungAbgleichen({ ok:true, data:null });
+      const nein = await fremdKnopf('fremdNein'); if (!nein) return 'es kam keine Frage';
+      nein.click(); await lauf;
+      if (sessions.length) return 'auf dem Geraet stehen noch ' + sessions.length + ' Einheiten';
+      if (besitzerLesen() !== 'ich') return 'Besitzer ist ' + besitzerLesen();
+      const fremdOben = geschoben.some(b => (b.sessions||[]).length);
+      return (geschoben.length > 0 && !fremdOben) || 'geschoben: ' + geschoben.length + ', fremd oben: ' + fremdOben;
+    }));
+
+  // ---- 8. Abmelden und Leeren: danach gehoert der Stand niemandem ----
+  await tA('Nach dem Leeren gehoert der Stand niemandem', async () =>
+    besitzerBuehne(() => { besitzerSetzen('ich'); },
+    async () => { geraetLeeren(); return besitzerLesen() === null || 'Besitzer ist ' + besitzerLesen(); }));
+
+  // ---- 9. Der Einbau: jeder Weg zu einer neuen Sitzung geht durch die Entscheidung ----
+  /* 🔴 Die Lehre vom 31.08./01.09.: eine Reparatur an EINER von zwei Aufrufstellen. Genau
+     das ist hier schon einmal passiert -- „Zusammenfuehren statt Ueberschreiben" kam nur in
+     `cloudSyncStart` an, nie in `authSignIn`. Deshalb wird jede Aufrufstelle einzeln geprueft. */
+  t('Anmelden geht durch die Besitzer-Entscheidung', () => {
+    const q = authSignIn.toString();
+    if (q.indexOf('anmeldungAbgleichen') < 0) return 'authSignIn ruft sie nicht';
+    return !/loadBlob\(\s*res\.data\s*\)/.test(q) || 'authSignIn ueberschreibt noch direkt';
+  });
+  t('Registrieren geht durch die Besitzer-Entscheidung', () => {
+    const q = authSignUp.toString();
+    if (q.indexOf('anmeldungAbgleichen') < 0) return 'authSignUp ruft sie nicht';
+    return !/setDirty\(true\);\s*await cloudPush\(\)/.test(q) || 'authSignUp schiebt noch ungefragt';
+  });
+  t('Der Start fragt nach, wenn die Kennung nicht passt', () =>
+    /besitzerLesen\(\)\s*!==\s*session\.user\.id/.test(cloudSyncStart.toString())
+    || 'cloudSyncStart prueft den Besitzer nicht');
+  t('Schieben fragt zuerst nach dem Besitzer', () =>
+    /^async function cloudPush\([^)]*\)\{\s*if\(!darfSchieben\(\)\)/.test(cloudPush.toString())
+    || 'cloudPush prueft den Besitzer nicht als Erstes');
+  /* ⚠️ Die Rueckfuellung darf NUR beim Laden stehen. In `cloudSyncStart` wuerde sie nach
+     einem Passwort-Link einen unbekannten Stand still dem Konto zuschlagen. */
+  t('Die Rueckfuellung steht beim Laden und nirgends sonst', () => {
+    const q = window.APP_QUELLE || ''; if (!q) return 'APP_QUELLE fehlt';
+    const treffer = q.split("besitzerLesen() === undefined").length - 1;
+    if (treffer !== 1) return 'die Rueckfuellung steht ' + treffer + '-mal da';
+    return cloudSyncStart.toString().indexOf('=== undefined') < 0 || 'sie steht in cloudSyncStart';
+  });
+  t('Die Bestenliste schiebt nur den eigenen Stand', () =>
+    /^async function bestenlisteSchieben\(\)\{[\s\S]{0,400}?if\(!darfSchieben\(\)/.test(bestenlisteSchieben.toString())
+    || 'bestenlisteSchieben prueft den Besitzer nicht');
+  t('Abmelden leert ueber geraetLeeren', () =>
+    /geraetLeeren\(\)/.test(authSignOut.toString()) || 'authSignOut leert selbst und setzt keinen Besitzer');
+
   /* 🟡 Das Abmelden raeumte die Liste, liess aber die 30-Sekunden-Bremse stehen --
      "Erfolge" hing nach dem naechsten Anmelden bis zu einer halben Minute im Platzhalter,
      und das sah exakt aus wie Laden. */
@@ -4424,7 +4635,14 @@ window.addEventListener('error', e => {
   });
   // Ein Schritt-Eintrag je Tag, der spaetere gewinnt - dieselbe Regel wie beim Gewicht.
   t('Schritte: ein Eintrag je Tag, der spaetere gewinnt', () => {
-    const n = Date.now();
+    /* 🔴 Hier stand bis zum 13.09.2026 `const n = Date.now()` -- und der fruehere Eintrag
+       eine Stunde davor. **Zwischen 00:00 und 01:00 liegt „eine Stunde davor" auf GESTERN**,
+       dann sind es zwei Tage und die Pruefung ist rot, obwohl nichts kaputt ist. Aufgefallen
+       beim ersten Prueflauf nach Mitternacht, um 00:28. Tagsueber war sie immer gruen -- eine
+       Pruefung, die von der Uhrzeit abhaengt, prueft auch die Uhrzeit.
+       ➡️ Fest auf heute 12:00: beide Zeitpunkte liegen sicher im selben Kalendertag. */
+    const mittag = new Date(); mittag.setHours(12, 0, 0, 0);
+    const n = mittag.getTime();
     const r = blobsZusammen(
       blobMit({ kcal:{foods:[], meals:[], steps:[{date:n-3600000, n:4000}]} }),
       blobMit({ kcal:{foods:[], meals:[], steps:[{date:n, n:9000}]} }));
@@ -6000,10 +6218,15 @@ window.addEventListener('error', e => {
                 user:{ id:'p1', email:'p@example.org' } };
     bestenlisteSchiebFehler = vorlauf;
     window.fetch = antwort;
+    /* ⚠️ Seit dem 13.09.2026 schiebt `bestenlisteSchieben` nur fuer den Besitzer des
+       Geraetestands. Ohne diese Zeile hielt der neue Riegel die Pruefung auf, bevor sie
+       ueberhaupt beim Server ankam -- rot aus dem richtigen Grund, aber am falschen Ort. */
+    const mB = localStorage.getItem('gymlog:besitzer'); besitzerSetzen('p1');
     let ergebnis, gemerkt;
     try { ergebnis = await bestenlisteSchieben(); gemerkt = bestenlisteSchiebFehler; }
     finally { window.fetch = echtesFetch;
-              bestenlisteSchiebFehler = mF; session = mS; devAdmin = mA; }
+              bestenlisteSchiebFehler = mF; session = mS; devAdmin = mA;
+              mB === null ? localStorage.removeItem('gymlog:besitzer') : localStorage.setItem('gymlog:besitzer', mB); }
     return fn(ergebnis, gemerkt);
   };
 
@@ -6049,9 +6272,11 @@ window.addEventListener('error', e => {
       return Promise.resolve({ ok:true, status:201, json: () => Promise.resolve([]) });
     };
     let ergebnis;
+    const mB = localStorage.getItem('gymlog:besitzer'); besitzerSetzen('p1');   // siehe mitFetch
     try { ergebnis = await bestenlisteSchieben(); }
     finally { window.fetch = echtesFetch; session = mS; devAdmin = mA;
-              bestenlisteSchiebFehler = mF; }
+              bestenlisteSchiebFehler = mF;
+              mB === null ? localStorage.removeItem('gymlog:besitzer') : localStorage.setItem('gymlog:besitzer', mB); }
     if (ergebnis !== true) return 'gibt ' + ergebnis + ' statt true zurueck';
     const geloescht = rufe.filter(r => r.methode === 'DELETE');
     if (geloescht.length) return 'es wurde geloescht (' + geloescht.length + ' x DELETE)';

@@ -2,6 +2,63 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-09-13
+
+### v0.093 — Besitzer-Kennung: beim Anmelden verschwindet kein Training mehr
+
+**Karls Kollege am 11.09.:** *„ein Training ist bei ihm verschwunden."*
+**Karls Entscheidung:** *„das mit der Kennung machen wir wenn ich am Sonntag zuhause bin"*.
+
+#### Was passiert war
+
+Das Token läuft ab → die App meldet ab, **die Daten bleiben auf dem Gerät** → die zuletzt
+beendete Einheit war noch nicht oben → neu anmelden → die App **schrieb den älteren
+Cloud-Stand über das Gerät**. Auf beiden Seiten weg, ohne Meldung.
+
+„Zusammenführen statt Überschreiben" gilt seit dem 24.08. — aber nur beim Start. **Das
+Anmelden hat die Regel nie bekommen**; der Kommentar dort hieß wörtlich „die gelten".
+
+#### Was jetzt passiert
+
+Das Gerät merkt sich, **zu welchem Konto sein Stand gehört**. Beim Anmelden:
+
+| Stand auf dem Gerät gehört … | dann |
+|---|---|
+| **demselben Konto** | zusammenführen, wie beim Start — nichts geht verloren |
+| **einem anderen Konto** | die Cloud gilt, nichts Fremdes wandert ins eigene Konto |
+| **unbekannt** (Geräte von vorher) | **die App fragt** — *„2 Trainings (zuletzt am 11.09.) … Sind es deine?"* — aber nur, wenn wirklich etwas fehlt |
+
+Geräte, die beim Update angemeldet sind, bekommen ihren Besitzer automatisch. Gefragt wird
+also nur, wer gerade abgemeldet war — genau der Fall des Kollegen.
+
+Wird die Frage von einem anderen Fenster verdrängt, gilt **weder Ja noch Nein**: die Anmeldung
+wird zurückgenommen, das Gerät bleibt, wie es war.
+
+#### 🔴 Zwei Lücken derselben Bauart, gefunden beim Bauen
+
+1. **Anmelden ohne Netz:** es konnte nicht geholt werden — aber der erste Tipp danach schob den
+   Gerätestand über das ganze Konto in der Cloud. Jetzt schiebt die App nur, was sicher diesem
+   Konto gehört (auch die Bestenliste).
+2. **Registrieren:** der ganze Gerätestand wanderte ungefragt ins neue Konto — auch der eines
+   Vorgängers, der nur rausgeflogen war.
+
+#### 🔴 Und ein eigener Fehler, bevor er rausging
+
+Beim Herauslösen des Zusammenführens stand im neuen Stück noch eine Variable, die es dort
+nicht mehr gab. **Der Abgleich wäre bei jedem normalen Start still abgestürzt.** Gefunden hat
+es die neue Prüfung „Gleiches Konto" beim ersten Lauf.
+
+#### Nebenbei: eine Prüfung, die jede Nacht rot war
+
+„Schritte: ein Eintrag je Tag" rechnete mit „jetzt minus eine Stunde". Zwischen 00:00 und
+01:00 ist das gestern. Aufgefallen um 00:28. Jetzt fest auf 12:00.
+
+#### 🧪 Prüfstand
+
+**1011 grün** (waren 992), **19 neu**. Zwölf Gegenproben, **alle zwölf rot** — darunter:
+Anmelden überschreibt wieder direkt, Schieben ohne Riegel, Abbruch zählt als Nein, anderes
+Konto wird gefragt, frisches Gerät zählt etwas, Rückfüllung auch beim Start.
+
 ## 2026-09-12
 
 ### v0.092 — „Wofür es XP gibt" unter Einstellungen

@@ -1719,6 +1719,41 @@ function progById(id){ return (programs||[]).find(x=>x.id===id)||null; }
 bindPlans();
 let devAdmin=DB.get('devadmin',false);
 let session=DB.get('session',null);
+/* ---------- Wem gehoeren die Daten auf diesem Geraet? (13.09.2026) ----------
+   Karls Kollege meldete am 11.09.: *„ein Training ist bei ihm verschwunden."*
+   Der Weg dahin: das Token laeuft ab -> `clearSession()` (die Daten BLEIBEN liegen) ->
+   die zuletzt beendete Einheit war noch nicht oben -> neu anmelden -> `loadBlob()` schrieb
+   den aelteren Cloud-Stand darueber. **Auf beiden Seiten weg**, ohne Grabstein und Meldung.
+   Karls Entscheidung am selben Tag: *„das mit der Kennung machen wir wenn ich am Sonntag
+   zuhause bin"* -- gebaut am 13.09.2026.
+
+   Die Kennung sagt, zu WELCHEM Konto der Stand auf diesem Geraet gehoert:
+     · gleiches Konto  -> zusammenfuehren wie beim Start
+     · anderes Konto   -> die Cloud gilt, und von hier wird NICHTS hochgeschoben
+     · unbekannt       -> fragen, nicht raten (nur wenn es ueberhaupt etwas zu uebernehmen gibt)
+
+   ⚠️ Sie liegt NUR auf dem Geraet und nicht in `appDataBlob()`. Im Datenblock wanderte sie
+   in die Cloud und von dort auf jedes Geraet -- und behauptete dort genau das, was sie
+   pruefen soll.
+   ⚠️ `undefined` und `null` sind zwei verschiedene Antworten und werden deshalb nicht ueber
+   `DB.get` gelesen (das macht aus beidem den Ersatzwert):
+     undefined = nie geschrieben, ein Geraet von vor dieser Fassung
+     null      = ausdruecklich niemand (abgemeldet, geleert, oder nicht lesbar) */
+const BESITZER_KEY = 'gymlog:besitzer';
+function besitzerLesen(){
+  try{ const roh = localStorage.getItem(BESITZER_KEY);
+       return roh === null ? undefined : JSON.parse(roh); }
+  catch(e){ return null; }
+}
+function besitzerSetzen(uid){ try{ localStorage.setItem(BESITZER_KEY, JSON.stringify(uid || null)); }catch(e){} }
+/* Rueckfuellung fuer Geraete, die mit dieser Fassung zum ersten Mal starten.
+   ⚠️ NUR wenn beim Start eine Sitzung da ist: ein angemeldetes Geraet gleicht seit jeher
+   mit genau diesem Konto ab, sein Stand gehoert also dazu. Ein ABGEMELDETES Geraet
+   (der Fall des Kollegen) bekommt hier keinen Besitzer -- dort wird beim Anmelden gefragt.
+   ⚠️ Genau an dieser Stelle und nirgends sonst. Stuende sie in `cloudSyncStart()`, das
+   auch nach einem Passwort-Link und nach einem Anmelden ohne Netz laeuft, wuerde sie dort
+   einen unbekannten Stand stillschweigend dem Konto zuschlagen. */
+if(session && besitzerLesen() === undefined) besitzerSetzen(session.user && session.user.id);
 const SUPA_URL='https://uvtxkdasgllnfkvtnkrq.supabase.co';
 const SUPA_KEY='sb_publishable_7UvOL7KzzgJK6om8OwUsSg_usOMz92l';
 // Für die Datenschutz-Seite. Bewusst ohne Wohnanschrift: Art. 13 DSGVO verlangt
@@ -6535,7 +6570,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.092';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.093';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -6878,7 +6913,10 @@ async function bestenlisteZeileLoeschen(uid){
 let bestenlisteSchiebFehler = null;   // {status, meldung} oder null
 
 async function bestenlisteSchieben(){
-  if(!session || !session.user || !await ensureToken()) return false;
+  /* ⚠️ 13.09.2026: derselbe Riegel wie beim Abgleich. `bestenlisteAuffrischen` ruft das hier
+     auch ohne `cloudPush` -- und dann stuende der XP-Stand eines fremden, noch ungeklaerten
+     Stands unter dem eigenen Namen in der Liste, fuer alle sichtbar. */
+  if(!darfSchieben() || !await ensureToken()) return false;
   /* ➡️ 10.09.2026, Karls Ansage: „Sobald man admin bekommt werden XP nicht mehr auf dem
      leaderboard angezeigt. Ich z.b habe 50k xp aber über admin, die sollen andere nicht
      sehen."
@@ -7804,7 +7842,15 @@ async function cloudPull(){ if(!await ensureToken()) return {ok:false,data:null}
     if(!r.ok){ setSync(false); return {ok:false,data:null}; }
     const rows=await r.json(); setSync(true); return {ok:true,data:(rows&&rows.length)?rows[0].data:null}; }
   catch(e){ setSync(false); return {ok:false,data:null}; } }
-async function cloudPush(beimSchliessen){ if(!await ensureToken()) return false;
+/* 🔴 13.09.2026: geschoben wird nur, was diesem Konto gehoert.
+   `cloudPush` ersetzt die GANZE Zeile in der Cloud. Stand hier ein fremder oder ungeklaerter
+   Stand, ueberschrieb der erste Tipp nach dem Anmelden das Konto -- etwa nach einem Anmelden
+   ohne Netz, bei dem gar nicht erst geholt werden konnte. Eine zweite Luecke derselben
+   Bauart, gefunden beim Bauen der Kennung.
+   ⚠️ Still: `dirty` bleibt stehen, und sobald die Frage beim naechsten Abgleich geklaert
+   ist, geht es normal hoch. */
+function darfSchieben(){ return !!(session && session.user && besitzerLesen() === session.user.id); }
+async function cloudPush(beimSchliessen){ if(!darfSchieben()) return false; if(!await ensureToken()) return false;
   try{ const koerper=JSON.stringify([{id:session.user.id,data:appDataBlob(),updated_at:new Date().toISOString()}]);
     const opt={method:'POST',headers:{...authHeaders(true),'Prefer':'resolution=merge-duplicates'},body:koerper};
     // keepalive laesst die Anfrage den Seitenabbau ueberleben -- der Browser sendet sie zu Ende,
@@ -7835,17 +7881,120 @@ async function cloudSyncStart(){ if(!session) return;
   letzterAbgleich=Date.now();
   const res=await cloudPull();
   if(!res.ok){ if(dirty) cloudPush(); return; }        // kein Netz: der lokale Stand gilt weiter
-  if(!res.data){ await cloudPush(); return; }          // Konto noch leer: lokaler Stand zieht ein
+  /* ⚠️ Gehoert der Stand nicht sicher diesem Konto, entscheidet dieselbe Stelle wie beim
+     Anmelden. So kommt man hierher: Anmelden ohne Netz, oder der Passwort-Link. */
+  if(besitzerLesen() !== session.user.id){
+    if(await anmeldungAbgleichen(res) === 'abgebrochen') render();
+    else if(session) render();
+    return;
+  }
+  await mitCloudZusammenfuehren(res.data);
+}
+// Der Stand gehoert diesem Konto: zusammenfuehren, bei Bedarf schieben.
+async function mitCloudZusammenfuehren(data){
+  if(!data){ await cloudPush(); return; }              // Konto noch leer: lokaler Stand zieht ein
   const lokal=appDataBlob();
   // Zweimal zusammengefuehrt, weil beide Richtungen etwas anderes beantworten:
   //   dirty -> der lokale Stand ist der frischere, er gibt Plaene und Einstellungen vor
   //   sonst -> der Stand aus der Cloud gibt sie vor
   // Die zweite Rechnung sagt nur, ob die Cloud etwas NICHT hat -- dann muss geschoben werden.
-  const ausLokal=blobsZusammen(lokal, res.data);
-  const ausCloud=blobsZusammen(res.data, lokal);
+  /* 🔴 13.09.2026: beim Herausloesen aus `cloudSyncStart` stand hier zuerst noch `res.data`
+     -- die Variable gab es in dieser Funktion nicht mehr. **Der Abgleich waere bei JEDEM
+     normalen Start abgestuerzt**, still im Hintergrund, und die Seite haette weiter normal
+     ausgesehen. Gefunden hat es die Pruefung „Gleiches Konto", beim ersten Lauf. */
+  const ausLokal=blobsZusammen(lokal, data);
+  const ausCloud=blobsZusammen(data, lokal);
   loadBlob((dirty?ausLokal:ausCloud).blob);
   if(session) render();
   if(dirty || ausCloud.uebernommen>0){ setDirty(true); await cloudPush(); } }
+/* ---------- Anmelden: wessen Stand liegt hier? (13.09.2026) ----------
+   Laeuft nach jeder neuen Sitzung (Anmelden, Registrieren, Passwort-Link) und beim Start,
+   solange die Kennung nicht zum Konto passt. `res` ist das Ergebnis von `cloudPull()`.
+   Rueckgabe: 'offen' (kein Netz, spaeter nochmal), 'abgebrochen' (Sitzung zurueckgenommen,
+   nichts veraendert) oder 'fertig'. */
+async function anmeldungAbgleichen(res){
+  if(!session) return 'offen';
+  const uid = session.user.id, besitzer = besitzerLesen();
+  /* Kein Netz: NICHTS entscheiden. Die Kennung bleibt, wie sie ist -- `cloudPush` schiebt
+     damit nichts hoch, und der naechste Abgleich stellt die Frage. */
+  if(!res || !res.ok) return 'offen';
+  if(besitzer === uid){ await mitCloudZusammenfuehren(res.data); return 'fertig'; }
+
+  const fremd = fremderStand(res.data);
+  let uebernehmen = false;
+  /* ⚠️ Ein ANDERES bekanntes Konto wird nicht gefragt: sonst landen die Trainings des
+     Vorgaengers auf Nachfrage im eigenen Konto. Die Cloud gilt, wie vor dieser Fassung.
+     Gefragt wird nur bei einem UNBEKANNTEN Besitzer -- und nur, wenn es etwas gibt. */
+  if(fremd.gesamt > 0 && !besitzer){
+    const antwort = await fragUebernehmen(fremd);
+    if(antwort === 'abgebrochen'){ clearSession(); return 'abgebrochen'; }
+    uebernehmen = antwort === 'ja';
+  }
+  if(res.data){
+    besitzerSetzen(uid);    // ⚠️ VOR dem Schieben -- sonst haelt `darfSchieben()` es selbst auf
+    if(uebernehmen){
+      /* Die Cloud gibt Plaene und Einstellungen vor (es ist ihr Konto), dazu kommt, was
+         nur hier lag. */
+      const z = blobsZusammen(res.data, appDataBlob());
+      loadBlob(z.blob);
+      if(z.uebernommen > 0){ setDirty(true); await cloudPush(); }
+    } else {
+      loadBlob(res.data);
+    }
+  } else {
+    // Das Konto ist leer. Wer den Stand hier nicht uebernimmt, faengt frisch an.
+    if(fremd.gesamt > 0 && !uebernehmen) geraetLeeren();
+    besitzerSetzen(uid);
+    setDirty(true); await cloudPush();
+  }
+  return 'fertig';
+}
+/* Was auf diesem Geraet liegt und in `cloud` fehlt. Gezaehlt wird mit derselben Rechnung wie
+   beim Zusammenfuehren (Einheiten, Gewichtstage, Mahlzeiten, eigene Lebensmittel) -- eine
+   eigene Zaehlung koennte etwas melden, das danach gar nicht uebernommen wird.
+   ⚠️ Ein frisch zurueckgesetztes Geraet muss 0 ergeben, sonst kaeme die Frage bei jedem
+   gewoehnlichen ersten Anmelden. Steht als Pruefung. */
+function fremderStand(cloud){
+  const basis = cloud || {profile:{}};
+  const lokal = appDataBlob();
+  const z = blobsZusammen(basis, lokal);
+  const kenne = new Set((basis.sessions || []).map(x => x && x.id));
+  const neu = (lokal.sessions || []).filter(x => x && !kenne.has(x.id));
+  const zuletzt = neu.reduce((m, x) => Math.max(m, +x.date || 0), 0);
+  return { gesamt: z.uebernommen, einheiten: neu.length, zuletzt };
+}
+/* Die eine Frage. Rueckgabe 'ja' | 'nein' | 'abgebrochen'.
+   ⚠️ Kein ✕ und kein Wegtippen: beide Antworten veraendern etwas, und ein versehentliches
+   Schliessen darf keine davon sein. Wird das Fenster von aussen ueberschrieben
+   (`showModal`/`closeModal`), gilt 'abgebrochen' -- die Sitzung wird zurueckgenommen, das
+   Geraet bleibt, wie es war, und beim naechsten Anmelden kommt die Frage wieder.
+   ⚠️ Der Abbruch haengt am selben Riegel wie der Schluessel-Dialog (`keyDialogAbbrechen`),
+   weil `showModal`/`closeModal` genau diesen einen aufloesen. Es ist ohnehin nur ein
+   Fenster auf einmal offen. */
+function fragUebernehmen(fremd){
+  const m = document.getElementById('modal');
+  keyDialogAufloesen();
+  const n = fremd.einheiten;
+  const was = n > 0
+    ? `<b style="color:var(--txt)">${n === 1 ? 'Ein Training' : n + ' Trainings'}</b>${fremd.zuletzt ? ` (zuletzt am ${fmtDate(fremd.zuletzt)})` : ''}${fremd.gesamt > n ? ' und weitere Einträge' : ''}`
+    : '<b style="color:var(--txt)">Einträge</b> (Gewicht oder Essen)';
+  return new Promise(fertig => {
+    m.innerHTML = `<div class="modal-box" style="max-width:420px;text-align:left;padding:16px">
+      <b>Auf diesem Gerät liegen Daten, die nicht in deinem Konto stehen</b>
+      <p style="margin:10px 0 0;color:var(--muted);font-size:14px;line-height:1.5">${was}.
+        Die App weiß nicht sicher, wem sie gehören. Sind es deine?</p>
+      <button class="btn primary" id="fremdJa" style="width:100%;margin-top:16px">Ja, in mein Konto übernehmen</button>
+      <button class="btn" id="fremdNein" style="width:100%;margin-top:10px">Nein, nicht übernehmen</button>
+      <div class="tiny muted" style="margin-top:8px">Bei „Nein" verschwinden sie von diesem Gerät.</div>
+    </div>`;
+    m.classList.add('show');
+    keyDialogAbbrechen = () => fertig('abgebrochen');
+    const schliessen = w => { keyDialogAbbrechen = null; m.classList.remove('show'); fertig(w); };
+    document.getElementById('fremdJa').onclick = () => schliessen('ja');
+    document.getElementById('fremdNein').onclick = () => schliessen('nein');
+  });
+}
+
 /* ---------- Passwort vergessen (24.08.2026) ----------
    Uebernommen von angel-log (v57-v59), wo dieser Weg seit dem 19.08. im Betrieb steht.
    Bis heute gab es bei Gym-Log keinen Weg zurueck: wer sein Passwort vergass, war
@@ -7956,7 +8105,13 @@ async function authSignUp(username,email,password){ username=(username||'').trim
   const r=await fetch(`${SUPA_URL}/auth/v1/signup`,{method:'POST',headers:{'apikey':SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password,data:{username}})});
   const d=await r.json(); if(!r.ok) throw d.msg||d.error_description||d.error||'Registrierung fehlgeschlagen.';
   if(!d.access_token) throw 'Konto erstellt. Falls E-Mail-Bestätigung aktiv ist: E-Mail bestätigen, dann anmelden.';
-  setSession(d,username); letzteMailMerken(email); setDirty(true); await cloudPush(); }
+  setSession(d,username); letzteMailMerken(email);
+  /* ⚠️ Bis zum 13.09.2026 wanderte hier der ganze Geraetestand ungefragt ins neue Konto --
+     auch der eines Vorgaengers, der nur rausgeflogen war. Das Konto ist neu und leer; die
+     Entscheidung faellt an derselben Stelle wie beim Anmelden. */
+  if(await anmeldungAbgleichen({ok:true, data:null}) === 'abgebrochen')
+    throw 'Registrierung abgebrochen — auf diesem Gerät hat sich nichts geändert.';
+}
 /* ---------- Anmelden geht nur mit E-Mail (24.08.2026) ----------
    Bis v27 ging es auch mit dem Benutzernamen. Stand kein `@` in der Eingabe, holte die App
    ueber die Datenbank-Funktion `email_for_username` erst die zugehoerige Adresse. Diese
@@ -7986,9 +8141,12 @@ async function authSignIn(idOrEmail,password){ idOrEmail=(idOrEmail||'').trim();
   const email=idOrEmail;
   const r=await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'apikey':SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});
   const d=await r.json(); if(!r.ok) throw d.error_description||d.msg||'E-Mail oder Passwort falsch.';
-  setSession(d); letzteMailMerken(email); const res=await cloudPull();
-  if(res.ok && res.data) loadBlob(res.data);            // Konto hat Daten → die gelten
-  else if(res.ok){ setDirty(true); await cloudPush(); } // Konto noch leer → lokale Daten übernehmen
+  setSession(d); letzteMailMerken(email);
+  /* 🔴 Hier stand bis zum 13.09.2026: Konto hat Daten -> Cloud-Stand direkt laden, mit dem
+     Kommentar „die gelten" -- wortwoertlich die Regel von VOR dem 24.08. „Zusammenfuehren
+     statt Ueberschreiben" hatte nur `cloudSyncStart` bekommen, nie dieser Weg. */
+  if(await anmeldungAbgleichen(await cloudPull()) === 'abgebrochen')
+    throw 'Anmeldung abgebrochen — auf diesem Gerät hat sich nichts geändert.';
 }
 // Abmelden nur, wenn nichts Ungesichertes offen ist — sonst wären die Daten weg.
 /* ---------- Was beim Abmelden auf dem Geraet bleiben darf (27.08.2026) ----------
@@ -8040,9 +8198,18 @@ async function authSignOut(){
   if(session){ try{ await fetch(`${SUPA_URL}/auth/v1/logout`,{method:'POST',headers:authHeaders(true)}); }catch(e){} }
   clearSession();
   kontoDatenRaeumen(false);          // Postfach und offene Meldungen gehoeren zum Konto
+  geraetLeeren();
+  setDirty(false); authMode='login'; view='home'; return true; }
+/* Der frische Stand eines Geraets, auf dem niemand etwas hat.
+   ➡️ Herausgeloest am 13.09.2026: das Abmelden braucht ihn, und seitdem auch das Anmelden,
+   wenn jemand einen fremden Stand NICHT uebernehmen will. Zwei Abschriften waeren zwei
+   Stellen, an denen das naechste neue Feld nur an einer ankommt.
+   ⚠️ Der Besitzer geht mit auf null: auf diesem Geraet liegt danach niemandes Stand. */
+function geraetLeeren(){
   programs=[neuerPlan('Mein Plan',seedPlans())]; sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null; normalizeProfile(); bindPlans();
   DB.set('programs',programs); DB.set('sessions',sessions); DB.set('profile',profile); DB.set('settings',settings); DB.set('active',null);
-  setDirty(false); authMode='login'; view='home'; return true; }
+  besitzerSetzen(null);
+}
 // Konto löschen: erst die Daten in der Cloud, dann das Konto selbst.
 // Das Konto zu entfernen kann der Browser nicht allein — dafür braucht es die
 // Server-Funktion `delete_own_account` in Supabase. Fehlt sie, sind zumindest
