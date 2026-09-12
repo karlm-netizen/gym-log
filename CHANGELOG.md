@@ -4,6 +4,23 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-13
 
+### v0.095 — Einstellungen: der Kasten heißt „Widgets"
+
+**Karls Ansage:** *„mach die Texte unter den Überschriften weg in den Einstellungen und diese
+dann nicht als Überschrift, sondern normaler Text. Und schreib Widgets drüber anstatt
+Erinnerungen für die Startseite als Überschrift."*
+
+- Überschrift **„Widgets"** statt „Erinnerungen auf der Startseite"
+- **Heute wiegen · Essen eintragen · Schritte gestern** stehen als normaler Text, nicht mehr fett
+- Die Erklärsätze darunter sind raus — die Schalter und was sie tun, bleiben unverändert
+
+Die übrigen Untertexte der Einstellungen (z. B. die Warnung unter „Konto löschen") sind
+nicht angefasst.
+
+🧪 **1028 grün**, drei neu: Überschrift, keine fetten Namen und keine Sätze darunter, alle
+drei Schalter noch da.
+
+
 ### v0.094 — Einführung für Neue: Brock zeigt die fünf Reiter
 
 **Karl am 10.09.:** das Tutorial ist *„hohe Prio, da ein Freund von mir die App gerade vielen

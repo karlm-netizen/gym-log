@@ -4081,6 +4081,37 @@ window.addEventListener('error', e => {
     return q.slice(i, i + 300).indexOf("aufgabeErledigen('auf')") >= 0
       || 'der Start hakt Reingeschaut nicht ab';
   });
+  /* ================= Widgets in den Einstellungen (13.09.2026) =================
+     Karls Ansage: Ueberschrift „Widgets", die Namen als normaler Text, keine Saetze darunter. */
+  const widgetBlock = () => {
+    const v = view, seV = session;
+    session = {user:{id:'test', username:'karl'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    view = 'settings'; renderSettings();
+    const el = app.querySelector('[data-block="widgets"]');
+    const h = el ? el.innerHTML : null;
+    view = v; session = seV;
+    return h;
+  };
+  t('Der Widget-Kasten heisst Widgets', () => {
+    const h = widgetBlock(); if (h === null) return 'kein Widget-Kasten';
+    if (h.indexOf('Erinnerungen auf der Startseite') > -1) return 'die alte Ueberschrift steht noch da';
+    return />Widgets</.test(h) || 'keine Ueberschrift „Widgets"';
+  });
+  t('Die Widget-Namen stehen als normaler Text, ohne Saetze darunter', () => {
+    const h = widgetBlock(); if (h === null) return 'kein Widget-Kasten';
+    const d = document.createElement('div'); d.innerHTML = h;
+    if (d.querySelector('b')) return 'da ist noch etwas fett: ' + d.querySelector('b').textContent;
+    if (d.querySelectorAll('.tiny.muted').length !== 1) return d.querySelectorAll('.tiny.muted').length + ' kleine graue Texte statt nur der Ueberschrift';
+    const namen = ['Heute wiegen', 'Essen eintragen', 'Schritte gestern'].filter(n => h.indexOf(n) < 0);
+    return namen.length === 0 || 'es fehlt: ' + namen.join(', ');
+  });
+  /* ⚠️ Mit den Saetzen darf nicht der Schalter gehen -- er haengt am selben Stueck. */
+  t('Alle drei Widget-Schalter sind noch da', () => {
+    const h = widgetBlock(); if (h === null) return 'kein Widget-Kasten';
+    const d = document.createElement('div'); d.innerHTML = h;
+    return eq(d.querySelectorAll('[role="switch"]').length, 3);
+  });
+
   /* ================= Die Seite „Wofuer es XP gibt" (12.09.2026) =================
      Karls Ansage: „Ich brauche eine Liste von xp die man bekommen kann einfach so und wie
      in der app unter Einstellungen bitte." */

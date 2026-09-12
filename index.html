@@ -6026,23 +6026,28 @@ function renderSettings(){
         <b>Wofür es XP gibt</b></div><span class="muted">›</span></div></div>`;
   /* Erinnerungen an-/abschalten (Karls Ansage 29.08.2026). Ganz oben, weil es die einzige
      Einstellung ist, die veraendert, was man beim Oeffnen der App als Erstes sieht. */
-  h+=`<div class="card">
-      <label class="tiny muted" style="display:block;margin-bottom:10px">Erinnerungen auf der Startseite</label>`;
+  /* ➡️ 13.09.2026, Karls Ansage: *„schreib Widgets drüber anstatt Erinnerungen für die
+     Startseite als Überschrift"*. Gleiche Form wie „Ansicht" und „Konto" darunter. */
+  h+=`<div class="card" data-block="widgets">
+      <label class="tiny muted" style="display:block;margin-bottom:10px">Widgets</label>`;
   /* ✅ 11.09.2026: "Schritte gestern" ist der dritte. Karls Ansage: "man muss es genau
      wie die anderen 2 Widgets auf der Startseite entfernen können."
      ⚠️ Der Schalter nimmt nur die ERINNERUNG weg, nicht das Eintragen: die Zahl bleibt
      auf der Kalorien-Seite eintragbar. Sonst wäre ein Ausschalten ein heimliches
-     Abschalten der Funktion. */
-  [{id:'wiegen',  name:'Heute wiegen',    text:'Solange für heute kein Gewicht eingetragen ist'},
-   {id:'essen',   name:'Essen eintragen', text:'Solange für heute keine Mahlzeit eingetragen ist'},
-   {id:'schritte',name:'Schritte gestern',text:'Solange für gestern keine Schritte eingetragen sind · eintragen geht weiter auf der Kalorien-Seite'}].forEach((e,i)=>{
+     Abschalten der Funktion.
+     ➡️ 13.09.2026, Karls Ansage: *„mach die Texte unter den Überschriften weg … und diese
+     dann nicht als Überschrift, sondern normaler Text"*. Die Namen stehen jetzt schlicht
+     da, die Erklaersaetze sind raus -- auch der Hinweis, dass das Eintragen der Schritte
+     auf der Kalorien-Seite weitergeht. Das Verhalten dahinter ist unveraendert. */
+  [{id:'wiegen',  name:'Heute wiegen'},
+   {id:'essen',   name:'Essen eintragen'},
+   {id:'schritte',name:'Schritte gestern'}].forEach((e,i)=>{
     const an=erinnerungAn(e.id);
     /* ⚠️ `role="switch"` und `aria-checked` sind nicht Zierrat: ein <button> ohne Text hat
        fuer eine Vorlesehilfe sonst gar keinen Inhalt -- der Schalter waere unsichtbar.
        Das `aria-label` sagt, WORUM es geht, `aria-checked` sagt, WIE es steht. */
     h+=`<div class="row between" style="align-items:center;gap:10px;${i?'margin-top:14px':''}">
-        <div style="min-width:0"><b>${e.name}</b>
-          <div class="tiny muted">${e.text}</div></div>
+        <span style="min-width:0">${e.name}</span>
         <button class="schalter${an?' an':''}" role="switch" aria-checked="${an}"
                 aria-label="${esc(e.name)}"
                 data-act="erinn:${e.id}:${an?'aus':'an'}"><i></i></button></div>`;
@@ -6656,7 +6661,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.094';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.095';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
