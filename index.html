@@ -728,9 +728,10 @@ setTimeout(function(){
     display:inline-flex; align-items:center; justify-content:center;
     transition:transform .08s, filter .12s}
   .food-plus:active{transform:scale(.94); filter:brightness(.92)}
-  /* Der grosse Knopf unten ist im Entwurf gruen -- `.btn.primary` ist app-weit weiss.
-     Eigene Klasse statt Umfaerben von `.primary`, damit der Rest der App bleibt. */
-  .btn.gruen{background:var(--ok); border-color:var(--ok); color:#08130d}
+  /* ➡️ Hier stand `.btn.gruen` -- der grosse Knopf unter der Lebensmittel-Liste war im
+     Entwurf gruen. 13.09.2026, Karls Ansage: *„Der eigene Lebensmittel eintragen Button
+     bitte in der Standard Farbe"*. Die Klasse hatte nur diesen einen Knopf und ist mit
+     ihm gegangen. */
   /* ---------- Die Mahlzeiten-Leiste aus dem Entwurf ----------
      🔴 Sie filtert die LISTE, sie waehlt NICHT das Ziel. Wohin das Essen geht, steht
      seit dem 03.09. fest, bevor man hier ankommt, und seit v0.070 in der Ueberschrift.
@@ -4877,13 +4878,14 @@ function renderFood(){
       <span class="tiny muted" id="foodZahl"></span></div>
     <div id="foodList"></div>`;
 
-  /* ➡️ Unten der gruene Knopf aus dem Entwurf, darunter „Fertig".
+  /* ➡️ Unten der grosse Knopf aus dem Entwurf, darunter „Fertig".
+     Seit dem 13.09.2026 in der Standardfarbe statt gruen (Karls Ansage).
      ⚠️ „Fertig" steht im Entwurf NICHT und ist trotzdem geblieben: er kam am 03.09. auf
      Karls ausdrueckliche Ansage („man sollte einen groesseren, am besten einen grossen
      fertig button unten"), weil der Pfeil oben links am Handy die unbequemste Ecke ist.
      Ihn wegzunehmen, weil ein Entwurf ihn nicht zeigt, hiesse eine Ansage durch ein Bild
      zurueckzunehmen. */
-  h+=`<button class="btn primary gruen gross" style="margin-top:18px" data-act="food:new">
+  h+=`<button class="btn primary gross" style="margin-top:18px" data-act="food:new">
       + Eigenes Lebensmittel hinzufügen</button>
     <button class="btn ghost gross" style="margin-top:10px" data-nav="body">Fertig</button>`;
 
@@ -6661,7 +6663,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.095';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.096';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */

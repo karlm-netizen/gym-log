@@ -4081,6 +4081,20 @@ window.addEventListener('error', e => {
     return q.slice(i, i + 300).indexOf("aufgabeErledigen('auf')") >= 0
       || 'der Start hakt Reingeschaut nicht ab';
   });
+  /* 13.09.2026, Karls Ansage: der Knopf „Eigenes Lebensmittel hinzufuegen" in der
+     Standardfarbe, nicht mehr gruen. */
+  t('Eigenes Lebensmittel steht in der Standardfarbe', () => {
+    const q = window.APP_QUELLE || ''; if (!q) return 'APP_QUELLE fehlt';
+    /* ⚠️ Nach dem TEXT gesucht, nicht nach der Aktion: `food:new` haben zwei Knoepfe, und
+       der erste im Quelltext ist ein anderer. Genau so hat diese Pruefung beim ersten Lauf
+       den falschen Knopf geprueft. */
+    const m = q.match(/<button class="([^"]*)"[^>]*data-act="food:new">\s*\+ Eigenes Lebensmittel hinzuf/);
+    if (!m) return 'der Knopf ist nicht zu finden';
+    const kl = m[1].split(/\s+/);
+    if (kl.indexOf('gruen') > -1) return 'der Knopf ist noch gruen';
+    return (kl.indexOf('btn') > -1 && kl.indexOf('primary') > -1) || 'Klassen: ' + m[1];
+  });
+
   /* ================= Widgets in den Einstellungen (13.09.2026) =================
      Karls Ansage: Ueberschrift „Widgets", die Namen als normaler Text, keine Saetze darunter. */
   const widgetBlock = () => {

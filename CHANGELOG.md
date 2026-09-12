@@ -4,6 +4,17 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-13
 
+### v0.096 — „Eigenes Lebensmittel hinzufügen" in der Standardfarbe
+
+**Karls Ansage:** *„Der eigene Lebensmittel eintragen Button bitte in der Standard Farbe."*
+
+Der große Knopf unter der Lebensmittel-Liste ist nicht mehr grün, sondern hat die normale
+Hauptfarbe der App — im dunklen Design hell, im hellen dunkel, wie „Weiter" oder „Speichern"
+anderswo. Die grüne Sonderklasse gab es nur für diesen Knopf; sie ist mit weg.
+
+🧪 1029 grün, eine neu.
+
+
 ### v0.095 — Einstellungen: der Kasten heißt „Widgets"
 
 **Karls Ansage:** *„mach die Texte unter den Überschriften weg in den Einstellungen und diese
