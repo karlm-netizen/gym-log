@@ -4,6 +4,52 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-12
 
+### v0.092 — „Wofür es XP gibt" unter Einstellungen
+
+**Karls Ansage:** *„Ich brauche eine Liste von xp die man bekommen kann einfach so und wie in
+der app unter Einstellungen bitte."*
+
+Neue Seite, erreichbar über **Profil › Einstellungen › Wofür es XP gibt**. Drei Kästen:
+
+| | |
+|---|---|
+| **Jeden Tag** | die vier Tagesaufgaben, zusammen 35 XP — jede zählt einmal je Tag |
+| **Für ein Training** | 50 fürs Abschließen · 10 je Arbeitssatz · 25 je eigenem Rekord · 20 je volle 1.000 kg (höchstens 100, also ab 5.000 kg) |
+| **Erfolge** | alle 20, nach Gruppen, zusammen 8.450 XP — jeder genau einmal |
+
+#### 🔴 Keine einzige Zahl auf der Seite ist abgeschrieben
+
+Die Tagesaufgaben kommen aus `AUFGABEN`, die Erfolge aus `ERFOLGE`, die Beträge des
+Trainings aus denselben Konstanten, mit denen `sessXP()` rechnet. **Das ist der ganze
+Entwurf dieser Seite.**
+
+Die vier Trainings-Beträge hatten bis heute keinen Namen — sie standen als blanke Zahlen in
+`sessXP()` und `volXP()`. Das ging, solange sie nirgends sonst auftauchten. Jetzt heißen sie
+`XP_EINHEIT`, `XP_SATZ`, `XP_REKORD`, `XP_VOL_STUFE` / `XP_VOL_JE_STUFE`.
+
+⚠️ Der Grund ist heute selbst passiert: Gewicht ist von 10 auf 5 gewandert und der Tagesdeckel
+von 40 auf 35. **Eine abgeschriebene Seite hätte ab dem ersten Tag den alten Stand behauptet
+— und rot geworden wäre dabei nichts.**
+
+#### 🔴 Zwei eigene Prüfungen waren Attrappen — gefunden von ihren Gegenproben
+
+1. **„Die untere Leiste bleibt markiert"** fragte nur, ob *irgendein* Reiter leuchtet. Nimmt
+   man den neuen Ast aus `setNav()` heraus, fällt die Kette auf „home" zurück — und dann
+   leuchtet eben Home. Die Prüfung wäre grün geblieben. Sie fragt jetzt, **welcher** Reiter
+   leuchtet.
+2. **„Die Seite nennt die Beträge des Trainings"** suchte blanke Zahlen auf einer Seite voller
+   Zahlen. Die 100 des Volumen-Deckels fand sie bei drei Erfolgen wieder. Die drei Kästen
+   tragen jetzt `data-xp-block`, und jede Prüfung liest **nur ihren eigenen Kasten** — und die
+   gerenderte Zeile („+25 XP") statt der Ziffer.
+
+#### 🧪 Prüfstand
+
+**992 grün** (waren 984), davon **acht neu**. Alle Gegenproben rot: fehlender `setNav()`-Ast,
+fehlender Eintrag in den Einstellungen, abgeschriebener Wert statt gelesenem, fehlende
+Erfolgsgruppe, „+0 XP" statt Strich, gewanderter Rekord-Betrag, verschwundener Volumen-Deckel,
+verschwundener Tagesdeckel.
+
+
 ### v0.091 — Gewicht steht jetzt vor Mahlzeit
 
 **Karls Ansage:** *„Und Gewicht und Mahlzeit tauschen bei den Daily Aufgaben."*

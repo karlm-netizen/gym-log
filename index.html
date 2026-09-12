@@ -2436,7 +2436,7 @@ function splashWeg(){
    🔴 Ohne diese Zeile faende `setNav()` fuer diese sieben Ansichten keinen Knopf mehr
    und die Leiste stuende komplett unmarkiert da: man waere irgendwo in der App, und unten
    leuchtete nichts. Kein Absturz, nur Orientierungslosigkeit -- und nichts wuerde rot. */
-function setNav(){ const map=(view==='erfolge')?'erfolge':(view==='profil'||view==='rang'||view==='freunde'||view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='admin'||view==='privacy'||view==='meldung')?'profil':(view==='body'||view==='food')?'body':(view==='training'||view==='progs'||view==='plans'||view==='plan'||view==='workout')?'training':'home';
+function setNav(){ const map=(view==='erfolge')?'erfolge':(view==='profil'||view==='rang'||view==='freunde'||view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='xpliste'||view==='admin'||view==='privacy'||view==='meldung')?'profil':(view==='body'||view==='food')?'body':(view==='training'||view==='progs'||view==='plans'||view==='plan'||view==='workout')?'training':'home';
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on', b.dataset.nav===map));
   navPunktZeichnen(); }
 /* Die rote Zahl an der unteren Leiste (25.08.2026).
@@ -2501,7 +2501,7 @@ function render(){
   /* Ein zurueckgehaltener Fassungs-Hinweis wird hier faellig: er erscheint nicht mitten
      im Training, sondern beim naechsten Bild danach. */
   if(window.neueFassungPruefen) window.neueFassungPruefen();
-  ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, training:renderTraining, rang:renderRang, profil:renderProfil, freunde:renderFreunde, body:renderBody, food:renderFood, privacy:renderPrivacy, settings:renderSettings, admin:renderAdmin, meldung:renderMeldung, erfolge:renderErfolge, comeback:renderComeback}[view]||renderHome)();
+  ({home:renderHome, progs:renderProgs, plans:renderPlans, onboard:renderOnboard, plan:renderPlan, workout:renderWorkout, history:renderHistory, session:renderSession, exdetail:renderExDetail, training:renderTraining, rang:renderRang, profil:renderProfil, freunde:renderFreunde, body:renderBody, food:renderFood, privacy:renderPrivacy, settings:renderSettings, xpliste:renderXPListe, admin:renderAdmin, meldung:renderMeldung, erfolge:renderErfolge, comeback:renderComeback}[view]||renderHome)();
   syncSessionClock();
   /* Den Kurzcode fuers Teilen im Hintergrund bauen, solange noch niemand geklickt hat.
      Genau hier, weil auf diesen zwei Seiten der Teilen-Knopf steht -- und weil ein Umbau am
@@ -3475,12 +3475,24 @@ let sessEdit=false;
    ⚠️ Der Deckel ist der eigentliche Eingriff, nicht der Rekord-Bonus. Ohne ihn waechst
    der Volumenanteil mit der Kraft unbegrenzt weiter und frisst alles andere auf. */
 const VOL_XP_MAX = 100;              // hoechstens 100 XP aus dem Volumen, also 5.000 kg
-function volXP(en){ return Math.min(Math.floor(volume(en)/1000)*20, VOL_XP_MAX); }
+/* ➡️ 12.09.2026: die vier Betraege hatten bis heute keinen Namen, sie standen als blanke
+   Zahlen in `sessXP()` und `volXP()`. Das ging, solange sie NIRGENDS sonst auftauchten.
+   Seit es die Seite „Wofuer es XP gibt" gibt (Karls Ansage), muessen sie an zwei Stellen
+   stimmen -- und eine abgeschriebene Zahl auf einer Erklaerseite ist genau die Bauform,
+   die hier schon mehrfach falsch dastand, ohne dass etwas rot wurde.
+   🔴 **Die Seite rechnet ab jetzt mit denselben Konstanten, aus denen die XP entstehen.**
+   Wer einen Betrag aendert, aendert die Seite mit -- ohne sie anzufassen. */
+const XP_EINHEIT     = 50;    // fuers Abschliessen einer Einheit, unabhaengig vom Umfang
+const XP_SATZ        = 10;    // je Arbeitssatz (Aufwaermsaetze zaehlen nirgends mit)
+const XP_REKORD      = 25;    // je Satz, der einen eigenen Rekord bricht
+const XP_VOL_STUFE   = 1000;  // je volle 1.000 kg Volumen ...
+const XP_VOL_JE_STUFE= 20;    // ... gibt es 20 XP, gedeckelt bei VOL_XP_MAX
+function volXP(en){ return Math.min(Math.floor(volume(en)/XP_VOL_STUFE)*XP_VOL_JE_STUFE, VOL_XP_MAX); }
 /* ⚠️ `prs` kommt VON AUSSEN und wird nicht aus `en` gerechnet. Ob ein Satz ein Rekord war,
    haengt an der Historie zum Zeitpunkt des Trainings -- nicht an den Saetzen selbst. Wer
    das aus `en` herleiten wollte, bekaeme beim spaeteren Nachrechnen (sessRecalc) eine
    andere Zahl als beim Beenden. Deshalb wird die Anzahl an der Einheit festgehalten. */
-function sessXP(en, prs){ return doneSets(en)*10 + 50 + (+prs||0)*25 + volXP(en); }
+function sessXP(en, prs){ return doneSets(en)*XP_SATZ + XP_EINHEIT + (+prs||0)*XP_REKORD + volXP(en); }
 function sessRecalc(s){
   if(typeof s.xp==='number'){ const neu=sessXP(s.entries, s.pr||0);
     profile.xp=Math.max(0, profile.xp + (neu - s.xp)); s.xp=neu; }
@@ -5787,6 +5799,86 @@ function renderErfolge(){
 /* Grosse Zahlen lesbar: 100000 -> 100.000. Bei Volumen steht sonst eine Ziffernwurst. */
 function fmtZiel(n){ return Math.round(n).toLocaleString('de-DE'); }
 
+/* ---------- „Wofuer es XP gibt" (12.09.2026) ----------
+   Karls Ansage: „Ich brauche eine Liste von xp die man bekommen kann einfach so und wie in
+   der app unter Einstellungen bitte."
+
+   🔴 **KEINE EINZIGE ZAHL AUF DIESER SEITE IST ABGESCHRIEBEN.** Die Tagesaufgaben kommen
+   aus `AUFGABEN`, die Erfolge aus `ERFOLGE`, die Betraege des Trainings aus den Konstanten,
+   mit denen `sessXP()` rechnet. **Das ist der ganze Entwurf dieser Seite.**
+   ⚠️ Der Grund steht in diesem Vault mehrfach: eine Erklaerseite mit abgeschriebenen
+   Zahlen ist heute richtig und in drei Fassungen falsch, und **rot wird dabei nie etwas**.
+   Genau heute sind zwei XP-Betraege gewandert (Gewicht 10 -> 5, Deckel 40 -> 35) -- eine
+   abgeschriebene Seite haette den alten Stand behauptet, ab dem ersten Tag.
+
+   ⚠️ Die Rang-Erfolge geben 0 XP, und das steht auch so da. Sie fuer XP zu vergeben waere
+   im Kreis gedacht -- man bekaeme Punkte dafuer, genug Punkte zu haben. */
+/* ⚠️ Die drei Kaesten tragen `data-xp-block`. Das ist kein Haken fuers Aussehen, sondern
+   fuer die Pruefungen: eine Seite voller Zahlen laesst sich nicht mit einer Textsuche nach
+   „100" pruefen -- die 100 steht auch bei drei Erfolgen. **Genau daran ist die erste
+   Fassung dieser Pruefungen gescheitert: die Gegenprobe blieb gruen**, weil die gesuchte
+   Zahl anderswo auf der Seite stand. Mit den Kennungen liest jede Pruefung nur ihren
+   eigenen Kasten. */
+function renderXPListe(){
+  let h = `${zurueckPfeil('data-nav="settings"', 'Einstellungen')}
+    <div class="row between" style="margin:6px 4px 4px"><h2>Wofür es XP gibt</h2></div>`;
+
+  // ---- 1. Jeden Tag ----
+  h += `<div class="card" data-xp-block="taeglich">
+    <div class="row between" style="align-items:baseline"><b>Jeden Tag</b>
+      <span class="tiny muted">zusammen ${AUFGABEN_MAX} XP</span></div>
+    <div class="tiny muted" style="margin-top:4px">Jede Aufgabe zählt einmal je Tag — auch wer sich dreimal wiegt, bekommt sie einmal.</div>`;
+  AUFGABEN.forEach(a => {
+    h += `<div class="row between" style="margin-top:12px;align-items:center;gap:10px">
+        <div style="min-width:0"><b>${esc(a.name)}</b>
+          <div class="tiny muted">${esc(a.text)}</div></div>
+        <span class="tiny" style="white-space:nowrap">+${a.xp} XP</span></div>`;
+  });
+  h += `</div>`;
+
+  // ---- 2. Fuer ein Training ----
+  /* ⚠️ „je angefangene 1.000 kg" waere falsch: `Math.floor` schneidet ab, 1.999 kg geben
+     genau eine Stufe. Deshalb steht „je volle". */
+  h += `<div class="card" data-xp-block="training">
+    <div class="row between" style="align-items:baseline"><b>Für ein Training</b>
+      <span class="tiny muted">meist ${XP_EINHEIT + 12*XP_SATZ}–${XP_EINHEIT + 18*XP_SATZ + 2*XP_REKORD + VOL_XP_MAX} XP</span></div>
+    <div class="tiny muted" style="margin-top:4px">Zählt zusammen, was in der Einheit steckt. Aufwärmsätze zählen nirgends mit.</div>`;
+  [['Einheit abgeschlossen', 'Einmal je Einheit, egal wie groß sie war', '+' + XP_EINHEIT],
+   ['Je Arbeitssatz',        'Für jeden abgehakten Satz',                 '+' + XP_SATZ],
+   ['Je eigenem Rekord',     'Ein Satz, der deinen bisherigen schlägt',   '+' + XP_REKORD],
+   ['Volumen',               'Je volle ' + XP_VOL_STUFE.toLocaleString('de-DE') + ' kg — höchstens ' + VOL_XP_MAX + ' XP, also ab ' + ((VOL_XP_MAX/XP_VOL_JE_STUFE)*XP_VOL_STUFE).toLocaleString('de-DE') + ' kg', '+' + XP_VOL_JE_STUFE]
+  ].forEach(([n,t,x]) => {
+    h += `<div class="row between" style="margin-top:12px;align-items:center;gap:10px">
+        <div style="min-width:0"><b>${n}</b><div class="tiny muted">${t}</div></div>
+        <span class="tiny" style="white-space:nowrap">${x} XP</span></div>`;
+  });
+  h += `</div>`;
+
+  // ---- 3. Erfolge, nach ihren Gruppen ----
+  const gruppen = [];
+  ERFOLGE.forEach(e => { const g = gruppen.find(x => x.name === e.gr);
+    if(g) g.liste.push(e); else gruppen.push({name:e.gr, liste:[e]}); });
+  const erfolgSumme = ERFOLGE.reduce((n,e) => n + (e.xp||0), 0);
+  h += `<div class="card" data-xp-block="erfolge">
+    <div class="row between" style="align-items:baseline"><b>Erfolge</b>
+      <span class="tiny muted">zusammen ${erfolgSumme.toLocaleString('de-DE')} XP</span></div>
+    <div class="tiny muted" style="margin-top:4px">Jeder genau einmal. Wie weit du bist, steht im Reiter <b style="color:var(--txt)">Erfolge</b>.</div>`;
+  gruppen.forEach(g => {
+    h += `<div class="tiny muted" style="margin-top:14px;font-weight:700">${esc(g.name)}</div>`;
+    g.liste.forEach(e => {
+      h += `<div class="row between" style="margin-top:8px;align-items:center;gap:10px">
+          <div style="min-width:0"><b>${esc(e.name)}</b>
+            <div class="tiny muted">${esc(e.text)}</div></div>
+          <span class="tiny" style="white-space:nowrap">${e.xp ? '+' + e.xp.toLocaleString('de-DE') : '—'} XP</span></div>`;
+    });
+  });
+  h += `</div>`;
+
+  h += `<div class="tiny muted" style="margin:14px 4px 0;line-height:1.6">
+      Die Ränge und was sie kosten stehen unter <b style="color:var(--txt)">Profil › Rang</b>.</div>`;
+  app.innerHTML = h;
+}
+
 function renderSettings(){
   /* 🔴 Der Zurueck-Pfeil ist neu am 11.09.2026 und keine Zierde: bis heute war
      "Einstellungen" ein eigener Reiter in der Leiste -- man kam per Antippen hin und per
@@ -5807,6 +5899,13 @@ function renderSettings(){
       <div class="row between"><div class="row" style="gap:10px">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v5h5"/><path d="M12 8v4l3 2"/></svg>
         <b>Verlauf</b></div><span class="muted">›</span></div></div>`;
+  /* ➡️ 12.09.2026, Karls Ansage: „Ich brauche eine Liste von xp die man bekommen kann ...
+     wie in der app unter Einstellungen." Direkt unter dem Verlauf, weil beides
+     Nachschlagen ist -- man geht hin, sieht nach, geht zurueck. */
+  h+=`<div class="card" data-nav="xpliste" style="cursor:pointer">
+      <div class="row between"><div class="row" style="gap:10px">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.4 5.4 5.6.6-4.2 3.9 1.2 5.6L12 15.8 6.9 18.5l1.2-5.6L4 9l5.6-.6z"/></svg>
+        <b>Wofür es XP gibt</b></div><span class="muted">›</span></div></div>`;
   /* Erinnerungen an-/abschalten (Karls Ansage 29.08.2026). Ganz oben, weil es die einzige
      Einstellung ist, die veraendert, was man beim Oeffnen der App als Erstes sieht. */
   h+=`<div class="card">
@@ -6436,7 +6535,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.091';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.092';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */

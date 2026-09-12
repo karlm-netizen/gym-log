@@ -3743,6 +3743,98 @@ window.addEventListener('error', e => {
     return q.slice(i, i + 300).indexOf("aufgabeErledigen('auf')") >= 0
       || 'der Start hakt Reingeschaut nicht ab';
   });
+  /* ================= Die Seite „Wofuer es XP gibt" (12.09.2026) =================
+     Karls Ansage: „Ich brauche eine Liste von xp die man bekommen kann einfach so und wie
+     in der app unter Einstellungen bitte." */
+  const xpSeite = () => { const v = view; view = 'xpliste'; renderXPListe();
+                          const h = app.innerHTML; view = v; return h; };
+  /* ⚠️ Liest EINEN der drei Kaesten, nicht die Seite. Eine Textsuche ueber das ganze Bild
+     findet „100" auch bei drei Erfolgen -- die erste Fassung dieser Pruefungen war genau
+     deshalb wertlos und ihre Gegenprobe blieb gruen. */
+  const xpBlock = (h, name) => {
+    const d = document.createElement('div'); d.innerHTML = h;
+    const el = d.querySelector('[data-xp-block="' + name + '"]');
+    return el ? el.innerHTML : '';
+  };
+
+  t('Aus den Einstellungen fuehrt ein Weg zur XP-Liste', () => {
+    // ⚠️ Die Einstellungen zeigen den angemeldeten Benutzer -- ohne Sitzung kein Bild.
+    const v = view, seV = session;
+    session = {user:{id:'test', username:'karl'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    view = 'settings'; renderSettings(); const h = app.innerHTML;
+    view = v; session = seV;
+    return h.includes('data-nav="xpliste"') || 'die Karte fehlt in den Einstellungen';
+  });
+  /* 🔴 Die Falle vom 11.09.2026, zweimal an einem Abend: eine neue Ansicht ohne Ast in
+     `setNav()` laesst die untere Leiste UNMARKIERT stehen. Kaputt ist dabei nichts --
+     es sieht nur aus, als waere man nirgends. */
+  /* 🔴 HIER STAND ZUERST `an > 0` -- also „irgendein Reiter ist markiert". Die Gegenprobe
+     (den `xpliste`-Ast aus `setNav()` entfernen) blieb damit GRUEN: ohne Ast faellt die
+     Kette auf 'home' zurueck, und dann ist eben Home markiert. Die Pruefung haette die
+     Falle vom 11.09. nicht gefunden -- sie hat nur nachgesehen, ob ueberhaupt etwas
+     leuchtet.
+     ➡️ Gefragt wird jetzt, WELCHER Reiter leuchtet. Die XP-Liste haengt unter dem Profil,
+     also muss „profil" markiert sein und sonst keiner. */
+  t('Auf der XP-Liste ist der Profil-Reiter markiert', () => {
+    const v = view; view = 'xpliste'; setNav();
+    const an = Array.from(document.querySelectorAll('#nav button.on')).map(b => b.dataset.nav);
+    view = v; setNav();
+    if(!an.length) return 'kein Reiter ist markiert';
+    return an.join(',') === 'profil' || 'markiert ist: ' + an.join(',');
+  });
+
+  /* 🔴 DER KERN DIESER SEITE. Sie darf keine Zahl abschreiben, sondern muss die echten
+     Werte zeigen -- sonst behauptet sie in drei Fassungen einen Stand, den es nicht mehr
+     gibt, und rot wird dabei nie etwas. Geprueft wird deshalb nicht „steht 5 da", sondern
+     „steht DAS da, was in den Daten steht" -- und gleich darunter mit einem Wert, den es
+     in der App gar nicht gibt. */
+  t('Die XP-Liste nennt die Betraege der Tagesaufgaben', () => {
+    const b = xpBlock(xpSeite(), 'taeglich');
+    if(!b) return 'der Kasten „Jeden Tag" fehlt';
+    const fehlt = AUFGABEN.filter(a => b.indexOf('+' + a.xp + ' XP') < 0 || b.indexOf(a.name) < 0);
+    if(fehlt.length) return 'fehlt: ' + fehlt.map(a=>a.name).join(', ');
+    return b.indexOf(String(AUFGABEN_MAX) + ' XP') > -1 || 'der Tagesdeckel fehlt';
+  });
+  t('Die XP-Liste ist nicht abgeschrieben, sondern gerechnet', () => {
+    const a = AUFGABEN.find(x => x.id === 'gewicht'), alt = a.xp;
+    a.xp = 37;                                    // eine Zahl, die es in der App nirgends gibt
+    const b = xpBlock(xpSeite(), 'taeglich');
+    a.xp = alt;
+    return b.indexOf('+37 XP') > -1 || 'die Seite zeigt einen festen Wert statt des echten';
+  });
+  /* ⚠️ Gesucht wird die gerenderte Zeile („+25 XP"), nicht die blanke Zahl -- und nur im
+     Trainings-Kasten. Beides zusammen macht den Unterschied zwischen einer Pruefung und
+     einer Zufallsbegegnung mit derselben Ziffer. */
+  t('Die XP-Liste nennt die Betraege des Trainings', () => {
+    const b = xpBlock(xpSeite(), 'training');
+    if(!b) return 'der Kasten „Für ein Training" fehlt';
+    const fehlt = [['Einheit', '+' + XP_EINHEIT + ' XP'], ['Satz', '+' + XP_SATZ + ' XP'],
+                   ['Rekord', '+' + XP_REKORD + ' XP'], ['Volumenstufe', '+' + XP_VOL_JE_STUFE + ' XP'],
+                   ['Volumendeckel', 'höchstens ' + VOL_XP_MAX + ' XP']]
+      .filter(([n,x]) => b.indexOf(x) < 0);
+    return fehlt.length === 0 || 'fehlt: ' + fehlt.map(f=>f[0]).join(', ');
+  });
+  /* ⚠️ Dieselbe Rechnung wie `sessXP()` -- und zwar aus denselben Konstanten. Waeren es
+     zwei Rechnungen, pruefte diese Zeile nur, dass ich zweimal dasselbe getippt habe. */
+  t('Die Betraege der Seite sind die, mit denen sessXP rechnet', () => {
+    const en = [{name:'X', sets:[{done:true, weight:100, reps:10},{done:true, weight:100, reps:10}]}];
+    const soll = XP_EINHEIT + 2*XP_SATZ + 1*XP_REKORD + volXP(en);
+    return eq(sessXP(en, 1), soll);
+  });
+  t('Die XP-Liste fuehrt alle Erfolge auf', () => {
+    const b = xpBlock(xpSeite(), 'erfolge');
+    if(!b) return 'der Kasten „Erfolge" fehlt';
+    const fehlt = ERFOLGE.filter(e => b.indexOf(e.name) < 0);
+    return fehlt.length === 0 || fehlt.length + ' Erfolge fehlen: ' + fehlt.map(e=>e.name).join(', ');
+  });
+  /* ⚠️ Die drei Rang-Erfolge geben 0 XP (sonst gaebe es Punkte dafuer, genug Punkte zu
+     haben). „+0 XP" waere eine Zusage, die nichts einbringt -- deshalb ein Strich. */
+  t('Erfolge ohne XP stehen mit Strich statt mit +0', () => {
+    const b = xpBlock(xpSeite(), 'erfolge');
+    if(!ERFOLGE.some(e => !e.xp)) return 'es gibt gar keinen Erfolg ohne XP mehr';
+    return b.indexOf('+0 XP') < 0 || 'da steht „+0 XP"';
+  });
+
   /* 🔴 Die Gegenprobe zur Aufteilung vom 03.09.2026: „Mahlzeit" und „Gewicht" sind zwei
      eigene Aufgaben, und die eine abzuhaken laesst die andere offen. Vorher war es eine
      Aufgabe, die beides abdeckte -- wer wog, sah nicht mehr, dass das Essen fehlt. */
