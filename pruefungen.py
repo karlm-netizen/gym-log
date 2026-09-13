@@ -2173,17 +2173,23 @@ window.addEventListener('error', e => {
      dazwischen ab, und laesst sie dann eintreffen. */
   /* 🔴 13.09.2026: Schalter „In der Bestenliste zeigen" aus. Das Hochschreiben darf dann
      NICHT schreiben, sondern muss die eigene Zeile loeschen -- bei jedem Abgleich. */
-  const blBuehne = async (an) => {
+  // ➡️ v0.099: zwei Schalter. `spalteFehlt` spielt nach, dass das SQL vom 13.09. noch
+  // nicht eingespielt ist: jede Zeile MIT `oeffentlich` wird mit 400 abgelehnt.
+  const blBuehne = async (an, freunde, spalteFehlt) => {
     const V = { session, bl: profile.bestenliste, fetch: window.fetch,
                 darf: darfSchieben, token: ensureToken };
     const aufrufe = [];
     try {
       session = {user:{id:'ich', email:'a@b.de'}, username:'ich',
                  expires_at: Date.now()+3600e3, access_token:'x'};
-      profile.bestenliste = {an, ts: 1};
+      profile.bestenliste = {an, freunde: freunde !== false, ts: 1};
       darfSchieben = () => true; ensureToken = async () => true;
       window.fetch = async (url, opt) => {
-        aufrufe.push({url: String(url), method: (opt && opt.method) || 'GET'});
+        const koerper = opt && opt.body ? JSON.parse(opt.body)[0] : null;
+        aufrufe.push({url: String(url), method: (opt && opt.method) || 'GET', koerper});
+        if (spalteFehlt && koerper && 'oeffentlich' in koerper)
+          return { ok: false, status: 400,
+                   json: async () => ({code:'PGRST204', message:"Could not find the 'freunde' column"}) };
         return { ok: true, status: 200, json: async () => [{user_id:'ich'}] };
       };
       await bestenlisteSchieben();
@@ -2193,17 +2199,46 @@ window.addEventListener('error', e => {
       darfSchieben = V.darf; ensureToken = V.token;
     }
   };
-  await tA('Bestenliste aus: Hochschreiben loescht die eigene Zeile statt zu schreiben', async () => {
-    const a = await blBuehne(false);
+  await tA('Beide Schalter aus: Hochschreiben loescht die eigene Zeile statt zu schreiben', async () => {
+    const a = await blBuehne(false, false);
     // ⚠️ Nur die Bestenliste zaehlt: der Abgleich der Trainingsdaten (gymlog_data) laeuft nebenher.
     if (a.some(x => x.method === 'POST' && x.url.indexOf('gym_bestenliste') >= 0)) return 'es wurde trotzdem geschrieben: ' + JSON.stringify(a);
     return a.some(x => x.method === 'DELETE' && x.url.indexOf('gym_bestenliste?user_id=eq.ich') >= 0)
       || 'keine Loeschung: ' + JSON.stringify(a);
   });
-  await tA('Bestenliste an: Hochschreiben schreibt wie bisher', async () => {
-    const a = await blBuehne(true);
-    return a.some(x => x.method === 'POST' && x.url.indexOf('gym_bestenliste') >= 0)
-      || 'nichts geschrieben: ' + JSON.stringify(a);
+  await tA('Bestenliste an: Hochschreiben schreibt wie bisher, oeffentlich', async () => {
+    const a = await blBuehne(true, true);
+    const p = a.find(x => x.method === 'POST' && x.url.indexOf('gym_bestenliste') >= 0);
+    return (p && p.koerper.oeffentlich === true && p.koerper.freunde === true)
+      || 'nicht oeffentlich geschrieben: ' + JSON.stringify(a);
+  });
+  // 🔴 Ohne `oeffentlich:false` im Koerper setzt die Datenbank die Voreinstellung -- true.
+  await tA('Nur Freunde: die Zeile geht mit oeffentlich=false hoch', async () => {
+    const a = await blBuehne(false, true);
+    const p = a.find(x => x.method === 'POST' && x.url.indexOf('gym_bestenliste') >= 0);
+    return (p && p.koerper.oeffentlich === false && p.koerper.freunde === true)
+      || 'falsches Kennzeichen: ' + JSON.stringify(a);
+  });
+  await tA('SQL fehlt, beide an: zweiter Versuch ohne die neuen Spalten', async () => {
+    const a = await blBuehne(true, true, true);
+    const posts = a.filter(x => x.method === 'POST' && x.url.indexOf('gym_bestenliste') >= 0);
+    return (posts.length === 2 && !('oeffentlich' in posts[1].koerper))
+      || 'kein Rueckweg: ' + JSON.stringify(posts);
+  });
+  // 🔴 Der gefaehrliche Fall: ohne Spalte waere eine Zeile OEFFENTLICH. Wer "nur Freunde"
+  // gewaehlt hat, darf dann nicht ohne Kennzeichen geschrieben werden, sondern wird geloescht.
+  await tA('SQL fehlt, nur Freunde an: Zeile wird geloescht, nicht oeffentlich geschrieben', async () => {
+    const a = await blBuehne(false, true, true);
+    const posts = a.filter(x => x.method === 'POST' && x.url.indexOf('gym_bestenliste') >= 0);
+    if (posts.some(x => !('oeffentlich' in x.koerper))) return 'ohne Kennzeichen geschrieben -> oeffentlich';
+    return a.some(x => x.method === 'DELETE' && x.url.indexOf('gym_bestenliste') >= 0)
+      || 'nicht geloescht: ' + JSON.stringify(a);
+  });
+  t('Bestenliste: beide Schalter wandern beim Abgleich als Paar', () => {
+    const a = blob({profile:{xp:0, weights:[], bestenliste:{an:true, freunde:true, ts:100}}});
+    const b = blob({profile:{xp:0, weights:[], bestenliste:{an:false, freunde:false, ts:500}}});
+    const e = blobsZusammen(a, b).blob.profile.bestenliste;
+    return (e && e.an === false && e.freunde === false) || JSON.stringify(e);
   });
   t('Bestenliste ist ohne Einstellung eingeschaltet (Voreinstellung an)', () => {
     const V = profile.bestenliste;
@@ -2221,7 +2256,14 @@ window.addEventListener('error', e => {
       const aufV = bestenlisteAuffrischen; bestenlisteAuffrischen = async () => {};
       try { k.click(); } finally { bestenlisteAuffrischen = aufV; }
       if (bestenlisteAn()) return 'nach dem Klick weiter an';
-      return !!document.querySelector('[data-act="bestenliste:an"]') || 'Schalter zeigt den neuen Stand nicht';
+      if (!document.querySelector('[data-act="bestenliste:an"]')) return 'Schalter zeigt den neuen Stand nicht';
+      // Der zweite Schalter ist unabhaengig: er steht noch auf an und laesst sich einzeln umlegen.
+      const f = document.querySelector('[data-act="blfreunde:aus"]');
+      if (!f) return 'kein Schalter fuer Freunde';
+      const aufV2 = bestenlisteAuffrischen; bestenlisteAuffrischen = async () => {};
+      try { f.click(); } finally { bestenlisteAuffrischen = aufV2; }
+      if (freundeZeigenAn()) return 'Freunde-Schalter nach dem Klick weiter an';
+      return bestenlisteAn() === false || 'der Freunde-Schalter hat den oeffentlichen verstellt';
     } finally {
       profile.bestenliste = V.bl; bestenliste = V.bliste; session = V.session;
       save(); view = V.view; render();

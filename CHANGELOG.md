@@ -4,6 +4,22 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-13
 
+### v0.099 — Zwei Schalter: öffentliche Bestenliste und bei Freunden
+
+**Karls Ansage:** *„mach 2 schalter für freundesliste udn für die öffentliche"*
+
+- **Einstellungen › Bestenliste:** „Öffentliche Bestenliste" und „Bei Freunden zeigen", beide
+  voreingestellt an, einzeln umlegbar. Beide aus → Zeile wird gelöscht.
+- **Datenbank entscheidet, nicht die App:** `supabase-bestenliste.sql` bekommt die Spalten
+  `oeffentlich` und `freunde` und eine neue Leseregel (öffentlich · eigene Zeile · freigegeben
+  UND befreundet). 🔴 **Muss einmal im SQL Editor laufen.**
+- **Bis dahin:** beide an → wie bisher geschrieben. Nur einer an → Zeile gelöscht statt
+  öffentlich geschrieben (ohne Spalte wäre sie für alle sichtbar).
+- Öffentliche Liste liest nur `oeffentlich=true`, die Freunde-Seite nur `freunde=true`.
+- Datenschutzerklärung beschreibt beide Schalter.
+
+🧪 1039 grün, vier neu. Vier Versprechen-Regeln mit Gegenprobe.
+
 ### v0.098 — Schalter „In der Bestenliste zeigen"
 
 **Karls Ansage:** *„ja dann mach einen schalter in den einstellungen. Darf der standart mäßig

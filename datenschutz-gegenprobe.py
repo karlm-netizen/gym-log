@@ -374,16 +374,28 @@ probe(
 
 # --- 16a./16b. Widerspruch gegen die Bestenliste (13.09.2026) ---
 probe(
-    "Versprechen ohne Code: Schalter fuer die Bestenliste",
+    "Versprechen ohne Code: Schalter fuer die oeffentliche Bestenliste",
     lambda t: t.replace('data-act="bestenliste:', 'data-act="weg:', 1),
     [dp.pruefe_eingeloest],
-    'In der Bestenliste zeigen',
+    'alle Angemeldeten',
 )
 probe(
-    "Versprechen ohne Code: Hochschreiben fragt den Schalter nicht",
-    lambda t: t.replace("if(!bestenlisteAn()){", "if(false){", 1),
+    "Versprechen ohne Code: Schalter fuer die Freunde",
+    lambda t: t.replace('data-act="blfreunde:', 'data-act="weg:', 1),
+    [dp.pruefe_eingeloest],
+    'befreundet bist',
+)
+probe(
+    "Versprechen ohne Code: Hochschreiben fragt die Schalter nicht",
+    lambda t: t.replace("if(!oeffentlich && !beiFreunden){", "if(false){", 1),
     [dp.pruefe_eingeloest],
     'nicht wieder geschrieben',
+)
+probe(
+    "Versprechen ohne Code: 'nur Freunde' schickt das Kennzeichen nicht mit",
+    lambda t: t.replace("oeffentlich, freunde: beiFreunden}", "}", 1),
+    [dp.pruefe_eingeloest],
+    'an deine Freunde heraus',
 )
 
 # --- 17./18. Die Ablauf-Pruefung ---

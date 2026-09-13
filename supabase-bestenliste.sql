@@ -117,8 +117,52 @@ create policy "eigene zeile loeschen"
   using (auth.uid() = user_id);
 
 -- ---------------------------------------------------------------------------
+--  Zwei Schalter: oeffentlich / bei Freunden -- neu am 13.09.2026 (gym-log v0.099).
+--
+--  Karls Ansage: "mach 2 schalter für freundesliste udn für die öffentliche".
+--
+--  🔴 DAS KANN NUR DIE DATENBANK. Wuerde die App bloss beim Lesen filtern, koennte
+--  jeder Angemeldete mit dem oeffentlichen Schluessel die "nur Freunde"-Zeilen
+--  trotzdem abrufen -- der Filter waere eine Bitte, keine Sperre.
+--
+--  Sichtbar ist eine Zeile jetzt nur noch, wenn
+--    · sie oeffentlich ist, ODER
+--    · es die eigene ist, ODER
+--    · sie fuer Freunde freigegeben ist UND der Lesende mit ihr befreundet ist.
+--  Sind beide Schalter aus, loescht die App die Zeile -- dann gibt es nichts zu lesen.
+--
+--  ⚠️ Die Unterabfrage auf `gym_freunde` braucht KEIN `security definer`: jeder
+--  darf dort seine eigenen Freundschaften sehen ("eigene freunde sehen"), und
+--  genau die fragt sie ab. Eine fremde Freundschaft sieht sie nicht, kann also
+--  auch keine fremde Zeile freischalten.
+--
+--  💡 `default true` bei beiden: bestehende Zeilen bleiben wie bisher sichtbar,
+--  und eine App-Fassung, die die Spalten noch nicht kennt, schreibt weiter
+--  "oeffentlich". Das ist Karls Voreinstellung (an).
+-- ---------------------------------------------------------------------------
+alter table public.gym_bestenliste
+  add column if not exists oeffentlich boolean not null default true;
+alter table public.gym_bestenliste
+  add column if not exists freunde     boolean not null default true;
+
+drop policy if exists "bestenliste lesen" on public.gym_bestenliste;
+create policy "bestenliste lesen"
+  on public.gym_bestenliste for select
+  using (
+    auth.uid() is not null and (
+      oeffentlich
+      or auth.uid() = user_id
+      or (freunde and exists (
+            select 1 from public.gym_freunde f
+             where (f.a = auth.uid() and f.b = gym_bestenliste.user_id)
+                or (f.b = auth.uid() and f.a = gym_bestenliste.user_id)))
+    )
+  );
+
+-- ---------------------------------------------------------------------------
 --  Gegenprobe: so muss es danach aussehen.
 --  Erwartet: VIER Regeln (select, insert, update, delete), rowsecurity = true.
+--  Seit 13.09.2026: in `qual` der select-Regel steht `oeffentlich` und `gym_freunde`.
 --  ⚠️ Bis zum 10.09.2026 waren es drei -- `delete` fehlte, siehe oben.
 --  In der Spalte `roles` steht bei allen {public} -- das ist richtig so:
 --  abgesichert wird ueber `qual` bzw. `with_check`, nicht ueber die Rolle. Wer

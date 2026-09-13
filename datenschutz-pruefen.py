@@ -549,16 +549,27 @@ VERSPRECHEN = [
     # 🔴 13.09.2026: die Bestenliste stuetzt sich auf lit. f - das traegt nur, wenn
     # der Widerspruch (Art. 21) wirklich geht. Zwei Versprechen, zwei Kennzeichen:
     # der Schalter muss erzeugt werden, UND das Hochschreiben muss ihn fragen.
-    ("Einstellungen › In der Bestenliste zeigen",
+    ("(alle Angemeldeten) und",
      'data-act="bestenliste:',
-     "Der Text nennt den Schalter als Weg, der Bestenliste zu widersprechen. Ohne "
-     "ihn gibt es keinen Widerspruch - und lit. f traegt die Veroeffentlichung "
-     "von Name und XP-Stand dann nicht mehr."),
+     "Der Text nennt den Schalter als Weg, der oeffentlichen Bestenliste zu "
+     "widersprechen. Ohne ihn gibt es keinen Widerspruch - und lit. f traegt die "
+     "Veroeffentlichung von Name und XP-Stand dann nicht mehr."),
+    ("(nur Leute, mit denen du befreundet bist)",
+     'data-act="blfreunde:',
+     "Der Text nennt einen eigenen Schalter fuer die Freunde. Fehlt er, sehen "
+     "Freunde Name und XP-Stand ohne Weg heraus."),
     ("nicht wieder geschrieben",
-     "if(!bestenlisteAn()){",
+     "if(!oeffentlich && !beiFreunden){",
      "Der Text verspricht, dass die Zeile nach dem Ausschalten nicht wieder "
-     "geschrieben wird. Fragt bestenlisteSchieben() den Schalter nicht, steht man "
+     "geschrieben wird. Fragt bestenlisteSchieben() die Schalter nicht, steht man "
      "beim naechsten Abgleich wieder fuer alle sichtbar in der Liste."),
+    # 🔴 v0.099: "nur an deine Freunde" haelt nur, wenn die Zeile ihr Kennzeichen
+    # mitschickt - ohne `oeffentlich` im Koerper setzt die Datenbank `true` (default).
+    ("nur noch an deine Freunde heraus",
+     "oeffentlich, freunde: beiFreunden}",
+     "Der Text verspricht, dass eine 'nur Freunde'-Zeile nicht oeffentlich ist. "
+     "Schickt die App das Kennzeichen nicht mit, gilt die Voreinstellung der "
+     "Spalte - oeffentlich."),
 ]
 
 

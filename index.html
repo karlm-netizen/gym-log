@@ -1711,6 +1711,8 @@ function normalizeProfile(){
      wieder hinein. */
   if(!profile.bestenliste||typeof profile.bestenliste!=='object') profile.bestenliste={an:true,ts:0};
   if(typeof profile.bestenliste.an!=='boolean') profile.bestenliste.an=true;
+  // ➡️ v0.099: zweiter Schalter "bei Freunden". `an` bleibt der oeffentliche (Name von v0.098).
+  if(typeof profile.bestenliste.freunde!=='boolean') profile.bestenliste.freunde=true;
   if(typeof profile.bestenliste.ts!=='number') profile.bestenliste.ts=0;
   /* Welche Erfolge Karl schon GESEHEN hat -- davon haengt die goldene Zahl an der Leiste ab.
      ⚠️ Bleibt hier bewusst `null`, wenn das Feld fehlt, statt auf `{}` zu springen: `{}` hiesse
@@ -5559,9 +5561,19 @@ function erinnerungSetzen(id,an){
   save();
 }
 /* ⚠️ Fehlt das Feld, gilt AN -- das ist die Voreinstellung, nicht ein Sonderfall. */
+/* ➡️ 13.09.2026 abends, Karls Ansage: „mach 2 schalter für freundesliste udn für die
+   öffentliche". `an` = oeffentliche Bestenliste, `freunde` = Bestenliste unter Freunden.
+   ⚠️ EIN Zeitstempel fuer beide: sie werden beim Abgleich als Paar uebernommen. Getrennte
+   Stempel waeren genauer, aber ein Paar aus zwei Geraeten zusammengesetzt ergaebe einen
+   Zustand, den nie jemand eingestellt hat. */
 function bestenlisteAn(){ const b=profile.bestenliste; return !b || b.an!==false; }
+function freundeZeigenAn(){ const b=profile.bestenliste; return !b || b.freunde!==false; }
 function bestenlisteSetzen(an){
-  profile.bestenliste={an:!!an, ts:Date.now()};
+  profile.bestenliste={an:!!an, freunde:freundeZeigenAn(), ts:Date.now()};
+  save();
+}
+function freundeZeigenSetzen(an){
+  profile.bestenliste={an:bestenlisteAn(), freunde:!!an, ts:Date.now()};
   save();
 }
 function sameDay(a,b){ return new Date(a).toDateString()===new Date(b).toDateString(); }
@@ -6081,15 +6093,24 @@ function renderSettings(){
      rausgenommen hat: dass man dann auch bei Freunden ohne XP-Stand dasteht, ist eine
      Folge, die man vor dem Umlegen wissen muss -- die Freunde-Seite liest die XP aus
      derselben Tabelle. */
-  const blAn = bestenlisteAn();
+  /* ➡️ v0.099, Karls Ansage: „mach 2 schalter für freundesliste udn für die öffentliche".
+     Der Satz unter der Karte ist damit kuerzer: die Folge "fehlt auch bei Freunden" gibt
+     es nicht mehr, dafuer steht dort, was die zwei Schalter unterscheidet. */
+  const blAn = bestenlisteAn(), frAn = freundeZeigenAn();
   h+=`<div class="card" data-block="bestenliste">
+      <label class="tiny muted" style="display:block;margin-bottom:10px">Bestenliste</label>
       <div class="row between" style="align-items:center;gap:10px">
-        <span style="min-width:0">In der Bestenliste zeigen</span>
+        <span style="min-width:0">Öffentliche Bestenliste</span>
         <button class="schalter${blAn?' an':''}" role="switch" aria-checked="${blAn}"
-                aria-label="In der Bestenliste zeigen"
+                aria-label="Öffentliche Bestenliste"
                 data-act="bestenliste:${blAn?'aus':'an'}"><i></i></button></div>
-      <div class="tiny muted" style="margin-top:6px">Name und XP-Stand, sichtbar für alle Angemeldeten.
-        Ausgeschaltet fehlt dein XP-Stand auch bei deinen Freunden.</div>
+      <div class="row between" style="align-items:center;gap:10px;margin-top:14px">
+        <span style="min-width:0">Bei Freunden zeigen</span>
+        <button class="schalter${frAn?' an':''}" role="switch" aria-checked="${frAn}"
+                aria-label="Bei Freunden zeigen"
+                data-act="blfreunde:${frAn?'aus':'an'}"><i></i></button></div>
+      <div class="tiny muted" style="margin-top:8px">Name und XP-Stand. Öffentlich sehen es alle
+        Angemeldeten, sonst nur deine Freunde.</div>
     </div>`;
 
   h+=`<div class="card">
@@ -6514,10 +6535,12 @@ function renderPrivacy(){
         dass sich die Leute, die die App benutzen, gegenseitig anspornen können — dafür reichen
         Name und XP-Stand, mehr steht dort nicht.
         <b style="color:var(--txt)">Du kannst jederzeit widersprechen</b> (Art. 21 DSGVO), ohne
-        Begründung: unter <b style="color:var(--txt)">Einstellungen › In der Bestenliste zeigen</b>.
-        Die Einstellung ist zu Beginn eingeschaltet. Schaltest du sie aus, wird deine Zeile gelöscht
-        und nicht wieder geschrieben, auch nicht von deinen anderen Geräten. Dein XP-Stand fehlt dann
-        auch bei deinen Freunden.</p>
+        Begründung — mit zwei getrennten Schaltern unter Einstellungen › Bestenliste:
+        <b style="color:var(--txt)">Öffentliche Bestenliste</b> (alle Angemeldeten) und
+        <b style="color:var(--txt)">Bei Freunden zeigen</b> (nur Leute, mit denen du befreundet bist).
+        Beide sind zu Beginn eingeschaltet. Ist nur „Bei Freunden zeigen" an, gibt die Datenbank
+        deine Zeile nur noch an deine Freunde heraus. Sind beide aus, wird deine Zeile gelöscht
+        und nicht wieder geschrieben, auch nicht von deinen anderen Geräten.</p>
 
       <b>Freunde</b>
       <p class="muted" style="margin:4px 0 14px">Freunde werden über einen
@@ -6529,7 +6552,8 @@ function renderPrivacy(){
         eine Liste aller Codes holen, und aus einem Code folgt kein Zugriff auf deine Daten.
         Er führt nur dazu, dass eine Anfrage bei dir ankommt.
         <b style="color:var(--txt)">Was Freunde voneinander sehen, sind Name und XP-Stand</b> —
-        dieselben zwei Angaben wie in der Bestenliste, sonst nichts. Keine Trainings, keine
+        dieselben zwei Angaben wie in der Bestenliste, sonst nichts, und nur solange
+        „Bei Freunden zeigen" eingeschaltet ist. Keine Trainings, keine
         Gewichte, keine Mahlzeiten.
         Eine Freundschaft kann <b style="color:var(--txt)">jede Seite jederzeit beenden</b>;
         die Zeile wird dann gelöscht.</p>
@@ -6739,7 +6763,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.098';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.099';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -7081,6 +7105,12 @@ async function bestenlisteZeileLoeschen(uid){
    hin -- genau der Grund, warum die falsche Admin-Warnung eine Fassung vorher weg musste. */
 let bestenlisteSchiebFehler = null;   // {status, meldung} oder null
 
+/* Fehlt der Tabelle eine der Spalten `oeffentlich`/`freunde`? (SQL vom 13.09.2026 noch nicht
+   eingespielt.) PostgREST sagt dann 400 und nennt die Spalte bzw. PGRST204. */
+function bestenlisteSpaltenFehlen(status, text){
+  return status === 400 && /oeffentlich|freunde|PGRST204|column/i.test(String(text || ''));
+}
+
 async function bestenlisteSchieben(){
   /* ⚠️ 13.09.2026: derselbe Riegel wie beim Abgleich. `bestenlisteAuffrischen` ruft das hier
      auch ohne `cloudPush` -- und dann stuende der XP-Stand eines fremden, noch ungeklaerten
@@ -7091,7 +7121,11 @@ async function bestenlisteSchieben(){
      nicht nur beim Umschalten. Sonst bliebe die alte Zeile stehen, wenn das Loeschen beim
      Umschalten offline war, oder wenn ein zweites Geraet sie geschrieben hat, bevor es
      vom Aus erfahren hat. (Dieselbe Lehre wie beim Admin-Sonderweg am 10.09.: "Sie muss WEG.") */
-  if(!bestenlisteAn()){
+  /* ➡️ v0.099: zwei Schalter. Geloescht wird erst, wenn BEIDE aus sind -- ist nur einer an,
+     wird geschrieben, und die Datenbank-Regel entscheidet anhand von `oeffentlich`/`freunde`,
+     wer die Zeile sieht (supabase-bestenliste.sql). */
+  const oeffentlich = bestenlisteAn(), beiFreunden = freundeZeigenAn();
+  if(!oeffentlich && !beiFreunden){
     const weg = await bestenlisteZeileLoeschen(session.user.id);
     if(weg === null) return false;          // nicht hingekommen -- beim naechsten Mal wieder
     bestenlisteSchiebFehler = null;
@@ -7120,12 +7154,14 @@ async function bestenlisteSchieben(){
      Trotzdem gehoert es gesagt, sonst fehlt man in der Liste und niemand weiss, warum. */
   if(!name){ bestenlisteSchiebFehler = { status: 0, meldung: 'kein Name am Konto' }; return false; }
   try{
-    const r = await fetch(`${SUPA_URL}/rest/v1/gym_bestenliste`, {
+    const zeile = { user_id: session.user.id, name,
+                    xp: Math.max(0, Math.round(+profile.xp || 0)),
+                    stand: new Date().toISOString() };
+    const schreibe = (z) => fetch(`${SUPA_URL}/rest/v1/gym_bestenliste`, {
       method:'POST',
       headers:{...authHeaders(true), 'Prefer':'resolution=merge-duplicates'},
-      body: JSON.stringify([{ user_id: session.user.id, name,
-                              xp: Math.max(0, Math.round(+profile.xp || 0)),
-                              stand: new Date().toISOString() }]) });
+      body: JSON.stringify([z]) });
+    let r = await schreibe({...zeile, oeffentlich, freunde: beiFreunden});
     if(r.ok){ bestenlisteSchiebFehler = null; return true; }
     /* Die Antwort von PostgREST mitnehmen -- sie sagt beim naechsten Blick auf die
        Erfolge-Seite genau, woran es liegt (Rechte, Spalte, Typ). Ohne sie bliebe nur
@@ -7133,6 +7169,24 @@ async function bestenlisteSchieben(){
     let text = '';
     try{ const j = await r.json();
          text = (j && (j.message || j.hint || j.details)) || ''; }catch(e){}
+    /* ⚠️ Solange das SQL vom 13.09. nicht eingespielt ist, kennt die Tabelle die beiden
+       Spalten nicht, und PostgREST lehnt die ganze Zeile ab.
+       🔴 Der Rueckweg ist NICHT fuer alle gleich:
+         · beide an  -> ohne die Spalten schreiben. Das ist genau das alte Verhalten.
+         · nur einer an -> LOESCHEN. Ohne Spalte waere die Zeile fuer ALLE sichtbar --
+           wer "nur Freunde" eingestellt hat, stuende dann oeffentlich da. Lieber fehlt
+           man eine Weile auch bei den Freunden. */
+    if(bestenlisteSpaltenFehlen(r.status, text)){
+      if(oeffentlich && beiFreunden){
+        r = await schreibe(zeile);
+        if(r.ok){ bestenlisteSchiebFehler = null; return true; }
+      } else {
+        const weg = await bestenlisteZeileLoeschen(session.user.id);
+        if(weg === null) return false;
+        bestenlisteSchiebFehler = null;
+        return true;
+      }
+    }
     bestenlisteSchiebFehler = { status: r.status, meldung: String(text).slice(0,160) };
     return false;
   }catch(e){
@@ -7156,8 +7210,15 @@ async function bestenlisteHolen(){
   if(!session) return null;                 // nicht angemeldet -- keine Aussage ueber den Server
   if(!await ensureToken()) return null;     // Token/Netz -- "gerade nicht", nicht "gibt es nicht"
   try{
-    const r = await fetch(`${SUPA_URL}/rest/v1/gym_bestenliste?select=user_id,name,xp&order=xp.desc&limit=10`,
-                          { headers: authHeaders(true) });
+    /* ➡️ v0.099: nur oeffentliche Zeilen. 🔴 Ohne den Filter stuenden die "nur Freunde"-
+       Zeilen der eigenen Freunde in der oeffentlichen Liste -- die Datenbank gibt sie mir
+       ja heraus, weil ich befreundet bin. Gesehen haette sie trotzdem nur, wer sie sehen
+       darf; aber die Liste hiesse dann "oeffentlich" und waere es nicht.
+       ⚠️ Kennt die Tabelle die Spalte noch nicht (SQL nicht eingespielt), dasselbe ohne
+       Filter -- dann gibt es auch noch keine "nur Freunde"-Zeilen. */
+    const basis = `${SUPA_URL}/rest/v1/gym_bestenliste?select=user_id,name,xp&order=xp.desc&limit=10`;
+    let r = await fetch(basis + '&oeffentlich=eq.true', { headers: authHeaders(true) });
+    if(r.status === 400) r = await fetch(basis, { headers: authHeaders(true) });
     if(r.status === 404) return false;      // die Tabelle fehlt -- das SQL ist wirklich nicht gelaufen
     if(!r.ok) return null;                  // 5xx, Drosselung, sonstiges: nur gerade nicht
     const rows = await r.json();
@@ -7253,7 +7314,11 @@ async function freundeAuffrischen(){
     let staende = [];
     if(freundIds.length){
       const liste = freundIds.map(encodeURIComponent).join(',');
-      staende = await hole(`gym_bestenliste?select=user_id,name,xp&user_id=in.(${liste})`) || [];
+      /* ➡️ v0.099: nur wer "bei Freunden" an hat. Ohne den Filter kaemen Freunde, die nur
+         oeffentlich an haben, ueber die oeffentliche Freigabe trotzdem herein.
+         ⚠️ `null` = Fehler (auch: Spalte fehlt noch) -> einmal ohne Filter. */
+      staende = await hole(`gym_bestenliste?select=user_id,name,xp&user_id=in.(${liste})&freunde=eq.true`)
+             || await hole(`gym_bestenliste?select=user_id,name,xp&user_id=in.(${liste})`) || [];
     }
     freundeStand = {
       code: (typeof code === 'string' && code) || (freundeStand && freundeStand.code) || '',
@@ -7960,7 +8025,7 @@ function blobsZusammen(basis, dazu){
   if(dp.bestenliste && typeof dp.bestenliste==='object'){
     const lB=b.profile.bestenliste, lD=dp.bestenliste;
     if(!lB || typeof lB!=='object' || (+lD.ts||0) > (+lB.ts||0))
-      b.profile.bestenliste = {an: lD.an!==false, ts: +lD.ts||0};
+      b.profile.bestenliste = {an: lD.an!==false, freunde: lD.freunde!==false, ts: +lD.ts||0};
   }
   // --- Wann zuletzt da: der spaetere Zeitpunkt gilt, sonst kaeme das Wiederkommen zu frueh ---
   if(typeof dp.zuletztDa === 'number')
@@ -8924,7 +8989,14 @@ document.addEventListener('click',ev=>{
       DB.set(BESTEN_KEY, bestenliste);
     }
     render();
-    toast(an ? 'Du stehst wieder in der Bestenliste' : 'Aus der Bestenliste genommen');
+    toast(an ? 'Du stehst wieder in der Bestenliste' : 'Aus der öffentlichen Bestenliste genommen');
+    bestenlisteAuffrischen(true);
+  }
+  else if(a.startsWith('blfreunde:')){
+    const an = a === 'blfreunde:an';
+    freundeZeigenSetzen(an);
+    render();
+    toast(an ? 'Deine Freunde sehen dich wieder' : 'Deine Freunde sehen deinen XP-Stand nicht mehr');
     bestenlisteAuffrischen(true);
   }
   else if(a==='addweight'){ const el=document.getElementById('wInput'); const v=el?el.value.replace(',','.'):'';
