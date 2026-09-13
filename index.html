@@ -1779,7 +1779,7 @@ const SUPA_KEY='sb_publishable_7UvOL7KzzgJK6om8OwUsSg_usOMz92l';
 // Git-Historie stünde. Karls Entscheidung am 03.08.2026.
 const PRIVACY_OWNER='Karl Fangmeyer (privat betriebene App)';
 const PRIVACY_CONTACT='karlm.fangmeyer@gmail.com';
-const PRIVACY_STAND='11. September 2026';  // bei jeder inhaltlichen Aenderung mit hochziehen
+const PRIVACY_STAND='13. September 2026';  // bei jeder inhaltlichen Aenderung mit hochziehen
 /* 🔴 09.09.2026: Der Stand stand auf dem 24.08., obwohl der Text am 03.09. geaendert
    wurde. Gefunden von datenschutz-pruefen.py, nicht von einem Menschen -- genau dafuer
    gibt es das Skript. Es vergleicht dieses Datum mit `git log -L` auf renderPrivacy()
@@ -6378,6 +6378,17 @@ function renderPrivacy(){
         Alle drei gehen in die USA; Näheres steht weiter unten.
         Die App braucht ein Konto; einen Weg, sie ganz ohne Anmeldung zu benutzen, gibt es nicht.</p>
 
+      <b>Wer die App ausliefert</b>
+      <p class="muted" style="margin:4px 0 14px">Die App selbst — die Seite, ihre Bilder und
+        Programmteile — kommt von <b style="color:var(--txt)">GitHub Pages</b> (GitHub, Inc.,
+        eine Tochter von Microsoft, <b style="color:var(--txt)">USA</b>). Das passiert
+        <b style="color:var(--txt)">bei jedem Öffnen, schon vor der Anmeldung</b>: dein Browser
+        holt die Dateien dort ab, und GitHub sieht dabei <b style="color:var(--txt)">deine
+        IP-Adresse</b>, die Kennung deines Browsers und welche Datei abgerufen wird.
+        <b style="color:var(--txt)">Deine Trainings, Gewichte und Mahlzeiten gehen nicht dorthin.</b>
+        Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO: ohne jemanden, der die Seite ausliefert,
+        lässt sich die App nicht öffnen.</p>
+
       <b>Wenn du Essen einträgst</b>
       <p class="muted" style="margin:4px 0 8px">Drei der Wege reden mit einem fremden Dienst.
         Alle drei benutzt die App <b style="color:var(--txt)">nur, wenn du suchst oder einen Knopf
@@ -6423,12 +6434,30 @@ function renderPrivacy(){
         <b style="color:var(--txt)">Ohne Meldung geht dabei nichts nach außen</b> — das passiert nur,
         wenn du den Knopf drückst.</p>
 
+      <b>Worauf sich die Übermittlung in die USA stützt</b>
+      <p class="muted" style="margin:4px 0 8px">Vier der Empfänger oben sitzen in den USA.
+        Dafür gilt:</p>
+      <ul class="muted" style="margin:0 0 14px;padding-left:18px">
+        <li><b style="color:var(--txt)">Google</b> (Essens-Foto, Benachrichtigungen in Chrome),
+          <b style="color:var(--txt)">Discord</b> (Problemmeldung) und
+          <b style="color:var(--txt)">GitHub</b> (Auslieferung der App) sind nach dem
+          <b style="color:var(--txt)">EU-US Data Privacy Framework</b> zertifiziert. Für solche
+          Unternehmen hat die EU-Kommission am 10. Juli 2023 ein angemessenes Datenschutzniveau
+          festgestellt (Angemessenheitsbeschluss, <b style="color:var(--txt)">Art. 45 DSGVO</b>).</li>
+        <li><b style="color:var(--txt)">Apple</b> (Benachrichtigungen auf dem iPhone) nimmt am
+          Data Privacy Framework nicht teil und stützt Übermittlungen aus der EU nach eigenen
+          Angaben auf die <b style="color:var(--txt)">Standardvertragsklauseln</b> der
+          EU-Kommission (<b style="color:var(--txt)">Art. 46 Abs. 2 lit. c DSGVO</b>). Eine Kopie
+          bekommst du auf Nachricht an die Adresse oben.</li>
+      </ul>
+
       <b>Wofür sie benutzt werden</b>
       <p class="muted" style="margin:4px 0 14px">Ausschließlich dafür, dir deine eigenen Trainings anzuzeigen.
         <b style="color:var(--txt)">Keine Werbung, kein Tracking, keine Analyse-Dienste.</b>
         An Dritte geht nichts — mit Ausnahme der <b style="color:var(--txt)">vier Fälle oben: Suche, Barcode, Foto
         und Problemmeldung</b>, die du jedes Mal selbst auslöst, und der
-        <b style="color:var(--txt)">Geräte-Kennung für Benachrichtigungen</b>, solange du sie eingeschaltet hast.
+        <b style="color:var(--txt)">Geräte-Kennung für Benachrichtigungen</b>, solange du sie eingeschaltet hast,
+        und dem Abruf der App bei <b style="color:var(--txt)">GitHub</b> (siehe oben).
         Es werden auch keine Cookies zu Werbezwecken gesetzt. XP, Level und Rang rechnet die App allein
         aus deinen Einheiten aus. <b style="color:var(--txt)">Dein Name und dein XP-Stand gehen zusätzlich
         in die Bestenliste</b>, die alle Angemeldeten sehen — sonst nichts.</p>
@@ -6663,7 +6692,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.096';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.097';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */

@@ -86,6 +86,22 @@ probe(
     "Beschwerderecht",
 )
 
+# --- 3a. "USA" steht noch da, der Grund nach Kap. V nicht mehr ---
+probe(
+    "USA ohne Grund nach Kap. V wird gefunden",
+    lambda t: t.replace("Art. 45", "XXX").replace("Art. 46", "XXX").replace("Art. 49", "XXX"),
+    [dp.pruefe_pflichtangaben],
+    "Grund der USA-Uebermittlung",
+)
+
+# --- 3b. Der Hoster faellt aus dem Text ---
+probe(
+    "fehlender Hoster wird gefunden",
+    lambda t: t.replace("GitHub", "XXX"),
+    [dp.pruefe_pflichtangaben],
+    "Hoster als Empfaenger",
+)
+
 # --- 4. Ein Zaehldienst neben dem Versprechen "kein Tracking" ---
 probe(
     "Zaehldienst trotz 'kein Tracking' wird gefunden",

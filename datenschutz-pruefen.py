@@ -65,7 +65,9 @@ ERKLAERTE_ZIELE = {
 # ("dorthin geht zur Laufzeit nichts"), die niemand nachmisst - deshalb gehoert
 # hier nur herein, was wirklich nur ein Link ist. Im Zweifel nach ERKLAERTE_ZIELE.
 UNBEDENKLICH = {
-    "karlm-netizen.github.io":  "die App selbst",
+    # ⚠️ Kein blosser Link: GitHub liefert die App aus und sieht jeden Aufruf.
+    # Dass er als Empfaenger im Text steht, prueft pruefe_pflichtangaben ("Hoster").
+    "karlm-netizen.github.io":  "die App selbst - Hoster GitHub, Empfaenger (siehe Pflichtangaben)",
     "aistudio.google.com":      "Link zum Schluessel-Holen, oeffnet sich nur auf Klick",
     "myaccount.google.com":     "Link zu Googles eigenen Angaben, nur auf Klick",
     "wger.de":                  "Quelle der Uebungsliste, EINMALIG uebernommen - "
@@ -686,6 +688,13 @@ def pruefe_pflichtangaben():
         "Betroffenenrechte":     ["Art. 15", "Art. 17", "Art. 20"],
         "Beschwerderecht":       ["Art. 77", "Aufsichtsbehoerde", "Aufsichtsbehörde"],
         "Drittlandsuebermittlung": ["USA"],
+        # 🔴 Datenschutz-Laeufe vom 10./11.09.2026: "USA" stand viermal im Text, ein
+        # Grund nach Kap. V DSGVO kein einziges Mal - und diese Pruefung war gruen.
+        # Dass etwas die EU verlaesst, ist nur die halbe Pflichtangabe (Art. 13 Abs. 1 lit. f).
+        "Grund der USA-Uebermittlung": ["Art. 45", "Art. 46", "Art. 49"],
+        # 🔴 Derselbe Lauf: der Hoster stand unter UNBEDENKLICH ("die App selbst")
+        # und im Text mit null Treffern - dabei sieht er bei JEDEM Aufruf die IP.
+        "Hoster als Empfaenger": ["GitHub"],
         "Auftragsverarbeitung":  ["Art. 28"],
     }
     for was, marken in pflicht.items():

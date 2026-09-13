@@ -4,6 +4,22 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-13
 
+### v0.097 — Datenschutz: GitHub als Hoster und der Grund für die USA-Übermittlungen
+
+Zwei der drei offenen Textergänzungen aus den Datenschutz-Läufen vom 10./11.09.:
+
+- **Neuer Abschnitt „Wer die App ausliefert":** GitHub Pages (USA) sieht bei jedem Öffnen
+  IP-Adresse und Browser-Kennung. Stand bisher mit keinem Wort im Text. Rechtsgrundlage lit. f.
+- **Neuer Abschnitt „Worauf sich die Übermittlung in die USA stützt":** Google, Discord und
+  GitHub → EU-US Data Privacy Framework (Art. 45). Apple nimmt nicht teil → nach eigenen
+  Angaben Standardvertragsklauseln (Art. 46). Vorher stand viermal „USA" und keinmal ein Grund.
+- Stand der Erklärung: 13. September 2026.
+
+🧪 `datenschutz-pruefen.py` kennt zwei neue Pflichtangaben („Grund der USA-Uebermittlung",
+„Hoster als Empfaenger"), die Gegenprobe zwei neue Proben dafür.
+
+⏭️ Offen bleibt die dritte: die Rechtsgrundlage der Bestenliste.
+
 ### v0.096 — „Eigenes Lebensmittel hinzufügen" in der Standardfarbe
 
 **Karls Ansage:** *„Der eigene Lebensmittel eintragen Button bitte in der Standard Farbe."*
