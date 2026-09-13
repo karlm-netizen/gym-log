@@ -2245,6 +2245,38 @@ window.addEventListener('error', e => {
     try { profile.bestenliste = undefined; return bestenlisteAn() === true || 'aus'; }
     finally { profile.bestenliste = V; }
   });
+  /* 🔴 13.09.2026: "Alles zuruecksetzen" baute das Profil neu und behielt nur `theme`.
+     Die Bestenlisten-Schalter sind ein Widerspruch, kein Fortschritt -- ein Reset darf sie
+     nicht still auf "an" stellen. Gespielt wird der echte Doppelklick auf den echten Knopf. */
+  t('Alles zuruecksetzen laesst die Bestenlisten-Schalter stehen', () => {
+    const V = { view, session, programs, sessions, profile, settings, active, dirty,
+                fetch: window.fetch, auf: bestenlisteAuffrischen };
+    const speicher = {};
+    ['session','programs','sessions','profile','settings','active','dirty']
+      .forEach(k => speicher[k] = localStorage.getItem('gymlog:' + k));
+    try {
+      window.fetch = async () => ({ ok: true, status: 200, json: async () => [] });
+      bestenlisteAuffrischen = async () => {};
+      session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
+      profile = Object.assign({}, profile, {bestenliste:{an:false, freunde:false, ts:777}});
+      view = 'settings'; render();
+      let k = document.querySelector('[data-act="resetall"]');
+      if (!k) return 'kein Zuruecksetzen-Knopf';
+      k.click();
+      k = document.querySelector('[data-act="resetall"]'); if (k) k.click();
+      const b = profile.bestenliste;
+      if (!(profile.xp === 0)) return 'es wurde gar nicht zurueckgesetzt (xp=' + profile.xp + ')';
+      return (b && b.an === false && b.freunde === false && b.ts === 777)
+        || 'Schalter nach dem Reset: ' + JSON.stringify(b);
+    } finally {
+      window.fetch = V.fetch; bestenlisteAuffrischen = V.auf;
+      session = V.session; programs = V.programs; sessions = V.sessions; profile = V.profile;
+      settings = V.settings; active = V.active; dirty = V.dirty; bindPlans();
+      Object.keys(speicher).forEach(k => speicher[k] === null
+        ? localStorage.removeItem('gymlog:' + k) : localStorage.setItem('gymlog:' + k, speicher[k]));
+      view = V.view; render();
+    }
+  });
   t('Einstellungen zeigen den Bestenlisten-Schalter und er schaltet um', () => {
     const V = { view, bl: profile.bestenliste, bliste: bestenliste, session };
     try {

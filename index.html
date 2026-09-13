@@ -6763,7 +6763,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.099';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.100';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -9085,7 +9085,11 @@ document.addEventListener('click',ev=>{
   else if(a==='importyes'){ importierePlan(); }
   else if(a==='importno'){ planImport=null; closeModal(); }
   else if(a==='export'){ exportData(); }
-  else if(a==='resetall'){ confirmTwice('rst',t,'Wirklich alles löschen?',()=>{ programs=[neuerPlan('Mein Plan',seedPlans())]; sessions=[]; profile={xp:0,theme:profile.theme}; settings={rest:90}; active=null; normalizeProfile(); bindPlans(); save(); applyTheme();
+  /* 🔴 13.09.2026: die Bestenlisten-Schalter UEBERLEBEN das Zuruecksetzen. Sie sind ein
+     Widerspruch nach Art. 21, kein Fortschritt. Vorher stand hier nur `theme` -- ein Reset
+     haette "aus" still auf "an" gestellt, und `bestenlisteAuffrischen(true)` darunter haette
+     Name und XP sofort wieder fuer alle sichtbar hochgeschrieben. */
+  else if(a==='resetall'){ confirmTwice('rst',t,'Wirklich alles löschen?',()=>{ programs=[neuerPlan('Mein Plan',seedPlans())]; sessions=[]; profile={xp:0,theme:profile.theme,bestenliste:profile.bestenliste}; settings={rest:90}; active=null; normalizeProfile(); bindPlans(); save(); applyTheme();
     /* 🔴 10.09.2026, Karls Fund: „meine freundin hat ihren account zurückgesetzt und man
        sieht die xp die sie auch über admin bekommen hat auf dem leaderboard."
        Das Zuruecksetzen raeumte den Datenbestand auf dem GERAET auf und fasste die

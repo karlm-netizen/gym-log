@@ -4,6 +4,20 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-13
 
+### v0.100 — „Alles zurücksetzen" lässt die Bestenlisten-Schalter stehen
+
+Gefunden beim Nachsehen von Karls Meldung *„der reset den ich auf meinem handy durch geführt
+habe hat nicht auf dem pc funktioniert"* — ein eigener Fehler aus v0.098.
+
+Das Zurücksetzen baute das Profil neu und behielt nur das Design. **Die beiden Schalter gingen
+still zurück auf „an"**, und direkt danach schrieb die App Name und XP wieder in die Bestenliste —
+auch bei jemandem, der vorher widersprochen hatte. Jetzt bleiben sie stehen.
+Abmelden und Konto löschen stellen sie weiter zurück (danach gehört das Gerät niemandem mehr).
+
+🧪 1040 grün, eine neu — spielt den echten Doppelklick; ohne den Fix rot.
+
+⏭️ Die eigentliche Meldung (Reset kommt nicht auf dem PC an) liegt Karl als Entscheidung vor.
+
 ### v0.099 — Zwei Schalter: öffentliche Bestenliste und bei Freunden
 
 **Karls Ansage:** *„mach 2 schalter für freundesliste udn für die öffentliche"*
