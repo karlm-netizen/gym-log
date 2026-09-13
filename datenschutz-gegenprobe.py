@@ -372,6 +372,20 @@ probe(
     'einzeln loeschen',
 )
 
+# --- 16a./16b. Widerspruch gegen die Bestenliste (13.09.2026) ---
+probe(
+    "Versprechen ohne Code: Schalter fuer die Bestenliste",
+    lambda t: t.replace('data-act="bestenliste:', 'data-act="weg:', 1),
+    [dp.pruefe_eingeloest],
+    'In der Bestenliste zeigen',
+)
+probe(
+    "Versprechen ohne Code: Hochschreiben fragt den Schalter nicht",
+    lambda t: t.replace("if(!bestenlisteAn()){", "if(false){", 1),
+    [dp.pruefe_eingeloest],
+    'nicht wieder geschrieben',
+)
+
 # --- 17./18. Die Ablauf-Pruefung ---
 #  ⚠️ Diese zwei laufen ANDERS als alle Proben darueber: die Ablauf-Pruefung
 #  liest ihren EIGENEN Quelltext, nicht index.html. `dp.INDEX` umzubiegen bringt

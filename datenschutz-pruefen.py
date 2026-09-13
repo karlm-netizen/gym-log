@@ -546,6 +546,19 @@ VERSPRECHEN = [
      'data-delmeal="',
      "Der Text verspricht das Kreuz an jeder Mahlzeit. Verschwindet der Knopf, "
      "bleibt der einzige Loeschweg fuer Gesundheitsdaten ohne Ankuendigung weg."),
+    # 🔴 13.09.2026: die Bestenliste stuetzt sich auf lit. f - das traegt nur, wenn
+    # der Widerspruch (Art. 21) wirklich geht. Zwei Versprechen, zwei Kennzeichen:
+    # der Schalter muss erzeugt werden, UND das Hochschreiben muss ihn fragen.
+    ("Einstellungen › In der Bestenliste zeigen",
+     'data-act="bestenliste:',
+     "Der Text nennt den Schalter als Weg, der Bestenliste zu widersprechen. Ohne "
+     "ihn gibt es keinen Widerspruch - und lit. f traegt die Veroeffentlichung "
+     "von Name und XP-Stand dann nicht mehr."),
+    ("nicht wieder geschrieben",
+     "if(!bestenlisteAn()){",
+     "Der Text verspricht, dass die Zeile nach dem Ausschalten nicht wieder "
+     "geschrieben wird. Fragt bestenlisteSchieben() den Schalter nicht, steht man "
+     "beim naechsten Abgleich wieder fuer alle sichtbar in der Liste."),
 ]
 
 

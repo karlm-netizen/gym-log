@@ -1705,6 +1705,13 @@ function normalizeProfile(){
   if(typeof profile.erinnerungen.essen!=='boolean') profile.erinnerungen.essen=true;
   if(typeof profile.erinnerungen.schritte!=='boolean') profile.erinnerungen.schritte=true;   // 11.09.2026
   if(typeof profile.erinnerungen.ts!=='number') profile.erinnerungen.ts=0;
+  /* Bestenliste an/aus (13.09.2026, Karls Ansage: „dann mach einen schalter in den
+     einstellungen", standardmaessig an). ⚠️ Mit Zeitstempel wie die Erinnerungen -- sonst
+     schriebe ein zweites Geraet, das das Aus nicht kennt, die Zeile beim naechsten Abgleich
+     wieder hinein. */
+  if(!profile.bestenliste||typeof profile.bestenliste!=='object') profile.bestenliste={an:true,ts:0};
+  if(typeof profile.bestenliste.an!=='boolean') profile.bestenliste.an=true;
+  if(typeof profile.bestenliste.ts!=='number') profile.bestenliste.ts=0;
   /* Welche Erfolge Karl schon GESEHEN hat -- davon haengt die goldene Zahl an der Leiste ab.
      ⚠️ Bleibt hier bewusst `null`, wenn das Feld fehlt, statt auf `{}` zu springen: `{}` hiesse
      "noch keinen gesehen", und beim ersten Start mit v33 leuchteten dann auf einen Schlag alle
@@ -5551,6 +5558,12 @@ function erinnerungSetzen(id,an){
   profile.erinnerungen.ts=Date.now();   // die spaetere Entscheidung gewinnt beim Abgleich
   save();
 }
+/* ⚠️ Fehlt das Feld, gilt AN -- das ist die Voreinstellung, nicht ein Sonderfall. */
+function bestenlisteAn(){ const b=profile.bestenliste; return !b || b.an!==false; }
+function bestenlisteSetzen(an){
+  profile.bestenliste={an:!!an, ts:Date.now()};
+  save();
+}
 function sameDay(a,b){ return new Date(a).toDateString()===new Date(b).toDateString(); }
 // Ein Eintrag pro Tag — nochmal wiegen am selben Tag überschreibt den alten Wert.
 function addWeight(kg){
@@ -5851,6 +5864,11 @@ function renderErfolge(){
      verschiebt er nichts mehr. */
   h += `<div class="row between" style="margin:22px 4px 6px"><h2>Bestenliste</h2>
       <span class="tiny muted">nach XP</span></div>`;
+  /* ➡️ 13.09.2026: Wer sich ausgetragen hat, soll nicht raetseln, warum er fehlt. */
+  if(session && !bestenlisteAn()){
+    h += `<div class="tiny muted" style="margin:0 4px 8px">Du stehst nicht drin —
+        eingeschaltet wird das unter <span data-nav="settings" style="color:var(--txt);cursor:pointer">Einstellungen</span>.</div>`;
+  }
   /* \U0001f534 Der Fehlschlag beim Hochschreiben, sichtbar gemacht (11.09.2026).
      \u26a0\ufe0f gilt seit dem 11.09.2026 abends fuer ALLE -- der Riegel `!devAdmin` ist mit
      der Admin-Ausnahme gefallen. Ein Admin schreibt seine Zeile wieder wie jeder
@@ -6055,6 +6073,24 @@ function renderSettings(){
                 data-act="erinn:${e.id}:${an?'aus':'an'}"><i></i></button></div>`;
   });
   h+=`</div>`;
+
+  /* ➡️ 13.09.2026, Karls Ansage: „ja dann mach einen schalter in den einstellungen" --
+     standardmaessig an. Das ist der Widerspruchsweg nach Art. 21 DSGVO, den die
+     Datenschutzerklaerung nennt (Rechtsgrundlage der Bestenliste: lit. f).
+     ⚠️ Der Satz darunter bleibt, obwohl Karl die Erklaersaetze bei den Widgets
+     rausgenommen hat: dass man dann auch bei Freunden ohne XP-Stand dasteht, ist eine
+     Folge, die man vor dem Umlegen wissen muss -- die Freunde-Seite liest die XP aus
+     derselben Tabelle. */
+  const blAn = bestenlisteAn();
+  h+=`<div class="card" data-block="bestenliste">
+      <div class="row between" style="align-items:center;gap:10px">
+        <span style="min-width:0">In der Bestenliste zeigen</span>
+        <button class="schalter${blAn?' an':''}" role="switch" aria-checked="${blAn}"
+                aria-label="In der Bestenliste zeigen"
+                data-act="bestenliste:${blAn?'aus':'an'}"><i></i></button></div>
+      <div class="tiny muted" style="margin-top:6px">Name und XP-Stand, sichtbar für alle Angemeldeten.
+        Ausgeschaltet fehlt dein XP-Stand auch bei deinen Freunden.</div>
+    </div>`;
 
   h+=`<div class="card">
       <label class="tiny muted" style="display:block;margin-bottom:6px">Ansicht</label>
@@ -6349,7 +6385,9 @@ function renderPrivacy(){
         ohne Konto und ohne deine Trainingsdaten kann die App das nicht tun, wofür du sie benutzt.
         Freiwillige Angaben — dein <b style="color:var(--txt)">Körpergewicht</b>, deine
         <b style="color:var(--txt)">Schritte</b> und die <b style="color:var(--txt)">Benachrichtigungen</b> —
-        beruhen auf deiner Einwilligung (lit. a).</p>
+        beruhen auf deiner Einwilligung (lit. a). Die <b style="color:var(--txt)">Bestenliste</b>
+        stützt sich auf ein berechtigtes Interesse (lit. f) — Näheres und wie du widersprichst,
+        steht weiter unten.</p>
       <p class="muted" style="margin:0 0 14px"><b style="color:var(--txt)">Gewicht, Schritte und
         Mahlzeiten sagen etwas über deine Gesundheit aus.</b> Für solche Angaben gilt zusätzlich
         <b style="color:var(--txt)">Art. 9 Abs. 2 lit. a DSGVO</b>: gespeichert wird nur, was du selbst einträgst.
@@ -6460,7 +6498,7 @@ function renderPrivacy(){
         und dem Abruf der App bei <b style="color:var(--txt)">GitHub</b> (siehe oben).
         Es werden auch keine Cookies zu Werbezwecken gesetzt. XP, Level und Rang rechnet die App allein
         aus deinen Einheiten aus. <b style="color:var(--txt)">Dein Name und dein XP-Stand gehen zusätzlich
-        in die Bestenliste</b>, die alle Angemeldeten sehen — sonst nichts.</p>
+        in die Bestenliste</b>, die alle Angemeldeten sehen, solange du das nicht ausschaltest — sonst nichts.</p>
 
       <b>Die Bestenliste</b>
       <p class="muted" style="margin:4px 0 14px">Auf der Erfolge-Seite stehen die Konten mit den meisten
@@ -6471,6 +6509,15 @@ function renderPrivacy(){
         ⚠️ <b style="color:var(--txt)">Hat dein Konto keinen Username, steht dort der vordere Teil deiner
         E-Mail-Adresse</b> (alles vor dem @). Wenn du das nicht willst, trag in den Einstellungen einen
         Username ein.</p>
+      <p class="muted" style="margin:0 0 14px"><b style="color:var(--txt)">Warum wir das dürfen:</b>
+        Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse). Das Interesse ist,
+        dass sich die Leute, die die App benutzen, gegenseitig anspornen können — dafür reichen
+        Name und XP-Stand, mehr steht dort nicht.
+        <b style="color:var(--txt)">Du kannst jederzeit widersprechen</b> (Art. 21 DSGVO), ohne
+        Begründung: unter <b style="color:var(--txt)">Einstellungen › In der Bestenliste zeigen</b>.
+        Die Einstellung ist zu Beginn eingeschaltet. Schaltest du sie aus, wird deine Zeile gelöscht
+        und nicht wieder geschrieben, auch nicht von deinen anderen Geräten. Dein XP-Stand fehlt dann
+        auch bei deinen Freunden.</p>
 
       <b>Freunde</b>
       <p class="muted" style="margin:4px 0 14px">Freunde werden über einen
@@ -6692,7 +6739,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.097';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.098';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -7039,6 +7086,17 @@ async function bestenlisteSchieben(){
      auch ohne `cloudPush` -- und dann stuende der XP-Stand eines fremden, noch ungeklaerten
      Stands unter dem eigenen Namen in der Liste, fuer alle sichtbar. */
   if(!darfSchieben() || !await ensureToken()) return false;
+  /* ➡️ 13.09.2026: Schalter „Bestenliste" in den Einstellungen ist aus.
+     🔴 Nicht bloss NICHT schreiben, sondern die Zeile LOESCHEN -- und zwar bei jedem Abgleich,
+     nicht nur beim Umschalten. Sonst bliebe die alte Zeile stehen, wenn das Loeschen beim
+     Umschalten offline war, oder wenn ein zweites Geraet sie geschrieben hat, bevor es
+     vom Aus erfahren hat. (Dieselbe Lehre wie beim Admin-Sonderweg am 10.09.: "Sie muss WEG.") */
+  if(!bestenlisteAn()){
+    const weg = await bestenlisteZeileLoeschen(session.user.id);
+    if(weg === null) return false;          // nicht hingekommen -- beim naechsten Mal wieder
+    bestenlisteSchiebFehler = null;
+    return true;
+  }
   /* ➡️ 10.09.2026, Karls Ansage: „Sobald man admin bekommt werden XP nicht mehr auf dem
      leaderboard angezeigt. Ich z.b habe 50k xp aber über admin, die sollen andere nicht
      sehen."
@@ -7894,6 +7952,15 @@ function blobsZusammen(basis, dazu){
     const eB=b.profile.erinnerungen, eD=dp.erinnerungen;
     if(!eB || typeof eB!=='object' || (+eD.ts||0) > (+eB.ts||0))
       b.profile.erinnerungen = Object.assign({}, eD);
+  }
+  /* --- Bestenliste an/aus: genauso, die spaetere Entscheidung gewinnt (13.09.2026) ---
+     🔴 Hier geht es nicht um Bequemlichkeit wie bei den Erinnerungen, sondern um einen
+     Widerspruch nach Art. 21 DSGVO: ein Aus, das beim Abgleich verlorengeht, hiesse, dass
+     Name und XP-Stand wieder fuer alle sichtbar werden, obwohl jemand nein gesagt hat. */
+  if(dp.bestenliste && typeof dp.bestenliste==='object'){
+    const lB=b.profile.bestenliste, lD=dp.bestenliste;
+    if(!lB || typeof lB!=='object' || (+lD.ts||0) > (+lB.ts||0))
+      b.profile.bestenliste = {an: lD.an!==false, ts: +lD.ts||0};
   }
   // --- Wann zuletzt da: der spaetere Zeitpunkt gilt, sonst kaeme das Wiederkommen zu frueh ---
   if(typeof dp.zuletztDa === 'number')
@@ -8847,6 +8914,19 @@ document.addEventListener('click',ev=>{
   else if(a.startsWith('erinn:')){ const teile=a.split(':');
     erinnerungSetzen(teile[1], teile[2]==='an'); render();
     toast(teile[2]==='an' ? 'Erinnerung eingeschaltet' : 'Erinnerung ausgeschaltet'); }
+  else if(a.startsWith('bestenliste:')){
+    const an = a === 'bestenliste:an';
+    bestenlisteSetzen(an);
+    /* Die eigene Zeile sofort aus der gemerkten Liste nehmen -- sonst stuende man auf der
+       Erfolge-Seite noch drin, bis die naechste Antwort vom Server kommt. */
+    if(!an && Array.isArray(bestenliste) && session && session.user){
+      bestenliste = bestenliste.filter(z => z && z.user_id !== session.user.id);
+      DB.set(BESTEN_KEY, bestenliste);
+    }
+    render();
+    toast(an ? 'Du stehst wieder in der Bestenliste' : 'Aus der Bestenliste genommen');
+    bestenlisteAuffrischen(true);
+  }
   else if(a==='addweight'){ const el=document.getElementById('wInput'); const v=el?el.value.replace(',','.'):'';
     if(addWeight(v)){ render(); toast('Eingetragen'); } else toast('Bitte ein Gewicht in kg eingeben'); }
   // ---- Kalorien: Essen eintragen ----

@@ -4,6 +4,25 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-13
 
+### v0.098 — Schalter „In der Bestenliste zeigen"
+
+**Karls Ansage:** *„ja dann mach einen schalter in den einstellungen. Darf der standart mäßig
+an sein … wenn er an sein darf dann standartmäßig auf an"*
+
+- **Einstellungen:** neuer Schalter, **voreingestellt an**. Aus → die eigene Zeile wird gelöscht
+  und bei jedem Abgleich wieder gelöscht statt geschrieben.
+- **Geräteübergreifend:** die spätere Entscheidung gewinnt beim Abgleich (wie bei den Widgets) —
+  ein zweites Gerät schreibt die Zeile nicht wieder hinein.
+- **Erfolge-Seite:** wer aus ist, liest über der Liste „Du stehst nicht drin".
+- ⚠️ **Folge:** die Freunde-Seite liest XP aus derselben Tabelle — ausgeschaltet fehlt man
+  auch dort. Steht unter dem Schalter und in der Erklärung.
+- **Datenschutzerklärung:** Rechtsgrundlage der Bestenliste ist jetzt genannt (Art. 6 Abs. 1
+  lit. f), dazu das Widerspruchsrecht (Art. 21) mit dem Weg über den Schalter. Damit ist die
+  dritte offene Textergänzung zu.
+
+🧪 1035 grün, sechs neu. `datenschutz-pruefen.py`: zwei neue Versprechen-Regeln (Schalter wird
+erzeugt · Hochschreiben fragt ihn), die Gegenprobe beweist beide.
+
 ### v0.097 — Datenschutz: GitHub als Hoster und der Grund für die USA-Übermittlungen
 
 Zwei der drei offenen Textergänzungen aus den Datenschutz-Läufen vom 10./11.09.:

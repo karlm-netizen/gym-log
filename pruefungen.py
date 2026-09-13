@@ -541,6 +541,20 @@ window.addEventListener('error', e => {
     const e = blobsZusammen(a, blob({})).blob.profile.erinnerungen;
     return (e && e.wiegen === false) || JSON.stringify(e);
   });
+  // 🔴 13.09.2026: Bestenliste aus = Widerspruch nach Art. 21. Geht das Aus beim Abgleich
+  // verloren, schreibt das andere Geraet Name und XP wieder fuer alle sichtbar hinein.
+  t('Bestenliste aus wandert vom anderen Geraet herueber', () => {
+    const a = blob({profile:{xp:0, weights:[], bestenliste:{an:true, ts:100}}});
+    const b = blob({profile:{xp:0, weights:[], bestenliste:{an:false, ts:500}}});
+    const e = blobsZusammen(a, b).blob.profile.bestenliste;
+    return (e && e.an === false) || JSON.stringify(e);
+  });
+  t('Bestenliste: die spaetere Entscheidung gewinnt, auch beim Einschalten', () => {
+    const a = blob({profile:{xp:0, weights:[], bestenliste:{an:true, ts:900}}});
+    const b = blob({profile:{xp:0, weights:[], bestenliste:{an:false, ts:100}}});
+    const e = blobsZusammen(a, b).blob.profile.bestenliste;
+    return (e && e.an === true) || JSON.stringify(e);
+  });
 
   t('Einheit, die nur lokal steht, bleibt', () => {
     const a = blob({sessions:[einheit('a', 100, 5)]});
@@ -2157,6 +2171,63 @@ window.addEventListener('error', e => {
      schrieb die Liste des Vorgaengers seelenruhig zurueck ins Geraet.
      ⚠️ Diese Pruefung baut das Wettrennen echt nach: sie haelt die Antwort an, meldet
      dazwischen ab, und laesst sie dann eintreffen. */
+  /* 🔴 13.09.2026: Schalter „In der Bestenliste zeigen" aus. Das Hochschreiben darf dann
+     NICHT schreiben, sondern muss die eigene Zeile loeschen -- bei jedem Abgleich. */
+  const blBuehne = async (an) => {
+    const V = { session, bl: profile.bestenliste, fetch: window.fetch,
+                darf: darfSchieben, token: ensureToken };
+    const aufrufe = [];
+    try {
+      session = {user:{id:'ich', email:'a@b.de'}, username:'ich',
+                 expires_at: Date.now()+3600e3, access_token:'x'};
+      profile.bestenliste = {an, ts: 1};
+      darfSchieben = () => true; ensureToken = async () => true;
+      window.fetch = async (url, opt) => {
+        aufrufe.push({url: String(url), method: (opt && opt.method) || 'GET'});
+        return { ok: true, status: 200, json: async () => [{user_id:'ich'}] };
+      };
+      await bestenlisteSchieben();
+      return aufrufe;
+    } finally {
+      session = V.session; profile.bestenliste = V.bl; window.fetch = V.fetch;
+      darfSchieben = V.darf; ensureToken = V.token;
+    }
+  };
+  await tA('Bestenliste aus: Hochschreiben loescht die eigene Zeile statt zu schreiben', async () => {
+    const a = await blBuehne(false);
+    // ⚠️ Nur die Bestenliste zaehlt: der Abgleich der Trainingsdaten (gymlog_data) laeuft nebenher.
+    if (a.some(x => x.method === 'POST' && x.url.indexOf('gym_bestenliste') >= 0)) return 'es wurde trotzdem geschrieben: ' + JSON.stringify(a);
+    return a.some(x => x.method === 'DELETE' && x.url.indexOf('gym_bestenliste?user_id=eq.ich') >= 0)
+      || 'keine Loeschung: ' + JSON.stringify(a);
+  });
+  await tA('Bestenliste an: Hochschreiben schreibt wie bisher', async () => {
+    const a = await blBuehne(true);
+    return a.some(x => x.method === 'POST' && x.url.indexOf('gym_bestenliste') >= 0)
+      || 'nichts geschrieben: ' + JSON.stringify(a);
+  });
+  t('Bestenliste ist ohne Einstellung eingeschaltet (Voreinstellung an)', () => {
+    const V = profile.bestenliste;
+    try { profile.bestenliste = undefined; return bestenlisteAn() === true || 'aus'; }
+    finally { profile.bestenliste = V; }
+  });
+  t('Einstellungen zeigen den Bestenlisten-Schalter und er schaltet um', () => {
+    const V = { view, bl: profile.bestenliste, bliste: bestenliste, session };
+    try {
+      session = {user:{id:'test'}, expires_at: Date.now()+3600e3, access_token:'x'};
+      profile.bestenliste = {an:true, ts:1};
+      view = 'settings'; render();
+      const k = document.querySelector('[data-act="bestenliste:aus"]');
+      if (!k) return 'kein Schalter in den Einstellungen';
+      const aufV = bestenlisteAuffrischen; bestenlisteAuffrischen = async () => {};
+      try { k.click(); } finally { bestenlisteAuffrischen = aufV; }
+      if (bestenlisteAn()) return 'nach dem Klick weiter an';
+      return !!document.querySelector('[data-act="bestenliste:an"]') || 'Schalter zeigt den neuen Stand nicht';
+    } finally {
+      profile.bestenliste = V.bl; bestenliste = V.bliste; session = V.session;
+      save(); view = V.view; render();
+    }
+  });
+
   await tA('Abmelden waehrend des Auffrischens schreibt nichts zurueck', async () => {
     const sV = session, bV = bestenliste, zV = bestenlisteZuletzt;
     const holenV = bestenlisteHolen, schiebenV = bestenlisteSchieben;
