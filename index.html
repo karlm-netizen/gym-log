@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.108';
+var APP_FASSUNG = 'v0.109';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -4136,14 +4136,30 @@ function gewichtsTrend(tage){
      als eine ungenaue Zahl.
      💡 Bei genau zwei Messungen kommt dasselbe heraus wie vorher: durch zwei Punkte
      geht nur eine Gerade. */
+  /* ✅ 14.09.2026 (v0.109): robust statt Ausgleichsgerade. Karls Ansage „gerne fixen" auf den
+     offenen Punkt vom 28.08. Die Gerade DAEMPFTE einen Ausreisser nur um gut ein Viertel:
+     eine einzige leichte Wiegung am Ende einer flachen Reihe ergab -0,252 kg/Woche statt
+     -0,333 -- und daraus rechnet der Regelkreis eine kcal-Korrektur.
+     ➡️ Jetzt der Median aller Steigungen zwischen je zwei Messungen (Theil-Sen). Ein einzelner
+     Ausreisser stellt nur einen Teil der Paare, und der Median uebergeht ihn. Die Achse
+     genauso: der Median der Punkte, zurueckgerechnet auf den Anfang.
+     💡 Weiter gilt: zwei Messungen = ein Paar = dieselbe Steigung wie vorher.
+     ⚠️ Mit wenigen Messungen bleibt es ehrlich wackelig -- bei drei Wiegungen ist jede ein
+     Drittel. Die Mindestregeln oben (zwei Wiegungen, sieben Tage) bleiben deshalb stehen. */
   const x=w.map(p=>(p.date-erst.date)/864e5), y=w.map(p=>p.kg), n=w.length;
-  const mx=x.reduce((a,b)=>a+b,0)/n, my=y.reduce((a,b)=>a+b,0)/n;
-  let zaehler=0, nenner=0;
-  for(let i=0;i<n;i++){ zaehler+=(x[i]-mx)*(y[i]-my); nenner+=(x[i]-mx)*(x[i]-mx); }
-  const proTag = nenner ? zaehler/nenner : 0;
-  const achse  = my - proTag*mx;
+  const steigungen=[];
+  for(let i=0;i<n;i++) for(let j=i+1;j<n;j++){ const dx=x[j]-x[i]; if(dx>0) steigungen.push((y[j]-y[i])/dx); }
+  const proTag = steigungen.length ? medianWert(steigungen) : 0;
+  const achse  = medianWert(y.map((v,i)=>v - proTag*x[i]));
   return { proWoche:proTag*7, tage:Math.round(spanne), messungen:n,
            von:achse, bis:achse+proTag*spanne };
+}
+// Der mittlere Wert einer Zahlenliste; bei gerader Anzahl die Mitte der beiden mittleren.
+function medianWert(werte){
+  const s=(Array.isArray(werte)?werte:[]).filter(v=>Number.isFinite(v)).sort((a,b)=>a-b);
+  if(!s.length) return null;
+  const m=Math.floor(s.length/2);
+  return s.length%2 ? s[m] : (s[m-1]+s[m])/2;
 }
 
 // Die eigentliche Rueckmeldung: passt das, was auf der Waage passiert, zu dem,

@@ -2,6 +2,24 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-09-15
+
+### v0.109 — Gewichtstrend: ein Ausreißer kippt ihn nicht mehr
+
+**Karls Ansage:** *„wenn du kannst gerne fixen"* (offener Punkt vom 28.08.).
+
+**Vorher:** Ausgleichsgerade über alle Wiegungen. Sie **dämpfte** einen Ausreißer nur: eine einzige
+leichte Wiegung am Ende einer flachen Reihe ergab noch **−0,252 kg/Woche** (statt −0,333 mit zwei
+Punkten) — und daraus rechnet der Regelkreis eine kcal-Korrektur.
+
+**Jetzt:** Median aller Steigungen zwischen je zwei Wiegungen (Theil-Sen). Dieselbe Reihe ergibt
+**0,000**. Eine echte Abnahme von −0,7 kg/Woche mit einem Kilo Ausreißer mittendrin bleibt −0,7.
+Bei **zwei** Wiegungen kommt dasselbe heraus wie vorher. Die Mindestregeln (zwei Wiegungen,
+sieben Tage) bleiben.
+
+🧪 1100 → 1103, alle alten Trend-Prüfungen weiter grün. Gegenprobe: Mittelwert statt Median 2 rot ·
+Achse als Mittelwert 1 rot · Median bei gerader Anzahl falsch 1 rot.
+
 ## 2026-09-14
 
 ### v0.108 — „401 · JWT issued at future": einmal neu fragen

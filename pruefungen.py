@@ -1620,9 +1620,34 @@ window.addEventListener('error', e => {
        sondern das ehrliche Mass. Eine Ausgleichsgerade **daempft** einen Ausreisser, sie
        loescht ihn nicht: gemessen -0,252 statt -0,333, also gut ein Viertel weniger. Wer den
        Ausreisser ganz loswerden will, braucht ein robustes Verfahren (Median der
-       Steigungen) -- das ist eine andere Entscheidung, nicht diese. */
+       Steigungen) -- das ist eine andere Entscheidung, nicht diese.
+       ✅ 14.09.2026: diese Entscheidung ist gefallen (v0.109, Karl: „gerne fixen"). Die
+       Pruefung bleibt als Untergrenze stehen; die schaerfere steht direkt darunter. */
     return (tr && Math.abs(tr.proWoche) < Math.abs(zweiPunkte) * 0.8)
       || 'proWoche=' + (tr && tr.proWoche.toFixed(3)) + ' alt waere ' + zweiPunkte.toFixed(3);
+  });
+  /* ================= Robust: Median der Steigungen (14.09.2026, v0.109) =================
+     Die Ausgleichsgerade machte aus EINER leichten Wiegung am Ende einer flachen Reihe noch
+     -0,252 kg/Woche -- und der Regelkreis daraus eine kcal-Korrektur. Jetzt verschwindet sie. */
+  t('Robust: ein Ausreisser am Ende verschwindet ganz', () => {
+    const n = Date.now();
+    profile.weights = [
+      {date:n-21*T, kg:80}, {date:n-17*T, kg:80}, {date:n-13*T, kg:80},
+      {date:n-9*T,  kg:80}, {date:n-5*T,  kg:80}, {date:n, kg:79}];
+    const tr = gewichtsTrend(22);                    // 22 statt 21: siehe Grenzfall oben
+    return (tr && Math.abs(tr.proWoche) < 0.001 && Math.abs(tr.von - 80) < 0.001)
+      || 'proWoche=' + (tr && tr.proWoche.toFixed(3)) + ' von=' + (tr && tr.von.toFixed(3));
+  });
+  t('Robust: ein Ausreisser mitten in einer echten Abnahme kippt sie nicht', () => {
+    const n = Date.now();
+    // -0,1 kg je Tag, also -0,7 je Woche -- und am Tag 10 ein Kilo zu viel.
+    profile.weights = [0,3,7,10,14,17,21].map(d => ({ date:n-(21-d)*T, kg: 80 - d*0.1 + (d===10 ? 1 : 0) }));
+    const tr = gewichtsTrend(22);
+    return (tr && Math.abs(tr.proWoche - (-0.7)) < 0.001) || JSON.stringify(tr);
+  });
+  t('medianWert: ungerade, gerade, leer', () => {
+    const a = medianWert([3,1,2]), b = medianWert([4,1,3,2]), c = medianWert([]), d = medianWert([NaN, 5]);
+    return (a === 2 && b === 2.5 && c === null && d === 5) || JSON.stringify({a, b, c, d});
   });
   t('Ein Ausreisser am Anfang genauso wenig', () => {
     const n = Date.now();
