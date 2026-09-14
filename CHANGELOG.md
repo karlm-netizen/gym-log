@@ -4,6 +4,24 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-14
 
+### v0.108 — „401 · JWT issued at future": einmal neu fragen
+
+**Karls Ansage:** *„wenn du kannst gerne fixen"*. Die rote Karte vom 13.09., 01:22.
+
+**Ursache (nicht die App):** Supabase-Störung seit dem 14.08.2026 — ein gerade erneuerter
+Anmelde-Schlüssel wird abgelehnt, weil die Uhr der Datenbank-Schnittstelle hinterherhinkt.
+Supabase selbst: *„In most cases, waiting and refreshing is successful."*
+
+**Jetzt:** genau diese Absage (401 **und** „issued at future" im Text) wartet 3 Sekunden und fragt
+**einmal** neu — beim Bestenliste-Schreiben, Bestenliste-Holen, Cloud-Holen und Cloud-Schieben.
+- jede **andere** 401 geht unverändert durch (eine echt abgelehnte Anmeldung wird nicht verzögert)
+- **nur ein** Neuversuch, keine Schleife
+- **beim Schließen der App nicht** — drei Sekunden überlebt der Seitenabbau nicht; die Daten
+  bleiben dann wie bisher als ungesichert stehen und gehen beim nächsten Öffnen hoch
+
+🧪 1090 → 1100, mit echten `Response`-Objekten. Gegenprobe: ohne Neuversuch 6 rot · jede 401
+wiederholt 1 rot · jede der vier Aufrufstellen einzeln 1 rot · Schließen wartet 1 rot.
+
 ### v0.107 — Die Bestenliste zeigt, wie alt sie ist
 
 **Karls Ansage:** *„wenn du kannst gerne fixen"* (Punkt vom 06.09.).

@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.107';
+var APP_FASSUNG = 'v0.108';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -7289,7 +7289,7 @@ async function bestenlisteSchieben(){
       method:'POST',
       headers:{...authHeaders(true), 'Prefer':'resolution=merge-duplicates'},
       body: JSON.stringify([z]) });
-    let r = await schreibe({...zeile, oeffentlich, freunde: beiFreunden});
+    let r = await mitZukunftsNeuversuch(() => schreibe({...zeile, oeffentlich, freunde: beiFreunden}));
     if(r.ok){ bestenlisteSchiebFehler = null; return true; }
     /* Die Antwort von PostgREST mitnehmen -- sie sagt beim naechsten Blick auf die
        Erfolge-Seite genau, woran es liegt (Rechte, Spalte, Typ). Ohne sie bliebe nur
@@ -7345,7 +7345,7 @@ async function bestenlisteHolen(){
        ⚠️ Kennt die Tabelle die Spalte noch nicht (SQL nicht eingespielt), dasselbe ohne
        Filter -- dann gibt es auch noch keine "nur Freunde"-Zeilen. */
     const basis = `${SUPA_URL}/rest/v1/gym_bestenliste?select=user_id,name,xp&order=xp.desc&limit=10`;
-    let r = await fetch(basis + '&oeffentlich=eq.true', { headers: authHeaders(true) });
+    let r = await mitZukunftsNeuversuch(() => fetch(basis + '&oeffentlich=eq.true', { headers: authHeaders(true) }));
     if(r.status === 400) r = await fetch(basis, { headers: authHeaders(true) });
     if(r.status === 404) return false;      // die Tabelle fehlt -- das SQL ist wirklich nicht gelaufen
     if(!r.ok) return null;                  // 5xx, Drosselung, sonstiges: nur gerade nicht
@@ -7920,6 +7920,29 @@ function setSync(ok){ const s= ok?'Cloud aktiv':'Offline — wird nachgeholt';
   if(s!==syncState){ syncState=s; if(view==='settings'&&session) renderSettings(); } }
 function authHeaders(withToken){ return {'apikey':SUPA_KEY,'Content-Type':'application/json',
   'Authorization':'Bearer '+((withToken&&session&&session.access_token)?session.access_token:SUPA_KEY)}; }
+/* ---------- Einmal neu fragen bei „JWT issued at future" (14.09.2026, v0.108) ----------
+   Supabase-Stoerung seit dem 14.08.2026 (status.supabase.com, „401 errors due to JWT
+   rejections"): ein GERADE erneuerter Anmelde-Schluessel wird von der Datenbank-Schnittstelle
+   abgelehnt, weil deren Uhr-Zwischenspeicher hinterherhinkt. Supabase selbst: *„In most
+   cases, waiting and refreshing is successful."* Karl sah es am 13.09. als rote Karte in der
+   Bestenliste. Karls Ansage vom 14.09.: „gerne fixen".
+   ➡️ Genau diese Absage -- 401 UND „issued at future" im Text -- wartet kurz und fragt EINMAL
+   nochmal. Jede andere 401 geht unveraendert durch: eine wirklich abgelehnte Anmeldung darf
+   weder verzoegert noch verschleiert werden.
+   ⚠️ Nur ein Neuversuch. Klappt auch der nicht, kommt die Absage an wie bisher (rote Karte,
+   Abgleich spaeter) -- keine Schleife, die bei einer laengeren Stoerung haengen bleibt.
+   ⚠️ Gelesen wird eine KOPIE der Antwort (`clone`): der Aufrufer liest den Text danach selbst. */
+let zukunftWartenMs = 3000;
+async function istZukunftsAbsage(r){
+  if(!r || r.status !== 401 || typeof r.clone !== 'function') return false;
+  try{ return /issued at future/i.test(await r.clone().text()); }catch(e){ return false; }
+}
+async function mitZukunftsNeuversuch(anfrage){
+  const r = await anfrage();
+  if(!await istZukunftsAbsage(r)) return r;
+  await new Promise(f => setTimeout(f, zukunftWartenMs));
+  return anfrage();
+}
 /* 🔴 Gefunden am 01.09.2026: die Funktion gab bei Netzfehler, 404, 403 UND bei
    einer echten Antwort `null` dasselbe zurueck. Am Namens-Test hing daran mehr, als es
    aussieht -- `null !== true`, also lief die Registrierung weiter, egal ob der Name frei
@@ -8269,7 +8292,7 @@ function blobsZusammen(basis, dazu, resetBeachten){
 }
 // Liefert {ok,data}: ok=false heißt "konnte nicht laden" (Netz), NICHT "Konto ist leer".
 async function cloudPull(){ if(!await ensureToken()) return {ok:false,data:null};
-  try{ const r=await fetch(`${SUPA_URL}/rest/v1/gymlog_data?id=eq.${session.user.id}&select=data`,{headers:authHeaders(true)});
+  try{ const r=await mitZukunftsNeuversuch(() => fetch(`${SUPA_URL}/rest/v1/gymlog_data?id=eq.${session.user.id}&select=data`,{headers:authHeaders(true)}));
     if(!r.ok){ setSync(false); return {ok:false,data:null}; }
     const rows=await r.json(); setSync(true); return {ok:true,data:(rows&&rows.length)?rows[0].data:null}; }
   catch(e){ setSync(false); return {ok:false,data:null}; } }
@@ -8288,7 +8311,10 @@ async function cloudPush(beimSchliessen){ if(!darfSchieben()) return false; if(!
     // auch wenn die App schon zu ist. ⚠️ Nur bis 64 KB Koerper erlaubt; darueber wirft fetch.
     // Dann lieber normal senden (kommt vielleicht nicht durch) als gar nicht (kommt sicher nicht).
     if(beimSchliessen && new TextEncoder().encode(koerper).length < 60*1024) opt.keepalive=true;
-    const r=await fetch(`${SUPA_URL}/rest/v1/gymlog_data`,opt);
+    /* Beim Schliessen kein Neuversuch: drei Sekunden Warten ueberlebt der Seitenabbau nicht,
+       und `dirty` bleibt ohnehin stehen -- beim naechsten Oeffnen geht es hoch (14.09.2026). */
+    const senden = () => fetch(`${SUPA_URL}/rest/v1/gymlog_data`,opt);
+    const r = beimSchliessen ? await senden() : await mitZukunftsNeuversuch(senden);
     setSync(r.ok); if(r.ok) setDirty(false);
     /* Die eigene Zeile in der Bestenliste mitziehen. ⚠️ NICHT beim Schliessen: dort laeuft
        die Anfrage mit `keepalive`, und ein zweiter Aufruf ohne das waere ein Rennen gegen

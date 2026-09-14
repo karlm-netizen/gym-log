@@ -2518,6 +2518,83 @@ window.addEventListener('error', e => {
     } finally { zurueck(); }
   }));
 
+  /* ================= Einmal neu fragen bei „JWT issued at future" (14.09.2026) =================
+     Supabase-Stoerung seit dem 14.08.: ein frisch erneuerter Schluessel wird abgelehnt, kurz
+     danach geht es. Genau DIESE Absage wird einmal wiederholt -- jede andere nicht, und nie
+     oefter als einmal. Gebaut mit echten `Response`-Objekten, weil der Neuversuch den Text
+     aus einer Kopie liest: ein nachgebautes Objekt ohne `clone` haette ihn nie ausgeloest. */
+  const antwort = (status, text) => new Response(text, {status});
+  const zukunft = () => antwort(401, '{"code":"PGRST303","message":"JWT issued at future"}');
+  const mitSchnellemWarten = async (fn) => { const w = zukunftWartenMs; zukunftWartenMs = 0;
+    try { return await fn(); } finally { zukunftWartenMs = w; } };
+  await tA('Zukunft-Absage: einmal neu gefragt, dann durch', () => mitSchnellemWarten(async () => {
+    let n = 0; const r = await mitZukunftsNeuversuch(async () => (++n === 1 ? zukunft() : antwort(200, '[]')));
+    return (n === 2 && r.status === 200) || JSON.stringify({n, status: r.status});
+  }));
+  await tA('Zukunft-Absage: nur EIN Neuversuch, keine Schleife', () => mitSchnellemWarten(async () => {
+    let n = 0; const r = await mitZukunftsNeuversuch(async () => { n++; return zukunft(); });
+    return (n === 2 && r.status === 401) || JSON.stringify({n, status: r.status});
+  }));
+  await tA('Eine andere 401 wird nicht wiederholt', () => mitSchnellemWarten(async () => {
+    let n = 0; const r = await mitZukunftsNeuversuch(async () => { n++; return antwort(401, '{"message":"JWT expired"}'); });
+    return (n === 1 && r.status === 401) || 'gefragt: ' + n;
+  }));
+  await tA('Ein Erfolg wird nicht wiederholt', () => mitSchnellemWarten(async () => {
+    let n = 0; await mitZukunftsNeuversuch(async () => { n++; return antwort(200, '[]'); });
+    return eq(n, 1);
+  }));
+  await tA('Die Antwort bleibt fuer den Aufrufer lesbar', () => mitSchnellemWarten(async () => {
+    const r = await mitZukunftsNeuversuch(async () => antwort(401, '{"message":"JWT expired"}'));
+    const j = await r.json();
+    return eq(j.message, 'JWT expired');
+  }));
+  // ---- Der Einbau: die vier Stellen, die mit der Datenbank reden, fragen wirklich nochmal ----
+  const mitFetchFolge = async (folge, fn) => {
+    const V = { fetch: window.fetch, session, dirty, fehler: bestenlisteSchiebFehler, bl: profile.bestenliste,
+                schieben: bestenlisteSchieben };
+    const roh = {};
+    ['gymlog:lastSync', 'gymlog:dirty', BESITZER_KEY].forEach(k => roh[k] = localStorage.getItem(k));
+    let n = 0;
+    window.fetch = async () => folge[Math.min(n++, folge.length - 1)]();
+    session = {user:{id:'zukunft'}, username:'zukunft', expires_at: Date.now()+3600e3, access_token:'x'};
+    profile.bestenliste = {an:true, freunde:true, ts:1};     // sonst waere es ein Loeschen, kein Schreiben
+    besitzerSetzen('zukunft');
+    try { return await mitSchnellemWarten(() => fn(() => n)); }
+    finally {
+      window.fetch = V.fetch; session = V.session; DB.set('session', V.session); dirty = V.dirty;
+      bestenlisteSchiebFehler = V.fehler; bestenlisteSchieben = V.schieben; profile.bestenliste = V.bl;
+      Object.keys(roh).forEach(k => roh[k] === null ? localStorage.removeItem(k) : localStorage.setItem(k, roh[k]));
+    }
+  };
+  const ok200 = (text) => () => antwort(200, text);
+  await tA('Einbau: Bestenliste holen fragt nach der Absage nochmal', () =>
+    mitFetchFolge([zukunft, ok200('[{"user_id":"a","name":"A","xp":5}]')], async (n) => {
+      const rows = await bestenlisteHolen();
+      return (Array.isArray(rows) && rows.length === 1 && n() === 2) || JSON.stringify({rows, n: n()});
+    }));
+  await tA('Einbau: Bestenliste schreiben fragt nach der Absage nochmal', () =>
+    mitFetchFolge([zukunft, ok200('')], async (n) => {
+      const ok = await bestenlisteSchieben();
+      return (ok === true && n() === 2 && bestenlisteSchiebFehler === null)
+        || JSON.stringify({ok, n: n(), fehler: bestenlisteSchiebFehler});
+    }));
+  await tA('Einbau: Cloud holen fragt nach der Absage nochmal', () =>
+    mitFetchFolge([zukunft, ok200('[{"data":{"sessions":[]}}]')], async (n) => {
+      const res = await cloudPull();
+      return (res.ok === true && n() === 2) || JSON.stringify({res, n: n()});
+    }));
+  await tA('Einbau: Cloud schieben fragt nach der Absage nochmal', () =>
+    mitFetchFolge([zukunft, ok200('')], async (n) => {
+      bestenlisteSchieben = async () => true;       // die Bestenliste zaehlt hier nicht mit
+      const ok = await cloudPush(false);
+      return (ok === true && n() === 2) || JSON.stringify({ok, n: n()});
+    }));
+  await tA('Beim Schliessen wird nicht gewartet', () =>
+    mitFetchFolge([zukunft, ok200('')], async (n) => {
+      const ok = await cloudPush(true);
+      return (ok === false && n() === 1) || JSON.stringify({ok, n: n()});
+    }));
+
   /* ================= Einfuehrung fuer Neue (13.09.2026) =================
      Karl: das Tutorial *„muss jetzt passen"*, ein Freund empfiehlt die App gerade vielen.
      Brock zeigt die fuenf Reiter, einmal je Konto, nach dem Einrichtungs-Assistenten. */
