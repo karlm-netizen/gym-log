@@ -745,7 +745,8 @@ window.addEventListener('error', e => {
      🔴 Der Satz „sonst haette dasselbe Loeschen je nach Geraet zwei Folgen" stand hier bis
      zum 06.09.2026 abends und war falsch herum: die zwei Folgen gibt es, seit es Grabsteine
      gibt. Die zwei Pruefungen darunter zeigen es nebeneinander -- 5 bleibt 5, 7 kommt nie an.
-     Abwaegung fuer Karl, steht als offener Punkt in `open-loops-apps`. */
+     ✅ 14.09.2026: Karl hat ja gesagt, der Grabstein traegt die XP jetzt mit (Block darunter).
+     Die zwei Pruefungen hier bleiben richtig: in beiden KENNT die eigene Seite die Einheit. */
   t('Eine begrabene Einheit zieht keine XP ab', () => {
     const a = mitGrab({sessions:[einheit('a', 100, 5)], profile:{xp:5, weights:[]}},
                       {sessions:{'a': jetzt}});
@@ -756,6 +757,49 @@ window.addEventListener('error', e => {
     const b = blob({sessions:[einheit('a', 100, 7)]});
     return eq(blobsZusammen(a, b).blob.profile.xp, 0);
   });
+
+  /* ================= XP gleich auf beiden Geraeten (14.09.2026) =================
+     Der Fall aus dem 06.09.: das Handy legt eine Einheit an (+40), schiebt und loescht sie,
+     BEVOR der PC sie je gesehen hat. Bisher: Handy 40, PC 0 -- fuer immer. Jetzt bringt der
+     Grabstein seine XP mit, und nur die Seite, die die Einheit nie kannte, zaehlt sie dazu.
+     ⚠️ Die Faelle unten sind entlang dessen gebaut, was DOPPELT zaehlen koennte, nicht
+     entlang dessen, was fehlen koennte -- zu viel XP sieht niemand, zu wenig schon. */
+  const handyMitGrab = (xp) => { const x = mitGrab({profile:{xp:xp, weights:[]}}, {sessions:{'s1': jetzt}});
+                                 x.profile.geloeschtXP = {'s1': 40}; return x; };
+  t('Nie gesehene, begrabene Einheit bringt ihre XP mit', () => {
+    const pc = blob({profile:{xp:0, weights:[]}});
+    return eq(blobsZusammen(pc, handyMitGrab(40)).blob.profile.xp, 40);
+  });
+  t('Kennt diese Seite die Einheit, kommen keine XP dazu', () => {
+    const pc = blob({sessions:[einheit('s1', 100, 40)], profile:{xp:40, weights:[]}});
+    const z = blobsZusammen(pc, handyMitGrab(40)).blob;
+    return (z.profile.xp === 40 && z.sessions.length === 0) || JSON.stringify({xp:z.profile.xp, n:z.sessions.length});
+  });
+  t('Hat diese Seite sie selbst begraben, kommen keine XP dazu', () => {
+    return eq(blobsZusammen(handyMitGrab(40), handyMitGrab(40)).blob.profile.xp, 40);
+  });
+  t('Zweimal abgleichen zaehlt die XP nicht doppelt', () => {
+    const erst = blobsZusammen(blob({profile:{xp:0, weights:[]}}), handyMitGrab(40)).blob;
+    return eq(blobsZusammen(erst, handyMitGrab(40)).blob.profile.xp, 40);
+  });
+  t('Beide Richtungen ergeben dieselbe Zahl', () => {
+    const pc = blob({profile:{xp:0, weights:[]}});
+    const hin = blobsZusammen(pc, handyMitGrab(40)).blob.profile.xp;
+    const her = blobsZusammen(handyMitGrab(40), pc).blob.profile.xp;
+    return (hin === 40 && her === 40) || JSON.stringify({hin, her});
+  });
+  t('Grabstein ohne XP-Vermerk (aeltere Fassung) bringt nichts', () => {
+    const alt = mitGrab({profile:{xp:40, weights:[]}}, {sessions:{'s1': jetzt}});
+    return eq(blobsZusammen(blob({profile:{xp:0, weights:[]}}), alt).blob.profile.xp, 0);
+  });
+  t('Der XP-Vermerk wandert mit und verfaellt mit seinem Grabstein', () => {
+    const alt = mitGrab({profile:{xp:40, weights:[]}}, {sessions:{'s1': jetzt, 's2': tage(91)}});
+    alt.profile.geloeschtXP = {'s1': 40, 's2': 25};
+    const k = blobsZusammen(blob({profile:{xp:40, weights:[]}}), alt).blob.profile.geloeschtXP;
+    return (k && k.s1 === 40 && k.s2 === undefined) || JSON.stringify(k);
+  });
+  // ⚠️ Die geklickte Haelfte (entsteht beim Loeschen ueberhaupt ein Vermerk?) steht weiter
+  // unten bei den anderen Klick-Pruefungen -- `mitZustand` und `grabKlick` gibt es erst dort.
 
   // ---- Keine Regression: ohne Grabsteine laeuft alles wie vorher ----
   t('Neben einem Grabstein kommt der Rest normal dazu', () => {
@@ -860,6 +904,26 @@ window.addEventListener('error', e => {
     grabKlick('data-act', 'delsess', 2);
     const g = profile.geloescht && profile.geloescht.sessions;
     return !!(g && g.stest) || 'kein Grabstein: ' + JSON.stringify(g);
+  }));
+  /* 14.09.2026: der Grabstein einer Einheit traegt ihre XP mit. Die Pruefungen zum Abgleich
+     stellen den Vermerk von Hand -- ob der Loeschweg ihn wirklich schreibt, zeigt nur ein
+     echter Klick (Regel vom 06.09.: das Teil UND den Einbau pruefen). */
+  t('Loeschen einer Einheit merkt sich ihre XP', () => mitZustand(() => {
+    sessions = [einheit('sxp', Date.now(), 40)];
+    detailSessionId = 'sxp';
+    grabsteineInit(profile).sessions = {};
+    profile.geloeschtXP = {};
+    grabKlick('data-act', 'delsess', 2);
+    return eq(profile.geloeschtXP && profile.geloeschtXP.sxp, 40);
+  }));
+  t('Der XP-Vermerk ueberlebt Speichern und Neustart-Aufraeumen', () => mitZustand(() => {
+    sessions = [einheit('sxp2', Date.now(), 25)];
+    detailSessionId = 'sxp2';
+    grabKlick('data-act', 'delsess', 2);
+    normalizeProfile();
+    const roh = DB.get('profile');
+    return (profile.geloeschtXP.sxp2 === 25 && roh && roh.geloeschtXP && roh.geloeschtXP.sxp2 === 25)
+           || JSON.stringify({jetzt: profile.geloeschtXP, platte: roh && roh.geloeschtXP});
   }));
   /* Der Grabstein muss den Weg ueber die Platte ueberstehen -- er liegt im Profil und
      wird von `save()` mitgeschrieben. Ohne das waere er nach dem naechsten Start weg. */

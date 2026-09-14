@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.105';
+var APP_FASSUNG = 'v0.106';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -1648,6 +1648,7 @@ if(profile.days==null) profile.days=null;        // Trainingstage, 0=Mo … 6=So
    ⚠️ Vor den Grabsteinen kam die Einheit einfach zurueck und beide Seiten glichen sich an --
    um den Preis des Gespenstes. **Das ist eine Abwaegung, keine Panne**, und sie liegt bei
    Karl: steht als offener Punkt in `open-loops-apps`. Bis dahin bleibt es, wie es ist.
+   ✅ 14.09.2026: Karl hat ja gesagt. Der Grabstein traegt jetzt die XP mit -- `grabXPInit()`.
    ⚠️ Die Grabsteine stehen im Profil und wandern deshalb selbst ueber den Abgleich.
    Ohne das wuesste die andere Seite nichts von der Beerdigung.                        */
 const GRABSTEIN_ARTEN = ['sessions','meals','foods','weights'];
@@ -1666,11 +1667,50 @@ function grabsteineInit(p){
    Stelle und bewusst, statt an vier Stellen versehentlich. */
 function grabsteinSchluessel(k){ return String(k); }
 
-function grabsteinSetzen(art, kennung){
+function grabsteinSetzen(art, kennung, xp){
   if(kennung===undefined || kennung===null) return;
   const g = grabsteineInit(profile);
   if(!g[art] || typeof g[art]!=='object') g[art] = {};
   g[art][grabsteinSchluessel(kennung)] = Date.now();
+  // Bei einer Einheit: wie viel XP sie wert war (14.09.2026) -- siehe `grabXPInit()`.
+  if(art === 'sessions' && +xp > 0) grabXPInit(profile)[grabsteinSchluessel(kennung)] = +xp;
+}
+/* ---------- XP gleich auf beiden Geraeten (14.09.2026) ----------
+   Karls Ja vom 14.09.2026 auf den Punkt vom 06.09. (steht oben: "Kein Zweig gleicht das je
+   wieder aus"). Der Grabstein einer Einheit merkt sich, wie viel XP sie wert war.
+   Beim Abgleich gilt dann:
+     · diese Seite KENNT die Einheit (steht da, oder eigener Grabstein) -> nichts dazu. Die XP
+       stecken schon im Punktestand, und das oertliche Loeschen zieht auch nichts ab.
+     · diese Seite hat sie NIE gesehen -> die XP aus dem Vermerk kommen dazu.
+   Danach zeigen beide Geraete dieselbe Zahl, und kein Punkt geht verloren.
+   ⚠️ Eine eigene Karte neben dem Grabstein, kein Objekt IM Grabstein: aeltere Fassungen lesen
+   den Grabstein als Zahl (`+m[k]`) und wuerden ein Objekt beim Aufraeumen sofort wegwerfen --
+   dort kaeme das Geloeschte zurueck. Eine Karte daneben uebersehen sie nur.
+   ⚠️ Grabsteine von vor dieser Fassung haben keinen Vermerk und bringen 0. Was schon
+   auseinandergelaufen ist, gleicht das nicht nachtraeglich aus.
+   ⚠️ Restrisiko wie beim Grabstein selbst: verfaellt der EIGENE Grabstein auf einer Seite
+   frueher als auf der anderen (Uhr geht vor), sieht diese Seite die Einheit als nie gesehen
+   an und zaehlt sie ein zweites Mal. Nur an der 90-Tage-Kante, und nur mit schiefer Uhr. */
+function grabXPInit(p){
+  if(!p || typeof p!=='object') return {};
+  if(!p.geloeschtXP || typeof p.geloeschtXP!=='object' || Array.isArray(p.geloeschtXP)) p.geloeschtXP = {};
+  return p.geloeschtXP;
+}
+// Ein Vermerk ohne Grabstein haelt nichts mehr fest -- er verfaellt zusammen mit ihm.
+function grabXPNurBegrabene(karte, grabSessions){
+  const raus = {};
+  if(!karte || typeof karte!=='object') return raus;
+  const g = (grabSessions && typeof grabSessions==='object') ? grabSessions : {};
+  Object.keys(karte).forEach(k=>{ const w = +karte[k] || 0; if(w > 0 && (k in g)) raus[k] = w; });
+  return raus;
+}
+// Die XP aller begrabenen Einheiten, die `kennt` nicht enthaelt -- also nie gesehen wurden.
+function grabXPDazu(grabSessions, kennt, karteDort){
+  if(!grabSessions || typeof grabSessions!=='object') return 0;
+  if(!karteDort || typeof karteDort!=='object') return 0;
+  let n = 0;
+  Object.keys(grabSessions).forEach(k=>{ if(!kennt.has(k)) n += Math.max(0, +karteDort[k] || 0); });
+  return n;
 }
 /* Was laenger als GRABSTEIN_TAGE her ist, faellt raus -- sonst waechst die Liste ewig.
    ⚠️ **Die Annahme dahinter, ausdruecklich als Annahme:** „nach 90 Tagen kennt kein Geraet
@@ -1751,6 +1791,8 @@ function normalizeProfile(){
      durchgehen -- sonst begruesst sie jeden Bestandsnutzer beim Umstieg mit "wieder da?". */
   if(typeof profile.zuletztDa !== 'number') profile.zuletztDa = null;
   grabsteineAufraeumen(grabsteineInit(profile));   // Grabsteine (06.09.2026)
+  // XP-Vermerke verfallen mit ihrem Grabstein (14.09.2026)
+  profile.geloeschtXP = grabXPNurBegrabene(profile.geloeschtXP, profile.geloescht.sessions);
   kcalInit();                                               // Tagesziel, eigene Lebensmittel, Mahlzeiten
 }
 normalizeProfile();
@@ -7996,6 +8038,14 @@ function blobsZusammen(basis, dazu, resetBeachten){
      ⚠️ Der EIGENE Stand wird gleich hier mitgefiltert und nicht erst am Ende: sonst
      stuende das Geloeschte weiter in `basis`, `vereinige()` saehe die Kennung als
      bekannt an und der Filter auf der anderen Seite liefe ins Leere. */
+  /* Was diese Seite schon kennt, festgehalten VOR dem Filtern (14.09.2026): eine eigene
+     Einheit, die gleich wegen eines fremden Grabsteins faellt, hat ihre XP laengst hier.
+     Nur was hier weder steht noch begraben ist, bringt ueber `grabXPDazu()` XP mit. */
+  const kenntB = new Set();
+  (Array.isArray(b.sessions) ? b.sessions : []).forEach(x=>{
+    if(x && x.id !== undefined && x.id !== null) kenntB.add(grabsteinSchluessel(x.id)); });
+  const eigeneGrab = b.profile && b.profile.geloescht && b.profile.geloescht.sessions;
+  if(eigeneGrab && typeof eigeneGrab==='object') Object.keys(eigeneGrab).forEach(k=>kenntB.add(k));
   const grab = grabsteineAufraeumen(grabsteineZusammen(
     b.profile && b.profile.geloescht, d.profile && d.profile.geloescht));
   b.sessions = ohneBegrabene(b.sessions, grab.sessions, x=>x && x.id);
@@ -8017,6 +8067,8 @@ function blobsZusammen(basis, dazu, resetBeachten){
   // die Einheiten darunter hergeben. Einheiten vor dem 05.08. haben kein xp -> zaehlen 0,
   // genau wie an dem Tag, an dem sie entstanden sind.
   b.profile.xp=(+b.profile.xp||0) + s.neu.reduce((n,x)=>n+(+x.xp||0), 0);
+  // Dasselbe fuer Einheiten, die die andere Seite geloescht hat, bevor diese sie je sah.
+  b.profile.xp += grabXPDazu(grab.sessions, kenntB, d.profile && d.profile.geloeschtXP);
   const gw=gewichteZusammen(b.profile.weights,
     ohneBegrabene(d.profile&&d.profile.weights, grab.weights, x=>x && x.date));
   const vorher=(b.profile.weights||[]).length;
@@ -8184,6 +8236,10 @@ function blobsZusammen(basis, dazu, resetBeachten){
   /* Die Grabsteine beider Seiten wandern mit -- sonst wuesste das Geraet, das gleich
      schiebt, nichts von einer Beerdigung auf der anderen Seite. */
   b.profile.geloescht = grab;
+  // Die XP-Vermerke beider Seiten genauso -- sonst wuesste ein drittes Geraet nichts davon.
+  b.profile.geloeschtXP = grabXPNurBegrabene(Object.assign({},
+    (b.profile.geloeschtXP && typeof b.profile.geloeschtXP==='object') ? b.profile.geloeschtXP : {},
+    (dp.geloeschtXP && typeof dp.geloeschtXP==='object') ? dp.geloeschtXP : {}), grab.sessions);
   return {blob:b, uebernommen: s.neu.length + Math.max(0, gw.length-vorher) + zusatz};
 }
 // Liefert {ok,data}: ok=false heißt "konnte nicht laden" (Netz), NICHT "Konto ist leer".
@@ -9243,8 +9299,9 @@ document.addEventListener('click',ev=>{
   else if(a.startsWith('sch:fenster:')){ schFenster=a.split(':')[2]; render(); }
   else if(a==='backhist'){ view='history'; render(); }
   else if(a==='delsess'){ const wegId=detailSessionId;
-    confirmTwice('ds',t,'Einheit löschen?',()=>{ sessions=sessions.filter(x=>x.id!==wegId);
-      grabsteinSetzen('sessions', wegId); save(); view='history'; render(); }); }
+    confirmTwice('ds',t,'Einheit löschen?',()=>{ const weg=sessions.find(x=>x.id===wegId);
+      sessions=sessions.filter(x=>x.id!==wegId);
+      grabsteinSetzen('sessions', wegId, weg && weg.xp); save(); view='history'; render(); }); }
   // ---------------- Freunde (11.09.2026) ----------------
   else if(a==='freund:kopieren'){
     const c = (freundeStand && freundeStand.code) || '';

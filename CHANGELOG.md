@@ -4,6 +4,26 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-14
 
+### v0.106 — XP gleich auf Handy und PC
+
+**Karls Ja** zum Punkt vom 06.09.: *„1 ja bauen"*.
+
+**Vorher:** Einheit am Handy angelegt (+40), hochgeschoben und gelöscht, **bevor der PC sie je
+gesehen hat** → Handy 40 XP mehr als der PC, für immer. Kein Abgleich hat das je ausgeglichen.
+
+**Jetzt:** der Grabstein einer gelöschten Einheit merkt sich ihre XP (`profile.geloeschtXP`).
+Beim Abgleich zählt nur die Seite sie dazu, die die Einheit **nie** kannte — wer sie hatte
+oder selbst gelöscht hat, hat die XP schon. Beide Geräte zeigen danach dieselbe Zahl.
+- eigene Karte neben dem Grabstein, kein Objekt darin: ältere Fassungen würden ein Objekt beim
+  Aufräumen wegwerfen, und das Gelöschte käme dort zurück
+- Vermerke wandern mit und verfallen mit ihrem Grabstein (90 Tage)
+- ⚠️ was **vorher** schon auseinandergelaufen ist, gleicht das nicht aus (alte Grabsteine haben
+  keinen Vermerk) — dafür den Reset auf einem Gerät nochmal ausführen, sobald beide v0.106 haben
+
+🧪 1075 → 1084, davon zwei echt geklickt. Gegenprobe, jede Stelle einzeln stillgelegt:
+Abgleich zählt nicht dazu 3 rot · Aufrufstelle beim Löschen 2 rot · eigener Grabstein nicht
+bekannt 2 rot · Vermerke wandern nicht 1 rot.
+
 ### v0.105 — Rekord: einer je Übung am Tag, beim ersten Mal keiner
 
 **Karls Ansagen:** *„wenn ich das erste mal eine übung mache bekomme ich dann rekorde xp weil das
