@@ -4,6 +4,24 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-14
 
+### v0.107 — Die Bestenliste zeigt, wie alt sie ist
+
+**Karls Ansage:** *„wenn du kannst gerne fixen"* (Punkt vom 06.09.).
+
+**Vorher:** ohne Netz blieb die gemerkte Liste stehen — richtig so —, sah aber immer frisch aus.
+Wer tagelang offline war, sah seinen alten Rang, als wäre er von eben.
+
+**Jetzt:** beim Merken wird der Zeitpunkt mitgeschrieben (eigener Schlüssel `bestenlisteStand`,
+die Liste selbst bleibt unverändert). Ist sie **älter als einen Tag**, steht unter der Liste
+**„Stand: 12.09., 18:40"**. Auch bei „Noch niemand drin". Abmelden räumt den Zeitpunkt mit weg.
+Eine Liste von vor dieser Fassung hat keinen Zeitpunkt — dann wird nichts geraten.
+
+🧪 1084 → 1090. Gegenprobe: Zeitpunkt nicht geschrieben 1 rot · Aufrufstelle auf der Seite 2 rot ·
+Abmelden 1 rot · Ein-Tages-Grenze 1 rot · Alter geraten 1 rot.
+🔧 **Nebenbei eine Prüfung repariert, die falsch rot wurde:** „Fehlt die Tabelle, fliegt auch die
+gemerkte Liste raus" las **fest 1800 Zeichen** ab dem Funktionsanfang. Eine Zeile mehr, und die
+gesuchte Stelle lag dahinter. Liest jetzt bis zur nächsten Funktion.
+
 ### v0.106 — XP gleich auf Handy und PC
 
 **Karls Ja** zum Punkt vom 06.09.: *„1 ja bauen"*.

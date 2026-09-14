@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.106';
+var APP_FASSUNG = 'v0.107';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -6043,6 +6043,10 @@ function renderErfolge(){
        hochgeschrieben, und wer will, kann seinen Browser-Speicher aendern. Der Hinweis steht
        weiter im Kopf von `supabase-bestenliste.sql`, damit er nicht ganz verlorengeht. */
   }
+  /* Wie alt die gemerkte Liste ist -- nur, wenn sie aelter als einen Tag ist (14.09.2026).
+     Steht unter der Karte und damit ganz unten auf der Seite: verschiebt nichts beim Lesen. */
+  const bestenStand = bestenlisteStandText();
+  if(bestenStand) h += `<div class="tiny muted" data-bestenstand style="margin:6px 4px 0">${esc(bestenStand)}</div>`;
 
 
   app.innerHTML = h;
@@ -7142,6 +7146,25 @@ function gemerkteBestenliste(){
 let bestenliste = gemerkteBestenliste();
 let bestenlisteZuletzt = 0;
 let bestenlisteLaeuft = false;
+/* ---------- Die gemerkte Liste traegt ihr Alter (14.09.2026, v0.107) ----------
+   🟠 Fund vom 06.09.: ohne Netz bleibt die alte Liste stehen -- richtig so --, aber sie sah
+   immer frisch aus. Wer tagelang offline war, sah seinen alten Rang, als waere er von eben.
+   Vorher stand an der Stelle "Wird geladen …", seit dem Merken stehen dort Zahlen.
+   ➡️ Beim Merken wird der Zeitpunkt mitgeschrieben, unter EIGENEM Schluessel: die Liste
+   selbst bleibt ein Array, aeltere Fassungen lesen sie weiter. Ist sie aelter als einen Tag,
+   steht "Stand: …" darunter. Karls Ansage vom 14.09.2026: „gerne fixen".
+   ⚠️ Eine Liste von vor dieser Fassung hat keinen Zeitpunkt (0). Dann steht nichts da, statt
+   ein Alter zu raten -- das naechste Auffrischen schreibt ihn. */
+const BESTEN_STAND_KEY = 'bestenlisteStand';
+const BESTEN_ALT_AB = 86400000;                          // ab einem Tag
+function gemerkterBestenlistenStand(){ const s = +DB.get(BESTEN_STAND_KEY, 0); return s > 0 ? s : 0; }
+let bestenlisteStand = gemerkterBestenlistenStand();
+function bestenlisteStandText(jetzt){
+  if(!Array.isArray(bestenliste) || !(bestenlisteStand > 0)) return '';
+  if((jetzt || Date.now()) - bestenlisteStand < BESTEN_ALT_AB) return '';
+  return 'Stand: ' + new Date(bestenlisteStand).toLocaleString('de-DE',
+    {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+}
 
 /* Die eigene Zeile hochschreiben. ⚠️ Getrennt vom Lesen, weil es auch dann passieren soll,
    wenn gerade niemand die Erfolge-Seite ansieht -- sonst stuende in der Liste nur, wer sie
@@ -7533,8 +7556,8 @@ async function bestenlisteAuffrischen(erzwingen){
        nicht" (`false`), muss die gemerkte Liste WEG. Sonst zeigt die App nach dem
        Auffrischen "noch nicht eingerichtet", beim naechsten Kaltstart aber wieder die
        alte Liste -- sie widerspraeche sich selbst, je nachdem wann man hinsieht. */
-    if(Array.isArray(rows)) DB.set(BESTEN_KEY, rows);
-    else if(rows === false){ try{ localStorage.removeItem('gymlog:' + BESTEN_KEY); }catch(e){} }
+    if(Array.isArray(rows)){ DB.set(BESTEN_KEY, rows); bestenlisteStand = Date.now(); DB.set(BESTEN_STAND_KEY, bestenlisteStand); }
+    else if(rows === false){ try{ localStorage.removeItem('gymlog:' + BESTEN_KEY); localStorage.removeItem('gymlog:' + BESTEN_STAND_KEY); }catch(e){} bestenlisteStand = 0; }
     if(view === 'erfolge') render();
   } finally { bestenlisteLaeuft = false; }
 }
@@ -7921,7 +7944,9 @@ function clearSession(){
      ⚠️ Deshalb hier und nicht dort: das hier ist die eine Stelle, durch die ALLE Wege
      gehen. (Dieselbe Bauform wie die Push-Anmeldung, gefunden am 30.08.2026.) */
   try{ localStorage.removeItem('gymlog:' + BESTEN_KEY); }catch(e){}
+  try{ localStorage.removeItem('gymlog:' + BESTEN_STAND_KEY); }catch(e){}   // sein Alter mit (14.09.2026)
   bestenliste = null;
+  bestenlisteStand = 0;
   /* ⚠️ Und die Bremse mit zuruecksetzen. Ohne diese Zeile raeumte das Abmelden zwar die
      Liste, aber `bestenlisteZuletzt` blieb stehen -- die 30-Sekunden-Sperre in
      `bestenlisteAuffrischen` griff weiter, und "Erfolge" hing nach dem naechsten Anmelden

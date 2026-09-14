@@ -2252,7 +2252,13 @@ window.addEventListener('error', e => {
     const q = window.APP_QUELLE;
     const i = q.indexOf('async function bestenlisteAuffrischen');
     if (i < 0) return 'bestenlisteAuffrischen nicht gefunden';
-    const koerper = q.slice(i, i + 1800);
+    /* 14.09.2026: hier stand `q.slice(i, i + 1800)` -- feste Zeichen statt des echten Rumpfs.
+       Eine Zeile mehr im Merken-Zweig (v0.107) schob `rows === false` hinter die Grenze, und
+       die Pruefung meldete "wird nicht behandelt", obwohl nichts fehlte. Dieselbe Bauform wie
+       die 1200 Zeichen der Datenschutz-Pruefung am 11.09. -- nur falsch rot statt falsch gruen.
+       Jetzt bis zur naechsten Funktion. */
+    const ende = q.indexOf('\nasync function ', i + 10);
+    const koerper = q.slice(i, ende < 0 ? i + 4000 : ende);
     if (!/rows === false/.test(koerper)) return 'der Fall "Tabelle fehlt" wird nicht behandelt';
     return /rows === false[^;]*removeItem/.test(koerper.replace(/\s+/g, ' '))
       || 'bei fehlender Tabelle bleibt die alte Liste liegen';
@@ -2437,6 +2443,80 @@ window.addEventListener('error', e => {
       else localStorage.setItem('gymlog:bestenliste', alt);
     }
   });
+
+  /* ================= Die gemerkte Bestenliste traegt ihr Alter (14.09.2026) =================
+     Ohne Netz bleibt die alte Liste stehen und sah immer frisch aus. Jetzt steht ab einem Tag
+     "Stand: …" darunter. Geprueft wird der echte Weg: Auffrischen schreibt den Zeitpunkt, die
+     echte Erfolge-Seite zeigt ihn -- nicht nur die Hilfsfunktion. */
+  const mitBestenStand = (fn) => {
+    const V = { view, session, bliste: bestenliste, stand: bestenlisteStand, auf: bestenlisteAuffrischen,
+                zul: bestenlisteZuletzt, holen: bestenlisteHolen, schieben: bestenlisteSchieben };
+    const altL = localStorage.getItem('gymlog:bestenliste'), altS = localStorage.getItem('gymlog:bestenlisteStand');
+    const zurueck = () => {
+      view = V.view; session = V.session; DB.set('session', V.session); bestenliste = V.bliste;
+      bestenlisteStand = V.stand; bestenlisteAuffrischen = V.auf; bestenlisteZuletzt = V.zul;
+      bestenlisteHolen = V.holen; bestenlisteSchieben = V.schieben;
+      altL === null ? localStorage.removeItem('gymlog:bestenliste') : localStorage.setItem('gymlog:bestenliste', altL);
+      altS === null ? localStorage.removeItem('gymlog:bestenlisteStand') : localStorage.setItem('gymlog:bestenlisteStand', altS);
+      render();
+    };
+    session = {user:{id:'standtest'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    return fn(zurueck);
+  };
+  const erfolgeText = () => {
+    const aufV = bestenlisteAuffrischen; bestenlisteAuffrischen = async () => {};
+    try { view = 'erfolge'; render(); } finally { bestenlisteAuffrischen = aufV; }
+    const s = document.querySelector('[data-bestenstand]');
+    return s ? s.textContent : '';
+  };
+  await tA('Bestenliste: Auffrischen merkt sich den Zeitpunkt', async () => mitBestenStand(async (zurueck) => {
+    try {
+      localStorage.removeItem('gymlog:bestenlisteStand'); bestenlisteStand = 0;
+      bestenlisteSchieben = async () => {};
+      bestenlisteHolen = async () => [{user_id:'standtest', name:'Ich', xp:40}];
+      await bestenlisteAuffrischen(true);
+      const roh = +DB.get('bestenlisteStand', 0);
+      return (roh > Date.now() - 60000 && bestenlisteStand === roh) || 'Zeitpunkt: ' + roh + ' / ' + bestenlisteStand;
+    } finally { zurueck(); }
+  }));
+  t('Bestenliste: aelter als ein Tag -> "Stand" steht unter der Liste', () => mitBestenStand((zurueck) => {
+    try {
+      bestenliste = [{user_id:'standtest', name:'Ich', xp:40}];
+      bestenlisteStand = Date.now() - 2*86400000;
+      const txt = erfolgeText();
+      return /^Stand: \d\d\.\d\d\., \d\d:\d\d$/.test(txt) || 'steht dort: "' + txt + '"';
+    } finally { zurueck(); }
+  }));
+  t('Bestenliste: frische Liste zeigt keinen Stand', () => mitBestenStand((zurueck) => {
+    try {
+      bestenliste = [{user_id:'standtest', name:'Ich', xp:40}];
+      bestenlisteStand = Date.now() - 3600000;
+      return eq(erfolgeText(), '');
+    } finally { zurueck(); }
+  }));
+  t('Bestenliste: ohne Zeitpunkt (aeltere Fassung) wird kein Alter geraten', () => mitBestenStand((zurueck) => {
+    try {
+      bestenliste = [{user_id:'standtest', name:'Ich', xp:40}];
+      bestenlisteStand = 0;
+      return eq(erfolgeText(), '');
+    } finally { zurueck(); }
+  }));
+  t('Bestenliste: auch "Noch niemand drin" zeigt sein Alter', () => mitBestenStand((zurueck) => {
+    try {
+      bestenliste = [];
+      bestenlisteStand = Date.now() - 3*86400000;
+      return /^Stand: /.test(erfolgeText()) || 'kein Stand bei leerer Liste';
+    } finally { zurueck(); }
+  }));
+  t('Abmelden raeumt den Zeitpunkt mit der Liste', () => mitBestenStand((zurueck) => {
+    try {
+      localStorage.setItem('gymlog:bestenlisteStand', String(Date.now()));
+      bestenlisteStand = Date.now();
+      clearSession();
+      return (localStorage.getItem('gymlog:bestenlisteStand') === null && bestenlisteStand === 0)
+        || 'Zeitpunkt liegt noch da';
+    } finally { zurueck(); }
+  }));
 
   /* ================= Einfuehrung fuer Neue (13.09.2026) =================
      Karl: das Tutorial *„muss jetzt passen"*, ein Freund empfiehlt die App gerade vielen.
