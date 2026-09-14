@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.103';
+var APP_FASSUNG = 'v0.104';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -3641,9 +3641,10 @@ const VOL_XP_MAX = 100;              // hoechstens 100 XP aus dem Volumen, also 
    die hier schon mehrfach falsch dastand, ohne dass etwas rot wurde.
    🔴 **Die Seite rechnet ab jetzt mit denselben Konstanten, aus denen die XP entstehen.**
    Wer einen Betrag aendert, aendert die Seite mit -- ohne sie anzufassen. */
-const XP_EINHEIT     = 50;    // fuers Abschliessen einer Einheit, unabhaengig vom Umfang
+// ➡️ 14.09.2026, Karls Werte: Einheit 50 -> 40, Rekord 25 -> 20.
+const XP_EINHEIT     = 40;    // fuers Abschliessen einer Einheit, unabhaengig vom Umfang
 const XP_SATZ        = 10;    // je Arbeitssatz (Aufwaermsaetze zaehlen nirgends mit)
-const XP_REKORD      = 25;    // je Satz, der einen eigenen Rekord bricht
+const XP_REKORD      = 20;    // je Satz, der einen eigenen Rekord bricht
 const XP_VOL_STUFE   = 1000;  // je volle 1.000 kg Volumen ...
 const XP_VOL_JE_STUFE= 20;    // ... gibt es 20 XP, gedeckelt bei VOL_XP_MAX
 function volXP(en){ return Math.min(Math.floor(volume(en)/XP_VOL_STUFE)*XP_VOL_JE_STUFE, VOL_XP_MAX); }

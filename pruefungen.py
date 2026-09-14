@@ -326,7 +326,7 @@ window.addEventListener('error', e => {
   t('Nur abgehakte Saetze zaehlen',     () => eq(doneSets(EINTRAG), 2));
   t('Volumen leerer Liste ist 0',       () => eq(volume([]), 0));
   t('Volumen ohne Gewicht ist 0',       () => eq(volume([{sets:[{done:true, reps:10}]}]), 0));
-  t('XP einer Einheit', () => eq(sessXP(EINTRAG), 2*10 + 50 + Math.floor(1080/1000)*20));
+  t('XP einer Einheit', () => eq(sessXP(EINTRAG), 2*10 + 40 + Math.floor(1080/1000)*20));
 
   // ================================================================ Steigerung
   /* ⚠️ `soll` mitgeben, sonst baut die Pruefung einen Zustand, den die App gar nicht
@@ -1812,30 +1812,31 @@ window.addEventListener('error', e => {
   });
 
   // ---- XP einer Einheit ----
-  t('XP: Grundbetrag von 50 auch ohne Volumen', () => eq(sessXP([{sets:[{done:true, weight:0, reps:10}]}]), 60));
-  t('XP: je abgehaktem Satz 10', () => eq(sessXP([{sets:[{done:true},{done:true},{done:true}]}]), 80));
+  // ➡️ 14.09.2026, Karls Werte: Einheit 40 (war 50), Rekord 20 (war 25).
+  t('XP: Grundbetrag von 40 auch ohne Volumen', () => eq(sessXP([{sets:[{done:true, weight:0, reps:10}]}]), 50));
+  t('XP: je abgehaktem Satz 10', () => eq(sessXP([{sets:[{done:true},{done:true},{done:true}]}]), 70));
   t('XP: je 1000 kg Volumen 20 dazu', () =>
-    eq(sessXP([{sets:[{done:true, weight:100, reps:10}]}]), 10 + 50 + 20));
+    eq(sessXP([{sets:[{done:true, weight:100, reps:10}]}]), 10 + 40 + 20));
   t('XP: Aufwaermsaetze bringen nichts', () => {
     const ohne = sessXP([{sets:[{done:true, weight:60, reps:10}]}]);
     const mit  = sessXP([{sets:[{warm:true, done:true, weight:60, reps:10},{done:true, weight:60, reps:10}]}]);
     return eq(ohne, mit);
   });
   t('XP: nicht abgehakte Saetze bringen nichts', () =>
-    eq(sessXP([{sets:[{done:false, weight:100, reps:10}]}]), 50));
+    eq(sessXP([{sets:[{done:false, weight:100, reps:10}]}]), 40));
 
   // ---- XP nachfuehren, wenn eine alte Einheit geaendert wird ----
   t('Nachrechnen hebt die XP, wenn mehr drin steht', () => {
     profile.xp = 1000;
-    const s = {id:'x', date:Date.now(), xp:60, entries:[{name:'A', sets:[{done:true, weight:0, reps:10},{done:true}]}]};
+    const s = {id:'x', date:Date.now(), xp:50, entries:[{name:'A', sets:[{done:true, weight:0, reps:10},{done:true}]}]};
     sessRecalc(s);
-    return (s.xp === 70 && profile.xp === 1010) || (s.xp + '/' + profile.xp);
+    return (s.xp === 60 && profile.xp === 1010) || (s.xp + '/' + profile.xp);
   });
   t('Nachrechnen senkt die XP, wenn weniger drin steht', () => {
     profile.xp = 1000;
     const s = {id:'x', date:Date.now(), xp:200, entries:[{name:'A', sets:[{done:true}]}]};
     sessRecalc(s);
-    return (s.xp === 60 && profile.xp === 860) || (s.xp + '/' + profile.xp);
+    return (s.xp === 50 && profile.xp === 850) || (s.xp + '/' + profile.xp);
   });
   t('XP fallen beim Nachrechnen nie unter 0', () => {
     profile.xp = 10;
@@ -4285,13 +4286,13 @@ window.addEventListener('error', e => {
     const schwer = sessXP(einheitMit(10, 100, 2, 0), 0);
     return schwer > leicht || 'schweres Training bringt nicht mehr als leichtes';
   });
-  t('Jeder Rekord bringt 25 XP', () =>
-    eq(sessXP(einheitMit(10, 100, 2, 3), 3) - sessXP(einheitMit(10, 100, 2, 0), 0), 75));
+  t('Jeder Rekord bringt 20 XP', () =>
+    eq(sessXP(einheitMit(10, 100, 2, 3), 3) - sessXP(einheitMit(10, 100, 2, 0), 0), 60));
   // Ob ein Satz Rekord war, haengt an der Historie zum Zeitpunkt des Trainings. Wer das aus
   // den Saetzen herleiten wollte, bekaeme beim Nachrechnen eine andere Zahl als beim Beenden.
   t('Die Rekordzahl kommt von aussen, nicht aus den Saetzen', () => {
     const en = einheitMit(10, 100, 2, 0);
-    return eq(sessXP(en, 4) - sessXP(en, 0), 100);
+    return eq(sessXP(en, 4) - sessXP(en, 0), 80);
   });
   t('Rekorde werden ueber die Satz-Markierung gezaehlt', () =>
     eq(zaehleRekorde(einheitMit(10, 100, 2, 3)), 3));

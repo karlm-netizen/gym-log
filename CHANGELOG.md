@@ -4,6 +4,12 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-14
 
+### v0.104 — Einheit 40 XP, Rekord 20 XP
+
+**Karls Werte:** Einheit abgeschlossen **50 → 40**, je Rekord-Satz **25 → 20**. Die Seite
+„Wofür es XP gibt" zieht von selbst mit (liest dieselben Konstanten). Schon vergebene XP bleiben.
+⏭️ Offen bei Karl: wann ein Rekord überhaupt zählt (erstes Mal, mehrere Sätze je Einheit).
+
 ### v0.103 — Karls XP-Werte, neue Level-Kurve, Gigachad auf Level 50
 
 **Erfolge:**
