@@ -4,6 +4,14 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-14
 
+### v0.102 — Ladeschirm zeigt „Beta-Version · v0.102"
+
+**Karls Ansage:** *„auf den loading screen soll außerdem beta version ab jetzt stehen und die
+aktuelle version"*. Klein und grau unten am Rand.
+⚠️ Dafür ist `APP_FASSUNG` aus dem Hauptskript in den Kopf der Seite gewandert — der Ladeschirm
+ist zu sehen, bevor das Hauptskript läuft. Es bleibt **eine** Stelle; Problemmeldungen lesen
+dieselbe Zahl. 🧪 Neue Prüfung: der Ladeschirm zeigt „Beta" und genau `APP_FASSUNG`.
+
 ### v0.101 — „Alles zurücksetzen" kommt auf dem anderen Gerät an
 
 **Karls Meldung:** *„der reset den ich auf meinem handy durch geführt habe hat nicht auf dem pc

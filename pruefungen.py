@@ -4040,6 +4040,13 @@ window.addEventListener('error', e => {
   });
   t('Die Fassung steht nicht auf leer', () =>
     (typeof APP_FASSUNG === 'string' && APP_FASSUNG.length > 0) || 'leer');
+  // Karls Ansage vom 14.09.2026: Beta-Hinweis und Fassung auf den Ladeschirm.
+  t('Der Ladeschirm zeigt Beta-Version und die echte Fassung', () => {
+    const f = document.querySelector('#splash .fassung');
+    if (!f) return 'kein .fassung im Ladeschirm';
+    const txt = f.textContent;
+    return (txt.includes('Beta') && txt.includes(APP_FASSUNG)) || 'steht dort: ' + txt;
+  });
   t('Sehr langer Text wird gekuerzt', () => {
     localStorage.removeItem(MELD_KEY);
     meldungAnlegen('x'.repeat(9000));

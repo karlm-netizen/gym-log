@@ -93,6 +93,14 @@ var SPLASH_HOECHSTENS = 5000;
    Neustart. Im localStorage stuende sie auch noch beim naechsten Oeffnen in einer Woche.
    \u26a0\ufe0f Sofort geloescht, nicht erst am Ende: bricht der Start ab, soll der naechste
    Versuch wieder ein ganz normaler Start sein. */
+/* ---- Fassung: EINE Stelle fuer die ganze App (14.09.2026) ----
+   Karls Ansage: "auf den loading screen soll außerdem beta version ab jetzt stehen und die
+   aktuelle version". Stand vorher als `const` mitten im Hauptskript -- der Ladeschirm ist
+   aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
+   Problemmeldungen lesen dieselbe Zahl.
+   ⚠️ mit der Cacheversion in sw.js gleichziehen */
+var APP_FASSUNG = 'v0.102';
+function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
 try {
@@ -184,6 +192,10 @@ setTimeout(function(){
      ➡️ Jetzt haengt die Breite an echten Schritten (siehe `splashProz` im Kopf). */
   #splash .balken > i{display:block; height:100%; width:0; border-radius:99px;
     background:var(--ok); transition:width .28s ease}
+  /* Beta-Hinweis und Fassung (14.09.2026) -- unten am Rand, leise, damit Brock die Mitte behaelt. */
+  #splash .fassung{position:absolute; left:0; right:0; text-align:center;
+    bottom:calc(env(safe-area-inset-bottom) + 20px); font-size:12px; color:var(--muted);
+    letter-spacing:.3px}
   @keyframes splashHeb{0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)}}
   /* ⚠️ Wer „Bewegung reduzieren" gesetzt hat, bekommt einen ruhigen Schirm statt eines
      huepfenden Monsters. Der Balken bleibt sichtbar, damit man sieht, dass etwas laeuft. */
@@ -977,6 +989,9 @@ setTimeout(function(){
   (function(){ var l = document.querySelector('#splash .laedt');
     if (l) l.textContent = splashSatz(NEUE_FASSUNG); })();</script>
   <div class="balken"><i></i></div>
+  <div class="fassung">Beta-Version</div>
+  <script>(function(){ var f = document.querySelector('#splash .fassung');
+    if (f) f.textContent = splashFassung(); })();</script>
 </div>
 <main id="app" class="wrap"></main>
 
@@ -6763,8 +6778,9 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.101';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
-/* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
+/* ➡️ Die Fassungsnummer steht seit dem 14.09.2026 im Kopf der Seite (beim Ladeschirm) --
+   der zeigt sie an, bevor dieses Skript laeuft.
+   🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
 const MELD_KEY = 'gymlog:meldungen';
