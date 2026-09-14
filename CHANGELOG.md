@@ -4,6 +4,26 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-14
 
+### v0.105 — Rekord: einer je Übung am Tag, beim ersten Mal keiner
+
+**Karls Ansagen:** *„wenn ich das erste mal eine übung mache bekomme ich dann rekorde xp weil das
+sollte nicht sein"* · *„als rekord soll nur das zählen was an einem tag erreicht wurde nicht von
+jedem einzelnen satz"*.
+
+**Vorher:** jeder Satz über dem alten Bestwert war ein Rekord, beim ersten Mal jeder Satz überhaupt.
+5 neue Übungen × 3 Sätze = 15 Rekorde. Drei Sätze mit 85 kg über alten 80 = drei Rekorde.
+
+**Jetzt, je Übung:**
+- das **schwerste Gewicht des Tages** zählt, nicht der einzelne Satz
+- Rekord nur, wenn es **über dem Bestwert aller Tage davor** liegt
+- **erstes Mal = Startwert**, kein Rekord
+- **höchstens einmal am Tag**, auch bei zwei Einheiten
+- gezählt wird **beim Beenden**, mit dem Gewicht, das dann dasteht (nicht mehr beim Abhaken)
+
+Die Meldung beim Abhaken folgt derselben Regel und kommt je Übung einmal. „Wofür es XP gibt"
+beschreibt die neue Regel. Schon vergebene XP bleiben.
+🧪 13 neue Prüfungen, zwei alte umgestellt; Gegenprobe (alter Einbau, ohne Erstes-Mal-Sperre): 4 rot.
+
 ### v0.104 — Einheit 40 XP, Rekord 20 XP
 
 **Karls Werte:** Einheit abgeschlossen **50 → 40**, je Rekord-Satz **25 → 20**. Die Seite

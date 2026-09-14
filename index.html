@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.104';
+var APP_FASSUNG = 'v0.105';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -1973,9 +1973,39 @@ function fmtDauer(ms){ if(!(ms>0)) return null; const min=Math.round(ms/60000);
 function arbeit(sets){ return (sets||[]).filter(s=>!s.warm); }
 function volume(en){ let v=0; en.forEach(e=>arbeit(e.sets).forEach(s=>{ if(s.done) v+=(+s.weight||0)*(+s.reps||0); })); return Math.round(v); }
 function doneSets(en){ let n=0; en.forEach(e=>arbeit(e.sets).forEach(s=>{ if(s.done) n++; })); return n; }
-/* Wie viele Saetze dieser Einheit waren ein eigener Rekord? Die Markierung setzt der
-   Haken beim Abhaken (dort ist die Historie noch ohne die laufende Einheit). */
-function zaehleRekorde(en){ let n=0; en.forEach(e=>arbeit(e.sets).forEach(s=>{ if(s.done&&s.pr) n++; })); return n; }
+/* ---------- Rekorde: einer je Uebung und Tag (14.09.2026) ----------
+   Karl: *„wenn ich das erste mal eine übung mache bekomme ich dann rekorde xp weil das sollte
+   nicht sein"* und *„als rekord soll nur das zählen was an einem tag erreicht wurde nicht von
+   jedem einzelnen satz"*.
+   🔴 Vorher zaehlte JEDER Satz ueber dem alten Bestwert, und beim ersten Mal jeder Satz
+   ueberhaupt: 5 neue Uebungen x 3 Saetze = 15 Rekorde. Verglichen wurde nur mit
+   abgeschlossenen Einheiten, drei Saetze mit 85 kg ueber alten 80 waren also drei Rekorde.
+   ➡️ Jetzt, je Uebung (gleicher Name):
+     · das schwerste Gewicht des Tages zaehlt, nicht der einzelne Satz
+     · Rekord nur, wenn es UEBER dem Bestwert aller Tage DAVOR liegt
+     · kein Rekord, solange es vor diesem Tag keinen Wert gibt (erstes Mal = Startwert)
+     · hoechstens einmal am Tag: hat eine fruehere Einheit desselben Tages den Bestwert
+       schon geschlagen, bringt eine zweite nichts mehr
+   ⚠️ Gezaehlt wird beim Beenden, mit dem Gewicht, das dann dasteht -- nicht beim Abhaken.
+   Die Anzahl wird an der Einheit festgehalten (`s.pr`), `sessRecalc` rechnet mit ihr weiter. */
+function tagesBeginn(ts){ const d=new Date(ts); d.setHours(0,0,0,0); return d.getTime(); }
+function bestesGewicht(name, nimm){ let best=0;
+  sessions.forEach(s=>{ if(!nimm(s)) return;
+    (s.entries||[]).forEach(e=>{ if(e.name===name) arbeit(e.sets).forEach(st=>{ if(st.done && +st.weight>best) best=+st.weight; }); }); });
+  return best; }
+function rekordeDerEinheit(en, datum){
+  const ab=tagesBeginn(datum), namen=Array.from(new Set((en||[]).map(e=>e.name)));
+  let n=0;
+  namen.forEach(name=>{
+    let heute=0;
+    en.filter(e=>e.name===name).forEach(e=>arbeit(e.sets).forEach(st=>{ if(st.done && +st.weight>heute) heute=+st.weight; }));
+    const vorher=bestesGewicht(name, s=>+s.date<ab);
+    if(!(vorher>0)) return;                                          // erstes Mal: Startwert
+    if(bestesGewicht(name, s=>sameDay(s.date, datum))>vorher) return; // heute schon gezaehlt
+    if(heute>vorher) n++;
+  });
+  return n;
+}
 
 /* ---------- Tagesaufgaben (26.08.2026) ----------
    Karls Ansage: "wir brauchen ein System mit Aufgaben vielleicht, z.B. ueberhaupt die App
@@ -6027,7 +6057,7 @@ function renderXPListe(){
     <div class="tiny muted" style="margin-top:4px">Zählt zusammen, was in der Einheit steckt. Aufwärmsätze zählen nirgends mit.</div>`;
   [['Einheit abgeschlossen', 'Einmal je Einheit, egal wie groß sie war', '+' + XP_EINHEIT],
    ['Je Arbeitssatz',        'Für jeden abgehakten Satz',                 '+' + XP_SATZ],
-   ['Je eigenem Rekord',     'Ein Satz, der deinen bisherigen schlägt',   '+' + XP_REKORD],
+   ['Neuer Rekord',          'Je Übung einmal am Tag, wenn du dein bisheriges Höchstgewicht schlägt — beim ersten Mal noch nicht', '+' + XP_REKORD],
    ['Volumen',               'Je volle ' + XP_VOL_STUFE.toLocaleString('de-DE') + ' kg — höchstens ' + VOL_XP_MAX + ' XP, also ab ' + ((VOL_XP_MAX/XP_VOL_JE_STUFE)*XP_VOL_STUFE).toLocaleString('de-DE') + ' kg', '+' + XP_VOL_JE_STUFE]
   ].forEach(([n,t,x]) => {
     h += `<div class="row between" style="margin-top:12px;align-items:center;gap:10px">
@@ -8683,10 +8713,9 @@ function startWorkout(plan){
    Vorschlaege stehen als Platzhalter, nicht als Wert) -- ein geplanter, aber nicht gemachter
    Satz traegt also weiterhin nichts bei.
    ⚠️ Nachgezogen wird dabei dasselbe wie beim Abhaken von Hand: fehlende Wiederholungen
-   bekommen die untere Zahl des Zielbereichs, und ein Rekord wird auch hier vermerkt. Sonst
-   verloere Karl fuer genau diese Saetze den Rekord-Bonus -- also fuer die, die er getippt hat.
-   `prFor()` liest nur abgeschlossene Einheiten, die laufende ist nicht dabei; der Wert bleibt
-   waehrend der Schleife also stabil. */
+   bekommen die untere Zahl des Zielbereichs. Der Rekord-Bonus geht fuer getippte Saetze nicht
+   verloren: seit dem 14.09.2026 zaehlt `rekordeDerEinheit()` beim Beenden ueber alle
+   gemachten Saetze, egal ob abgehakt oder getippt. */
 function eingetragenesUebernehmen(){
   let n=0;
   (active.exercises||[]).forEach(e=>{
@@ -8695,7 +8724,7 @@ function eingetragenesUebernehmen(){
       if(!(+s.weight>0) && !(+s.reps>0)) return;      // wirklich leer: bleibt leer
       s.done=true; n++;
       if(!(+s.reps>0)) s.reps=exRange(e)[0];
-      if(!s.warm && +s.weight>0){ const alt=prFor(e.name); if(!alt || +s.weight>alt.w) s.pr=true; }
+      // Rekorde zaehlt seit dem 14.09.2026 rekordeDerEinheit() beim Beenden, hier nichts mehr.
     });
   });
   return n;
@@ -8720,7 +8749,7 @@ function finishWorkout(){
       unten auf <b>Abbrechen</b>.</div>`);
     return; }
   const beforeL=levelFromXP(profile.xp).level, beforeRank=rankForLevel(beforeL).name;
-  const prs=zaehleRekorde(entries);
+  const prs=rekordeDerEinheit(entries, active.date);
   const gained=sessXP(entries, prs);
   profile.xp+=gained;
   aufgabeErledigen('train');     // Tagesaufgabe mit abhaken, falls noch offen
@@ -8919,18 +8948,19 @@ document.addEventListener('click',ev=>{
     // ⚠️ prFor() rechnet nur ueber ABGESCHLOSSENE Einheiten, das laufende Training
     // ist nicht darin — sonst schlaege der eigene Satz von eben den Rekord und es
     // gaebe nie wieder eine Meldung.
-    if(s.done && !s.warm){
-      const name=active.exercises[ei].name, alt=prFor(name);
-      if(+s.weight>0 && (!alt || +s.weight>alt.w)){
-        /* ⚠️ Am SATZ merken, nicht mitzaehlen. Wer abhakt, wieder abwaehlt und erneut
-           abhakt, wuerde sonst zweimal Rekord-XP bekommen. Gezaehlt wird erst beim
-           Beenden, ueber die Saetze -- das ist unabhaengig davon, wie oft geklickt wurde. */
-        s.pr = true;
-        toast(alt ? `Neuer Rekord: ${fmtKg(+s.weight)} kg (vorher ${fmtKg(alt.w)})`
-                  : `Erster Eintrag für ${name} — ab jetzt zählt jeder Rekord`);
-      }
+    /* ➡️ 14.09.2026: nur noch die Meldung. Die XP zaehlt rekordeDerEinheit() beim Beenden --
+       ein Satz, der hier gefeiert und danach abgewaehlt oder leichter getippt wird, bringt
+       also nichts. Gemeldet wird je Uebung EINMAL am Tag, nach derselben Regel. */
+    if(s.done && !s.warm && +s.weight>0){
+      const name=active.exercises[ei].name, ab=tagesBeginn(active.date);
+      const vorher=bestesGewicht(name, x=>+x.date<ab);
+      let heuteSchon=bestesGewicht(name, x=>sameDay(x.date, active.date));
+      active.exercises.forEach(e=>{ if(e.name===name) arbeit(e.sets).forEach(st=>{
+        if(st!==s && st.done && +st.weight>heuteSchon) heuteSchon=+st.weight; }); });
+      if(!(vorher>0)){ if(!(heuteSchon>0)) toast(`Erster Eintrag für ${name} — ab jetzt zählt jeder Rekord`); }
+      else if(+s.weight>vorher && heuteSchon<=vorher)
+        toast(`Neuer Rekord: ${fmtKg(+s.weight)} kg (vorher ${fmtKg(vorher)})`);
     }
-    if(!s.done) delete s.pr;      // abgewaehlt = kein Rekord mehr
     save();
     if(s.done){ startRest(settings.rest); if(navigator.vibrate) navigator.vibrate(40); } render(); return; }
   if(t.dataset.addset!=null){ const e=active.exercises[+t.dataset.addset], last=e.sets[e.sets.length-1]||{}; e.sets.push({weight:last.weight||'',reps:last.reps||'',done:false}); save(); render(); return; }

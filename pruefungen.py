@@ -4294,13 +4294,43 @@ window.addEventListener('error', e => {
     const en = einheitMit(10, 100, 2, 0);
     return eq(sessXP(en, 4) - sessXP(en, 0), 80);
   });
-  t('Rekorde werden ueber die Satz-Markierung gezaehlt', () =>
-    eq(zaehleRekorde(einheitMit(10, 100, 2, 3)), 3));
-  t('Ein abgewaehlter Satz zaehlt nicht als Rekord', () => {
-    const en = einheitMit(3, 100, 2, 3);
-    en[0].sets[1].done = false;
-    return eq(zaehleRekorde(en), 2);
-  });
+  /* ➡️ 14.09.2026, Karls Regel: ein Rekord je Uebung und Tag, beim ersten Mal keiner.
+     Vorher zaehlte jeder Satz -- die zwei Pruefungen dazu (zaehleRekorde) sind mit der
+     Funktion weggefallen. Gerechnet wird ab Mittag heute, damit kein Lauf um Mitternacht
+     zwei Tage vermischt. */
+  const RK_JETZT = tagesBeginn(Date.now()) + 12*3600000, RK_TAG = 864e5;
+  const rkAlt = (tage, name, kg) => ({ id:'rk'+Math.random(), date: RK_JETZT - tage*RK_TAG, xp:0, pr:0,
+    entries:[{ name, sets:[{done:true, weight:kg, reps:5}] }] });
+  const rkEn = (name, ...kgs) => [{ name, sets: kgs.map(kg => ({done:true, weight:kg, reps:5})) }];
+  const rkMit = (liste, fn) => { const m = sessions; sessions = liste; try { return fn(); } finally { sessions = m; } };
+  t('Rekord: das erste Mal gibt keinen', () =>
+    rkMit([], () => eq(rekordeDerEinheit(rkEn('Bank', 60, 60, 60), RK_JETZT), 0)));
+  t('Rekord: drei Saetze ueber dem alten Bestwert sind EIN Rekord', () =>
+    rkMit([rkAlt(3,'Bank',80)], () => eq(rekordeDerEinheit(rkEn('Bank', 85, 85, 90), RK_JETZT), 1)));
+  t('Rekord: gleiches Gewicht ist keiner', () =>
+    rkMit([rkAlt(3,'Bank',80)], () => eq(rekordeDerEinheit(rkEn('Bank', 80, 80), RK_JETZT), 0)));
+  t('Rekord: zwei Uebungen geschlagen = zwei', () =>
+    rkMit([rkAlt(3,'Bank',80), rkAlt(2,'Knie',100)],
+      () => eq(rekordeDerEinheit(rkEn('Bank', 85).concat(rkEn('Knie', 105)), RK_JETZT), 2)));
+  t('Rekord: dieselbe Uebung zweimal im Plan zaehlt einmal', () =>
+    rkMit([rkAlt(3,'Bank',80)], () => eq(rekordeDerEinheit(rkEn('Bank', 85).concat(rkEn('Bank', 90)), RK_JETZT), 1)));
+  t('Rekord: zweite Einheit am selben Tag bringt keinen zweiten', () =>
+    rkMit([rkAlt(3,'Bank',80), {id:'frueh', date: RK_JETZT - 3600000, xp:0, pr:1, entries: rkEn('Bank', 85)}],
+      () => eq(rekordeDerEinheit(rkEn('Bank', 95), RK_JETZT), 0)));
+  t('Rekord: frueher am Tag ohne Rekord, jetzt geschlagen = einer', () =>
+    rkMit([rkAlt(3,'Bank',80), {id:'frueh', date: RK_JETZT - 3600000, xp:0, pr:0, entries: rkEn('Bank', 75)}],
+      () => eq(rekordeDerEinheit(rkEn('Bank', 85), RK_JETZT), 1)));
+  t('Rekord: am ersten Tag auch in der zweiten Einheit keiner', () =>
+    rkMit([{id:'frueh', date: RK_JETZT - 3600000, xp:0, pr:0, entries: rkEn('Bank', 60)}],
+      () => eq(rekordeDerEinheit(rkEn('Bank', 70), RK_JETZT), 0)));
+  t('Rekord: der Aufwaermsatz zaehlt nicht mit', () =>
+    rkMit([rkAlt(3,'Bank',80)], () => eq(rekordeDerEinheit([{ name:'Bank',
+      sets:[{warm:true, done:true, weight:100, reps:5}, {done:true, weight:70, reps:5}] }], RK_JETZT), 0)));
+  t('Rekord: ein nicht gemachter Satz zaehlt nicht', () =>
+    rkMit([rkAlt(3,'Bank',80)], () => eq(rekordeDerEinheit([{ name:'Bank',
+      sets:[{done:false, weight:100, reps:5}] }], RK_JETZT), 0)));
+  t('Rekord: eine spaetere Einheit ist kein Vorher', () =>
+    rkMit([rkAlt(3,'Bank',80), rkAlt(-2,'Bank',120)], () => eq(rekordeDerEinheit(rkEn('Bank', 85), RK_JETZT), 1)));
 
   // ================================================ Tagesaufgaben
   // Der Deckel ist hier die ganze Idee: Aufgaben schieben an, sie tragen nicht.
@@ -5898,12 +5928,37 @@ window.addEventListener('error', e => {
   // \U0001f534 Sonst verloere Karl den Rekord-Bonus fuer genau die Saetze, die er getippt hat.
   t('Ein Rekord wird auch ohne Haken vermerkt', () => {
     const mA = active, mS = sessions, mX = profile.xp, mV = view;
-    sessions = [];
+    // Seit 14.09.2026 braucht ein Rekord einen Wert von einem frueheren Tag.
+    sessions = [{ id:'vor', date: Date.now() - 3*864e5, xp:0, pr:0,
+      entries:[{ name:'Bankdruecken', sets:[{ done:true, weight:150, reps:5 }] }] }];
     active = laufendesTraining([{ weight: 200, reps: 5, done: false }]);
+    finishWorkout();
+    const pr = sessions.length ? sessions[sessions.length-1].pr : -1;
+    active = mA; sessions = mS; profile.xp = mX; view = mV; closeModal();
+    return pr === 1 || 'Rekorde gezaehlt: ' + pr;
+  });
+  // 🔴 Der Einbau, nicht nur die Funktion: finishWorkout muss rekordeDerEinheit auch nehmen.
+  t('Beenden: drei schwerere Saetze geben EINMAL Rekord-XP', () => {
+    const mA = active, mS = sessions, mX = profile.xp, mV = view;
+    sessions = [{ id:'vor', date: Date.now() - 3*864e5, xp:0, pr:0,
+      entries:[{ name:'Bankdruecken', sets:[{ done:true, weight:80, reps:5 }] }] }];
+    active = laufendesTraining([{ weight: 85, reps: 5, done: true }, { weight: 85, reps: 5, done: true },
+                                { weight: 90, reps: 5, done: false }]);
+    finishWorkout();
+    const s = sessions[sessions.length-1];
+    const ok = !!(s && s.id !== 'vor' && s.pr === 1 && s.xp === sessXP(s.entries, 1));
+    const txt = s ? 'pr=' + s.pr + ' xp=' + s.xp : 'nichts gespeichert';
+    active = mA; sessions = mS; profile.xp = mX; view = mV; closeModal();
+    return ok || txt;
+  });
+  t('Beenden: beim ersten Mal keine Rekord-XP', () => {
+    const mA = active, mS = sessions, mX = profile.xp, mV = view;
+    sessions = [];
+    active = laufendesTraining([{ weight: 60, reps: 8, done: true }, { weight: 60, reps: 8, done: true }]);
     finishWorkout();
     const pr = sessions.length ? sessions[0].pr : -1;
     active = mA; sessions = mS; profile.xp = mX; view = mV; closeModal();
-    return pr === 1 || 'Rekorde gezaehlt: ' + pr;
+    return pr === 0 || 'Rekorde gezaehlt: ' + pr;
   });
   /* \U0001f534 Und der Fall, der Karl den Abend gekostet haette: wirklich nichts drin. Frueher
      war die Einheit dann weg -- ohne Nachfrage, ohne Rueckweg. Jetzt bleibt sie stehen und
@@ -5957,13 +6012,15 @@ window.addEventListener('error', e => {
   // Aufwaermsaetze zaehlen nicht ins Volumen - das war vorher so und bleibt so.
   t('Ein eingetragener Aufwaermsatz bringt keinen Rekord', () => {
     const mA = active, mS = sessions, mX = profile.xp, mV = view;
-    sessions = [];
+    // Bestwert 100 von frueher: nur der Aufwaermsatz (300) laege darueber.
+    sessions = [{ id:'vor', date: Date.now() - 3*864e5, xp:0, pr:0,
+      entries:[{ name:'Bankdruecken', sets:[{ done:true, weight:100, reps:5 }] }] }];
     active = laufendesTraining([{ weight: 300, reps: 5, done: false, warm: true },
                                 { weight: 60,  reps: 8, done: false }]);
     finishWorkout();
-    const pr = sessions.length ? sessions[0].pr : -1;
+    const pr = sessions.length ? sessions[sessions.length-1].pr : -1;
     active = mA; sessions = mS; profile.xp = mX; view = mV; closeModal();
-    return eq(pr, 1);
+    return eq(pr, 0);
   });
 
   // ================================================ Nummern statt Namen (v34)
