@@ -2,6 +2,29 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-09-14
+
+### v0.101 — „Alles zurücksetzen" kommt auf dem anderen Gerät an
+
+**Karls Meldung:** *„der reset den ich auf meinem handy durch geführt habe hat nicht auf dem pc
+funktioniert"* · **Entscheidung** auf die Wahl A/B: *„b"* — der Reset gewinnt komplett.
+
+**Was vorher passierte:** der Reset leerte nur das Gerät. Beim Zusammenführen gilt, was auf einer
+Seite fehlt, als *neu* — der PC behielt alles, schob es zurück, und danach hatte auch das Handy
+wieder alles.
+
+**Jetzt:** ein Reset stempelt die Uhrzeit. Hat eine Seite den jüngeren Stempel, gilt ihr Stand
+komplett — Trainings, Gewichte, Essen, XP. ⚠️ **Preis, so gewählt:** was auf dem anderen Gerät
+zwischen Reset und dessen nächstem Abgleich eingetragen wurde, ist weg.
+
+- Die **Bestenlisten-Schalter** gehen dabei nicht verloren: dort gilt weiter die spätere Entscheidung.
+- **Anmelden mit fremdem Stand** ist ausgenommen — ein Reset von einem fremden Gerät darf das
+  Konto nicht leerräumen.
+- ⚠️ **Der Reset vom 13.09. hat noch keinen Stempel** und wirkt nicht nachträglich. Erst wenn
+  beide Geräte v0.101 haben, noch einmal zurücksetzen.
+
+🧪 1047 grün, sieben neu. Gegenproben: vier Stellen einzeln ausgebaut, jede macht ihre Prüfung rot.
+
 ## 2026-09-13
 
 ### v0.100 — „Alles zurücksetzen" lässt die Bestenlisten-Schalter stehen

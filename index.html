@@ -6763,7 +6763,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
    Ordnung waren. Die laegen weiter im Geraet, gingen wieder zusammen raus und
    wuerden wieder zusammen abgewiesen — fuer immer. Bei angel-log am 12.08.2026
    genau deshalb umgebaut.                                                        */
-const APP_FASSUNG = 'v0.100';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
+const APP_FASSUNG = 'v0.101';          // ⚠️ mit der Cacheversion in sw.js gleichziehen
 /* 🔴 Stand hier bis zum 31.08.2026 auf 'v32' -- 22 Fassungen lang. Jede Problemmeldung,
    die Karl seit dem 27.08. geschickt hat, traegt also die falsche Nummer, und beim Nachsehen
    waere man im falschen Stand gelandet. Der Kommentar daneben stand die ganze Zeit da. */
@@ -7890,7 +7890,40 @@ function gewichteZusammen(a, b){
 }
 // `basis` gewinnt bei allem, was keine Liste ist (Plaene, Einstellungen, Theme).
 // Zurueck kommt der neue Stand und wie viele Eintraege aus `dazu` uebernommen wurden.
-function blobsZusammen(basis, dazu){
+/* ---------- Der Reset gewinnt (14.09.2026) ----------
+   🔴 Karls Meldung: *„der reset den ich auf meinem handy durch geführt habe hat nicht auf dem
+   pc funktioniert"*. So war es gebaut: "Alles zuruecksetzen" leerte das Geraet und schob den
+   leeren Stand hoch. Der PC fuehrte zusammen -- und was auf einer Seite FEHLT, liest
+   `vereinige()` als neu, nicht als geloescht. Er behielt alles, schob es zurueck, und beim
+   naechsten Oeffnen hatte auch das Handy wieder alles.
+   ➡️ Karls Entscheidung auf die Wahl A/B: **„b"** -- der Reset gewinnt komplett.
+   Ein Reset stempelt `profile.resetStand`. Hat eine Seite den juengeren Stempel, gilt IHR
+   Stand, ohne Zusammenfuehren. ⚠️ Der Preis, so vorgelegt und gewaehlt: was auf dem anderen
+   Geraet zwischen Reset und dessen naechstem Abgleich eingetragen wurde, ist weg.
+   ⚠️ Eine Ausnahme: die Bestenlisten-Schalter. Sie sind ein Widerspruch (Art. 21), kein
+   Fortschritt -- dort gilt weiter die spaetere Entscheidung, egal auf welcher Seite. */
+function resetStempel(x){ return (x && x.profile && +x.profile.resetStand) || 0; }
+/* 🔴 `resetBeachten=false` beim Anmelden mit einem FREMDEN Stand (`anmeldungAbgleichen`,
+   `fremderStand`). Dort stammen die zwei Stempel aus zwei verschiedenen Leben: ein Reset
+   auf einem fremden Geraet wuerde sonst das Konto leerraeumen, in das man sich gerade
+   einloggt -- obwohl man "uebernehmen" gesagt hat und ZUSAMMENFUEHREN meinte. */
+function blobsZusammen(basis, dazu, resetBeachten){
+  const rB = resetStempel(basis), rD = resetStempel(dazu);
+  if(resetBeachten !== false && rB !== rD){
+    const sieger = rD > rB ? dazu : basis, verlierer = rD > rB ? basis : dazu;
+    const w = JSON.parse(JSON.stringify(sieger||{}));
+    if(!w.profile || typeof w.profile !== 'object') w.profile = {xp:0};
+    const lW = w.profile.bestenliste, lV = verlierer && verlierer.profile && verlierer.profile.bestenliste;
+    if(lV && typeof lV === 'object' && (!lW || typeof lW !== 'object' || (+lV.ts||0) > (+lW.ts||0)))
+      w.profile.bestenliste = {an: lV.an!==false, freunde: lV.freunde!==false, ts: +lV.ts||0};
+    /* `uebernommen` zaehlt wie sonst nur echte Eintraege (ein frischer Reset bringt 0 -- sonst
+       kaeme beim Anmelden die Uebernahme-Frage). Ob geschoben werden muss, sagt `resetGewinnt`. */
+    const zahl = rD > rB
+      ? (w.sessions||[]).length + ((w.profile.weights)||[]).length
+        + ((w.profile.kcal && w.profile.kcal.meals)||[]).length + ((w.profile.kcal && w.profile.kcal.foods)||[]).length
+      : 0;
+    return {blob: w, uebernommen: zahl, resetGewinnt: rD > rB};
+  }
   const b=JSON.parse(JSON.stringify(basis||{})), d=dazu||{};
   let zusatz=0;                      // wie viel ausser Einheiten und Gewichten dazukam
   /* --- Grabsteine zuerst (06.09.2026) ---
@@ -8160,7 +8193,10 @@ async function mitCloudZusammenfuehren(data){
   const ausCloud=blobsZusammen(data, lokal);
   loadBlob((dirty?ausLokal:ausCloud).blob);
   if(session) render();
-  if(dirty || ausCloud.uebernommen>0){ setDirty(true); await cloudPush(); } }
+  /* ⚠️ `resetGewinnt`: das Geraet hat einen juengeren Reset als die Cloud (etwa weil ein
+     Geraet mit alter Fassung den alten Stand zurueckgeschoben hat). Dann muss hoch, auch
+     wenn nichts "uebernommen" wurde -- sonst bliebe der alte Stand in der Cloud stehen. */
+  if(dirty || ausCloud.uebernommen>0 || ausCloud.resetGewinnt){ setDirty(true); await cloudPush(); } }
 /* ---------- Anmelden: wessen Stand liegt hier? (13.09.2026) ----------
    Laeuft nach jeder neuen Sitzung (Anmelden, Registrieren, Passwort-Link) und beim Start,
    solange die Kennung nicht zum Konto passt. `res` ist das Ergebnis von `cloudPull()`.
@@ -8189,7 +8225,7 @@ async function anmeldungAbgleichen(res){
     if(uebernehmen){
       /* Die Cloud gibt Plaene und Einstellungen vor (es ist ihr Konto), dazu kommt, was
          nur hier lag. */
-      const z = blobsZusammen(res.data, appDataBlob());
+      const z = blobsZusammen(res.data, appDataBlob(), false);
       loadBlob(z.blob);
       if(z.uebernommen > 0){ setDirty(true); await cloudPush(); }
     } else {
@@ -8211,7 +8247,7 @@ async function anmeldungAbgleichen(res){
 function fremderStand(cloud){
   const basis = cloud || {profile:{}};
   const lokal = appDataBlob();
-  const z = blobsZusammen(basis, lokal);
+  const z = blobsZusammen(basis, lokal, false);
   const kenne = new Set((basis.sessions || []).map(x => x && x.id));
   const neu = (lokal.sessions || []).filter(x => x && !kenne.has(x.id));
   const zuletzt = neu.reduce((m, x) => Math.max(m, +x.date || 0), 0);
@@ -9089,7 +9125,7 @@ document.addEventListener('click',ev=>{
      Widerspruch nach Art. 21, kein Fortschritt. Vorher stand hier nur `theme` -- ein Reset
      haette "aus" still auf "an" gestellt, und `bestenlisteAuffrischen(true)` darunter haette
      Name und XP sofort wieder fuer alle sichtbar hochgeschrieben. */
-  else if(a==='resetall'){ confirmTwice('rst',t,'Wirklich alles löschen?',()=>{ programs=[neuerPlan('Mein Plan',seedPlans())]; sessions=[]; profile={xp:0,theme:profile.theme,bestenliste:profile.bestenliste}; settings={rest:90}; active=null; normalizeProfile(); bindPlans(); save(); applyTheme();
+  else if(a==='resetall'){ confirmTwice('rst',t,'Wirklich alles löschen?',()=>{ programs=[neuerPlan('Mein Plan',seedPlans())]; sessions=[]; profile={xp:0,theme:profile.theme,bestenliste:profile.bestenliste,resetStand:Date.now()}; settings={rest:90}; active=null; normalizeProfile(); bindPlans(); save(); applyTheme();
     /* 🔴 10.09.2026, Karls Fund: „meine freundin hat ihren account zurückgesetzt und man
        sieht die xp die sie auch über admin bekommen hat auf dem leaderboard."
        Das Zuruecksetzen raeumte den Datenbestand auf dem GERAET auf und fasste die

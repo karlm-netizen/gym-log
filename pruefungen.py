@@ -556,6 +556,32 @@ window.addEventListener('error', e => {
     return (e && e.an === true) || JSON.stringify(e);
   });
 
+  // ================================================ Reset gewinnt (14.09.2026)
+  t('Reset: juengerer Stempel auf der anderen Seite gewinnt komplett', () => {
+    const a = blob({sessions:[einheit('a', 100, 5)], profile:{xp:50, weights:[{date:1, kg:80}]}});
+    const b = blob({sessions:[], profile:{xp:0, weights:[], resetStand:500}});
+    const z = blobsZusammen(a, b);
+    return (z.blob.sessions.length === 0 && z.blob.profile.xp === 0
+            && z.blob.profile.weights.length === 0 && z.resetGewinnt === true) || JSON.stringify(z);
+  });
+  t('Reset: juengerer Stempel auf der eigenen Seite gewinnt, nichts kommt zurueck', () => {
+    const a = blob({sessions:[], profile:{xp:0, weights:[], resetStand:900}});
+    const b = blob({sessions:[einheit('alt', 100, 5)], profile:{xp:50, weights:[], resetStand:100}});
+    const z = blobsZusammen(a, b);
+    return (z.blob.sessions.length === 0 && z.blob.profile.xp === 0 && !z.resetGewinnt) || JSON.stringify(z);
+  });
+  t('Reset: ein neueres Bestenlisten-Aus vom Verlierer bleibt stehen', () => {
+    const a = blob({profile:{xp:50, weights:[], bestenliste:{an:false, freunde:false, ts:800}}});
+    const b = blob({profile:{xp:0, weights:[], resetStand:500, bestenliste:{an:true, freunde:true, ts:0}}});
+    const e = blobsZusammen(a, b).blob.profile.bestenliste;
+    return (e && e.an === false && e.freunde === false) || JSON.stringify(e);
+  });
+  t('Reset: gleicher Stempel fuehrt ganz normal zusammen', () => {
+    const a = blob({sessions:[einheit('a', 100, 5)], profile:{xp:5, weights:[], resetStand:500}});
+    const b = blob({sessions:[einheit('b', 200, 7)], profile:{xp:7, weights:[], resetStand:500}});
+    return eq(blobsZusammen(a, b).blob.sessions.map(x=>x.id).join(','), 'a,b');
+  });
+
   t('Einheit, die nur lokal steht, bleibt', () => {
     const a = blob({sessions:[einheit('a', 100, 5)]});
     return eq(blobsZusammen(a, blob({})).blob.sessions.map(x=>x.id).join(','), 'a');
@@ -2266,6 +2292,8 @@ window.addEventListener('error', e => {
       k = document.querySelector('[data-act="resetall"]'); if (k) k.click();
       const b = profile.bestenliste;
       if (!(profile.xp === 0)) return 'es wurde gar nicht zurueckgesetzt (xp=' + profile.xp + ')';
+      // 14.09.2026: ohne Stempel erfaehrt das andere Geraet nie vom Reset.
+      if (!(+profile.resetStand > Date.now() - 60000)) return 'kein Reset-Stempel: ' + profile.resetStand;
       return (b && b.an === false && b.freunde === false && b.ts === 777)
         || 'Schalter nach dem Reset: ' + JSON.stringify(b);
     } finally {
@@ -2552,6 +2580,46 @@ window.addEventListener('error', e => {
       await lauf;
       const ids = sessions.map(x => x.id).sort().join(',');
       return ids === 'in-cloud,nur-hier' || 'auf dem Geraet: ' + ids;
+    }));
+
+  // ---- 2a. Der Reset gewinnt (14.09.2026, Karls Entscheidung "b") ----
+  // 🔴 Karls Fall: Reset am Handy, der PC hat noch alles. Vorher behielt der PC alles und
+  // schob es zurueck. Jetzt: der PC uebernimmt den leeren Stand und schiebt DEN hoch.
+  await tA('Reset am anderen Geraet: der PC uebernimmt den leeren Stand', async () =>
+    besitzerBuehne(() => { besitzerSetzen('ich'); sessions = [bEinheit('alt-am-pc')];
+                           profile = Object.assign({}, profile, {xp: 900}); dirty = true; },
+    async (geschoben) => {
+      const cloud = { programs:[], sessions:[], settings:{rest:90},
+                      profile:{xp:0, weights:[], resetStand: Date.now()} };
+      await anmeldungAbgleichen({ ok:true, data: cloud });
+      if (sessions.length) return 'auf dem PC steht noch: ' + sessions.map(x => x.id).join(',');
+      if (profile.xp !== 0) return 'XP auf dem PC: ' + profile.xp;
+      const oben = geschoben[geschoben.length-1];
+      return (oben && oben.sessions.length === 0) || 'hochgeschoben: ' + JSON.stringify(oben && oben.sessions);
+    }));
+  // Die Gegenrichtung: ein Geraet mit alter Fassung hat den alten Stand zurueckgeschoben.
+  // Das zurueckgesetzte Geraet ist dabei NICHT dirty -- es muss trotzdem schieben.
+  await tA('Juengerer Reset hier, alter Stand in der Cloud: hier gilt, und es wird geschoben', async () =>
+    besitzerBuehne(() => { besitzerSetzen('ich'); sessions = [];
+                           profile = Object.assign({}, profile, {xp: 0, resetStand: Date.now()}); dirty = false; },
+    async (geschoben) => {
+      await anmeldungAbgleichen({ ok:true, data: cloudMit('alt-1', 'alt-2') });
+      if (sessions.length) return 'zurueckgekommen: ' + sessions.map(x => x.id).join(',');
+      const oben = geschoben[geschoben.length-1];
+      return (oben && oben.sessions.length === 0) || 'nicht geschoben: ' + JSON.stringify(geschoben.length);
+    }));
+  // 🔴 Die gefaehrliche Stelle: fremder Stand beim Anmelden. Ein Reset-Stempel von einem
+  // fremden Geraet darf das Konto NICHT leerraeumen -- "Ja" heisst zusammenfuehren.
+  await tA('Fremder Stand mit Reset-Stempel: Uebernehmen raeumt das Konto nicht leer', async () =>
+    besitzerBuehne(() => { localStorage.removeItem(bKey); sessions = [bEinheit('nur-hier')];
+                           profile = Object.assign({}, profile, {resetStand: Date.now()}); },
+    async () => {
+      const lauf = anmeldungAbgleichen({ ok:true, data: cloudMit('im-konto') });
+      const ja = await fremdKnopf('fremdJa');
+      if (!ja) return 'es kam keine Frage';
+      ja.click(); await lauf;
+      const ids = sessions.map(x => x.id).sort().join(',');
+      return ids === 'im-konto,nur-hier' || 'auf dem Geraet: ' + ids;
     }));
 
   // ---- 3. Anderes bekanntes Konto: nicht fragen, Cloud gilt ----
