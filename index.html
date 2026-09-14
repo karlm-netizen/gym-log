@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.102';
+var APP_FASSUNG = 'v0.103';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -1064,12 +1064,22 @@ const RANKS = [
   {name:'Gym-Rookie',   min:10, color:'#2fd0aa', aura:1, unlock:'midnight', img:'brock-4.png'},
   {name:'Pumper',       min:15, color:'#4f8cff', aura:1, img:'brock-5.png'},
   {name:'Eisen-Junkie', min:21, color:'#9b6bff', aura:2, grad:['#c19bff','#7a3cff'], unlock:'crimson', img:'brock-6.png'},
-  {name:'Beast-Mode',   min:28, color:'#ff4d5e', aura:3, grad:['#ff7a3d','#ff2e63'], img:'brock-7.png'},
-  {name:'Gym-Legende',  min:36, color:'#e8b23a', aura:3, grad:['#ffe27a','#e0960f'], unlock:'gold', img:'brock-8.png'},
-  {name:'Gigachad',     min:45, color:'#9be7ff', aura:4, grad:['#7af7ff','#c56bff'], unlock:'neon', img:'brock-9.png'},
+  // ➡️ 14.09.2026, Karls Ansage: Beast-Mode ab 30 (war 28), „Gym-Legende" heisst „Gym-Legend" und kommt ab 40 (war 36).
+  {name:'Beast-Mode',   min:30, color:'#ff4d5e', aura:3, grad:['#ff7a3d','#ff2e63'], img:'brock-7.png'},
+  {name:'Gym-Legend',   min:40, color:'#e8b23a', aura:3, grad:['#ffe27a','#e0960f'], unlock:'gold', img:'brock-8.png'},
+  {name:'Gigachad',     min:50, color:'#9be7ff', aura:4, grad:['#7af7ff','#c56bff'], unlock:'neon', img:'brock-9.png'},
 ];
-function levelFromXP(xp){ let lvl=1, need=100; while(xp>=need){ xp-=need; lvl++; need=100+(lvl-1)*40; } return {level:lvl, into:xp, need}; }
-function xpForLevel(t){ let xp=0; for(let l=1;l<t;l++) xp+=100+(l-1)*40; return xp; }
+/* ---------- Level-Kurve (14.09.2026, Karls Werte) ----------
+   Level 1 -> 2 kostet 100 XP. Jedes weitere Level kostet mehr als das davor, und zwar
+   +40 bis Level 9, +50 ab Level 10, +60 ab Level 25, +100 ab Level 50.
+   Gigachad (vorher Level 45 = 42.240 XP) liegt jetzt auf Level 50 = 63.390 XP.
+   ⚠️ Das Level wird aus den XP GERECHNET, nicht gespeichert: bis Level 10 aendert sich
+   nichts, darueber rutscht mancher bestehende Stand ein paar Level tiefer. Die XP selbst
+   bleiben unangetastet. */
+const XP_LEVEL_ERSTES = 100;
+function xpLevelPlus(l){ return l>=50 ? 100 : l>=25 ? 60 : l>=10 ? 50 : 40; }
+function levelFromXP(xp){ let lvl=1, need=XP_LEVEL_ERSTES; while(xp>=need){ xp-=need; lvl++; need+=xpLevelPlus(lvl); } return {level:lvl, into:xp, need}; }
+function xpForLevel(t){ let xp=0, need=XP_LEVEL_ERSTES; for(let l=1;l<t;l++){ xp+=need; need+=xpLevelPlus(l+1); } return xp; }
 function rankForLevel(l){ let r=RANKS[0]; for(const x of RANKS) if(l>=x.min) r=x; return r; }
 function nextRank(l){ for(const x of RANKS) if(x.min>l) return x; return null; }
 function unlockedThemes(level){ const s=new Set(['dark','light']); if(settings.devUnlockAll){ Object.keys(THEMES).forEach(k=>s.add(k)); return s; } RANKS.forEach(r=>{ if(r.unlock && level>=r.min) s.add(r.unlock); }); return s; }
@@ -2002,7 +2012,8 @@ function zaehleRekorde(en){ let n=0; en.forEach(e=>arbeit(e.sets).forEach(s=>{ i
    ✅ **12.09.2026 -- Karls Ansage: „Gewicht eintragen soll nur 5 xp geben am Tag."**
    Gewicht 10 -> **5**. Damit: Reingeschaut 5 · Mahlzeit 10 · Gewicht 5 · Trainiert 15.
    🔴 **Die Tabelle darueber ist ab hier Geschichte, nicht der Stand.** Neu gerechnet,
-   dieselbe Rechnung wie am 03.09. mit `xpForLevel(45)` = 42.240 XP:
+   dieselbe Rechnung wie am 03.09. mit `xpForLevel(45)` = 42.240 XP
+   (➡️ seit 14.09.: Gigachad = Level 50 = 63.390 XP, also 8,7 bzw. 5,0 Jahre):
 
      ohne Training, seit 12.09. (20/Tag)   2.112 Tage =  5,8 Jahre
      mit taeglichem Training  (35/Tag)     1.207 Tage =  3,3 Jahre
@@ -2134,7 +2145,6 @@ function renderComeback(){
    die, die man nur einmal bekommt. Damit steht ueberall ein Fortschritt statt eines
    nackten Schlosses -- 47 von 50 ist ein Grund weiterzumachen, ein graues Feld nicht.   */
 function gesamtVolumen(){ return sessions.reduce((v,s)=>v+volume(s.entries),0); }
-function gesamtRekorde(){ return sessions.reduce((v,s)=>v+(+s.pr||0),0); }
 /* ⚠️ Beide benutzen `wochenStart()` weiter unten -- die App hat ihren eigenen Begriff von
    einer Woche (Montag 00:00), und der muss ueberall derselbe sein. Beim ersten Bauen stand
    hier eine eigene Wochenrechnung; die haette an einer Stelle Montag und an einer anderen
@@ -2233,8 +2243,11 @@ const ERFOLG_SVG = {
   wal:      `<path d="M6 27c3-6 11-10 19-8 7 2 11 6 12 11 0 5-4 8-10 8H17c-7 0-11-5-11-11z"/><path d="M37 30l7-6v16l-7-6"/><path d="M14 32c4 3 10 3 14 0"/><path class="ma" d="M14 15v-5M10 12L8 7M18 12l2-5"/><circle cx="13" cy="24" r="1.6"/>`,
   vulkan:   `<path d="M5 42L18 16h12l13 26z"/><path d="M18 16h12"/><path class="ma" d="M24 14V4M18 13L14 6M30 13l4-7"/>`,
   stern1:   `<path d="M24 6l5.5 11.2L42 19l-9 8.8L35.2 40 24 34.2 12.8 40 15 27.8 6 19l12.5-1.8z"/>`,
-  stern2:   `<path d="M20 8l4.5 9.2L35 18.6l-7.5 7.3L29.2 36 20 31.2 10.8 36 12.6 25.9 5 18.6l10.5-1.4z"/><path class="ma" d="M37 30l1.8 3.7 4.2.6-3 2.9.7 4.1-3.7-2-3.7 2 .7-4.1-3-2.9 4.2-.6z"/>`,
-  funkeln:  `<path class="ma" d="M16 6l2.6 6.4L25 15l-6.4 2.6L16 24l-2.6-6.4L7 15l6.4-2.6z"/><path d="M34 20l2 4.8 4.8 2-4.8 2-2 4.8-2-4.8-4.8-2 4.8-2z"/><path d="M21 32l1.6 3.8 3.8 1.6-3.8 1.6L21 43l-1.6-3.8-3.8-1.6 3.8-1.6z"/>`,
+  /* 14.09.2026: Rakete fuer 1.000 t (ueber dem Vulkan), Kalender mit Kreispfeil fuer ein Jahr Wiegen
+     (eine „365" waere bei 24 px nicht zu lesen).
+     `stern1` bleibt als Rueckfall in erfolgSvg(), obwohl die Rekord-Erfolge weg sind. */
+  rakete:   `<path d="M24 4c7 6 10 14 10 22l-4 8H18l-4-8c0-8 3-16 10-22z"/><circle class="ma" cx="24" cy="19" r="4"/><path d="M14 26l-6 8 8 1M34 26l6 8-8 1"/><path class="ma" d="M20 38l-2 6M24 38v7M28 38l2 6"/>`,
+  jahr:     `<path d="M8 12h32v30H8z"/><path d="M8 21h32"/><path d="M17 7v9M31 7v9"/><path class="ma" d="M18.5 27.5A7 7 0 1 1 17 32"/><path class="ma" d="M18.5 23.5v4h4"/>`,
   kalender: `<path d="M8 12h32v30H8z"/><path d="M8 21h32"/><path d="M17 7v9M31 7v9"/><path class="ma" d="M15 30l4 4 9-9"/>`,
   flamme:   `<path d="M24 44c-8 0-13-5-13-12 0-8 7-11 7-19 0 0 8 3 8 10 2-2 3-5 3-8 5 4 8 10 8 17 0 7-5 12-13 12z"/><path class="ma" d="M24 44c-4 0-6-3-6-6s3-5 3-9c0 0 5 2 5 6 1-1 1-2 1-4 3 2 3 5 3 7 0 4-2 6-6 6z"/>`,
   berg:     `<path d="M4 40L18 14l8 13 5-7 13 20z"/><path d="M13 26l5 3 4-3"/><path class="ma" d="M31 20v-9M31 11h8l-2.5 3L39 17h-8"/>`,
@@ -2256,19 +2269,20 @@ function erfolgSvg(e, zustand, size){
 }
 
 const ERFOLGE = [
-  { id:'e1',  gr:'Training', svg:'flagge', xp:100,  name:'Angefangen',      text:'Die erste Einheit abgeschlossen',        ziel:1,      ist:()=>sessions.length },
+  /* ➡️ 14.09.2026, Karls Werte: erste Einheit 100 -> 50, Fuenfzig 750 -> 800, Hundert 1500 -> 1600.
+     Volumen: „Eine Tonne" raus, 10 t 180, 100 t 600, 250 t 1000, NEU 1.000 t mit 2000.
+     Die drei Rekord-Erfolge sind ganz raus (die XP je Rekord-Satz in der Einheit bleiben).
+     ⚠️ Schon ausgezahlte Erfolge behalten ihre alten XP -- zurueckgenommen wird nichts
+     (Regel vom 27.08.). Ihre Haken in `profile.erfolge` bleiben liegen und zaehlen nirgends. */
+  { id:'e1',  gr:'Training', svg:'flagge', xp:50,   name:'Angefangen',      text:'Die erste Einheit abgeschlossen',        ziel:1,      ist:()=>sessions.length },
   { id:'e2',  gr:'Training', svg:'haken', xp:250,  name:'Zehnkampf',       text:'10 Einheiten abgeschlossen',             ziel:10,     ist:()=>sessions.length },
-  { id:'e3',  gr:'Training', svg:'hantel', xp:750,  name:'Fünfzig',         text:'50 Einheiten abgeschlossen',             ziel:50,     ist:()=>sessions.length },
-  { id:'e4',  gr:'Training', svg:'krone', xp:1500, name:'Hundert',         text:'100 Einheiten abgeschlossen',            ziel:100,    ist:()=>sessions.length },
+  { id:'e3',  gr:'Training', svg:'hantel', xp:800,  name:'Fünfzig',         text:'50 Einheiten abgeschlossen',             ziel:50,     ist:()=>sessions.length },
+  { id:'e4',  gr:'Training', svg:'krone', xp:1600, name:'Hundert',         text:'100 Einheiten abgeschlossen',            ziel:100,    ist:()=>sessions.length },
 
-  { id:'v1',  gr:'Volumen', svg:'auto', xp:100,  name:'Eine Tonne',      text:'1.000 kg insgesamt bewegt',              ziel:1000,   ist:gesamtVolumen },
-  { id:'v2',  gr:'Volumen', svg:'lkw', xp:250,  name:'Zehn Tonnen',     text:'10.000 kg insgesamt bewegt',             ziel:10000,  ist:gesamtVolumen },
-  { id:'v3',  gr:'Volumen', svg:'wal', xp:750,  name:'Hundert Tonnen',  text:'100.000 kg insgesamt bewegt',            ziel:100000, ist:gesamtVolumen },
-  { id:'v4',  gr:'Volumen', svg:'vulkan', xp:1500, name:'Viertelmillion',  text:'250.000 kg insgesamt bewegt',            ziel:250000, ist:gesamtVolumen },
-
-  { id:'r1',  gr:'Rekorde', svg:'stern1', xp:100,  name:'Erster Rekord',   text:'Einen eigenen Rekord gebrochen',         ziel:1,      ist:gesamtRekorde },
-  { id:'r2',  gr:'Rekorde', svg:'stern2', xp:250,  name:'Zehn Rekorde',    text:'10 eigene Rekorde gebrochen',            ziel:10,     ist:gesamtRekorde },
-  { id:'r3',  gr:'Rekorde', svg:'funkeln', xp:750,  name:'Fünfzig Rekorde', text:'50 eigene Rekorde gebrochen',            ziel:50,     ist:gesamtRekorde },
+  { id:'v2',  gr:'Volumen', svg:'lkw', xp:180,  name:'Zehn Tonnen',     text:'10.000 kg insgesamt bewegt',             ziel:10000,  ist:gesamtVolumen },
+  { id:'v3',  gr:'Volumen', svg:'wal', xp:600,  name:'Hundert Tonnen',  text:'100.000 kg insgesamt bewegt',            ziel:100000, ist:gesamtVolumen },
+  { id:'v4',  gr:'Volumen', svg:'vulkan', xp:1000, name:'Viertelmillion',  text:'250.000 kg insgesamt bewegt',            ziel:250000, ist:gesamtVolumen },
+  { id:'v5',  gr:'Volumen', svg:'rakete', xp:2000, name:'Tausend Tonnen',  text:'1.000.000 kg insgesamt bewegt',          ziel:1000000, ist:gesamtVolumen },
 
   { id:'d1',  gr:'Dranbleiben', svg:'kalender', xp:150,  name:'Volle Woche',     text:'3 Einheiten in einer Woche',             ziel:3,      ist:besteWoche },
   { id:'d2',  gr:'Dranbleiben', svg:'flamme', xp:400,  name:'Vier am Stück',   text:'4 Wochen hintereinander trainiert',      ziel:4,      ist:besteWochenSerie },
@@ -2276,9 +2290,9 @@ const ERFOLGE = [
 
   { id:'l1',  gr:'Rang', svg:'medaille1', xp:0,    name:'Level 10',        text:'Level 10 erreicht',                      ziel:10,     ist:()=>levelFromXP(profile.xp).level },
   { id:'l2',  gr:'Rang', svg:'medaille2', xp:0,    name:'Level 25',        text:'Level 25 erreicht',                      ziel:25,     ist:()=>levelFromXP(profile.xp).level },
-  { id:'l3',  gr:'Rang', svg:'medaille3', xp:0,    name:'Gigachad',        text:'Level 45 — der höchste Rang',            ziel:45,     ist:()=>levelFromXP(profile.xp).level },
+  { id:'l3',  gr:'Rang', svg:'medaille3', xp:0,    name:'Gigachad',        text:'Level 50 — der höchste Rang',            ziel:50,     ist:()=>levelFromXP(profile.xp).level },
 
-  { id:'k1',  gr:'Körper', svg:'waage', xp:50,   name:'Auf die Waage',   text:'Zum ersten Mal das Gewicht eingetragen', ziel:1,      ist:()=>wiegeTage() },
+  { id:'k1',  gr:'Körper', svg:'waage', xp:20,   name:'Auf die Waage',   text:'Zum ersten Mal das Gewicht eingetragen', ziel:1,      ist:()=>wiegeTage() },
   { id:'k2',  gr:'Körper', svg:'kurve', xp:150,  name:'Dreißigmal gewogen', text:'30-mal das Gewicht eingetragen',         ziel:30,     ist:()=>wiegeTage() },
   /* ➡️ 03.09.2026, Karls Ansage: ein Erfolg fuer 100 Wiegungen.
      ⚠️ Gezaehlt werden EINTRAEGE, nicht Tage -- aber `addWeight()` ueberschreibt den
@@ -2288,6 +2302,8 @@ const ERFOLGE = [
      💡 400 XP: dieselbe Stufe wie „Vier am Stueck" im Dranbleiben-Teil. 100 Tage wiegen
      ist Ausdauer, keine Leistung -- und die wird hier ungefaehr so bezahlt. */
   { id:'k3',  gr:'Körper', svg:'waagekranz', xp:400,  name:'Hundertmal gewogen', text:'100-mal das Gewicht eingetragen',      ziel:100,    ist:()=>wiegeTage() },
+  // ➡️ 14.09.2026, Karls Ansage: ein Jahr lang wiegen.
+  { id:'k4',  gr:'Körper', svg:'jahr', xp:1000, name:'Ein Jahr gewogen', text:'365-mal das Gewicht eingetragen',      ziel:365,    ist:()=>wiegeTage() },
 ];
 /* ---------- Wiegen zaehlt einmal am Tag (10.09.2026, Karls Ansage) ----------
    Karl: „Wiegen darf nur 1mal am Tag zu den Erfolgen gezählt werden."
@@ -2377,7 +2393,7 @@ function erfolgeAlsGesehen(){
    waere eine NEUE, freie XP-Quelle. "100 Einheiten" ist keine -- die hundert Einheiten sind
    laengst trainiert und haben laengst XP gebracht. Der Erfolg ist ein Bonus auf Arbeit, die
    schon geleistet ist, kein zweiter Weg nach oben. Deshalb darf er auch dreistellig sein.
-   Alle zusammen: rund 8.000 von 42.240 XP bis Gigachad -- und fuer jeden einzelnen muss die
+   Alle zusammen: 9.600 von 63.390 XP bis Gigachad (Stand 14.09.2026) -- und fuer jeden einzelnen muss die
    Arbeit trotzdem gemacht werden.                                                        */
 
 /* ⚠️ Hier wird als Einziges im ganzen Erfolgs-Teil etwas GESPEICHERT: welche schon ausgezahlt
@@ -3606,7 +3622,7 @@ let sessEdit=false;
 
    Kniebeugen bewegen nun mal mehr Kilo als Curls. Wer stark ist, stieg dreimal so
    schnell auf, und ein ehrlich harter Oberkoerpertag war weniger wert als ein lockerer
-   Beintag. Bis Gigachad (Level 45, 42.240 XP): Anfaenger 15 Monate, Fortgeschrittener 5.
+   Beintag. Bis Gigachad (damals Level 45, 42.240 XP): Anfaenger 15 Monate, Fortgeschrittener 5.
 
    JETZT: die Kilos zaehlen weiter (Karls Ansage: "soll aber auch Gewicht belohnen"),
    aber GEDECKELT. Oben drauf kommt, was wirklich Anstrengung ist: jeder Satz, und jeder

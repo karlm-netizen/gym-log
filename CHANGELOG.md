@@ -4,6 +4,37 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-14
 
+### v0.103 — Karls XP-Werte, neue Level-Kurve, Gigachad auf Level 50
+
+**Erfolge:**
+
+| | vorher | jetzt |
+|---|---|---|
+| Angefangen (1. Einheit) | 100 | **50** |
+| Fünfzig Einheiten | 750 | **800** |
+| Hundert Einheiten | 1.500 | **1.600** |
+| Eine Tonne | 100 | **raus** |
+| Zehn Tonnen | 250 | **180** |
+| Hundert Tonnen | 750 | **600** |
+| Viertelmillion | 1.500 | **1.000** |
+| 🆕 Tausend Tonnen (1.000.000 kg) | — | **2.000** |
+| Erster / Zehn / Fünfzig Rekorde | 100 / 250 / 750 | **alle drei raus** |
+| Auf die Waage | 50 | **20** |
+| 🆕 Ein Jahr gewogen (365×) | — | **1.000** |
+
+Alle Erfolge zusammen: **9.600 XP** (vorher 8.450). XP je Rekord-Satz in der Einheit bleiben.
+
+**Level-Kurve:** Level 1→2 kostet 100, jedes weitere **+40**, ab Level 10 **+50**, ab 25 **+60**,
+ab 50 **+100**. Bis Level 10 ändert sich nichts.
+
+**Ränge:** Beast-Mode 28 → **30** · Gym-Legende → **Gym-Legend**, 36 → **40** · Gigachad 45 → **50**
+(= **63.390 XP**, vorher 42.240). Der Erfolg „Gigachad" zieht mit.
+
+⚠️ **Zurückgenommen wird nichts:** ausgezahlte Erfolge behalten ihre alten XP. Das Level wird aber
+aus den XP gerechnet — wer über Level 10 steht, rutscht ein Stück tiefer, und mancher Rang damit auch.
+🧪 15 neue Prüfungen (jede Zahl einzeln, Kurve an den Knickstellen, Ränge an ihren Grenzen);
+Gegenprobe mit alter Kurve: 8 rot.
+
 ### v0.102 — Ladeschirm zeigt „Beta-Version · v0.102"
 
 **Karls Ansage:** *„auf den loading screen soll außerdem beta version ab jetzt stehen und die

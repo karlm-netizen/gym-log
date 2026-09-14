@@ -90,6 +90,15 @@ window.addEventListener('error', e => {
   t('xpForLevel(1) ist 0',         () => eq(xpForLevel(1), 0));
   t('xpForLevel(2) ist 100',       () => eq(xpForLevel(2), 100));
   t('xpForLevel(3) ist 240',       () => eq(xpForLevel(3), 240));
+  // ➡️ 14.09.2026, Karls Kurve: +40 je Level, ab Level 10 +50, ab 25 +60, ab 50 +100.
+  t('Kurve: bis Level 10 wie vorher (2.340)', () => eq(xpForLevel(10), 2340));
+  t('Kurve: Level 10 -> 11 kostet 470 (+50)', () => eq(levelFromXP(xpForLevel(10)).need, 470));
+  t('Kurve: Level 9 -> 10 kostet 420 (+40)',  () => eq(levelFromXP(xpForLevel(9)).need, 420));
+  t('Kurve: Level 25 -> 26 kostet 1.230 (+60)', () => eq(levelFromXP(xpForLevel(25)).need, 1230));
+  t('Kurve: Level 24 -> 25 kostet 1.170 (+50)', () => eq(levelFromXP(xpForLevel(24)).need, 1170));
+  t('Kurve: Level 50 -> 51 kostet 2.770 (+100)', () => eq(levelFromXP(xpForLevel(50)).need, 2770));
+  t('Kurve: Level 49 -> 50 kostet 2.670 (+60)', () => eq(levelFromXP(xpForLevel(49)).need, 2670));
+  t('Gigachad (Level 50) braucht 63.390 XP', () => eq(xpForLevel(50), 63390));
   t('Hin und zurueck: Level 1..80', () => {
     for (let l = 1; l <= 80; l++)
       if (levelFromXP(xpForLevel(l)).level !== l) return 'Level ' + l + ' -> ' + levelFromXP(xpForLevel(l)).level;
@@ -122,7 +131,11 @@ window.addEventListener('error', e => {
   t('Level 1 ist Couch-Potato',    () => eq(rankForLevel(1).name, 'Couch-Potato'));
   t('Level 2 noch Couch-Potato',   () => eq(rankForLevel(2).name, 'Couch-Potato'));
   t('Level 3 ist Noob',            () => eq(rankForLevel(3).name, 'Noob'));
-  t('Level 45 ist Gigachad',       () => eq(rankForLevel(45).name, 'Gigachad'));
+  // ➡️ 14.09.2026, Karls Ansage zu den oberen Raengen.
+  t('Beast-Mode ab Level 30', () => eq(rankForLevel(30).name, 'Beast-Mode') === true && rankForLevel(29).name !== 'Beast-Mode' || 'Level 29/30: ' + rankForLevel(29).name + '/' + rankForLevel(30).name);
+  t('Gym-Legend ab Level 40', () => eq(rankForLevel(40).name, 'Gym-Legend') === true && rankForLevel(39).name === 'Beast-Mode' || 'Level 39/40: ' + rankForLevel(39).name + '/' + rankForLevel(40).name);
+  t('Level 50 ist Gigachad',       () => eq(rankForLevel(50).name, 'Gigachad'));
+  t('Level 49 ist noch nicht Gigachad', () => rankForLevel(49).name !== 'Gigachad' || 'zu frueh');
   t('Level 999 bleibt Gigachad',   () => eq(rankForLevel(999).name, 'Gigachad'));
   t('Level 0 faellt nicht durch',  () => !!rankForLevel(0) || 'nichts zurueck');
   t('RANKS stehen aufsteigend', () => {
@@ -145,9 +158,9 @@ window.addEventListener('error', e => {
   t('Kein Brock-Bild doppelt', () =>
     new Set(RANKS.map(r => r.img)).size === RANKS.length || 'ein Bild kommt zweimal vor');
   t('naechster Rang nach Level 1 ist Noob', () => eq(nextRank(1).name, 'Noob'));
-  t('Ueber dem letzten Rang: kein naechster', () => eq(nextRank(45), null));
+  t('Ueber dem letzten Rang: kein naechster', () => eq(nextRank(50), null));
   t('nextRank liegt immer ueber dem Level', () => {
-    for (let l = 1; l < 45; l++) { const n = nextRank(l); if (!n || n.min <= l) return 'Level ' + l; }
+    for (let l = 1; l < 50; l++) { const n = nextRank(l); if (!n || n.min <= l) return 'Level ' + l; }
     return true;
   });
 
@@ -164,8 +177,8 @@ window.addEventListener('error', e => {
   });
   t('Level 10 schaltet midnight frei', () => unlockedThemes(10).has('midnight') || 'fehlt');
   t('Level 9 hat midnight noch nicht',  () => !unlockedThemes(9).has('midnight') || 'zu frueh da');
-  t('Level 45 hat alle Freischaltungen', () => {
-    const s = unlockedThemes(45);
+  t('Level 50 hat alle Freischaltungen', () => {
+    const s = unlockedThemes(50);
     const fehlen = RANKS.filter(r => r.unlock && !s.has(r.unlock)).map(r => r.unlock);
     return fehlen.length ? fehlen.join(', ') : true;
   });
@@ -4038,6 +4051,31 @@ window.addEventListener('error', e => {
     const fehlt = muss.filter(k => u[k] === undefined);
     return fehlt.length === 0 || 'fehlt: ' + fehlt.join(', ');
   });
+  // ➡️ 14.09.2026: Karls Erfolgs-Werte, jede Zahl einzeln -- eine vertauschte faellt sonst nicht auf.
+  t('Erfolgs-Werte nach Karls Liste vom 14.09.', () => {
+    const soll = {e1:50, e2:250, e3:800, e4:1600, v2:180, v3:600, v4:1000, v5:2000, k1:20, k4:1000};
+    const falsch = Object.keys(soll).filter(id => { const e = ERFOLGE.find(x => x.id === id);
+      return !e || e.xp !== soll[id]; });
+    return falsch.length === 0 || 'falsch/fehlt: ' + falsch.join(', ');
+  });
+  t('Tausend Tonnen = 1.000.000 kg, ein Jahr wiegen = 365', () => {
+    const v5 = ERFOLGE.find(x => x.id === 'v5'), k4 = ERFOLGE.find(x => x.id === 'k4');
+    return !!(v5 && v5.ziel === 1000000 && k4 && k4.ziel === 365 && ERFOLG_SVG[v5.svg] && ERFOLG_SVG[k4.svg])
+      || 'Ziel oder Symbol stimmt nicht';
+  });
+  t('Rekord-Erfolge und „Eine Tonne" sind raus', () => {
+    const da = ERFOLGE.filter(e => ['r1','r2','r3','v1'].includes(e.id) || e.gr === 'Rekorde').map(e => e.id);
+    return da.length === 0 || 'noch da: ' + da.join(', ');
+  });
+  t('Gigachad-Erfolg sitzt auf Level 50 wie der Rang', () => {
+    const l3 = ERFOLGE.find(x => x.id === 'l3'), giga = RANKS[RANKS.length-1];
+    return (l3 && l3.ziel === giga.min && giga.min === 50) || 'Erfolg ' + (l3 && l3.ziel) + ', Rang ' + giga.min;
+  });
+  t('Ein alter Rekord-Haken im Profil stoert die Erfolge-Ansicht nicht', () => {
+    const merkE = profile.erfolge; profile.erfolge = {r1:true, r2:true, v1:true};
+    try { renderErfolge(); return true; } catch(x) { return 'Absturz: ' + x.message; }
+    finally { profile.erfolge = merkE; }
+  });
   t('Die Fassung steht nicht auf leer', () =>
     (typeof APP_FASSUNG === 'string' && APP_FASSUNG.length > 0) || 'leer');
   // Karls Ansage vom 14.09.2026: Beta-Hinweis und Fassung auf den Ladeschirm.
@@ -6020,7 +6058,7 @@ window.addEventListener('error', e => {
   // Arbeit trotzdem gemacht werden - es ist ein Bonus auf Geleistetes, keine Abkuerzung.
   t('Alle Erfolge zusammen sind keine Abkuerzung nach Gigachad', () => {
     const summe = ERFOLGE.reduce((n, e) => n + (e.xp || 0), 0);
-    const bisGiga = xpForLevel(45);
+    const bisGiga = xpForLevel(50);
     const anteil = summe / bisGiga;
     return (anteil > 0.05 && anteil < 0.35)
       || 'Anteil ' + (anteil * 100).toFixed(0) + '% von ' + bisGiga + ' XP';
@@ -6031,7 +6069,7 @@ window.addEventListener('error', e => {
     renderErfolge();
     const txt = document.getElementById('app').textContent;
     sessions = merkS; profile.erfolge = merkE;
-    return txt.includes('+1.500') || txt.includes('+1500') || 'keine XP-Angabe gefunden';
+    return txt.includes('+2.000') || txt.includes('+2000') || 'keine XP-Angabe gefunden';
   });
 
   // ================================================ Der neue Reiter
@@ -8200,7 +8238,7 @@ window.addEventListener('error', e => {
   });
   t('Das Abbild zeigt den getragenen Rang', () => {
     const xpVorher = profile.xp;
-    profile.xp = xpForLevel(45);          // Gigachad
+    profile.xp = xpForLevel(50);          // Gigachad
     applyTheme();
     const hoch = DB.get('splash', {}).img;
     profile.xp = 0;
