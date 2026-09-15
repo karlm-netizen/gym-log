@@ -6791,6 +6791,49 @@ window.addEventListener('error', e => {
     const body = regeln.some(r => r.selectorText && /(^|,)\s*body\s*(,|$)/.test(r.selectorText) && r.style.overflowX === 'clip');
     return (html && body) || 'overflow-x:clip fehlt an ' + (html ? '' : 'html ') + (body ? '' : 'body');
   });
+  /* 🔴 Karls Meldung (15.09.2026): *„ich kann nur switchen wenn ich auf den Kacheln wische"*.
+     Mit ECHTEN Touch-Ereignissen: Start auf dem leeren Hintergrund unter dem Inhalt (body, nicht
+     #app), auf einem Knopf, und -- als Gegenrichtung -- auf der unteren Leiste. */
+  const wisch = (ziel, dx) => {
+    const x = 200, y = 300;
+    const tp = (cx) => new Touch({ identifier: 7, target: ziel, clientX: cx, clientY: y });
+    ziel.dispatchEvent(new TouchEvent('touchstart', { bubbles:true, touches:[tp(x)], changedTouches:[tp(x)] }));
+    ziel.dispatchEvent(new TouchEvent('touchmove',  { bubbles:true, touches:[tp(x + dx/2)], changedTouches:[tp(x + dx/2)] }));
+    ziel.dispatchEvent(new TouchEvent('touchmove',  { bubbles:true, touches:[tp(x + dx)], changedTouches:[tp(x + dx)] }));
+    ziel.dispatchEvent(new TouchEvent('touchend',   { bubbles:true, touches:[], changedTouches:[tp(x + dx)] }));
+  };
+  const mitWischen = (fn) => {
+    const vS = view, seS = session, mS = window.scrollTo;
+    session = { username:'Karl', access_token:'x', expires_at:Date.now()+3600e3, user:{ id:'ich', email:'k@example.org' } };
+    window.scrollTo = () => {};
+    try { if (typeof Touch !== 'function' || typeof TouchEvent !== 'function') return 'Touch-Ereignisse gibt es im Pruefrahmen nicht';
+          if (window.innerWidth >= 900) return 'Pruefrahmen ist PC-breit (' + window.innerWidth + ')';
+          return fn(); }
+    finally { view = vS; session = seS; window.scrollTo = mS; render(); }
+  };
+  t('Wischen geht auch auf dem leeren Hintergrund unter dem Inhalt', () => mitWischen(() => {
+    view = 'profil'; render();
+    wisch(document.body, 120);                        // nach rechts -> ein Reiter zurueck
+    return view === 'erfolge' || 'vom Hintergrund aus nicht gewechselt, view=' + view;
+  }));
+  t('Wischen geht auch, wenn es auf einem Knopf anfaengt', () => mitWischen(() => {
+    view = 'profil'; render();
+    const knopf = document.createElement('button'); knopf.textContent = 'Kachel';
+    app.appendChild(knopf);
+    wisch(knopf, -120);                               // nach links am rechten Rand: bleibt
+    const amRand = view;
+    view = 'erfolge'; render();
+    const k2 = document.createElement('button'); app.appendChild(k2);
+    wisch(k2, 120);
+    if (amRand !== 'profil') return 'am rechten Rand trotzdem gewechselt: ' + amRand;
+    return view === 'body' || 'vom Knopf aus nicht gewechselt, view=' + view;
+  }));
+  t('Ein Wisch ueber die untere Leiste zieht die Seite nicht weg', () => mitWischen(() => {
+    view = 'erfolge'; render();
+    wisch(document.querySelector('#nav button[data-nav="home"]'), 120);
+    return view === 'erfolge' || 'ueber die Leiste gewechselt, view=' + view;
+  }));
+
   /* Karls Ansage mit dem WhatsApp-Bild: eine Blase um den aktiven Reiter, die beim Wechsel mitkommt. */
   const blaseMessen = () => {
     const b = document.getElementById('navblase'), k = document.querySelector('#nav button.on');

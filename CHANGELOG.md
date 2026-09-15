@@ -4,6 +4,18 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-15
 
+### v0.112 — Wischen geht überall, nicht nur auf den Kacheln
+
+**Karls Meldung:** *„ich kann nur switchen wenn ich auf den Kacheln wische"*. Zwei Gründe:
+1. Die Zuhörer hingen am `#app`, und das ist nur so hoch wie der Inhalt — die leere Fläche darunter
+   gehört zum `body`. ➡️ Jetzt am `document`; bewegt wird weiter nur `#app`.
+2. Ein Wisch, der auf einem **Knopf** anfing, zählte nie. ➡️ Knöpfe erlaubt (nach 12 px waagerecht
+   ist es ein Wisch, der Browser löst dann keinen Klick mehr aus).
+Weiter ausgeschlossen: Eingabefelder, seitlich Scrollbares, Leiste, Pausenuhr, Fenster, Hinweisleisten.
+
+🧪 1118 → **1121**, erstmals mit echten Touch-Ereignissen (vorher gab es für das Wischen **keine
+einzige** Prüfung). Gegenprobe: Zuhörer zurück an `#app` 1 rot · Knöpfe wieder ausgeschlossen 1 rot.
+
 ### v0.111 — Leiste springt nicht mehr beim Profil · Blase um den aktiven Reiter · nur noch SVG
 
 **Karls Meldung:** *„immer wenn ich auf den Profil Reiter switche ist die Leiste ganz kurz oben und
