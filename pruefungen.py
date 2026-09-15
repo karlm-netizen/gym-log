@@ -6762,6 +6762,90 @@ window.addEventListener('error', e => {
      \u26a0\ufe0f Diese Pruefung haelt genau den Deckel fest. Ohne ihn haengt die Lage der Leiste
      wieder an einer Zahl, die von hier aus niemand nachmessen kann -- und sie stuende beim
      naechsten Mal wieder mitten auf der Seite, ohne dass irgendwo etwas rot wird. */
+  /* ================= Leiste: Profil-Sprung, Blase, keine Emojis (15.09.2026) ================= */
+  /* 🔴 Karls Meldung: *„immer wenn ich auf den Profil Reiter switche ist die Leiste ganz kurz oben"*.
+     Ursache 1, gemessen: die Scrollposition der alten Seite blieb stehen (Erfolge 1956 -> Profil 1
+     in einem Bild). Geprueft am Einbau: ein echter Reiterwechsel ruft scrollTo(0,0), BEVOR die
+     neue Seite gezeichnet wird; ein Tipp auf den Reiter, auf dem man steht, nicht. */
+  t('Ein Reiterwechsel scrollt nach oben, bevor die neue Seite steht', () => {
+    const mS = window.scrollTo, vS = view, seS = session; const log = [];
+    session = { username:'Karl', access_token:'x', expires_at:Date.now()+3600e3, user:{ id:'ich', email:'k@example.org' } };
+    window.scrollTo = (x, y) => log.push('scroll:' + x + ',' + y + '@' + view);
+    try {
+      view = 'erfolge'; render();
+      reiterZeigen('profil');
+      const beimWechsel = log.slice();
+      log.length = 0; reiterZeigen('profil');
+      if (beimWechsel.length !== 1) return 'beim Wechsel ' + beimWechsel.length + 'x gescrollt';
+      if (beimWechsel[0] !== 'scroll:0,0@erfolge') return 'falsch oder zu spaet: ' + beimWechsel[0];
+      return log.length === 0 || 'derselbe Reiter scrollt trotzdem';
+    } finally { window.scrollTo = mS; view = vS; session = seS; render(); }
+  });
+  /* 🔴 Ursache 2, gemessen: `translateX(42px)` am Anfang der Einschiebe-Bewegung machte das
+     Dokument breiter als den Bildschirm. `overflow-x:clip` am html UND body -- gelesen an der
+     echten Regel, nicht am Quelltext. */
+  t('Die Einschiebe-Bewegung macht die Seite nicht breiter', () => {
+    const regeln = [];
+    for (const sh of document.styleSheets) { try { for (const r of sh.cssRules) regeln.push(r); } catch (e) {} }
+    const html = regeln.some(r => r.selectorText && /(^|,)\s*html\s*(,|$)/.test(r.selectorText) && r.style.overflowX === 'clip');
+    const body = regeln.some(r => r.selectorText && /(^|,)\s*body\s*(,|$)/.test(r.selectorText) && r.style.overflowX === 'clip');
+    return (html && body) || 'overflow-x:clip fehlt an ' + (html ? '' : 'html ') + (body ? '' : 'body');
+  });
+  /* Karls Ansage mit dem WhatsApp-Bild: eine Blase um den aktiven Reiter, die beim Wechsel mitkommt. */
+  const blaseMessen = () => {
+    const b = document.getElementById('navblase'), k = document.querySelector('#nav button.on');
+    return { b, k, tr: b ? b.style.transform : '', w: b ? parseFloat(b.style.width) : NaN,
+             soll: k ? 'translateX(' + (k.offsetLeft + 4) + 'px)' : '', sollW: k ? k.offsetWidth - 8 : NaN,
+             da: b ? b.classList.contains('da') : false };
+  };
+  t('Die Blase steht unter dem aktiven Reiter und wandert beim Wechsel mit', () => {
+    const vS = view, seS = session;
+    session = { username:'Karl', access_token:'x', expires_at:Date.now()+3600e3, user:{ id:'ich', email:'k@example.org' } };
+    try {
+      view = 'home'; render();
+      const a = blaseMessen();
+      if (!a.b) return 'keine Blase in der Leiste';
+      if (!a.k || !a.k.offsetWidth) return 'die Leiste ist im Pruefrahmen nicht sichtbar';
+      if (!a.da) return 'die Blase ist nicht eingeblendet';
+      if (a.tr !== a.soll) return 'Home: ' + a.tr + ' statt ' + a.soll;
+      if (Math.abs(a.w - a.sollW) > 0.5) return 'Home: Breite ' + a.w + ' statt ' + a.sollW;
+      reiterZeigen('profil');
+      const p = blaseMessen();
+      if (p.k.dataset.nav !== 'profil') return 'Profil ist nicht aktiv';
+      if (p.tr === a.tr) return 'die Blase ist beim Wechsel stehengeblieben';
+      if (p.tr !== p.soll) return 'Profil: ' + p.tr + ' statt ' + p.soll;
+      /* ⚠️ „mitkommen" heisst: sie gleitet. Beim Wechsel darf `sofort` NICHT dranstehen. */
+      return !p.b.classList.contains('sofort') || 'beim Wechsel springt sie, statt zu gleiten';
+    } finally { view = vS; session = seS; render(); }
+  });
+  t('Die Blase gleitet (Uebergang im CSS), ausser bei reduzierter Bewegung', () => {
+    const q = window.APP_QUELLE || ''; if (!q) return 'APP_QUELLE fehlt';
+    const b = document.getElementById('navblase'); if (!b) return 'keine Blase';
+    const tr = getComputedStyle(b).transitionProperty || '';
+    if (tr.indexOf('transform') < 0) return 'kein Uebergang auf transform: ' + tr;
+    return /prefers-reduced-motion[^{]*\{\s*#navblase\{/.test(q) || 'keine Ausnahme fuer reduzierte Bewegung';
+  });
+  /* 🔴 Karls Ansage: *„Ich will nur noch svg Dateien statt Emojis"*. Gesucht wird im Quelltext
+     OHNE Kommentare (dort duerfen sie stehen), und \u-Schreibweisen werden vorher aufgeloest --
+     sonst schluepfte ein '⚠️' einfach durch.
+     ⚠️ Die Bereiche sind absichtlich weiter als „Emoji" im engen Sinn: ✕ ✓ ★ sind Schriftzeichen,
+     sehen aber genauso je Geraet anders aus und sassen genau deshalb nie mittig. */
+  t('Im Quelltext steht kein Emoji mehr (Kommentare ausgenommen)', () => {
+    let q = window.APP_QUELLE || ''; if (!q) return 'APP_QUELLE fehlt';
+    q = q.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/<!--[\s\S]*?-->/g, ' ')
+         .replace(/(^|[^:'"`\\])\/\/[^\n]*/g, '$1');
+    q = q.replace(/\\u\{([0-9a-fA-F]+)\}/g, (m, h) => String.fromCodePoint(parseInt(h, 16)))
+         .replace(/\\u([0-9a-fA-F]{4})/g, (m, h) => String.fromCharCode(parseInt(h, 16)))
+         .replace(/\\U([0-9a-fA-F]{8})/g, (m, h) => String.fromCodePoint(parseInt(h, 16)));
+    const funde = q.match(/[⌀-⏿☀-➿⬀-⯿]|[\u{1F000}-\u{1FAFF}]/gu) || [];
+    return funde.length === 0 || funde.length + ' Zeichen: ' + [...new Set(funde)].join(' ');
+  });
+  t('Jedes Mahlzeiten-Symbol gibt es als SVG', () => {
+    const fehlt = MAHLZEITEN.filter(m => !ICON[m.icon]);
+    if (fehlt.length) return 'ohne SVG: ' + fehlt.map(m => m.id + '/' + m.icon).join(', ');
+    return ic('kaffee').indexOf('<svg') === 0 || 'ic() liefert kein SVG';
+  });
+
   t('Der Abstand der Leiste nach unten ist gedeckelt', () => {
     const s = navRegel(false);
     if (!s) return 'keine nav-Regel in der Handy-Fassung gefunden';

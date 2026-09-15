@@ -4,6 +4,30 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-15
 
+### v0.111 — Leiste springt nicht mehr beim Profil · Blase um den aktiven Reiter · nur noch SVG
+
+**Karls Meldung:** *„immer wenn ich auf den Profil Reiter switche ist die Leiste ganz kurz oben und
+dann geht sie erst runter"*. **Zwei Ursachen, beide nachgemessen** (Chrome, Handybreite):
+1. **Die Scrollposition blieb beim Reiterwechsel stehen.** Von Erfolge (scrollY 1956) aufs Profil
+   (758 hoch) musste der Browser in einem Bild auf 1 kappen — das Profil ist die einzige kurze Seite.
+   ➡️ `reiterZeigen()` scrollt jetzt nach oben, **bevor** die neue Seite steht (nicht beim Tipp auf
+   den Reiter, auf dem man schon ist).
+2. **Die Einschiebe-Bewegung startet 42 px versetzt** — das Dokument war 0,22 s lang breiter als
+   der Bildschirm (scrollWidth 527 bei 485). ➡️ `html, body{overflow-x:clip}`.
+⚠️ Den Sprung selbst gibt es nur auf dem iPhone; bestätigt ist er erst, wenn Karl ihn dort nicht mehr sieht.
+
+**Blase** (Karls Ansage mit dem WhatsApp-Bild): ein Element, das unter den aktiven Reiter gleitet,
+leicht nachfedernd; beim Öffnen ohne Anflug, bei reduzierter Bewegung ohne Gleiten, auf dem PC aus.
+Die Leiste ist dafür eine Kapsel (Rundung 99 px, 5 px Innenrand).
+
+**Nur noch SVG** (*„Ich will nur noch svg Dateien statt Emojis"*): 46 Stellen, 16 Zeichen — ⚠️ ✕ ✓ 🔒
+★ ☆ 🔥 ➡️ ⏳ ⬇︎ 🔍 und die vier Mahlzeiten (☕ 🍝 🥗 🍎 → Tasse, Nudeln, Salat, Apfel). Eine Sammlung
+`ICON` + `ic(name)`, Größe in em. Die Freundes-Nachricht (Zwischenablage) hat keins mehr — in einen
+WhatsApp-Text passt kein SVG.
+
+🧪 1112 → **1118**. Gegenproben: ohne Hochscrollen 1 rot · ohne `clip` 1 rot · Blase bleibt stehen
+1 rot · ein ✓ zurück 1 rot.
+
 ### v0.110 — Essen eintragen aufgeräumt · zwei neue Dranbleiben-Erfolge · Freundes-Nachricht · Namens-Bremse
 
 Alles auf Karls Liste vom 15.09. vormittags.

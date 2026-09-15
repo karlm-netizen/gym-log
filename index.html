@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.110';
+var APP_FASSUNG = 'v0.111';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -503,6 +503,19 @@ setTimeout(function(){
      darf nicht jedes Mal auf eine Animation warten lassen. */
   @keyframes blattVonRechts{ from{ transform:translateX(42px); opacity:.25 } to{ transform:none; opacity:1 } }
   @keyframes blattVonLinks { from{ transform:translateX(-42px); opacity:.25 } to{ transform:none; opacity:1 } }
+  /* 🔴 15.09.2026, Karls Meldung: *„immer wenn ich auf den Profil Reiter switche ist die Leiste
+     ganz kurz oben und dann geht sie erst runter"*. Nachgemessen (Chrome, Handybreite):
+       1. `translateX(42px)` am Anfang der Bewegung schiebt die Seite 42 px ueber den rechten
+          Rand -- das Dokument wird fuer 0,22 s BREITER als der Bildschirm
+          (scrollWidth 527 bei 485 sichtbar). Aufs Profil (ganz rechts) kommt man immer von rechts.
+       2. Die Scrollposition blieb beim Reiterwechsel stehen: von Erfolge (scrollY 1956) aufs
+          Profil (Seite 758 hoch) musste der Browser in EINEM Bild auf 1 zurueckspringen. Das
+          Profil ist die einzige kurze Seite -- deshalb nur dort.
+     Beides gleichzeitig laesst iOS die schwebende (fixed) Leiste einen Moment falsch setzen.
+     ➡️ `overflow-x:clip` schneidet den Ueberstand ab, OHNE einen Scrollbereich anzulegen
+     (`hidden` wuerde einen anlegen und `position:sticky` darin brechen). Das Hochscrollen
+     steht in `reiterZeigen()`. */
+  html, body{ overflow-x:clip }
   #app.rein-r{ animation:blattVonRechts .22s cubic-bezier(.2,.7,.3,1) }
   #app.rein-l{ animation:blattVonLinks  .22s cubic-bezier(.2,.7,.3,1) }
   #app.zieht{ transition:none }
@@ -557,6 +570,18 @@ setTimeout(function(){
   .mz.jetzt{box-shadow:inset 3px 0 0 var(--ok)}
   .mz-icon{font-size:23px; width:38px; height:38px; border-radius:99px; background:var(--card2);
     display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto}
+  /* ---- Die kleinen Zeichen als SVG (15.09.2026) -- Sammlung bei `ICON` im Skript ----
+     Sie wachsen mit der Schrift (em) und sitzen auf der Zeile wie ein Buchstabe.
+     Farbe nur dort, wo das Zeichen sie als Bedeutung trug: Warnung gelb, Flamme orange. */
+  .ico{width:1.15em; height:1.15em; vertical-align:-.22em; flex:0 0 auto; fill:none;
+    stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
+  .ico-warn{color:#e9a23b}
+  .ico-flamme{color:#ff7a2f; fill:currentColor; fill-opacity:.25}
+  .ico-stern{fill:currentColor}
+  .mz-icon .ico{width:22px; height:22px; vertical-align:0}
+  .modal-box .big .ico{width:44px; height:44px; vertical-align:0}
+  .del-x .ico, .link .ico, .t-btn .ico{width:18px; height:18px; vertical-align:-.25em}
+  .food-stern .ico{width:19px; height:19px; vertical-align:-.2em}
   /* 44x44 als Trefferflaeche, aber der Kreis sieht mit einem ruhigeren Rahmen aus als
      vorher -- gewachsen ist das Ziel, nicht die Lautstaerke. */
   /* ➡️ Weiss (03.09.2026, Karls Ansage: „meal selection buttons to white background").
@@ -821,15 +846,34 @@ setTimeout(function(){
   nav{position:fixed; left:10px; right:10px;
     bottom:14px;
     bottom:min(calc(env(safe-area-inset-bottom) + 10px), 26px);
-    z-index:30; max-width:500px; margin:0 auto; display:flex; border-radius:26px;
+    z-index:30; max-width:500px; margin:0 auto; display:flex; border-radius:99px; padding:5px;
     background:var(--card);
     background:color-mix(in srgb, var(--card) 76%, transparent);
     -webkit-backdrop-filter:blur(18px) saturate(170%); backdrop-filter:blur(18px) saturate(170%);
     border:1px solid color-mix(in srgb, var(--line) 65%, transparent);
     box-shadow:0 10px 28px rgba(0,0,0,.30), 0 2px 8px rgba(0,0,0,.16)}
-  nav button{flex:1; background:none; padding:12px 0 11px; color:var(--muted); display:flex; flex-direction:column;
-    align-items:center; gap:3px; font-size:11px}
+  nav button{flex:1; background:none; padding:8px 0 7px; color:var(--muted); display:flex; flex-direction:column;
+    align-items:center; gap:3px; font-size:11px; z-index:1; border-radius:99px}
   nav button.on{color:var(--accent)} nav svg{width:25px;height:25px}
+  /* ---------- Die Blase um den aktiven Reiter (15.09.2026) ----------
+     Karls Ansage mit einem Bildschirmfoto der WhatsApp-Leiste: *„mach mir so einen Kreis
+     darum … und wenn ich zwischen den Reitern switche soll das Ding animiert mit kommen."*
+     ➡️ EIN Element, das wandert -- nicht eine Blase je Knopf, die an- und ausgeht. Nur so
+     „kommt es mit"; fuenf einzelne Blasen koennten nur ueberblenden.
+     ⚠️ Die Leiste wird dafuer zur Kapsel (99px statt 26px Rundung), wie auf dem Foto --
+     eine runde Blase in einem eckig-runden Kasten liesse die Enden ungleich aussehen.
+     ⚠️ Wohin sie geht, rechnet `navBlaseSetzen()` aus dem aktiven Knopf aus, nicht aus
+     „Index mal ein Fuenftel": dann stimmt sie auch, wenn ein Knopf einmal breiter wird.
+     💡 Leichtes Nachfedern (cubic-bezier mit 1.25) wie beim Vorbild; wer Bewegung abgestellt
+     hat, bekommt einen Sprung. `background` zweimal: `color-mix` kennt nicht jeder Browser. */
+  #navblase{position:absolute; top:5px; bottom:5px; left:0; width:0; border-radius:99px;
+    background:rgba(127,127,127,.18);
+    background:color-mix(in srgb, var(--txt) 12%, transparent);
+    pointer-events:none; opacity:0;
+    transition:transform .42s cubic-bezier(.3,1.25,.5,1), width .42s cubic-bezier(.3,1.25,.5,1), opacity .2s}
+  #navblase.da{opacity:1}
+  #navblase.sofort{transition:none}
+  @media (prefers-reduced-motion: reduce){ #navblase{transition:opacity .2s} }
   body.gate #nav, body.gate #timerbar, body.setup #nav, body.setup #timerbar{display:none}
   body.gate main, body.setup main{padding-bottom:32px}
   .gate-hero{text-align:center; margin:18px 0 22px}
@@ -907,6 +951,9 @@ setTimeout(function(){
     nav button{flex:0 0 auto; flex-direction:row; justify-content:flex-start; gap:12px;
       font-size:14.5px; font-weight:600; padding:11px 12px; border-radius:12px; width:100%}
     nav button.on{background:var(--card2)}
+    /* Auf dem PC markiert der Hintergrund des Knopfs selbst -- eine wandernde Blase in einer
+       senkrechten Seitenleiste waere eine zweite Markierung fuer dieselbe Sache. */
+    #navblase{display:none}
     /* 🔴 Karls Meldung vom 27.08.2026: "auf dem PC ist die rote Zahl ein bisschen
        verschoben, die muss rechts ueber dem Wort sein wie auf dem Handy auch."
        Und so war es auch: `left:50%` meint in der Seitenleiste die Mitte eines 204 px
@@ -998,6 +1045,7 @@ setTimeout(function(){
 <div id="timerbar"></div>
 
 <nav id="nav">
+  <span id="navblase" aria-hidden="true"></span>
   <button data-nav="home" class="on">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.8V20h13V9.8"/><path d="M9.8 20v-5.4h4.4V20"/></svg><span class="navtxt">Home</span></button>
   <button data-nav="training">
@@ -1021,6 +1069,35 @@ setTimeout(function(){
 
 <script>
 "use strict";
+/* ---------- Nur noch SVG, keine Emojis (15.09.2026, Karls Ansage) ----------
+   Karl: *„Ich will nur noch svg Dateien statt Emojis"*.
+   Emojis sehen auf jedem Geraet anders aus (iPhone, Android, PC zeichnen je eigene), sitzen
+   als Schriftzeichen nicht mittig (dieselbe Lehre wie beim Plus am 03.09.) und passen nicht
+   zu den gezeichneten Symbolen daneben. Hier liegen ALLE kleinen Zeichen an einer Stelle.
+   ⚠️ Eine Pruefung sucht im Quelltext (ohne Kommentare) nach Emojis und wird rot, wenn eins
+   zurueckkommt -- sonst schleicht sich beim naechsten Satz mit „⚠️" das alte Muster wieder ein.
+   ⚠️ Nur die Zwischenablage darf keins bekommen: in einen WhatsApp-Text passt kein SVG. Die
+   Freundes-Nachricht ist deshalb ganz ohne Zeichen. */
+const ICON = {
+  warn:     '<path d="M12 3.6 2.6 20h18.8z"/><path d="M12 9.8v4.6"/><path d="M12 17.2v.1"/>',
+  x:        '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+  haken:    '<path d="M5 12.5l4.5 4.5L19 7"/>',
+  schloss:  '<rect x="5" y="11" width="14" height="10" rx="2.2"/><path d="M8.2 11V8.2a3.8 3.8 0 0 1 7.6 0V11"/>',
+  stern:    '<path d="M12 3.2l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 17l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z"/>',
+  sternLeer:'<path d="M12 3.2l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 17l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z"/>',
+  flamme:   '<path d="M12 2.7c3.4 3.3 5.3 5.8 5.3 9a5.3 5.3 0 0 1-10.6 0c0-1.9.7-3.3 1.9-4.7.2 1.3.8 2.1 1.7 2.5.6-2.7-.6-4.9 1.7-6.8z"/>',
+  pfeil:    '<path d="M4 12h15M13.5 6.5 19 12l-5.5 5.5"/>',
+  sanduhr:  '<path d="M7 3h10M7 21h10"/><path d="M8 3v2.6c0 2.6 4 3.8 4 6.4s-4 3.8-4 6.4V21M16 3v2.6c0 2.6-4 3.8-4 6.4s4 3.8 4 6.4V21"/>',
+  runter:   '<path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/>',
+  lupe:     '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+  kaffee:   '<path d="M5 9.5h11v4.5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z"/><path d="M16 11h1.4a2.4 2.4 0 0 1 0 4.8H16"/><path d="M8.6 3.6c-.8 1 .8 1.8 0 3M12.4 3.6c-.8 1 .8 1.8 0 3"/>',
+  pasta:    '<path d="M3.5 12.5h17a8.5 8.5 0 0 1-17 0z"/><path d="M8 12.5c-.6-2.6 1.6-4.4.6-7M12 12.5c-.6-2.6 1.6-4.4.6-7M16 12.5c-.6-2.6 1.6-4.4.6-7"/>',
+  salat:    '<path d="M3.5 12.5h17a8.5 8.5 0 0 1-17 0z"/><path d="M8.5 12.5C7.8 9.3 9.8 6.3 13 5.8c.3 3.2-1.6 5.8-4.5 6.7"/><path d="M13.8 12.3c.6-1.9 2.4-3.3 4.4-3.4-.3 1.6-1.5 3-3.3 3.5"/>',
+  apfel:    '<path d="M12 7.6c-2-1.5-7-1.2-7 4.6 0 4.4 2.9 8.4 5 8.4 1 0 1.3-.5 2-.5s1 .5 2 .5c2.1 0 5-4 5-8.4 0-5.8-5-6.1-7-4.6z"/><path d="M12 7.6c0-2.1 1-3.5 2.6-4.2"/>'
+};
+function ic(name){
+  return '<svg class="ico ico-' + name + '" viewBox="0 0 24 24" aria-hidden="true">' + (ICON[name] || '') + '</svg>';
+}
 const DB = {
   get(k,def){ try{ const v=JSON.parse(localStorage.getItem('gymlog:'+k)); return v==null?def:v; }catch(e){ return def; } },
   /* 🔴 Bis zum 02.09.2026 ohne try/catch -- als einziger Schreiber der App, und
@@ -1577,7 +1654,7 @@ function renderLibList(q){ const list=document.getElementById('libList'); if(!li
 function openLibrary(){
   const m=document.getElementById('modal');
   m.innerHTML=`<div class="modal-box" style="max-width:400px;text-align:left;max-height:82vh;display:flex;flex-direction:column;padding:16px">
-    <div class="row between" style="margin-bottom:10px"><b>Übung wählen · ${EXLIB.length}</b><button class="del-x" data-act="closemodal" style="margin:0">✕</button></div>
+    <div class="row between" style="margin-bottom:10px"><b>Übung wählen · ${EXLIB.length}</b><button class="del-x" data-act="closemodal" style="margin:0">${ic('x')}</button></div>
     <input id="libSearch" placeholder="Suchen oder eigene eintippen…" autocomplete="off" style="width:100%;background:var(--card2);border:1px solid var(--line);border-radius:12px;color:var(--txt);padding:12px;font-size:16px;margin-bottom:10px">
     <div id="libList" style="overflow:auto;margin:0 -4px;flex:1"></div>
     <div class="tiny muted" style="padding:8px 2px 0;border-top:1px solid var(--line);margin-top:8px">
@@ -1885,7 +1962,7 @@ function speicherWarnen(schluessel){
 /* Was die Leiste sagt, wenn man sie antippt. Der Text nennt beides: was gerade gilt
    (Cloud ja, Geraet nein) und was zu tun ist. */
 function speicherWarnungText(){
-  return '<div class="big">\u26a0\ufe0f</div><b>Dieses Ger\u00e4t speichert gerade nicht</b>'
+  return '<div class="big">' + ic('warn') + '</div><b>Dieses Ger\u00e4t speichert gerade nicht</b>'
     + '<p style="font-size:13px;line-height:1.5;margin-top:10px">Deine Eintr\u00e4ge stehen auf dem '
     + 'Bildschirm, aber nicht im Ger\u00e4t \u2014 nach dem n\u00e4chsten Neuladen sind sie weg.</p>'
     + '<p style="font-size:13px;line-height:1.5">Meistens ist der Speicher voll oder der Browser '
@@ -2199,7 +2276,7 @@ function renderComeback(){
       schwerste — und die einzige, die zählt. Mach sie kleiner als sonst.</p>
     <button class="btn primary" style="width:100%" data-act="cb:los">Zum Training</button>
     <button class="btn" style="width:100%;margin-top:8px" data-act="cb:plan">Erst den Plan ansehen</button>
-    <div class="tiny muted" style="margin-top:12px">⚠️ Dein Plan steht noch so da, wie du ihn
+    <div class="tiny muted" style="margin-top:12px">${ic('warn')} Dein Plan steht noch so da, wie du ihn
       verlassen hast. Wenn er nicht mehr passt, änder ihn lieber, als ihn zu ignorieren.</div>
     </div>`;
   app.innerHTML = h;
@@ -2617,7 +2694,30 @@ function splashWeg(){
    leuchtete nichts. Kein Absturz, nur Orientierungslosigkeit -- und nichts wuerde rot. */
 function setNav(){ const map=(view==='erfolge')?'erfolge':(view==='profil'||view==='rang'||view==='freunde'||view==='history'||view==='session'||view==='exdetail'||view==='settings'||view==='xpliste'||view==='admin'||view==='privacy'||view==='meldung')?'profil':(view==='body'||view==='food')?'body':(view==='training'||view==='progs'||view==='plans'||view==='plan'||view==='workout')?'training':'home';
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on', b.dataset.nav===map));
+  navBlaseSetzen();
   navPunktZeichnen(); }
+/* Die Blase unter den aktiven Reiter schieben (15.09.2026, Karls Ansage) -- Begruendung beim CSS.
+   ⚠️ Das allererste Mal OHNE Bewegung (`sofort`): sonst fliegt sie beim Oeffnen der App von
+   ganz links herein, obwohl niemand etwas gewechselt hat. Dasselbe, solange die Leiste
+   unsichtbar ist (Anmeldung, Assistent): dort misst jeder Knopf 0 px, und die Blase
+   stuende beim Einblenden auf 0 und muesste erst hinfliegen. */
+let navBlaseSteht = false;
+function navBlaseSetzen(){
+  const blase = document.getElementById('navblase');
+  const knopf = document.querySelector('#nav button.on');
+  if(!blase) return;
+  if(!knopf || !knopf.offsetWidth){ blase.classList.remove('da'); navBlaseSteht = false; return; }
+  const rand = 4;
+  const sofort = !navBlaseSteht;
+  blase.classList.toggle('sofort', sofort);
+  blase.style.width = Math.max(0, knopf.offsetWidth - 2*rand) + 'px';
+  blase.style.transform = 'translateX(' + (knopf.offsetLeft + rand) + 'px)';
+  if(sofort){ void blase.offsetWidth; blase.classList.remove('sofort'); }
+  blase.classList.add('da');
+  navBlaseSteht = true;
+}
+/* Dreht sich das Handy, werden die Knoepfe breiter -- die Blase muss ohne Anlauf mit. */
+window.addEventListener('resize', () => { navBlaseSteht = false; navBlaseSetzen(); });
 /* Die rote Zahl an der unteren Leiste (25.08.2026).
    ⚠️ Sie war vorher NUR in den Einstellungen zu sehen -- also erst, nachdem man dort
    hingegangen war. Wer auf die Mitteilung tippte, landete auf der Startseite, und dort
@@ -2750,7 +2850,7 @@ function renderAuthGate(err){
       <div class="card">
         <p class="tiny muted" style="margin:0 0 12px">Der Link führt zurück in diese App. Kommt nichts an,
           sieh im Spam nach — und prüfe, ob die Adresse stimmt.</p>
-        <p class="tiny muted" style="margin:0 0 12px">⚠️ Ein neuer Link geht erst in einer Stunde.</p>
+        <p class="tiny muted" style="margin:0 0 12px">${ic('warn')} Ein neuer Link geht erst in einer Stunde.</p>
         <button class="btn" data-act="authBack">Zurück zum Anmelden</button>
       </div>`;
     return; }
@@ -3360,7 +3460,7 @@ function renderHome(){
 
   if(!offen){
     h+=`<div class="card"><div class="tiny muted" style="line-height:1.7">
-        F\u00fcr heute ist alles eingetragen. \u2713</div></div>`;
+        F\u00fcr heute ist alles eingetragen. ${ic('haken')}</div></div>`;
   }
   h+='</div></div>';
   app.innerHTML=h;
@@ -3495,7 +3595,7 @@ function renderPlan(){
       <div class="ex-move">
         <button data-moveex="${i}:-1" ${i===0?'disabled':''} aria-label="nach oben">▲</button>
         <button data-moveex="${i}:1" ${i===p.exercises.length-1?'disabled':''} aria-label="nach unten">▼</button></div>
-      <button class="del-x" data-delex="${i}">✕</button></div>
+      <button class="del-x" data-delex="${i}">${ic('x')}</button></div>
     <div class="row" style="margin-top:10px;gap:8px">
       <div style="flex:1"><label class="muted tiny">Sätze</label>
         <input type="number" inputmode="numeric" class="ex-sets" data-i="${i}" value="${e.sets}" min="1"
@@ -3752,13 +3852,13 @@ function renderSession(){
     <div class="row between" style="margin:6px 4px 4px"><h2>${esc(s.planName)}</h2>
       <button class="btn sm ghost link" data-act="sessedit">${sessEdit?'Fertig':'Bearbeiten'}</button></div>
     <div class="tiny muted" style="margin:0 4px 10px">${fmtDate(s.date)} · ${fmtTime(s.date)}${dauer?` · <b style="color:var(--txt)">${dauer}</b>`:''} · <span data-sessvol>${volume(s.entries)}</span> kg Vol.</div>`;
-  if(sessEdit) h+=`<div class="tiny muted" style="margin:0 4px 12px">kg und Wdh lassen sich ändern, ✕ wirft einen Satz raus.
+  if(sessEdit) h+=`<div class="tiny muted" style="margin:0 4px 12px">kg und Wdh lassen sich ändern, ${ic('x')} wirft einen Satz raus.
     Volumen, Rekorde, Kurven und XP rechnen sich danach neu.</div>`;
   let leer=true;
   s.entries.forEach((e,ei)=>{ const d=e.sets.filter(x=>x.done); if(!d.length && !sessEdit) return;
     leer=false;
     h+=`<div class="card"><div class="row between"><div class="row" style="gap:10px">${iconTile(e.name,e.icon,40)}<b>${esc(e.name)}</b></div>
-      ${sessEdit?`<button class="del-x" data-sdelex="${ei}" aria-label="Übung aus der Einheit entfernen">✕</button>`:''}</div>
+      ${sessEdit?`<button class="del-x" data-sdelex="${ei}" aria-label="Übung aus der Einheit entfernen">${ic('x')}</button>`:''}</div>
       <div style="margin-top:8px">`;
     if(sessEdit) h+=`<div class="set-head" style="grid-template-columns:1fr 66px 66px 32px">
       <span style="text-align:left"></span><span>kg</span><span>Wdh</span><span></span></div>`;
@@ -3770,7 +3870,7 @@ function renderSession(){
         <span class="muted tiny" style="text-align:left">${label}</span>
         <input type="number" inputmode="decimal" step="0.5" min="0" value="${st.weight??''}" data-se="${ei}:${si}" data-sf="weight" aria-label="Gewicht in kg">
         <input type="number" inputmode="numeric" step="1" min="0" value="${st.reps??''}" data-se="${ei}:${si}" data-sf="reps" aria-label="Wiederholungen">
-        <button class="del-x" style="padding:4px 2px" data-sdel="${ei}:${si}" aria-label="Satz löschen">✕</button></div>`; }
+        <button class="del-x" style="padding:4px 2px" data-sdel="${ei}:${si}" aria-label="Satz löschen">${ic('x')}</button></div>`; }
       else h+=`<div class="sess"><span class="muted">${label}</span><b>${st.weight||0} kg × ${st.reps||0}</b></div>`;
     });
     if(sessEdit) h+=`<button class="link" data-sadd="${ei}" style="margin-top:6px">+ Satz</button>`;
@@ -3798,7 +3898,7 @@ function renderRang(){
           <div><b>${esc(r.name)}</b> ${isReal?'<span class="pill" style="background:var(--accent);color:var(--accent-ink)">dein Rang</span>':''}${isShown&&!isReal?'<span class="pill" style="background:var(--rc);color:#fff">getragen</span>':''}
             <div class="tiny muted">ab Level ${r.min}${r.unlock?` · Design „${THEMES[r.unlock].label}"`:''}</div></div>
         </div>
-        <div>${reached?'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--ok)" stroke-width="3"><path d="M5 12l5 5L20 6"/></svg>':'<span class="tiny muted">🔒</span>'}</div>
+        <div>${reached?'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--ok)" stroke-width="3"><path d="M5 12l5 5L20 6"/></svg>':'<span class="tiny muted">'+ic('schloss')+'</span>'}</div>
       </div></div>`; });
   if(profile.rankSkin!=null) h+=`<button class="btn ghost sm" style="margin-top:4px" data-skin="${profile.rankSkin}">Wieder meinen echten Rang zeigen</button>`;
   // Designs
@@ -3809,7 +3909,7 @@ function renderRang(){
     h+=`<div class="theme-cell ${on?'on':''} ${open?'':'locked'}" ${open?`data-theme="${key}"`:''}>
       <div class="sw">${sw}</div><b class="tiny">${esc(t.label)}</b>
       <div class="tiny muted">${free?'immer frei':open?'freigeschaltet':`ab „${need?need.name:'?'}"`}</div>
-      ${open?'':'<span class="lock">🔒</span>'}${on?'<span class="lock" style="color:var(--accent)">✓</span>':''}</div>`; });
+      ${open?'':'<span class="lock">'+ic('schloss')+'</span>'}${on?'<span class="lock" style="color:var(--accent)">'+ic('haken')+'</span>':''}</div>`; });
   h+=`</div>`;
   // Einstellungen
   app.innerHTML=h;
@@ -3858,10 +3958,11 @@ function mealsToday(){ const n=Date.now(); return kcalInit().meals.filter(m=>sam
    unbrauchbar gemacht. Die Uhrzeit steht in jedem Eintrag — sie ist die beste
    Auskunft, die es rueckwirkend gibt.                                              */
 const MAHLZEITEN = [
-  { id:'f', name:'Frühstück',   icon:'☕', anteil:0.30, von:4,  bis:11 },
-  { id:'m', name:'Mittagessen', icon:'🍝', anteil:0.40, von:11, bis:16 },
-  { id:'a', name:'Abendessen',  icon:'🥗', anteil:0.25, von:16, bis:22 },
-  { id:'s', name:'Snacks',      icon:'🍎', anteil:0.05, von:22, bis:4  },
+  /* `icon` ist seit dem 15.09.2026 ein Name aus `ICON`, kein Emoji mehr (Karls Ansage). */
+  { id:'f', name:'Frühstück',   icon:'kaffee', anteil:0.30, von:4,  bis:11 },
+  { id:'m', name:'Mittagessen', icon:'pasta',  anteil:0.40, von:11, bis:16 },
+  { id:'a', name:'Abendessen',  icon:'salat',  anteil:0.25, von:16, bis:22 },
+  { id:'s', name:'Snacks',      icon:'apfel',  anteil:0.05, von:22, bis:4  },
 ];
 /* Welche Mahlzeit gehoert zu dieser Stunde? Snacks umschliessen Mitternacht,
    deshalb die Fallunterscheidung statt eines einfachen Vergleichs. */
@@ -4488,7 +4589,7 @@ function flammeHTML(serie, rekord){
       + (rekord>serie ? ` · dein Rekord: ${rekord}` : '')
     : 'Noch keine Serie — trag heute etwas ein, dann fängt sie an.';
   return `<span class="flamme${an?' an':''}" title="${titel}">
-    <span aria-hidden="true">🔥</span><b>${serie}</b>
+    <span aria-hidden="true">${ic('flamme')}</span><b>${serie}</b>
     ${rekord>serie?`<span class="rek">${rekord}</span>`:''}</span>`;
 }
 function renderBody(){
@@ -4599,7 +4700,7 @@ function renderBody(){
       </div>
       ${vorschlag?`<div class="tiny muted" style="margin-top:8px">Bei ${fmtKg(lastWeight().kg)} kg
         rechne ich dir daraus das Tagesziel aus.</div>`
-        :`<div class="tiny muted" style="margin-top:8px">⚠️ Dafür brauche ich dein Gewicht —
+        :`<div class="tiny muted" style="margin-top:8px">${ic('warn')} Dafür brauche ich dein Gewicht —
           trag es weiter unten ein.</div>`}</div>`;
   }
 
@@ -4645,7 +4746,7 @@ function renderBody(){
         ${fmtKg(rk.trend.von)} → ${fmtKg(rk.trend.bis)} kg, also
         <b style="color:var(--txt)">${rk.ist>0?'+':''}${fmtKg(rk.ist)} kg pro Woche</b>
         bei Ø ${rk.schnitt.schnitt} kcal. Gewollt war ${ZIELE[rk.art].satz}.</div>
-      <div style="margin-top:8px">➡️ <b>${rk.neuesZiel} kcal</b> am Tag würden besser passen
+      <div style="margin-top:8px">${ic('pfeil')} <b>${rk.neuesZiel} kcal</b> am Tag würden besser passen
         <span class="muted">(${rk.korrektur>0?'−':'+'}${Math.abs(rk.korrektur)})</span></div>
       <button class="btn" style="margin-top:8px" data-act="kcalziel-uebernehmen">Auf ${rk.neuesZiel} kcal umstellen</button>`;
     if(inhalt) h+=`<div class="card" style="margin-top:10px">${inhalt}</div>`;
@@ -4695,7 +4796,7 @@ function renderBody(){
     h+=`<div class="mz${mz.id===jetztMz?' jetzt':''}${i?' trenn':''}">
       <div class="row between" style="align-items:center;gap:10px">
         <div class="row" style="gap:10px;align-items:center;min-width:0">
-          <span class="mz-icon" aria-hidden="true">${mz.icon}</span>
+          <span class="mz-icon" aria-hidden="true">${ic(mz.icon)}</span>
           <div style="min-width:0">
             <b>${mz.name}</b>
             <div class="tiny muted">${Math.round(sum)}${ziel?` / ${ziel}`:''} kcal</div>
@@ -4715,7 +4816,7 @@ function renderBody(){
            <span>${esc(m.name)}</span>
            <div class="tiny muted">${esc(String(m.menge))} · ${fmtTime(m.date)}${m.quelle==='foto'?' · Foto':m.quelle==='barcode'?' · Barcode':m.quelle==='db'?' · Datenbank':''}</div></div>
          <span class="row" style="gap:10px;flex:0 0 auto"><b>${m.kcal} kcal</b>
-         <button class="link" style="padding:0 2px;color:var(--muted)" data-delmeal="${m.id}">✕</button></span></div>`
+         <button class="link" style="padding:0 2px;color:var(--muted)" data-delmeal="${m.id}">${ic('x')}</button></span></div>`
       ).join('')+`</div>`:''}
     </div>`;
   });
@@ -4918,7 +5019,7 @@ function renderFood(){
           <div class="stat"><b data-vk>${w.kcal}</b><span>kcal</span></div>
           <div class="stat"><b data-vp>${w.p}</b><span>g Eiweiß</span></div>
           <div class="stat"><b data-vc>${w.c}</b><span>g KH</span></div></div>
-        ${d.unsicher?`<div class="tiny muted" style="margin-top:10px;color:var(--danger)">⚠️ Die KI war sich unsicher — sieh die Zahlen nochmal an.</div>`:''}
+        ${d.unsicher?`<div class="tiny muted" style="margin-top:10px;color:var(--danger)">${ic('warn')} Die KI war sich unsicher — sieh die Zahlen nochmal an.</div>`:''}
         <button class="btn primary gross" style="margin-top:14px" data-act="food:save">Eintragen</button>
         ${d.quelle!=='eigen'&&d.basis==='g100'?`<button class="btn ghost sm" style="margin-top:8px" data-act="food:merken">Auch in meine Liste aufnehmen</button>`:''}
       </div>
@@ -4986,10 +5087,10 @@ function renderFood(){
         eigene Liste; eine Beliebtheits-Reihenfolge waere eine erfundene Zahl. Der
         Abschnitt heisst weiter „Meine Lebensmittel". */
   const mzJetzt = MAHLZEITEN.find(x=>x.id===(foodMz||mahlzeitJetzt()));
-  const titelMz = mzJetzt ? `${mzJetzt.icon} ${esc(mzJetzt.name)} eintragen` : 'Essen eintragen';
+  const titelMz = mzJetzt ? `${ic(mzJetzt.icon)} ${esc(mzJetzt.name)} eintragen` : 'Essen eintragen';
   /* ➡️ „Zuletzt" ist am 15.09.2026 gegangen, Karls Ansage: *„zuletzt kann weg, denn ab jetzt
      werden die 10 letzten sachen einfach vorne angezeigt"* -- siehe renderFoodList(). */
-  const REITER = [['suchen','Suchen',LUPE_SVG],['fav','Favoriten','★']];
+  const REITER = [['suchen','Suchen',LUPE_SVG],['fav','Favoriten',ic('stern')]];
   /* 🔴 `+=` und nicht `=`. Bis zum 04.09.2026 stand hier `h = ` -- und damit wurde der
      Fehlerkasten oben (`Hat nicht geklappt`, Zeile ~3927) beim Zeichnen ueberschrieben,
      bevor ihn jemand sehen konnte. Die Schritte `menge`, `new` und `db` steigen vorher mit
@@ -5160,7 +5261,7 @@ function renderFoodList(q){
       </div>
       <button class="food-stern${istFavorit(f)?' an':''}" data-foodfav="${f.id}"
         aria-label="${istFavorit(f)?'Kein Favorit mehr':'Zu den Favoriten'}"
-        aria-pressed="${istFavorit(f)?'true':'false'}">${istFavorit(f)?'★':'☆'}</button>
+        aria-pressed="${istFavorit(f)?'true':'false'}">${istFavorit(f)?ic('stern'):ic('sternLeer')}</button>
       <button class="food-plus" data-pickfood="${f.id}" aria-label="${esc(f.name)} eintragen">${PLUS_SVG}</button>
       ${/* 🔴 Der Loeschknopf war beim Umbau am 04.09. verlorengegangen -- die alte
             `.lib-row` hatte ein Kreuz, die neue Karte nicht. Der Handler `data-delfood`
@@ -5171,7 +5272,7 @@ function renderFoodList(q){
             einen Ausschnitt, und Loeschen aus einem Ausschnitt heraus loescht mehr, als
             man gerade sieht. */''}
       ${foodTab==='suchen'?`<button class="del-x" data-delfood="${f.id}"
-        aria-label="${esc(f.name)} aus meiner Liste löschen">✕</button>`:''}
+        aria-label="${esc(f.name)} aus meiner Liste löschen">${ic('x')}</button>`:''}
     </div>`;
 
   let h = liste.map(zeile).join('');
@@ -5223,7 +5324,7 @@ async function openScan(){
   const m=document.getElementById('modal');
   m.innerHTML=`<div class="modal-box" style="max-width:380px;padding:14px">
     <div class="row between" style="margin-bottom:8px"><b>Barcode scannen</b>
-      <button class="del-x" data-act="closescan" style="margin:0">✕</button></div>
+      <button class="del-x" data-act="closescan" style="margin:0">${ic('x')}</button></div>
     <video id="scanVid" playsinline muted autoplay style="width:100%;border-radius:12px;background:#000"></video>
     <div class="tiny muted" id="scanHint" style="margin-top:8px">Halt den Strichcode ins Bild.</div>
     <button class="btn ghost sm" data-act="scantippen" style="margin-top:10px;width:100%">Nummer stattdessen eintippen</button>
@@ -5513,7 +5614,7 @@ function fragKey(){
   return new Promise(fertig=>{
     m.innerHTML=`<div class="modal-box" style="max-width:420px;text-align:left;max-height:86vh;overflow:auto;padding:16px">
       <div class="row between" style="margin-bottom:10px"><b>Schlüssel für die Foto-Schätzung</b>
-        <button class="del-x" id="keyX" style="margin:0">✕</button></div>
+        <button class="del-x" id="keyX" style="margin:0">${ic('x')}</button></div>
       ${alt ? `<p style="color:var(--danger);margin:0 0 10px">Das Foto läuft jetzt über Google statt über Anthropic — dein alter Schlüssel passt nicht mehr.</p>` : ''}
       <p style="color:var(--muted);margin:0 0 12px;font-size:14px">Kostenlos, ein Google-Konto reicht, <b>keine Kreditkarte</b>. Der Schlüssel bleibt nur auf diesem Gerät und wird nicht mit deinem Konto abgeglichen.</p>
       <a class="btn primary" href="${KEY_URL}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-bottom:10px">Schlüssel-Seite öffnen</a>
@@ -5859,7 +5960,7 @@ function renderMeldung(){
                color:var(--txt);padding:12px;font-size:16px;font-family:inherit;resize:vertical">${esc(meldTexte)}</textarea>
     </div>
     <button class="btn primary" style="margin-top:12px" data-act="meld:senden">Abschicken</button>
-    ${wartend.length?`<div class="tiny muted" style="margin-top:10px">⏳ ${wartend.length}
+    ${wartend.length?`<div class="tiny muted" style="margin-top:10px">${ic('sanduhr')} ${wartend.length}
       ${wartend.length===1?'Meldung wartet':'Meldungen warten'} auf Verbindung — sie
       ${wartend.length===1?'geht':'gehen'} automatisch raus, sobald du wieder online bist.</div>`:''}
     </div>`;
@@ -5948,7 +6049,7 @@ function renderErfolge(){
       <span class="tiny muted">Aus Erfolgen verdient</span>
       <span class="tiny" style="font-weight:700">${xpAusErfolgen.toLocaleString('de-DE')} von ${xpMoeglich.toLocaleString('de-DE')} XP</span></div>`;
   if(alleErfolgeFrei()) h += `<div class="tiny" style="margin-top:10px;color:var(--danger)">
-      ⚠️ Admin: alle Erfolge sind freigeschaltet. Das ist nur eine Anzeige — es gibt dafür keine XP.</div>`;
+      ${ic('warn')} Admin: alle Erfolge sind freigeschaltet. Das ist nur eine Anzeige — es gibt dafür keine XP.</div>`;
   h += `</div>`;
 
   // ---- Tagesaufgaben ----
@@ -6399,7 +6500,7 @@ function renderFreunde(){
         <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap${z.ich ? ';font-weight:700' : ''}">${esc(z.name)}${z.ich ? ' <span class="tiny muted">\u00b7 du</span>' : ''}</span></span>
       <span class="row" style="gap:10px;align-items:center;flex:0 0 auto">
         <b style="white-space:nowrap">${z.xp.toLocaleString('de-DE')}</b>
-        ${z.ich ? '' : `<button class="del-x" data-freundweg="${esc(z.user_id)}" aria-label="Freundschaft beenden">\u2715</button>`}</span></div>`;
+        ${z.ich ? '' : `<button class="del-x" data-freundweg="${esc(z.user_id)}" aria-label="Freundschaft beenden">${ic('x')}</button>`}</span></div>`;
   });
   h += `</div>`;
   if(rang.length === 1){
@@ -6555,10 +6656,10 @@ function renderPrivacy(){
         <b style="color:var(--txt)">Art. 9 Abs. 2 lit. a DSGVO</b>: gespeichert wird nur, was du selbst einträgst.
         Trägst du nichts ein, wird nichts gespeichert.</p>
       <p class="muted" style="margin:0 0 14px"><b style="color:var(--txt)">So nimmst du die Einwilligung zurück:</b><br>
-        • <b style="color:var(--txt)">Mahlzeiten</b> — jede Zeile hat ein ✕, damit ist sie weg.<br>
+        • <b style="color:var(--txt)">Mahlzeiten</b> — jede Zeile hat ein ${ic('x')}, damit ist sie weg.<br>
         • <b style="color:var(--txt)">Benachrichtigungen</b> — unter „Problem melden" ausschalten; die Geräte-Kennung
         wird dabei gelöscht.<br>
-        • <b style="color:var(--txt)">Gewicht und Schritte</b> — ⚠️ <b style="color:var(--txt)">einzelne Einträge kannst du zurzeit nicht
+        • <b style="color:var(--txt)">Gewicht und Schritte</b> — ${ic('warn')} <b style="color:var(--txt)">einzelne Einträge kannst du zurzeit nicht
         selbst löschen.</b> Der Wert von heute wird überschrieben, wenn du dich heute noch einmal
         wiegst bzw. die Zahl neu einträgst. Ältere Einträge nehmen wir auf Zuruf heraus — schreib
         an die Adresse oben. Oder du löschst dein Konto, dann ist alles weg.</p>
@@ -6681,7 +6782,7 @@ function renderPrivacy(){
         eine eigene Tabelle, die <b style="color:var(--txt)">jeder Angemeldete lesen kann</b>.
         <b style="color:var(--txt)">Deine Trainings, Gewichte und Mahlzeiten stehen dort nicht</b> und
         sind darüber auch nicht abrufbar.
-        ⚠️ <b style="color:var(--txt)">Hat dein Konto keinen Username, steht dort der vordere Teil deiner
+        ${ic('warn')} <b style="color:var(--txt)">Hat dein Konto keinen Username, steht dort der vordere Teil deiner
         E-Mail-Adresse</b> (alles vor dem @). Wenn du das nicht willst, trag in den Einstellungen einen
         Username ein.</p>
       <p class="muted" style="margin:0 0 14px"><b style="color:var(--txt)">Warum wir das dürfen:</b>
@@ -6700,7 +6801,7 @@ function renderPrivacy(){
       <p class="muted" style="margin:4px 0 14px">Freunde werden über einen
         <b style="color:var(--txt)">Code</b> hinzugefügt, und beide Seiten müssen zustimmen —
         eine Anfrage allein bewirkt nichts.
-        ⚠️ <b style="color:var(--txt)">Beim Anfragen geht dein Name mit</b>, damit der andere
+        ${ic('warn')} <b style="color:var(--txt)">Beim Anfragen geht dein Name mit</b>, damit der andere
         weiß, wer da fragt. Er steht in der Anfrage, bis sie angenommen oder abgelehnt wird.
         <b style="color:var(--txt)">Dein Code selbst ist nicht abfragbar</b> — niemand kann
         eine Liste aller Codes holen, und aus einem Code folgt kein Zugriff auf deine Daten.
@@ -6749,7 +6850,7 @@ function renderPrivacy(){
            er ist die Umsetzung der Datenübertragbarkeit (Art. 20 DSGVO) und
            gehört damit hierher, nicht zur Datensicherung — gesichert wird über
            das Konto. Das Gegenstück (Backup laden) ist bewusst weg. -->
-      ${session?`<button class="btn" data-act="export">⬇︎ Meine Daten herunterladen</button>`
+      ${session?`<button class="btn" data-act="export">${ic('runter')} Meine Daten herunterladen</button>`
                 :`<div class="tiny muted" style="margin:2px 0 0">Zum Herunterladen deiner Daten
                    musst du angemeldet sein — vorher gibt es ja noch keine.</div>`}
     </div>`;
@@ -6829,13 +6930,13 @@ function renderAdmin(){
   RANKS.forEach(r=>{ h+=`<button class="lib-row" data-admin="jump:${r.min}">${rankBadge(r,26,'A'+r.min)}<span>${esc(r.name)} <span class="tiny muted">· Lvl ${r.min}</span></span></button>`; });
   h+=`</div>`;
   h+=`<div class="row between" style="margin:16px 4px 4px"><h2>Designs</h2></div><div class="card">
-      <button class="btn ${settings.devUnlockAll?'primary':''}" data-admin="unlockall">${settings.devUnlockAll?'Alle Designs freigeschaltet ✓':'Alle Designs freischalten'}</button>
+      <button class="btn ${settings.devUnlockAll?'primary':''}" data-admin="unlockall">${settings.devUnlockAll?'Alle Designs freigeschaltet '+ic('haken'):'Alle Designs freischalten'}</button>
       <div class="tiny muted" style="margin-top:6px">Alle Special-Designs testen, ohne Rang-Grind.</div></div>`;
   /* Karls Wunsch vom 27.08.2026: "ich will ueber meine Admin-Konsole ebenfalls alle Erfolge
      freischalten koennen." Gleiche Bauart wie die Designs eine Karte hoeher. */
   const echt = ERFOLGE.filter(e=>e.ist()>=e.ziel).length;
   h+=`<div class="row between" style="margin:16px 4px 4px"><h2>Erfolge</h2></div><div class="card">
-      <button class="btn ${settings.devAllErfolge?'primary':''}" data-admin="allerfolge">${settings.devAllErfolge?'Alle Erfolge freigeschaltet ✓':'Alle Erfolge freischalten'}</button>
+      <button class="btn ${settings.devAllErfolge?'primary':''}" data-admin="allerfolge">${settings.devAllErfolge?'Alle Erfolge freigeschaltet '+ic('haken'):'Alle Erfolge freischalten'}</button>
       <div class="tiny muted" style="margin-top:6px">Nur zum Ansehen — <b style="color:var(--txt)">es gibt dafür keine XP</b>,
         und gespeichert wird nichts. Ausgeschaltet steht wieder der echte Stand da
         (gerade ${echt} von ${ERFOLGE.length}).</div>
@@ -6849,7 +6950,7 @@ function renderAdmin(){
       <button class="btn" style="width:100%" data-admin="tut:plan">Trainings-Assistent</button>
       <div class="tiny muted" style="margin:6px 0 12px">Die sechs Schritte zum Trainingsplan.
         Läuft im Betrieb nur bei einem frisch angelegten Konto.
-        ⚠️ Am Ende legt er einen <b style="color:var(--txt)">neuen Plan</b> an — zum blossen
+        ${ic('warn')} Am Ende legt er einen <b style="color:var(--txt)">neuen Plan</b> an — zum blossen
         Ansehen vorher abbrechen.</div>
       <button class="btn" style="width:100%" data-admin="tut:kcal">Ernährungs-Assistent</button>
       <div class="tiny muted" style="margin:6px 0 12px">Die sechs Schritte inklusive KI-Schlüssel.
@@ -6859,7 +6960,7 @@ function renderAdmin(){
         einmal je Konto, direkt nach dem Trainings-Assistenten. Das Abspielen hier merkt sich nichts.</div>
       <button class="btn" style="width:100%" data-admin="tut:comeback">Wiederkommen</button>
       <div class="tiny muted" style="margin-top:6px">Läuft im Betrieb nach
-        ${COMEBACK_TAGE} Tagen ohne Öffnen. ⚠️ Das Abspielen hier rührt
+        ${COMEBACK_TAGE} Tagen ohne Öffnen. ${ic('warn')} Das Abspielen hier rührt
         <b style="color:var(--txt)">nichts an</b> — es zeichnet nur die Ansicht.</div></div>`;
   /* 🔴 Direkte Antwort auf den groessten Fund des Tages: das Essens-Foto war
      zwoelf Tage kaputt, weil der Weg nach dem Bauen nie wirklich abgeschickt wurde.
@@ -6899,7 +7000,7 @@ function paintTimer(){ if(rest.remaining<=0&&!rest.id){ tb.classList.remove('sho
   tb.classList.add('show');
   tb.innerHTML=`<div class="timer"><div class="time">${m}:${String(s).padStart(2,'0')}</div>
     <div class="bar"><i style="width:${pct}%"></i></div>
-    <button class="t-btn" data-rest="-15">−15</button><button class="t-btn" data-rest="15">+15</button><button class="t-btn" data-rest="skip">✓</button></div>`; }
+    <button class="t-btn" data-rest="-15">−15</button><button class="t-btn" data-rest="15">+15</button><button class="t-btn" data-rest="skip" aria-label="Pause überspringen">${ic('haken')}</button></div>`; }
 
 // ---------- Toast + Modal ----------
 /* ============================================================================
@@ -6982,7 +7083,7 @@ window.addEventListener('unhandledrejection', e => {
 
 function fehlerbannerText(){
   if(!letzterFehler) return '';
-  return '<div class="big">🔍</div><b>Etwas ist schiefgelaufen</b>'
+  return '<div class="big">' + ic('lupe') + '</div><b>Etwas ist schiefgelaufen</b>'
     + '<p style="font-size:13px;line-height:1.5;margin-top:10px;text-align:left;'
     + 'font-family:monospace;white-space:pre-wrap;word-break:break-word;'
     + 'background:var(--card2);border-radius:8px;padding:10px">'
@@ -7812,7 +7913,7 @@ function sharePlan(progId){
   const m=document.getElementById('modal');
   m.innerHTML=`<div class="modal-box" style="max-width:380px;text-align:left">
     <div class="row between" style="margin-bottom:4px"><b>„${esc(pr.name)}" teilen</b>
-      <button class="del-x" data-act="closemodal" style="margin:0">✕</button></div>
+      <button class="del-x" data-act="closemodal" style="margin:0">${ic('x')}</button></div>
     <div class="tiny muted" style="margin-bottom:14px">${pr.plans.length} Trainings · ${url.length} Zeichen</div>
     ${navigator.share?`<button class="btn primary" data-act="teile-app" style="width:100%">Teilen…</button>`:''}
     <button class="btn" data-act="teile-discord" style="width:100%;margin-top:8px">Für Discord kopieren</button>
@@ -7820,7 +7921,7 @@ function sharePlan(progId){
     <button class="btn" data-act="teile-reich" style="width:100%;margin-top:12px">Als Link kopieren</button>
     <div class="tiny muted" style="margin:4px 2px 0">Für E-Mail und Notizen — fügt als anklickbares Wort ein.</div>
     <button class="btn" data-act="teile-roh" style="width:100%;margin-top:12px">Nur die Adresse</button>
-    <div class="tiny muted" style="margin:4px 2px 0">Für WhatsApp. ⚠️ Dort zeigt WhatsApp die
+    <div class="tiny muted" style="margin:4px 2px 0">Für WhatsApp. ${ic('warn')} Dort zeigt WhatsApp die
       Adresse immer als Text — das lässt sich von hier aus nicht abstellen.</div>
     </div>`;
   m.classList.add('show');
@@ -7892,7 +7993,7 @@ function importFehlerText(grund){
     + 'Lass ihn dir noch einmal schicken, am besten als reinen Text.';
 }
 function zeigeImportFehler(){
-  showModal('<div class="big">\u26a0\ufe0f</div><b>Der geteilte Plan lässt sich nicht öffnen</b>'
+  showModal('<div class="big">' + ic('warn') + '</div><b>Der geteilte Plan lässt sich nicht öffnen</b>'
     + '<p style="font-size:13px;line-height:1.5;margin-top:10px">'
     + esc(importFehlerText(planImportFehler)) + '</p>');
 }
@@ -7904,7 +8005,7 @@ function zeigeImport(){
   m.innerHTML=`<div class="modal-box" style="max-width:400px;text-align:left">
     <b>${esc(planImport.name)}</b>
     <div class="tiny muted" style="margin:6px 0 10px">Kommt als eigener Trainingsplan dazu. Deine bestehenden Pläne bleiben.</div>
-    ${planImport.verloren ? `<div class="tiny" style="color:var(--danger);margin:0 0 10px">⚠️
+    ${planImport.verloren ? `<div class="tiny" style="color:var(--danger);margin:0 0 10px">${ic('warn')}
       ${planImport.verloren===1?'Eine Übung ist':planImport.verloren+' Übungen sind'} nicht dabei —
       deine App kennt sie noch nicht. Seite einmal neu laden und den Link nochmal öffnen.</div>` : ''}
     ${liste}
@@ -8539,7 +8640,7 @@ const RUECKKEHR_ZIEL = () => location.origin + location.pathname;
    `freund_annehmen()` -- also erst, wenn der Code-Inhaber die Anfrage annimmt.
    💡 Kein 🎉 -- Karls Vorliebe. */
 function freundNachricht(code){
-  return `💪 Trainier mit mir auf Gym-Log!\n\n`
+  return `Trainier mit mir auf Gym-Log!\n\n`
     + `Mein Freundes-Code:\n${code}\n\n`
     + `So geht's: Profil → Freunde → „Freund hinzufügen" → Code eintippen. `
     + `Sobald ich die Anfrage bestätige, sehen wir uns gegenseitig in der Bestenliste.\n\n`
@@ -9698,6 +9799,13 @@ function reiterZeigen(ziel){
   const el = document.getElementById('app');
   const von = REITER.indexOf(view), nach = REITER.indexOf(ziel);
   if(el){ el.classList.remove('zieht','faellt-zurueck','rein-r','rein-l'); el.style.transform=''; }
+  /* 🔴 15.09.2026: nach oben, BEVOR die neue Seite steht. Vorher blieb die Scrollposition
+     der alten Seite stehen -- auf einer anderen Seite ist sie eine zufaellige Stelle, und
+     auf dem kurzen Profil musste der Browser sie in einem Bild von ~2000 auf 1 kappen.
+     Genau dieser Sprung hat die Leiste mitgerissen (Begruendung beim CSS von `#app.rein-r`).
+     ⚠️ Nur bei einem echten Wechsel -- ein Tipp auf den Reiter, auf dem man schon steht,
+     soll nicht wegspringen. */
+  if(view !== ziel) window.scrollTo(0, 0);
   view = ziel; render();
   if(!el || von === -1 || nach === -1 || von === nach) return;
   /* Das Lesen von offsetWidth erzwingt einen Neuaufbau -- ohne das startet die Animation
