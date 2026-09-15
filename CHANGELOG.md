@@ -4,6 +4,24 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-15
 
+### v0.114 — Kein Benutzername zweimal: die Sperre sitzt jetzt in der Datenbank
+
+**Karl:** *„hast du auch eine sperre für gleiche namen es darf keine gleichen geben"*.
+**Ehrliche Antwort: bis hierher nur halb.** Die App fragte vorher (`username_taken`), die Datenbank
+selbst ließ doppelte Namen zu — bei einer fehlgeschlagenen Frage, bei zwei gleichzeitigen
+Registrierungen und bei jedem, der den Namen direkt über die Schnittstelle setzt.
+
+**Neu: `supabase-namen-eindeutig.sql`** — Trigger vor jedem Anlegen und jeder Namensänderung an
+`auth.users`: gleicher Name (ohne Groß/Klein, ohne Rand) bei einem anderen Konto → abgelehnt.
+Pro Name eine Transaktionssperre gegen gleichzeitige Registrierungen. Bestehende Konten werden
+nicht angefasst; die Datei zeigt am Ende, ob es heute schon doppelte gibt.
+
+**App:** Supabase meldet die Ablehnung nur als „Database error saving new user". In genau dem Fall
+fragt die App noch einmal nach dem Namen und sagt „Username ist schon vergeben".
+🔴 **Wirkt erst nach dem SQL im SQL-Editor.**
+
+🧪 1122 → **1125**. Gegenprobe: ohne Nachfragen 1 rot.
+
 ### v0.113 — Ohne eigene Lebensmittel: keine Überschrift, kein Leersatz
 
 **Karls Ansage:** *„Meine Lebensmittel / Noch keine eigenen Lebensmittel. — die beiden Texte raus.

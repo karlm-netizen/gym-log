@@ -1246,6 +1246,48 @@ window.addEventListener('error', e => {
     if (signup) return 'trotz 429 wurde ein Konto angelegt';
     return /zu viele Versuche/i.test(fehler) || 'Meldung: ' + fehler;
   });
+  /* ---- Keine gleichen Namen (15.09.2026, Karl: „es darf keine gleichen geben") ----
+     Die Sperre sitzt in der Datenbank. Geprueft wird hier (1) dass die .sql sie wirklich an
+     auth.users haengt, fuer Anlegen UND Aendern, ohne Gross/Klein -- und (2) dass die App aus der
+     nichtssagenden Supabase-Meldung wieder „Username ist schon vergeben" macht. */
+  t('Die Namens-Sperre haengt als Trigger an auth.users, fuer Anlegen und Aendern', () => {
+    const sql = (window.SQL_QUELLEN || {})['supabase-namen-eindeutig.sql'];
+    if (!sql) return 'supabase-namen-eindeutig.sql fehlt';
+    const ohne = sql.replace(/--[^\n]*/g, '');
+    if (!/create\s+trigger\s+gym_name_eindeutig\s+before\s+insert\s+or\s+update\s+of\s+raw_user_meta_data\s+on\s+auth\.users/i.test(ohne))
+      return 'Trigger nicht vor insert/update an auth.users';
+    if (!/lower\s*\(\s*trim/i.test(ohne)) return 'Vergleich nicht ohne Gross/Klein und Rand';
+    if (!/pg_advisory_xact_lock/i.test(ohne)) return 'keine Sperre gegen gleichzeitige Registrierung';
+    return /u\.id\s*<>\s*new\.id/i.test(ohne) || 'das eigene Konto wird nicht ausgenommen';
+  });
+  await tA('Scheitert die Registrierung an der Namens-Sperre, heisst es „Username ist schon vergeben"', async () => {
+    const mF = window.fetch; let fragen = 0;
+    window.fetch = async (url) => {
+      if (String(url).indexOf('/auth/v1/signup') > -1)
+        return { ok:false, status:500, json: async () => ({ msg:'Database error saving new user' }) };
+      fragen++;   // username_taken: erst frei (vor dem Anlegen), dann vergeben (nach dem Fehlschlag)
+      return { ok:true, status:200, json: async () => fragen > 1 };
+    };
+    let fehler = '';
+    try { await authSignUp('karl', 'k@example.org', 'geheim123'); }
+    catch (e) { fehler = String(e); }
+    finally { window.fetch = mF; }
+    if (fragen !== 2) return 'es wurde ' + fragen + 'x nach dem Namen gefragt statt 2x';
+    return fehler === 'Username ist schon vergeben.' || 'Meldung: ' + fehler;
+  });
+  await tA('Andere Registrierungsfehler bleiben, wie sie sind', async () => {
+    const mF = window.fetch; let fragen = 0;
+    window.fetch = async (url) => {
+      if (String(url).indexOf('/auth/v1/signup') > -1)
+        return { ok:false, status:422, json: async () => ({ msg:'User already registered' }) };
+      fragen++; return { ok:true, status:200, json: async () => false };
+    };
+    let fehler = '';
+    try { await authSignUp('karl', 'k@example.org', 'geheim123'); }
+    catch (e) { fehler = String(e); }
+    finally { window.fetch = mF; }
+    return (fehler === 'User already registered' && fragen === 1) || 'Meldung: ' + fehler + ' / gefragt: ' + fragen;
+  });
   await tA('nameVergeben unterscheidet 429 von einem echten Fehler', async () => {
     const mF = window.fetch; const r = {};
     try {

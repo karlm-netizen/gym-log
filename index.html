@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.113';
+var APP_FASSUNG = 'v0.114';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -8753,7 +8753,19 @@ async function authSignUp(username,email,password){ username=(username||'').trim
      Sperre, die er nicht aufheben kann. */
   if(frei === RPC_FEHLER) toast('Der Name konnte gerade nicht geprüft werden.');
   const r=await fetch(`${SUPA_URL}/auth/v1/signup`,{method:'POST',headers:{'apikey':SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password,data:{username}})});
-  const d=await r.json(); if(!r.ok) throw d.msg||d.error_description||d.error||'Registrierung fehlgeschlagen.';
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){
+    /* 🔴 15.09.2026: die Namens-Sperre sitzt jetzt in der Datenbank (`supabase-namen-eindeutig.sql`).
+       Supabase meldet sie beim Registrieren aber nur als „Database error saving new user" --
+       ein Satz, bei dem niemand an seinen Namen denkt. Deshalb wird in genau diesem Fall noch
+       einmal gefragt: ist der Name inzwischen vergeben, sagen wir DAS.
+       ⚠️ Nur bei dieser Meldung. Jeder andere Fehler (E-Mail vergeben, Passwort zu kurz) geht
+       unveraendert durch -- ein Nachfragen dort koennte den echten Grund verdecken. */
+    const text = d.msg||d.error_description||d.message||d.error||'';
+    if(/database error saving new user/i.test(text) && await nameVergeben(username) === true)
+      throw 'Username ist schon vergeben.';
+    throw text||'Registrierung fehlgeschlagen.';
+  }
   if(!d.access_token) throw 'Konto erstellt. Falls E-Mail-Bestätigung aktiv ist: E-Mail bestätigen, dann anmelden.';
   setSession(d,username); letzteMailMerken(email);
   /* ⚠️ Bis zum 13.09.2026 wanderte hier der ganze Geraetestand ungefragt ins neue Konto --
