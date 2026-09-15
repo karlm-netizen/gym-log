@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.109';
+var APP_FASSUNG = 'v0.110';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -695,7 +695,7 @@ setTimeout(function(){
   @media (prefers-reduced-motion: reduce){ .exa animate, .exa animateTransform{display:none} }
   /* ---------- „Essen eintragen" nach Karls Vorlage (04.09.2026) ----------
      Karl hat einen von GPT gezeichneten Entwurf geschickt: Kopfzeile mit mittigem Titel,
-     darunter ein Drei-Wege-Umschalter (Suchen / Favoriten / Zuletzt), Suchfeld, dann eine
+     darunter ein Umschalter (Suchen / Favoriten; „Zuletzt" ist seit 15.09. weg), Suchfeld, dann eine
      Liste mit rundem Bild links, kcal und Naehrwerten rechts und einem gruenen Plus.
      ⚠️ Was aus dem Entwurf NICHT uebernommen ist und warum, steht bei renderFood(). */
   .food-kopf{display:grid; grid-template-columns:44px 1fr auto; align-items:center;
@@ -744,22 +744,22 @@ setTimeout(function(){
      Entwurf gruen. 13.09.2026, Karls Ansage: *„Der eigene Lebensmittel eintragen Button
      bitte in der Standard Farbe"*. Die Klasse hatte nur diesen einen Knopf und ist mit
      ihm gegangen. */
-  /* ---------- Die Mahlzeiten-Leiste aus dem Entwurf ----------
-     🔴 Sie filtert die LISTE, sie waehlt NICHT das Ziel. Wohin das Essen geht, steht
-     seit dem 03.09. fest, bevor man hier ankommt, und seit v0.070 in der Ueberschrift.
-     Waeren es zwei Waehler, koennten sie sich widersprechen.
-     ⚠️ Die Zuordnung ist nicht erfunden: sie kommt daraus, in welche Mahlzeit Karl das
-     Lebensmittel bisher eingetragen hat. Ein Lebensmittel, das er noch nie eingetragen
-     hat, steht deshalb nur unter „Alle" -- richtig so, denn ueber das weiss die App
-     tatsaechlich nichts. */
-  .mz-filter{display:flex; gap:8px; overflow-x:auto; padding:2px 0 8px; margin-bottom:6px;
-    scrollbar-width:none}
-  .mz-filter::-webkit-scrollbar{display:none}
-  .mz-filter > button{flex:0 0 auto; display:inline-flex; align-items:center; gap:6px;
-    background:var(--card2); border:1px solid var(--line); color:var(--muted);
-    border-radius:12px; padding:9px 13px; font-size:13.5px; font-weight:700; cursor:pointer;
-    white-space:nowrap; transition:border-color .12s, color .12s}
-  .mz-filter > button.on{border-color:var(--ok); color:var(--ok)}
+  /* ➡️ Hier stand die Mahlzeiten-Leiste (Alle / Fruehstueck / ...). 15.09.2026, Karls
+     Ansage: *„das alle, fruehstueck und so kann da weg braucht man fuer nichts"*. */
+  /* ---------- „In der Datenbank suchen" sticht heraus (15.09.2026, Karls Ansage) ----------
+     *„der knopf soll rausstechen sobald er auftaucht"*. Zwei Teile: die Hausfarbe
+     (`.btn.primary`) und ein einmaliges Aufploppen beim ERSCHEINEN.
+     ⚠️ Nur beim Erscheinen, nicht bei jedem Tastendruck: die Liste wird bei jedem Zeichen neu
+     gezeichnet, und ein Knopf, der bei jedem Buchstaben huepft, sticht nicht heraus, er
+     zappelt. Wann er „neu" ist, entscheidet `dbKnopfWarDa` in renderFoodList(). */
+  .btn.dbsuche{display:flex; align-items:center; justify-content:center; gap:8px}
+  .btn.dbsuche > svg{flex:0 0 auto}
+  .btn.dbsuche.neu{animation:dbPopp .5s ease-out}
+  @keyframes dbPopp{
+    0%{transform:scale(.92); box-shadow:0 0 0 0 var(--accent)}
+    55%{transform:scale(1.03); box-shadow:0 0 0 8px transparent}
+    100%{transform:scale(1); box-shadow:0 0 0 0 transparent} }
+  @media (prefers-reduced-motion: reduce){ .btn.dbsuche.neu{animation:none} }
   .food-stern{background:none; border:none; cursor:pointer; font-size:17px; line-height:1;
     padding:2px 3px; color:var(--muted); flex:0 0 auto}
   .food-stern.an{color:#f2b32c}
@@ -1855,7 +1855,7 @@ const SUPA_KEY='sb_publishable_7UvOL7KzzgJK6om8OwUsSg_usOMz92l';
 // Git-Historie stünde. Karls Entscheidung am 03.08.2026.
 const PRIVACY_OWNER='Karl Fangmeyer (privat betriebene App)';
 const PRIVACY_CONTACT='karlm.fangmeyer@gmail.com';
-const PRIVACY_STAND='13. September 2026';  // bei jeder inhaltlichen Aenderung mit hochziehen
+const PRIVACY_STAND='15. September 2026';  // bei jeder inhaltlichen Aenderung mit hochziehen
 /* 🔴 09.09.2026: Der Stand stand auf dem 24.08., obwohl der Text am 03.09. geaendert
    wurde. Gefunden von datenschutz-pruefen.py, nicht von einem Menschen -- genau dafuer
    gibt es das Skript. Es vergleicht dieses Datum mit `git log -L` auf renderPrivacy()
@@ -2323,6 +2323,12 @@ const ERFOLG_SVG = {
   kalender: `<path d="M8 12h32v30H8z"/><path d="M8 21h32"/><path d="M17 7v9M31 7v9"/><path class="ma" d="M15 30l4 4 9-9"/>`,
   flamme:   `<path d="M24 44c-8 0-13-5-13-12 0-8 7-11 7-19 0 0 8 3 8 10 2-2 3-5 3-8 5 4 8 10 8 17 0 7-5 12-13 12z"/><path class="ma" d="M24 44c-4 0-6-3-6-6s3-5 3-9c0 0 5 2 5 6 1-1 1-2 1-4 3 2 3 5 3 7 0 4-2 6-6 6z"/>`,
   berg:     `<path d="M4 40L18 14l8 13 5-7 13 20z"/><path d="M13 26l5 3 4-3"/><path class="ma" d="M31 20v-9M31 11h8l-2.5 3L39 17h-8"/>`,
+  /* 15.09.2026: Pokal fuer 12 Wochen, Diamant fuer 16 -- die Reihe Flamme -> Berg -> Pokal ->
+     Diamant soll auch ohne Zahl nach „mehr" aussehen. Bewusst keine Krone (traegt „Hundert").
+     ⚠️ Der Akzent am Diamanten sass zuerst auf den unteren Facetten und las sich gerendert
+     als ein gelbes „V". Jetzt ein Funkeln oben rechts -- nebeneinander angesehen, 72 und 26 px. */
+  pokal:    `<path d="M14 7h20v11a10 10 0 0 1-20 0z"/><path d="M14 10H8c0 6 3 9 7 9M34 10h6c0 6-3 9-7 9"/><path d="M24 28v7"/><path d="M16 42h16l-2-7H18z"/><path class="ma" d="M19 14h10"/>`,
+  diamant:  `<path d="M13 9h22l9 11-20 22L4 20z"/><path d="M4 20h40"/><path d="M19 9l-4 11 9 22 9-22-4-11"/><path class="ma" d="M40 3v7M36.5 6.5h7"/>`,
   medaille1: `<path d="M17 5l5 13M31 5l-5 13"/><circle cx="24" cy="31" r="12"/><path class="ma" d="M22 26h2v11"/>`,
   medaille2: `<path d="M17 5l5 13M31 5l-5 13"/><circle cx="24" cy="31" r="12"/><path class="ma" d="M20 27a3.5 3.5 0 0 1 7 0c0 4-7 4-7 9h7"/>`,
   medaille3: `<path d="M17 5l5 13M31 5l-5 13"/><circle cx="24" cy="31" r="12"/><path class="ma" d="M24 22.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>`,
@@ -2359,6 +2365,15 @@ const ERFOLGE = [
   { id:'d1',  gr:'Dranbleiben', svg:'kalender', xp:150,  name:'Volle Woche',     text:'3 Einheiten in einer Woche',             ziel:3,      ist:besteWoche },
   { id:'d2',  gr:'Dranbleiben', svg:'flamme', xp:400,  name:'Vier am Stück',   text:'4 Wochen hintereinander trainiert',      ziel:4,      ist:besteWochenSerie },
   { id:'d3',  gr:'Dranbleiben', svg:'berg', xp:1000, name:'Acht Wochen',     text:'8 Wochen am Stück — eine Woche darf ausfallen', ziel:8,  ist:besteWochenSerieJoker },
+  /* ➡️ 15.09.2026, Karls Wahl „Weg B": Dranbleiben staerker belohnen ueber MEHR STUFEN, nicht
+     ueber einen laufenden Bonus je Einheit. Kein neuer Mechanismus -- dieselbe Zaehlung wie
+     „Acht Wochen" (eine ausgefallene Woche wird verziehen, zwei reissen ab).
+     ⚠️ Die XP (1500 / 2000) sind MEIN Vorschlag in der Reihe 400 -> 1000, nicht Karls Zahl --
+     er hat die Erfolgs-XP am 14.09. selbst gesetzt und entscheidet auch diese.
+     ⚠️ `ist` wird ohne Argument aufgerufen (`e.ist()`), `besteWochenSerieJoker()` faellt dann
+     auf eine erlaubte Luecke zurueck -- genau wie bei d3. */
+  { id:'d4',  gr:'Dranbleiben', svg:'pokal', xp:1500, name:'Zwölf Wochen',    text:'12 Wochen am Stück — eine Woche darf ausfallen', ziel:12, ist:besteWochenSerieJoker },
+  { id:'d5',  gr:'Dranbleiben', svg:'diamant', xp:2000, name:'Sechzehn Wochen', text:'16 Wochen am Stück — eine Woche darf ausfallen', ziel:16, ist:besteWochenSerieJoker },
 
   { id:'l1',  gr:'Rang', svg:'medaille1', xp:0,    name:'Level 10',        text:'Level 10 erreicht',                      ziel:10,     ist:()=>levelFromXP(profile.xp).level },
   { id:'l2',  gr:'Rang', svg:'medaille2', xp:0,    name:'Level 25',        text:'Level 25 erreicht',                      ziel:25,     ist:()=>levelFromXP(profile.xp).level },
@@ -2660,7 +2675,7 @@ function render(){
   /* ⚠️ `foodStep==='menge'` schuetzt den fertig geschaetzten Entwurf: er ist das
      Ergebnis einer Wartezeit (und beim Foto von echtem Geld), nicht ein halbfertiger
      Eintrag. Halbfertiges wird weiter weggeraeumt wie bisher. */
-  if(view!=='food'&&!foodBusy&&foodStep!=='menge'){ foodStep='list'; foodDraft=null; foodFehler=''; foodMz=''; foodTab='suchen'; foodQ=''; foodFilter=''; }
+  if(view!=='food'&&!foodBusy&&foodStep!=='menge'){ foodStep='list'; foodDraft=null; foodFehler=''; foodMz=''; foodTab='suchen'; foodQ=''; dbKnopfWarDa=false; }
   setNav();
   /* Ein zurueckgehaltener Fassungs-Hinweis wird hier faellig: er erscheint nicht mitten
      im Training, sondern beim naechsten Bild danach. */
@@ -4254,7 +4269,11 @@ let foodBusyListe = false;
 /* ➡️ Der Drei-Wege-Umschalter aus Karls Entwurf (04.09.2026). `foodQ` haelt den
    Suchtext fest, damit ein Wechsel zwischen den Reitern ihn nicht verschluckt --
    das Feld wird beim Neuzeichnen ja neu gebaut. */
-let foodTab='suchen', foodQ='', foodFilter='';
+let foodTab='suchen', foodQ='';
+/* War der Datenbank-Knopf beim letzten Zeichnen der Liste schon da? Nur wenn nicht, ploppt
+   er auf (15.09.2026). Beim Verlassen der Essens-Ansicht zurueckgesetzt, dort wo auch
+   `foodQ` geleert wird. */
+let dbKnopfWarDa = false;
 const LUPE_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"'
   + ' stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/>'
   + '<path d="M20 20l-3.5-3.5"/></svg>';
@@ -4968,7 +4987,9 @@ function renderFood(){
         Abschnitt heisst weiter „Meine Lebensmittel". */
   const mzJetzt = MAHLZEITEN.find(x=>x.id===(foodMz||mahlzeitJetzt()));
   const titelMz = mzJetzt ? `${mzJetzt.icon} ${esc(mzJetzt.name)} eintragen` : 'Essen eintragen';
-  const REITER = [['suchen','Suchen',LUPE_SVG],['fav','Favoriten','★'],['zuletzt','Zuletzt','⏱']];
+  /* ➡️ „Zuletzt" ist am 15.09.2026 gegangen, Karls Ansage: *„zuletzt kann weg, denn ab jetzt
+     werden die 10 letzten sachen einfach vorne angezeigt"* -- siehe renderFoodList(). */
+  const REITER = [['suchen','Suchen',LUPE_SVG],['fav','Favoriten','★']];
   /* 🔴 `+=` und nicht `=`. Bis zum 04.09.2026 stand hier `h = ` -- und damit wurde der
      Fehlerkasten oben (`Hat nicht geklappt`, Zeile ~3927) beim Zeichnen ueberschrieben,
      bevor ihn jemand sehen konnte. Die Schritte `menge`, `new` und `db` steigen vorher mit
@@ -4990,31 +5011,29 @@ function renderFood(){
     <div class="seg">${REITER.map(([id,name,ic])=>
       `<button class="${foodTab===id?'on':''}" data-act="foodtab:${id}">${ic} ${name}</button>`).join('')}</div>`;
 
-  /* Das Suchfeld steht nur ueber der Suche. Unter „Favoriten" und „Zuletzt" waere es eine
-     Zeile, die aussieht, als koennte man darin etwas finden, was gar nicht durchsucht wird. */
-  if(foodTab==='suchen'){
-    h+=`<div class="food-suche">${LUPE_SVG}
-      <input id="foodSearch" placeholder="Lebensmittel suchen…" autocomplete="off" value="${esc(foodQ)}"></div>`;
-  }
-  /* Die Mahlzeiten-Leiste aus dem Entwurf. Sie filtert die Liste, sie waehlt kein Ziel --
-     Begruendung im CSS. "Alle" ist immer da und immer der Ausgangszustand. */
-  h+=`<div class="mz-filter">
-      <button class="${foodFilter?'':'on'}" data-act="foodfilter:">🍽 Alle</button>${
-      MAHLZEITEN.map(mz=>`<button class="${foodFilter===mz.id?'on':''}"
-        data-act="foodfilter:${mz.id}">${mz.icon} ${esc(mz.name)}</button>`).join('')}</div>`;
+  /* Das Suchfeld steht ueber beiden Reitern -- seit dem 15.09.2026 auch unter „Favoriten"
+     (Karls Ansage: *„Im Reiter Favoriten soll man auch suchen koennen"*). Dort durchsucht es
+     nur die Favoriten; die Datenbank-Suche bleibt dem Such-Reiter vorbehalten.
+     ⚠️ Ein Feld, EINE Variable (`foodQ`): wer „qua" tippt und auf Favoriten wechselt, sieht
+     dort dieselbe Suche angewendet, statt eines leeren Felds neben einer gefilterten Liste. */
+  h+=`<div class="food-suche">${LUPE_SVG}
+      <input id="foodSearch" placeholder="${foodTab==='fav'?'Favoriten durchsuchen…':'Lebensmittel suchen…'}" autocomplete="off" value="${esc(foodQ)}"></div>`;
   h+=`<div class="row between" style="margin:4px 4px 8px"><h2 style="font-size:17px">${
-      foodTab==='fav'?'Favoriten':foodTab==='zuletzt'?'Zuletzt eingetragen':'Meine Lebensmittel'}</h2>
+      foodTab==='fav'?'Favoriten':'Meine Lebensmittel'}</h2>
       <span class="tiny muted" id="foodZahl"></span></div>
     <div id="foodList"></div>`;
 
   /* ➡️ Unten der grosse Knopf aus dem Entwurf, darunter „Fertig".
      Seit dem 13.09.2026 in der Standardfarbe statt gruen (Karls Ansage).
+     🔴 15.09.2026: *„Eigene Lebensmittel hinzufuegen soll in keiner besonderen farbe bitte"*.
+     Am 13.09. war aus `.btn.gruen` nur `.btn.primary` geworden -- das ist die HAUSFARBE, also
+     immer noch eine besondere. Jetzt ein schlichter `.btn`.
      ⚠️ „Fertig" steht im Entwurf NICHT und ist trotzdem geblieben: er kam am 03.09. auf
      Karls ausdrueckliche Ansage („man sollte einen groesseren, am besten einen grossen
      fertig button unten"), weil der Pfeil oben links am Handy die unbequemste Ecke ist.
      Ihn wegzunehmen, weil ein Entwurf ihn nicht zeigt, hiesse eine Ansage durch ein Bild
      zurueckzunehmen. */
-  h+=`<button class="btn primary gross" style="margin-top:18px" data-act="food:new">
+  h+=`<button class="btn gross" style="margin-top:18px" data-act="food:new">
       + Eigenes Lebensmittel hinzufügen</button>
     <button class="btn ghost gross" style="margin-top:10px" data-nav="body">Fertig</button>`;
 
@@ -5091,40 +5110,34 @@ function renderFoodList(q){
   const el=document.getElementById('foodList'); if(!el) return;
   const roh=(q||'').trim(), su=roh.toLowerCase(), k=kcalInit();
 
-  /* ---------- Die drei Reiter aus Karls Entwurf (04.09.2026) ----------
-     „Zuletzt" ist der einzige, der nicht auf der Lebensmittel-Liste steht: er kommt aus
-     den eingetragenen Mahlzeiten. ⚠️ Dort steht ein NAME, keine Kennung -- ein Eintrag von
-     vor drei Wochen kann also auf ein Lebensmittel zeigen, das es nicht mehr gibt. Deshalb
-     wird ueber den Namen zurueckgesucht und weggelassen, was nicht mehr da ist: ein Plus,
-     das ins Leere fuehrt, waere schlimmer als eine kuerzere Liste. */
+  /* ---------- Zwei Reiter, ein Suchfeld (15.09.2026, Karls Ansage) ----------
+     Das Feld filtert in BEIDEN Reitern -- unter „Favoriten" eben nur die Favoriten. */
+  const passtZurSuche = f => !su || (f.name+' '+(f.marke||'')).toLowerCase().includes(su);
   let liste;
   if(foodTab==='fav'){
-    liste = k.foods.filter(istFavorit);
-  } else if(foodTab==='zuletzt'){
-    const gesehen = new Set(); liste = [];
-    [...(k.meals||[])].sort((a,b)=>b.date-a.date).forEach(m=>{
-      const f = essenZuMahlzeit(m, k); if(!f || gesehen.has(f.id)) return;
-      gesehen.add(f.id); liste.push(f);
-    });
-    liste = liste.slice(0,20);
+    liste = k.foods.filter(f=>istFavorit(f) && passtZurSuche(f));
   } else {
-    const treffer = su ? k.foods.filter(f=>(f.name+' '+(f.marke||'')).toLowerCase().includes(su)) : k.foods;
-    // Favoriten zuerst. `sort` ist stabil, die Liste wird also nicht durcheinandergewuerfelt.
-    liste = [...treffer].sort((a,b)=>(istFavorit(b)?1:0)-(istFavorit(a)?1:0));
-  }
-
-  /* ---------- Die Mahlzeiten-Leiste filtert hier, und nur hier ----------
-     🔴 Die Zuordnung ist NICHT geraten: sie kommt daraus, in welche Mahlzeit dieses
-     Lebensmittel bisher eingetragen wurde. Ein Lebensmittel ohne Vergangenheit steht
-     deshalb nur unter "Alle" -- ueber das weiss die App tatsaechlich nichts, und eine
-     erfundene Einordnung waere schlechter als keine.
-     ⚠️ Ueber den Namen, weil Mahlzeiten keinen Verweis auf das Lebensmittel speichern;
-     `mahlzeitVon()` faengt dabei die Bestandsdaten ohne `mz`-Feld mit ab. */
-  if(foodFilter){
-    const passt = new Set();
-    (k.meals||[]).forEach(m=>{ if(mahlzeitVon(m)!==foodFilter) return;
-      const f = essenZuMahlzeit(m, k); if(f) passt.add(f.id); });
-    liste = liste.filter(f=>passt.has(f.id));
+    /* ---------- Die 10 zuletzt eingetragenen stehen vorne (15.09.2026) ----------
+       Karl: *„zuletzt kann weg, denn ab jetzt werden die 10 letzten sachen einfach vorne
+       angezeigt"*. Der Reiter ist weg, seine Reihenfolge lebt hier weiter: die zehn
+       juengsten verschiedenen Lebensmittel zuerst, juengstes oben, dahinter der Rest wie
+       bisher (Favoriten zuerst).
+       ⚠️ Die Mahlzeiten tragen eine Kennung erst seit dem 04.09., davor nur den NAMEN --
+       `essenZuMahlzeit()` sucht deshalb ueber beides zurueck und liefert nichts, was es
+       nicht mehr gibt. Ein Eintrag, der auf ein geloeschtes Lebensmittel zeigt, faellt
+       still heraus, statt eine Zeile mit einem Plus ins Leere zu erzeugen.
+       ⚠️ „Zehn" zaehlt verschiedene LEBENSMITTEL, nicht Eintraege: wer dreimal Quark isst,
+       soll nicht drei der zehn Plaetze mit derselben Zeile belegen. */
+    const rang = new Map();
+    [...(k.meals||[])].sort((a,b)=>(+b.date||0)-(+a.date||0)).forEach(m=>{
+      if(rang.size >= 10) return;
+      const f = essenZuMahlzeit(m, k); if(f && !rang.has(f.id)) rang.set(f.id, rang.size);
+    });
+    const treffer = k.foods.filter(passtZurSuche);
+    const vorne = treffer.filter(f=>rang.has(f.id)).sort((a,b)=>rang.get(a.id)-rang.get(b.id));
+    // Der Rest: Favoriten zuerst. `sort` ist stabil, die Liste wird also nicht durcheinandergewuerfelt.
+    const rest = treffer.filter(f=>!rang.has(f.id)).sort((a,b)=>(istFavorit(b)?1:0)-(istFavorit(a)?1:0));
+    liste = vorne.concat(rest);
   }
 
   const zahl=document.getElementById('foodZahl'); if(zahl) zahl.textContent=liste.length||'';
@@ -5154,9 +5167,9 @@ function renderFoodList(q){
             stand unveraendert weiter da und wartete auf ein Element, das es nirgends
             mehr gab. Ein doppelt angelegtes Lebensmittel waere damit dauerhaft in der
             Liste geblieben, ohne dass irgendwo etwas gefehlt haette.
-            ⚠️ Er steht bewusst NUR unter dem Such-Reiter: unter „Favoriten" und
-            „Zuletzt" sieht man einen Ausschnitt, und Loeschen aus einem Ausschnitt
-            heraus loescht mehr, als man gerade sieht. */''}
+            ⚠️ Er steht bewusst NUR unter dem Such-Reiter: unter „Favoriten" sieht man
+            einen Ausschnitt, und Loeschen aus einem Ausschnitt heraus loescht mehr, als
+            man gerade sieht. */''}
       ${foodTab==='suchen'?`<button class="del-x" data-delfood="${f.id}"
         aria-label="${esc(f.name)} aus meiner Liste löschen">✕</button>`:''}
     </div>`;
@@ -5164,15 +5177,19 @@ function renderFoodList(q){
   let h = liste.map(zeile).join('');
   if(!liste.length){
     h += `<div class="empty" style="padding:18px">${
-      foodTab==='fav' ? 'Noch keine Favoriten. Tipp in der Suche auf den Stern.'
-      : foodTab==='zuletzt' ? 'Hier stehen die Lebensmittel, die du zuletzt eingetragen hast.'
-      : foodFilter ? 'Aus deiner Liste ist hier noch nichts zu dieser Mahlzeit eingetragen. Ältere Einträge finden sich nur wieder, solange der Name derselbe geblieben ist.'
+      foodTab==='fav' ? (su && k.foods.some(istFavorit) ? 'Kein Favorit passt zu deiner Suche.'
+                                                       : 'Noch keine Favoriten. Tipp in der Suche auf den Stern.')
       : (k.foods.length ? 'Nichts gefunden.' : 'Noch keine eigenen Lebensmittel.')}</div>`;
   }
   /* Die Datenbanksuche steht nur unter dem Such-Reiter und nur mit Suchtext -- ohne beides
-     waere sie ein Knopf ohne Frage. */
-  if(foodTab==='suchen' && roh) h+=`<button class="btn ghost" style="margin-top:10px" data-act="food:dbsuche">
-      🔍 „${esc(roh)}" in der Datenbank suchen</button>`;
+     waere sie ein Knopf ohne Frage.
+     15.09.2026, Karls Ansage: die Lupe als SVG statt als Emoji (dasselbe Zeichen wie im
+     Suchfeld und im Reiter) und der Knopf *„soll rausstechen sobald er auftaucht"* --
+     Hausfarbe plus einmaliges Aufploppen, Begruendung im CSS bei `.btn.dbsuche`. */
+  const dbKnopf = foodTab==='suchen' && !!roh;
+  if(dbKnopf) h+=`<button class="btn primary dbsuche${dbKnopfWarDa?'':' neu'}" style="margin-top:10px" data-act="food:dbsuche">
+      ${LUPE_SVG}<span>„${esc(roh)}" in der Datenbank suchen</span></button>`;
+  dbKnopfWarDa = dbKnopf;
   el.innerHTML=h;
 }
 
@@ -6572,6 +6589,19 @@ function renderPrivacy(){
         Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO: ohne jemanden, der die Seite ausliefert,
         lässt sich die App nicht öffnen.</p>
 
+      <b>Wenn du dich registrierst</b>
+      <p class="muted" style="margin:4px 0 14px">Vor dem Anlegen des Kontos fragt die App bei
+        Supabase, ob dein <b style="color:var(--txt)">Benutzername noch frei</b> ist. Damit niemand
+        mit einem Programm massenhaft Namen durchprobieren kann, ist diese Frage gebremst:
+        <b style="color:var(--txt)">höchstens 10 pro Minute je Verbindung</b>. Um Verbindungen
+        auseinanderzuhalten, merkt sich die Datenbank einen <b style="color:var(--txt)">aus deiner
+        IP-Adresse berechneten Prüfwert</b> (mit einem geheimen Zusatz, aus dem sich die Adresse
+        nicht zurückrechnen lässt) und wie oft gefragt wurde —
+        <b style="color:var(--txt)">die IP-Adresse selbst wird nicht gespeichert</b>, und der
+        Eintrag wird <b style="color:var(--txt)">nach 10 Minuten gelöscht</b>.
+        Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO: der Schutz der Konten vor automatisiertem
+        Ausforschen.</p>
+
       <b>Wenn du Essen einträgst</b>
       <p class="muted" style="margin:4px 0 8px">Drei der Wege reden mit einem fremden Dienst.
         Alle drei benutzt die App <b style="color:var(--txt)">nur, wenn du suchst oder einen Knopf
@@ -6586,8 +6616,8 @@ function renderPrivacy(){
           <b style="color:var(--txt)">Deine IP-Adresse sieht der Dienst dabei</b> — wie bei jedem
           Aufruf einer fremden Seite.
           <b style="color:var(--txt)">Tipp nichts ein, was du nicht weitergeben willst.</b>
-          Die Reiter <b style="color:var(--txt)">Favoriten</b> und <b style="color:var(--txt)">Zuletzt</b>
-          suchen nicht — die stehen auf deinem Gerät.</li>
+          Unter <b style="color:var(--txt)">Favoriten</b> sucht das Feld nur in deinen Favoriten
+          — die stehen auf deinem Gerät, dabei geht nichts hinaus.</li>
         <li><b style="color:var(--txt)">Barcode</b> — die eingescannte Nummer geht an
           <b style="color:var(--txt)">Open Food Facts</b> (world.openfoodfacts.org, gemeinnützig,
           Frankreich), um die Nährwerte zu holen. <b style="color:var(--txt)">Beim Scannen</b> wird nur
@@ -8497,6 +8527,24 @@ function letzteMailMerken(mail){ try{ mail ? localStorage.setItem(LETZTE_MAIL_KE
                                           : localStorage.removeItem(LETZTE_MAIL_KEY); }catch(e){} }
 
 const RUECKKEHR_ZIEL = () => location.origin + location.pathname;
+/* ---------- Der Freundes-Code kommt mit einer Nachricht (15.09.2026) ----------
+   Karl: *„lass da mal so eine text nachricht kopieren wenn man den code kopiert so von wegen
+   hier ist dein code fuer die gym app und noch irgendwas denk dir was aus."*
+   ⚠️ Der Code steht in einer EIGENEN Zeile: am Handy markiert ein Doppeltipp ein Wort, und
+   wer nur den Code herauskopieren will, soll ihn nicht aus einem Satz klauben muessen.
+   ⚠️ Der Weg in der App steht mit drin -- „trag meinen Code ein" hilft niemandem, der nicht
+   weiss, WO. Und der Link, weil der Empfaenger die App vielleicht noch gar nicht hat.
+   ⚠️ „gegenseitig" und „sobald ich bestaetige" sind nachgesehen, nicht angenommen:
+   `gym_freunde` hat EINE Zeile je Paar (beide sehen sie), und entstehen kann sie nur ueber
+   `freund_annehmen()` -- also erst, wenn der Code-Inhaber die Anfrage annimmt.
+   💡 Kein 🎉 -- Karls Vorliebe. */
+function freundNachricht(code){
+  return `💪 Trainier mit mir auf Gym-Log!\n\n`
+    + `Mein Freundes-Code:\n${code}\n\n`
+    + `So geht's: Profil → Freunde → „Freund hinzufügen" → Code eintippen. `
+    + `Sobald ich die Anfrage bestätige, sehen wir uns gegenseitig in der Bestenliste.\n\n`
+    + `Noch keine App? Hier geht's lang: ${RUECKKEHR_ZIEL()}`;
+}
 const BREMSE_KEY = 'gymlog:reset-bremse';
 const BREMSE_MS  = 60*60*1000;
 
@@ -8567,11 +8615,29 @@ function rueckkehrAusMail(){
   return {token};
 }
 
+/* ---------- Die Namens-Frage ist gebremst (15.09.2026) ----------
+   `username_taken` antwortet seit `supabase-funktionen.sql` vom 15.09. nach 10 Fragen je
+   Verbindung pro Minute mit HTTP 429.
+   🔴 Ueber `supaRPC` waere das RPC_FEHLER -- und damit „konnte nicht pruefen", worauf die
+   Registrierung mit einem Hinweis TROTZDEM weiterlaeuft. Genau dann haette die Bremse den
+   Namens-Check ausgeschaltet statt ihn zu schuetzen. Deshalb eine eigene Antwort.
+   ⚠️ Bewusst NICHT in `supaRPC` eingebaut: ein 429 kann bei jeder anderen Funktion auch vom
+   Gateway kommen, und dort ist ein neuer Wert, der kein RPC_FEHLER ist, eine Falle fuer
+   jeden Aufrufer, der nur `=== RPC_FEHLER` prueft. */
+const NAME_ZU_VIELE = Symbol('name-zu-viele');
+async function nameVergeben(username){
+  try{
+    const r=await fetch(`${SUPA_URL}/rest/v1/rpc/username_taken`,{method:'POST',headers:authHeaders(false),body:JSON.stringify({uname:username})});
+    if(r.status===429) return NAME_ZU_VIELE;
+    return r.ok ? await r.json() : RPC_FEHLER;
+  }catch(e){ return RPC_FEHLER; }
+}
 async function authSignUp(username,email,password){ username=(username||'').trim(); email=(email||'').trim();
   if(!username||!email||!password) throw 'Bitte Username, E-Mail und Passwort ausfüllen.';
   if(password.length<6) throw 'Passwort mind. 6 Zeichen.';
-  const frei = await supaRPC('username_taken',{uname:username});
+  const frei = await nameVergeben(username);
   if(frei === true) throw 'Username ist schon vergeben.';
+  if(frei === NAME_ZU_VIELE) throw 'Gerade zu viele Versuche von dieser Verbindung. Warte eine Minute und probier es dann nochmal.';
   /* ⚠️ Konnte nicht gefragt werden -- und das wird GESAGT, statt es als "Name ist
      frei" durchzuwinken. Bewusst kein Abbruch: die Funktion koennte in der Datenbank
      schlicht fehlen (sie stand bis zum 02.09.2026 in keiner .sql dieses Ordners), und
@@ -9255,18 +9321,13 @@ document.addEventListener('click',ev=>{
     foodMz = a.startsWith('food:start:') ? a.slice(11) : '';
     foodStep='list'; foodDraft=null; foodFehler=''; view='food'; render(); }
   else if(a==='food:back'){ foodStep='list'; foodDraft=null; foodFehler=''; render(); }
-  /* ➡️ Die drei Reiter aus Karls Entwurf (04.09.2026). Der Suchtext bleibt beim
-     Wechseln stehen -- wer unter „Favoriten" nachsieht und zurueckgeht, will nicht neu
-     tippen. */
+  /* ➡️ Die Reiter aus Karls Entwurf (04.09.2026; seit 15.09. zwei statt drei). Der
+     Suchtext bleibt beim Wechseln stehen -- wer unter „Favoriten" nachsieht und
+     zurueckgeht, will nicht neu tippen. */
   else if(a.startsWith('foodtab:')){ foodTab=a.slice(8); render();
     const f=document.getElementById('foodSearch'); if(f) f.focus(); }
-  /* ⚠️ `slice(11)` und nicht `split(':')[1]`: "foodfilter:" ohne Kennung ist "Alle",
-     und `split` gaebe dort einen leeren String zurueck, der genauso aussieht wie ein
-     Fehler. Hier ist der leere String die Absicht. */
-  else if(a.startsWith('foodfilter:')){ foodFilter=a.slice(11); render(); }
-  /* ⚠️ Der Suchtext kommt aus `foodQ` und nicht mehr aus dem Feld: unter „Favoriten"
-     und „Zuletzt" gibt es das Feld gar nicht, und `s?s.value:''` haette dort still einen
-     leeren Namen weitergereicht. */
+  /* ⚠️ Der Suchtext kommt aus `foodQ` und nicht aus dem Feld -- eine Stelle fuer den Text,
+     egal welcher Reiter ihn gerade zeichnet. */
   else if(a==='food:new'){
     foodDraft=leerDraft(); foodDraft.name=(foodQ||'').trim(); foodStep='new'; render(); }
   else if(a==='food:barcode'){ foodFehler=''; openScan(); }
@@ -9373,8 +9434,8 @@ document.addEventListener('click',ev=>{
   else if(a==='freund:kopieren'){
     const c = (freundeStand && freundeStand.code) || '';
     if(!c){ toast('Noch kein Code da'); return; }
-    (navigator.clipboard ? navigator.clipboard.writeText(c) : Promise.reject())
-      .then(()=>toast('Code kopiert')).catch(()=>toast('Kopieren ging nicht'));
+    (navigator.clipboard ? navigator.clipboard.writeText(freundNachricht(c)) : Promise.reject())
+      .then(()=>toast('Code mit Nachricht kopiert')).catch(()=>toast('Kopieren ging nicht'));
     return; }
   else if(a==='freund:anfragen'){
     const el = document.getElementById('freundCode'); if(!el) return;

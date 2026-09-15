@@ -4,6 +4,42 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-15
 
+### v0.110 — Essen eintragen aufgeräumt · zwei neue Dranbleiben-Erfolge · Freundes-Nachricht · Namens-Bremse
+
+Alles auf Karls Liste vom 15.09. vormittags.
+
+**Essen eintragen** (Karls Punkt 4):
+- 🗑️ **Mahlzeiten-Leiste weg** (*„das alle, frühstück und so kann da weg braucht man für nichts"*) —
+  samt Handler, Zustand und CSS.
+- 🗑️ **Reiter „Zuletzt" weg.** Stattdessen stehen unter „Suchen" die **10 zuletzt eingetragenen
+  Lebensmittel vorne**, jüngstes zuerst, jedes nur einmal; dahinter der Rest wie bisher (Favoriten
+  zuerst). Gilt auch mit Suchtext, dann unter den Treffern. Gelöschte Lebensmittel fallen still heraus.
+- 🔍 **Favoriten lassen sich durchsuchen** — dasselbe Feld, dieselbe Variable `foodQ`; unter Favoriten
+  keine Datenbank-Suche und kein Löschkreuz.
+- ⚪ **„Eigenes Lebensmittel hinzufügen" ohne besondere Farbe.** Am 13.09. war aus grün nur
+  `primary` geworden — die Hausfarbe. Die Prüfung hatte genau das **verlangt**; jetzt verbietet sie es.
+- ✨ **„In der Datenbank suchen"**: Lupe als SVG statt 🔍, Hausfarbe, und beim **Erscheinen**
+  einmal Aufploppen — nicht bei jedem Buchstaben (sonst zappelt er).
+- Datenschutz-Text: „Zuletzt" raus, „unter Favoriten sucht das Feld nur in deinen Favoriten".
+
+**Dranbleiben, Weg B** (Karls Punkt 2): **Zwölf Wochen** (1.500 XP, Pokal) und **Sechzehn Wochen**
+(2.000 XP, Diamant), dieselbe verzeihende Zählung wie „Acht Wochen". ⚠️ Die XP sind ein Vorschlag,
+Karl setzt sie. Der Diamant trug zuerst ein gelbes „V" — gerendert angesehen, Akzent umgesetzt.
+
+**Freundes-Code** (Karls Punkt 12): „Kopieren" legt eine Nachricht in die Zwischenablage — Code in
+eigener Zeile, Weg in der App, Link. „Gegenseitig, sobald bestätigt" in `supabase-freunde.sql`
+nachgesehen, nicht angenommen.
+
+**`username_taken` gebremst** (Karls Punkt 15): 10 Fragen je Verbindung pro Minute, danach HTTP 429
+(`PT429`). Verbindung = SHA-256 über IP + geheimes Salz, Zeilen nach 10 Minuten weg. Die App erkennt
+429 eigens (`nameVergeben`) — über `supaRPC` wäre es RPC_FEHLER gewesen, und die Registrierung wäre
+**ohne** Namens-Check weitergelaufen. Datenschutz-Text: neuer Abschnitt „Wenn du dich registrierst".
+🔴 **Wirkt erst, wenn `supabase-funktionen.sql` im SQL-Editor ausgeführt ist** — ein Push liefert die
+Datenbank nicht aus. Bis dahin verhält sich alles wie vorher.
+
+🧪 1103 → **1112**. Gegenproben: Essen (Reihenfolge, Favoriten-Suche, Aufploppen) 8 rot ·
+d4 streng statt verzeihend 1 rot · nackter Code kopiert 1 rot · 429 nicht erkannt 2 rot.
+
 ### v0.109 — Gewichtstrend: ein Ausreißer kippt ihn nicht mehr
 
 **Karls Ansage:** *„wenn du kannst gerne fixen"* (offener Punkt vom 28.08.).

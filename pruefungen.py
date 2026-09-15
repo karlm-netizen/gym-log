@@ -1227,7 +1227,39 @@ window.addEventListener('error', e => {
   });
   // Ob es einen Namen GIBT, bleibt abfragbar -- die Registrierung braucht das.
   t('username_taken wird weiter benutzt', () =>
-    /username_taken/.test(authSignUp.toString()) || 'wird nicht mehr gefragt');
+    (/nameVergeben\(/.test(authSignUp.toString()) && /username_taken/.test(nameVergeben.toString()))
+      || 'wird nicht mehr gefragt');
+  /* ---- Die Bremse (15.09.2026): ein 429 darf die Namens-Pruefung nicht ausschalten ----
+     🔴 Ueber supaRPC waere ein 429 RPC_FEHLER -- und die Registrierung liefe mit einem
+     Hinweis TROTZDEM weiter. Geprueft am Einbau: authSignUp mit einem 429 muss abbrechen,
+     BEVOR es zum Anlegen (`/auth/v1/signup`) kommt. */
+  await tA('Bei 429 bricht die Registrierung ab, bevor ein Konto angelegt wird', async () => {
+    const mF = window.fetch; let signup = 0;
+    window.fetch = async (url) => {
+      if (String(url).indexOf('/auth/v1/signup') > -1) { signup++; return { ok:false, status:400, json: async () => ({}) }; }
+      return { ok:false, status:429, json: async () => ({ message:'zu viele Anfragen' }) };
+    };
+    let fehler = '';
+    try { await authSignUp('karl', 'k@example.org', 'geheim123'); }
+    catch (e) { fehler = String(e); }
+    finally { window.fetch = mF; }
+    if (signup) return 'trotz 429 wurde ein Konto angelegt';
+    return /zu viele Versuche/i.test(fehler) || 'Meldung: ' + fehler;
+  });
+  await tA('nameVergeben unterscheidet 429 von einem echten Fehler', async () => {
+    const mF = window.fetch; const r = {};
+    try {
+      window.fetch = async () => ({ ok:false, status:429, json: async () => ({}) });
+      r.bremse = await nameVergeben('x');
+      window.fetch = async () => ({ ok:false, status:500, json: async () => ({}) });
+      r.fehler = await nameVergeben('x');
+      window.fetch = async () => ({ ok:true, status:200, json: async () => false });
+      r.frei = await nameVergeben('x');
+    } finally { window.fetch = mF; }
+    if (r.bremse !== NAME_ZU_VIELE) return '429 wird nicht als Bremse erkannt';
+    if (r.fehler !== RPC_FEHLER) return '500 ist kein RPC_FEHLER';
+    return r.frei === false || 'eine echte Antwort kommt nicht durch: ' + String(r.frei);
+  });
 
   // ---- Die Bequemlichkeit, die dafuer zurueckkommt
   const ohneMail = (fn) => {
@@ -3996,25 +4028,27 @@ window.addEventListener('error', e => {
   /* ================================ Karls Entwurf fuer „Essen eintragen" (04.09.2026)
      Er hat ein von GPT gezeichnetes Bild geschickt: Kopfzeile, Drei-Wege-Umschalter,
      Suchfeld, Zeilen als Karten. Geprueft wird am gebauten Dokument. */
-  /* ⚠️ `foodFilter` fehlte hier bis zum Abend des 04.09. -- eine Pruefung, die ihn setzt,
-     haette ihn an die naechste weitergereicht. Heute ging das gut, weil die Filter-Pruefung
-     die letzte war; beim naechsten eingeschobenen Test nicht mehr. Genau die Sorte
-     Abhaengigkeit, die spaeter als „unerklaerlicher Fehlschlag" auftaucht. */
+  /* ⚠️ Alles, was eine Pruefung an Essens-Zustand setzt, wird hier zurueckgestellt -- sonst
+     reicht sie ihn an die naechste weiter (so war es bis zum 04.09. mit dem Mahlzeiten-
+     Filter, den es seit dem 15.09. nicht mehr gibt). */
   const foodBauen = (tab, mz) => {
-    const vS=view, tS=foodTab, qS=foodQ, mS=foodMz, stS=foodStep, flS=foodFilter;
+    const vS=view, tS=foodTab, qS=foodQ, mS=foodMz, stS=foodStep, dkS=dbKnopfWarDa;
     foodTab=tab; foodMz=mz||'f'; foodStep='list'; view='food'; renderFood();
     const doc = { h:app.innerHTML, app:app };
-    doc.zurueck = () => { view=vS; foodTab=tS; foodQ=qS; foodMz=mS; foodStep=stS; foodFilter=flS; };
+    doc.zurueck = () => { view=vS; foodTab=tS; foodQ=qS; foodMz=mS; foodStep=stS; dbKnopfWarDa=dkS; };
     return doc;
   };
-  t('Der Umschalter hat drei Felder und genau eines ist an', () => {
+  /* 15.09.2026, Karls Ansage: *„zuletzt kann weg"*. Zwei Felder, nicht drei. */
+  t('Der Umschalter hat zwei Felder und genau eines ist an', () => {
     const sicher=JSON.stringify(profile.kcal);
     profile.kcal={goal:2000, foods:[], meals:[]};
     const d=foodBauen('suchen');
     const alle=app.querySelectorAll('.seg > button');
     const an=app.querySelectorAll('.seg > button.on');
+    const zul=app.querySelectorAll('[data-act="foodtab:zuletzt"]').length;
     d.zurueck(); profile.kcal=JSON.parse(sicher);
-    if(alle.length!==3) return 'es sind ' + alle.length + ' Felder';
+    if(zul) return 'der Reiter „Zuletzt" steht noch da';
+    if(alle.length!==2) return 'es sind ' + alle.length + ' Felder';
     return an.length===1 || 'es sind ' + an.length + ' gleichzeitig an';
   });
   t('Die Kopfzeile traegt den Titel und den Barcode-Knopf', () => {
@@ -4040,22 +4074,87 @@ window.addEventListener('error', e => {
     d.zurueck(); profile.kcal=JSON.parse(sicher);
     return (h.indexOf('Quark')>-1 && h.indexOf('Butter')<0) || 'Liste stimmt nicht';
   });
-  /* 🔴 Der Fall, den man beim Bauen uebersieht: „Zuletzt" kommt aus den Mahlzeiten, und
-     dort steht ein NAME, keine Kennung. Ein Essen von vor drei Wochen kann auf ein
-     Lebensmittel zeigen, das inzwischen geloescht ist -- dann stuende dort eine Zeile mit
-     einem Plus, das ins Leere fuehrt. Ohne diese Pruefung faellt das erst auf, wenn Karl
-     draufdrueckt und nichts passiert. */
-  t('Zuletzt zeigt nichts, was es nicht mehr gibt', () => {
+  /* ---------- Die 10 zuletzt eingetragenen stehen vorne (15.09.2026) ----------
+     Karl: *„ab jetzt werden die 10 letzten sachen einfach vorne angezeigt"*. Gelesen wird
+     die REIHENFOLGE der Zeilen im gebauten Dokument. */
+  const foodReihe = () => [...document.querySelectorAll('#foodList .food-name')].map(x=>x.textContent);
+  t('Die zuletzt eingetragenen stehen vorne, juengstes zuerst', () => {
+    const sicher=JSON.stringify(profile.kcal), jetzt=Date.now();
+    profile.kcal={goal:2000, foods:[
+      {id:'a', name:'Apfel', kcal:52, p:0, c:14, f:0, basis:'g100'},
+      {id:'b', name:'Banane', kcal:89, p:1, c:23, f:0, basis:'g100'},
+      {id:'c', name:'Quark', kcal:68, p:12, c:4, f:0, basis:'g100'},
+      {id:'d', name:'Zwieback', kcal:400, p:10, c:75, f:5, basis:'g100', fav:true}],
+      meals:[{id:'m1', name:'Banane', fid:'b', kcal:89, date:jetzt-5000},
+             {id:'m2', name:'Quark', fid:'c', kcal:170, date:jetzt-1000}]};
+    const d=foodBauen('suchen'); renderFoodList('');
+    const r=foodReihe();
+    d.zurueck(); profile.kcal=JSON.parse(sicher);
+    /* Quark (juengstes), Banane, dann der Rest wie bisher: Favorit Zwieback vor Apfel. */
+    return JSON.stringify(r)===JSON.stringify(['Quark','Banane','Zwieback','Apfel']) || 'Reihenfolge: ' + r.join(', ');
+  });
+  t('Vorne stehen hoechstens zehn, und jedes Lebensmittel nur einmal', () => {
+    const sicher=JSON.stringify(profile.kcal), jetzt=Date.now();
+    const foods=[], meals=[];
+    for(let i=0;i<12;i++) foods.push({id:'f'+i, name:'Essen'+String(i).padStart(2,'0'), kcal:100, p:0, c:0, f:0, basis:'g100'});
+    /* f0 dreimal ganz vorne -- er darf nur EINEN Platz belegen; danach f1..f11 der Reihe nach. */
+    meals.push({id:'x1', name:'Essen00', fid:'f0', kcal:1, date:jetzt},
+               {id:'x2', name:'Essen00', fid:'f0', kcal:1, date:jetzt-1},
+               {id:'x3', name:'Essen00', fid:'f0', kcal:1, date:jetzt-2});
+    for(let i=1;i<12;i++) meals.push({id:'m'+i, name:'Essen'+String(i).padStart(2,'0'), fid:'f'+i, kcal:1, date:jetzt-100*i});
+    profile.kcal={goal:2000, foods:foods.slice().reverse(), meals:meals};
+    const d=foodBauen('suchen'); renderFoodList('');
+    const r=foodReihe();
+    d.zurueck(); profile.kcal=JSON.parse(sicher);
+    const soll=['Essen00','Essen01','Essen02','Essen03','Essen04','Essen05','Essen06','Essen07','Essen08','Essen09'];
+    if(JSON.stringify(r.slice(0,10))!==JSON.stringify(soll)) return 'die ersten zehn: ' + r.slice(0,10).join(', ');
+    /* Platz 11 und 12 kommen aus dem Rest -- in dessen Reihenfolge (hier: umgekehrt angelegt). */
+    return (r.length===12 && r[10]==='Essen11' && r[11]==='Essen10') || 'dahinter: ' + r.slice(10).join(', ');
+  });
+  /* 🔴 Der Fall, den man beim Bauen uebersieht (stand vorher bei „Zuletzt"): die Mahlzeiten
+     kennen bis zum 04.09. nur NAMEN. Ein Essen kann auf ein Lebensmittel zeigen, das
+     inzwischen geloescht ist -- dann darf daraus keine Zeile werden. */
+  t('Vorne steht nichts, was es nicht mehr gibt', () => {
     const sicher=JSON.stringify(profile.kcal);
     profile.kcal={goal:2000,
       foods:[{id:'a', name:'Quark', kcal:68, p:12, c:4, f:0, basis:'g100'}],
       meals:[{id:'m1', name:'Quark', kcal:170, date:Date.now()-1000},
              {id:'m2', name:'Geloeschtes Brot', kcal:200, date:Date.now()-2000}]};
-    const d=foodBauen('zuletzt'); renderFoodList('');
-    const h=document.getElementById('foodList').innerHTML;
+    const d=foodBauen('suchen'); renderFoodList('');
+    const h=document.getElementById('foodList').innerHTML, r=foodReihe();
     d.zurueck(); profile.kcal=JSON.parse(sicher);
-    if(h.indexOf('Quark')<0) return 'das vorhandene fehlt';
+    if(r.length!==1 || r[0]!=='Quark') return 'Liste: ' + r.join(', ');
     return h.indexOf('Geloeschtes Brot')<0 || 'ein geloeschtes Lebensmittel steht in der Liste';
+  });
+  /* Mit Suchtext gilt dieselbe Reihenfolge -- nur unter den Treffern. */
+  t('Beim Suchen stehen die zuletzt eingetragenen Treffer vorne', () => {
+    const sicher=JSON.stringify(profile.kcal);
+    profile.kcal={goal:2000, foods:[
+      {id:'a', name:'Magerquark', kcal:68, p:12, c:4, f:0, basis:'g100'},
+      {id:'b', name:'Sahnequark', kcal:160, p:8, c:3, f:12, basis:'g100'},
+      {id:'c', name:'Apfel', kcal:52, p:0, c:14, f:0, basis:'g100'}],
+      meals:[{id:'m1', name:'Sahnequark', fid:'b', kcal:160, date:Date.now()}]};
+    const d=foodBauen('suchen'); renderFoodList('quark');
+    const r=foodReihe();
+    d.zurueck(); profile.kcal=JSON.parse(sicher);
+    return JSON.stringify(r)===JSON.stringify(['Sahnequark','Magerquark']) || 'Treffer: ' + r.join(', ');
+  });
+  /* 15.09.2026, Karls Ansage: *„Im Reiter Favoriten soll man auch suchen koennen"*. */
+  t('Unter Favoriten gibt es ein Suchfeld, und es filtert die Favoriten', () => {
+    const sicher=JSON.stringify(profile.kcal);
+    profile.kcal={goal:2000, meals:[], foods:[
+      {id:'a', name:'Quark', kcal:68, p:12, c:4, f:0, basis:'g100', fav:true},
+      {id:'b', name:'Haferflocken', kcal:370, p:13, c:59, f:7, basis:'g100', fav:true},
+      {id:'c', name:'Quarkbrot', kcal:250, p:9, c:40, f:4, basis:'g100'}]};
+    const d=foodBauen('fav');
+    const feld=document.getElementById('foodSearch');
+    renderFoodList('quark');
+    const r=foodReihe();
+    const knopf=document.querySelectorAll('[data-act="food:dbsuche"]').length;
+    d.zurueck(); profile.kcal=JSON.parse(sicher);
+    if(!feld) return 'kein Suchfeld unter Favoriten';
+    if(knopf) return 'unter Favoriten steht die Datenbank-Suche';
+    return JSON.stringify(r)===JSON.stringify(['Quark']) || 'Treffer: ' + r.join(', ');
   });
   /* ⚠️ Und der Grund, warum der Suchtext in `foodQ` liegt statt nur im Feld: das Feld wird
      beim Reiter-Wechsel neu gebaut. Ohne die Variable waere der Text nach einem Blick in
@@ -4066,19 +4165,19 @@ window.addEventListener('error', e => {
      wird wirklich geklickt: erst tippen, dann auf „Favoriten", dann zurueck auf „Suchen". */
   t('Der Suchtext ueberlebt den Wechsel des Reiters', () => {
     const sicher=JSON.stringify(profile.kcal), vS=view, tS=foodTab, qS=foodQ,
-          mS=foodMz, stS=foodStep, flS=foodFilter, seS=session;
+          mS=foodMz, stS=foodStep, seS=session;
     const auf = () => { view=vS; foodTab=tS; foodQ=qS; foodMz=mS; foodStep=stS;
-      foodFilter=flS; session=seS; profile.kcal=JSON.parse(sicher); };
+      session=seS; profile.kcal=JSON.parse(sicher); };
     session={user:{id:'test'}, expires_at:Date.now()+3600e3, access_token:'x'};
     profile.kcal={goal:2000, meals:[], foods:[
       {id:'a', name:'Quark', kcal:68, p:12, c:4, f:0, basis:'g100'}]};
-    foodMz='f'; foodStep='list'; foodTab='suchen'; foodFilter=''; foodQ=''; view='food'; render();
+    foodMz='f'; foodStep='list'; foodTab='suchen'; foodQ=''; view='food'; render();
     const feld=document.getElementById('foodSearch');
     if(!feld){ auf(); return 'kein Suchfeld'; }
     feld.value='qua'; feld.dispatchEvent(new Event('input',{bubbles:true}));
     const favKnopf=app.querySelector('[data-act="foodtab:fav"]');
     if(!favKnopf){ auf(); return 'kein Favoriten-Reiter'; }
-    favKnopf.click();                                   // Feld ist jetzt gar nicht da
+    favKnopf.click();                                   // das Feld wird hier neu gebaut
     const suchKnopf=app.querySelector('[data-act="foodtab:suchen"]');
     if(!suchKnopf){ auf(); return 'kein Such-Reiter'; }
     suchKnopf.click();
@@ -4087,60 +4186,54 @@ window.addEventListener('error', e => {
     auf();
     return wert==='qua' || 'nach dem Hin und Her steht im Feld: ' + wert;
   });
-  /* ---------- Die Mahlzeiten-Leiste (04.09.2026, nachgereicht) ----------
-     Sie ist zunaechst BEWUSST weggelassen worden (zwei Waehler fuer dieselbe Angabe).
-     Karl wollte sie: „natuerlich sollst du das mit dem bild bauen". Gebaut ist sie
-     deshalb als LISTEN-FILTER, nicht als Ziel-Waehler.
-     🔴 Diese Pruefung haelt genau diesen Unterschied fest -- er ist die ganze
-     Begruendung dafuer, dass die Leiste ueberhaupt gebaut werden konnte. Wuerde ein Tipp
-     auf „Abendessen" heimlich `foodMz` umstellen, landete das Fruehstueck im Abendessen,
-     und zu sehen waere davon nichts: die Ueberschrift stuende noch auf Fruehstueck. */
-  t('Die Mahlzeiten-Leiste ist da', () => {
+  /* ---------- Die Mahlzeiten-Leiste ist weg (15.09.2026, Karls Ansage) ----------
+     *„das alle, fruehstueck und so kann da weg braucht man fuer nichts"*. Hier standen drei
+     Pruefungen fuer die Leiste (da, aendert das Ziel nicht, filtert nach Herkunft).
+     ⚠️ Geprueft wird am gebauten Dokument UND an der Quelle: ein zurueckgelassener Handler
+     `foodfilter:` waere ein Zweig, der auf eine Variable schreibt, die es nicht mehr gibt. */
+  t('Die Mahlzeiten-Leiste ist weg, samt Handler', () => {
     const sicher=JSON.stringify(profile.kcal);
     profile.kcal={goal:2000, foods:[], meals:[]};
     const d=foodBauen('suchen','f');
-    const chips=app.querySelectorAll('.mz-filter > button');
-    const an=app.querySelectorAll('.mz-filter > button.on');
+    const chips=app.querySelectorAll('.mz-filter, [data-act^="foodfilter:"]').length;
     d.zurueck(); profile.kcal=JSON.parse(sicher);
-    if(chips.length!==5) return 'es sind ' + chips.length + ' statt 5 (Alle + vier Mahlzeiten)';
-    return an.length===1 || 'es sind ' + an.length + ' gleichzeitig an';
+    if(chips) return 'die Leiste wird noch gezeichnet';
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    if(q.indexOf("'foodfilter:'") > -1) return 'der Handler fuer die Leiste steht noch da';
+    return q.indexOf('foodFilter') < 0 || 'foodFilter kommt im Quelltext noch vor';
   });
-  t('Ein Tipp auf die Leiste aendert das ZIEL nicht', () => {
-    const sicher=JSON.stringify(profile.kcal), vS=view, mS=foodMz, fS=foodFilter, stS=foodStep;
-    /* Ohne Sitzung zeigt render() den Anmelde-/Onboard-Schirm statt der Ansicht -- der
-       Chip waere dann nicht "weg", sondern nie gezeichnet worden. */
-    const seS=session; session={user:{id:'test'}, expires_at:Date.now()+3600e3, access_token:'x'};
-    const auf = () => { view=vS; foodMz=mS; foodFilter=fS; foodStep=stS; session=seS;
-      profile.kcal=JSON.parse(sicher); };
-    profile.kcal={goal:2000, foods:[], meals:[]};
-    foodMz='f'; foodStep='list'; foodTab='suchen'; foodFilter=''; view='food'; render();
-    const chip=app.querySelector('[data-act="foodfilter:a"]');   // Abendessen
-    if(!chip){ auf(); return 'der Abendessen-Chip fehlt'; }
-    chip.click();
-    const zielDanach=foodMz, filterDanach=foodFilter;
-    const titel=app.querySelector('.food-kopf h2');
-    const txt=titel?titel.textContent:'';
-    auf();
-    if(zielDanach!=='f') return 'das Ziel ist auf ' + zielDanach + ' gesprungen';
-    if(filterDanach!=='a') return 'der Filter hat nicht geschaltet: ' + filterDanach;
-    return txt.indexOf('Fr') > -1 || 'die Ueberschrift nennt nicht mehr das Ziel: ' + txt;
+  /* 15.09.2026, Karls Ansage zum Datenbank-Knopf: Lupe als SVG und *„der knopf soll
+     rausstechen sobald er auftaucht"*. */
+  t('Der Datenbank-Knopf traegt die Lupe als SVG und sticht heraus', () => {
+    const sicher=JSON.stringify(profile.kcal);
+    profile.kcal={goal:2000, meals:[], foods:[]};
+    const d=foodBauen('suchen'); dbKnopfWarDa=false; renderFoodList('quark');
+    const k=document.querySelector('[data-act="food:dbsuche"]');
+    const kl=k?k.className:'', svg=k?!!k.querySelector('svg'):false, txt=k?k.textContent:'';
+    d.zurueck(); profile.kcal=JSON.parse(sicher);
+    if(!k) return 'kein Knopf';
+    if(/\p{Extended_Pictographic}/u.test(txt)) return 'im Knopf steht noch ein Emoji: ' + txt;
+    if(!svg) return 'keine SVG im Knopf';
+    if(!/\bprimary\b/.test(kl)) return 'der Knopf ist nicht in der Hausfarbe: ' + kl;
+    return /\bneu\b/.test(kl) || 'beim Erscheinen ploppt er nicht auf: ' + kl;
   });
-  /* ⚠️ Und die Gegenprobe zur Herkunft: der Filter erfindet keine Einordnung, er liest
-     sie aus dem, was frueher eingetragen wurde. Ein Lebensmittel ohne Vergangenheit darf
-     unter einer Mahlzeit NICHT auftauchen. */
-  t('Der Filter zeigt nur, was zu dieser Mahlzeit eingetragen wurde', () => {
-    const sicher=JSON.stringify(profile.kcal), fS=foodFilter;
-    const frueh=Date.now()-6*3600000;
-    profile.kcal={goal:2000, foods:[
-      {id:'a', name:'Haferflocken', kcal:370, p:13, c:59, f:7, basis:'g100'},
-      {id:'b', name:'Nie gegessen', kcal:100, p:0, c:0, f:0, basis:'g100'}],
-      meals:[{id:'m1', name:'Haferflocken', kcal:148, date:frueh, mz:'f'}]};
-    foodFilter='f';
-    const d=foodBauen('suchen','f'); renderFoodList('');
-    const h=document.getElementById('foodList').innerHTML;
-    d.zurueck(); foodFilter=fS; profile.kcal=JSON.parse(sicher);
-    if(h.indexOf('Haferflocken')<0) return 'das eingetragene fehlt';
-    return h.indexOf('Nie gegessen')<0 || 'ein nie eingetragenes Lebensmittel steht unter Fruehstueck';
+  /* ⚠️ Und die andere Haelfte: bei jedem Buchstaben wird die Liste neu gezeichnet. Ein
+     Knopf, der dabei jedes Mal huepft, zappelt -- er ploppt nur beim ERSCHEINEN. */
+  t('Der Datenbank-Knopf ploppt nur beim Erscheinen, nicht bei jedem Buchstaben', () => {
+    const sicher=JSON.stringify(profile.kcal);
+    profile.kcal={goal:2000, meals:[], foods:[]};
+    const d=foodBauen('suchen'); dbKnopfWarDa=false;
+    renderFoodList('q');
+    const erst=(document.querySelector('[data-act="food:dbsuche"]')||{}).className||'';
+    renderFoodList('qu');
+    const zweit=(document.querySelector('[data-act="food:dbsuche"]')||{}).className||'';
+    renderFoodList('');
+    renderFoodList('q');
+    const wieder=(document.querySelector('[data-act="food:dbsuche"]')||{}).className||'';
+    d.zurueck(); profile.kcal=JSON.parse(sicher);
+    if(!/\bneu\b/.test(erst)) return 'beim ersten Erscheinen kein Aufploppen: ' + erst;
+    if(/\bneu\b/.test(zweit)) return 'beim zweiten Buchstaben ploppt er wieder';
+    return /\bneu\b/.test(wieder) || 'nach Leeren und neu Tippen ploppt er nicht mehr';
   });
 
   /* ================== Die Funde des Fund-Suchers vom 04.09.2026 ==================
@@ -4176,7 +4269,7 @@ window.addEventListener('error', e => {
     d.zurueck(); profile.kcal=JSON.parse(sicher);
     return kreuz>0 || 'kein Element traegt data-delfood -- der Handler laeuft ins Leere';
   });
-  /* ⚠️ Und nur dort. Unter „Favoriten"/„Zuletzt" sieht man einen Ausschnitt, und Loeschen
+  /* ⚠️ Und nur dort. Unter „Favoriten" sieht man einen Ausschnitt, und Loeschen
      aus einem Ausschnitt heraus loescht mehr, als man gerade sieht. */
   t('Aus einem Ausschnitt heraus wird nicht geloescht', () => {
     const sicher=JSON.stringify(profile.kcal);
@@ -4191,58 +4284,42 @@ window.addEventListener('error', e => {
   /* 🔴 Fund 4. Gleichnamige Lebensmittel waren ueber den Namen nicht unterscheidbar --
      eingetragen wurde der erste Treffer, mit fremden kcal. Seit dem 04.09. schreibt
      `addMeal` die Kennung mit (`fid`). */
-  t('Zuletzt trifft bei gleichnamigen das richtige Lebensmittel', () => {
+  t('Vorne steht bei gleichnamigen das richtige Lebensmittel', () => {
     const sicher=JSON.stringify(profile.kcal);
     profile.kcal={goal:2000, foods:[
       {id:'a', name:'Kaese hell', kcal:250, p:20, c:0, f:18, basis:'g100'},
       {id:'b', name:'kaese hell', kcal:600, p:25, c:0, f:52, basis:'g100'}],
       meals:[{id:'m1', name:'kaese hell', fid:'b', kcal:600, date:Date.now()}]};
-    const d=foodBauen('zuletzt','f'); renderFoodList('');
-    const h=document.getElementById('foodList').innerHTML;
+    const d=foodBauen('suchen','f'); renderFoodList('');
+    const erste=document.querySelector('#foodList .food-kcal');
+    const txt=erste?erste.textContent:'';
     d.zurueck(); profile.kcal=JSON.parse(sicher);
-    if(h.indexOf('600 kcal')<0) return 'die Zeile zeigt nicht das eingetragene Lebensmittel';
-    return h.indexOf('250 kcal')<0 || 'es steht das gleichnamige andere da';
+    return txt==='600 kcal' || 'vorne steht: ' + txt;
   });
   /* ⚠️ Die Rueckfallebene muss bleiben: alles vor dem 04.09. hat kein `fid`. */
-  t('Alte Eintraege ohne Kennung finden ueber den Namen zurueck', () => {
+  t('Alte Eintraege ohne Kennung finden ueber den Namen nach vorne', () => {
     const sicher=JSON.stringify(profile.kcal);
     profile.kcal={goal:2000, foods:[
+      {id:'z', name:'Apfel', kcal:52, p:0, c:14, f:0, basis:'g100'},
       {id:'a', name:'Quark', kcal:68, p:12, c:4, f:0, basis:'g100'}],
       meals:[{id:'m1', name:'Quark', kcal:170, date:Date.now()}]};
-    const d=foodBauen('zuletzt','f'); renderFoodList('');
-    const h=document.getElementById('foodList').innerHTML;
+    const d=foodBauen('suchen','f'); renderFoodList('');
+    const r=foodReihe();
     d.zurueck(); profile.kcal=JSON.parse(sicher);
-    return h.indexOf('Quark')>-1 || 'ein alter Eintrag ohne Kennung ist verschwunden';
+    return r[0]==='Quark' || 'ein alter Eintrag ohne Kennung steht nicht vorne: ' + r.join(', ');
   });
-
-  /* 🔴 Fund 7. Ein umbenanntes Lebensmittel fiel aus dem Filter -- und die App behauptete,
-     man habe so etwas noch nie zu dieser Mahlzeit gegessen. */
-  t('Umbenannte Lebensmittel bleiben im Mahlzeiten-Filter', () => {
-    const sicher=JSON.stringify(profile.kcal), flS=foodFilter;
+  /* ⚠️ Und ein umbenanntes: das Essen heisst noch „Quark", das Lebensmittel inzwischen
+     „Magerquark" -- die Kennung muss gewinnen, nicht der alte Name. */
+  t('Umbenannte Lebensmittel bleiben vorne', () => {
+    const sicher=JSON.stringify(profile.kcal);
     profile.kcal={goal:2000, foods:[
+      {id:'z', name:'Apfel', kcal:52, p:0, c:14, f:0, basis:'g100'},
       {id:'a', name:'Magerquark', kcal:68, p:12, c:4, f:0, basis:'g100'}],
       meals:[{id:'m1', name:'Quark', fid:'a', kcal:170, date:Date.now(), mz:'f'}]};
-    foodFilter='f';
     const d=foodBauen('suchen','f'); renderFoodList('');
-    const h=document.getElementById('foodList').innerHTML;
-    d.zurueck(); foodFilter=flS; profile.kcal=JSON.parse(sicher);
-    return h.indexOf('Magerquark')>-1 || 'das umbenannte Lebensmittel ist aus dem Filter gefallen';
-  });
-
-  /* 🔴 Fund 6. Der Kommentar sagte, `mahlzeitVon()` fange die Bestandsdaten ohne `mz`-Feld
-     mit ab -- gedeckt war das von keiner Pruefung. Ersetzt jemand `mahlzeitVon(m)` durch
-     `m.mz`, faellt Karls gesamter Bestand vor dem 23.08. lautlos aus allen vier Filtern. */
-  t('Alte Mahlzeiten ohne mz-Feld fallen nicht aus dem Filter', () => {
-    const sicher=JSON.stringify(profile.kcal), flS=foodFilter;
-    const abends=new Date(); abends.setHours(19,0,0,0);
-    profile.kcal={goal:2000, foods:[
-      {id:'a', name:'Pizza', kcal:250, p:11, c:30, f:9, basis:'g100'}],
-      meals:[{id:'m1', name:'Pizza', fid:'a', kcal:750, date:abends.getTime()}]};
-    foodFilter='a';
-    const d=foodBauen('suchen','f'); renderFoodList('');
-    const h=document.getElementById('foodList').innerHTML;
-    d.zurueck(); foodFilter=flS; profile.kcal=JSON.parse(sicher);
-    return h.indexOf('Pizza')>-1 || 'eine Mahlzeit ohne mz-Feld wird dem Abendessen nicht zugeordnet';
+    const r=foodReihe();
+    d.zurueck(); profile.kcal=JSON.parse(sicher);
+    return r[0]==='Magerquark' || 'das umbenannte Lebensmittel ist nach hinten gefallen: ' + r.join(', ');
   });
 
   /* 🔴 Fund 3. Wer waehrend eines Scans oder einer Foto-Schaetzung wegtippt, verlor den
@@ -4617,8 +4694,10 @@ window.addEventListener('error', e => {
       || 'der Start hakt Reingeschaut nicht ab';
   });
   /* 13.09.2026, Karls Ansage: der Knopf „Eigenes Lebensmittel hinzufuegen" in der
-     Standardfarbe, nicht mehr gruen. */
-  t('Eigenes Lebensmittel steht in der Standardfarbe', () => {
+     Standardfarbe, nicht mehr gruen.
+     🔴 15.09.2026: *„soll in keiner besonderen farbe bitte"* -- `primary` war die Hausfarbe,
+     also doch eine besondere. Diese Pruefung hat genau das bis heute VERLANGT. */
+  t('Eigenes Lebensmittel steht in keiner besonderen Farbe', () => {
     const q = window.APP_QUELLE || ''; if (!q) return 'APP_QUELLE fehlt';
     /* ⚠️ Nach dem TEXT gesucht, nicht nach der Aktion: `food:new` haben zwei Knoepfe, und
        der erste im Quelltext ist ein anderer. Genau so hat diese Pruefung beim ersten Lauf
@@ -4627,7 +4706,8 @@ window.addEventListener('error', e => {
     if (!m) return 'der Knopf ist nicht zu finden';
     const kl = m[1].split(/\s+/);
     if (kl.indexOf('gruen') > -1) return 'der Knopf ist noch gruen';
-    return (kl.indexOf('btn') > -1 && kl.indexOf('primary') > -1) || 'Klassen: ' + m[1];
+    if (kl.indexOf('primary') > -1) return 'der Knopf traegt noch die Hausfarbe (primary)';
+    return kl.indexOf('btn') > -1 || 'Klassen: ' + m[1];
   });
 
   /* ================= Widgets in den Einstellungen (13.09.2026) =================
@@ -5036,6 +5116,44 @@ window.addEventListener('error', e => {
     const offen = erfolgOffen(d3);
     sessions = merk;
     return offen === false || 'mit einer Krankheitswoche bleibt der Erfolg verschlossen';
+  });
+
+  /* ---- Weg B: mehr Dranbleiben-Stufen (15.09.2026, Karls Wahl) ----
+     12 und 16 Wochen, dieselbe verzeihende Zaehlung wie „Acht Wochen". */
+  t('Es gibt die Stufen 12 und 16 Wochen, mit Symbol und steigender XP', () => {
+    const d3 = ERFOLGE.find(e => e.id === 'd3'), d4 = ERFOLGE.find(e => e.id === 'd4'),
+          d5 = ERFOLGE.find(e => e.id === 'd5');
+    if (!d4 || !d5) return 'd4 oder d5 fehlt';
+    if (d4.ziel !== 12 || d5.ziel !== 16) return 'Ziele: ' + d4.ziel + '/' + d5.ziel;
+    if (d4.gr !== 'Dranbleiben' || d5.gr !== 'Dranbleiben') return 'falsche Gruppe';
+    if (!(d3.xp < d4.xp && d4.xp < d5.xp)) return 'XP steigen nicht: ' + [d3.xp, d4.xp, d5.xp].join(' / ');
+    /* ⚠️ Zwei gleiche Symbole im Katalog lesen sich als derselbe Erfolg. */
+    const andere = ERFOLGE.filter(e => e.id !== 'd4' && e.id !== 'd5').map(e => e.svg);
+    if (andere.indexOf(d4.svg) > -1 || andere.indexOf(d5.svg) > -1 || d4.svg === d5.svg)
+      return 'ein Symbol ist doppelt: ' + d4.svg + '/' + d5.svg;
+    return !!(ERFOLG_SVG[d4.svg] && ERFOLG_SVG[d5.svg]) || 'Symbol fehlt im Vorrat';
+  });
+  /* 🔴 Dieselbe Lehre wie bei d3 am 27.08.: nicht nur die Zahl pruefen, sondern ob der
+     Erfolg die verzeihende Zaehlung WIRKLICH benutzt -- am Stand, nicht am Funktionsnamen. */
+  t('12 und 16 Wochen verzeihen eine Luecke und gehen an der richtigen Stelle auf', () => {
+    const d4 = ERFOLGE.find(e => e.id === 'd4'), d5 = ERFOLGE.find(e => e.id === 'd5');
+    if (!d4 || !d5) return 'd4 oder d5 fehlt';
+    const merk = sessions, frei = settings.devAllErfolge; settings.devAllErfolge = false;
+    const bis = n => { const a = []; for (let i = 0; i <= n; i++) a.push(i); return a; };
+    /* 12 trainierte Wochen mit einer Luecke: Wochen 0..12 ohne Woche 5. */
+    sessions = wochenWie(...bis(12).filter(w => w !== 5).reverse());
+    const z12 = erfolgOffen(d4), z16a = erfolgOffen(d5);
+    /* 11 trainierte Wochen: d4 muss noch zu sein. */
+    sessions = wochenWie(...bis(10).reverse());
+    const z11 = erfolgOffen(d4);
+    /* 16 trainierte Wochen mit einer Luecke. */
+    sessions = wochenWie(...bis(16).filter(w => w !== 9).reverse());
+    const z16 = erfolgOffen(d5);
+    sessions = merk; settings.devAllErfolge = frei;
+    if (z12 !== false) return '12 Wochen mit einer Krankheitswoche: d4 bleibt zu';
+    if (z16a !== true) return 'd5 geht schon bei 12 Wochen auf';
+    if (z11 !== true) return 'd4 geht schon bei 11 Wochen auf';
+    return z16 === false || '16 Wochen mit einer Krankheitswoche: d5 bleibt zu';
   });
 
   // ---- Admin: alle Erfolge freischalten ----
@@ -7099,6 +7217,39 @@ window.addEventListener('error', e => {
     const an = [...document.querySelectorAll('#nav button.on')].map(b => b.dataset.nav);
     view = merk; setNav();
     return eq(an.join(','), 'profil');
+  });
+  /* ---- Der Code kommt mit einer Nachricht (15.09.2026, Karls Ansage) ---- */
+  t('Die Freundes-Nachricht traegt Code in eigener Zeile, Weg und Link', () => {
+    const n = freundNachricht('AB2C4D');
+    if (n.split('\n').indexOf('AB2C4D') < 0) return 'der Code steht nicht in einer eigenen Zeile';
+    if (n.indexOf('Freund hinzufügen') < 0) return 'der Weg in der App fehlt';
+    if (n.indexOf('\u{1F389}') > -1) return 'eine Party-Tuete in der Nachricht';
+    return n.indexOf(location.origin + location.pathname) > -1 || 'der Link zur App fehlt';
+  });
+  /* 🔴 Der Einbau, nicht nur das Teil: ein Klick auf „Kopieren" muss die NACHRICHT in die
+     Zwischenablage legen. Die Funktion allein zu pruefen, waere gruen, auch wenn der Knopf
+     weiter nur den nackten Code kopiert. */
+  await tA('Kopieren legt die Nachricht in die Zwischenablage, nicht nur den Code', async () => {
+    const mS = freundeStand, mSess = session, mV = view;
+    session = { username:'Karl', access_token:'x', user:{ id:'ich', email:'k@example.org' } };
+    freundeStand = { code:'AB2C4D', anfragen:[], freunde:[], staende:[] };
+    let drin = null;
+    const echt = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    Object.defineProperty(navigator, 'clipboard', { configurable:true,
+      value:{ writeText: async t => { drin = t; } } });
+    try {
+      view = 'freunde'; renderFreunde();
+      const k = app.querySelector('[data-act="freund:kopieren"]');
+      if (!k) return 'kein Kopieren-Knopf';
+      k.click();
+      await new Promise(r => setTimeout(r, 20));
+    } finally {
+      if (echt) Object.defineProperty(navigator, 'clipboard', echt); else delete navigator.clipboard;
+      freundeStand = mS; session = mSess; view = mV;
+    }
+    if (drin === null) return 'es wurde nichts kopiert';
+    return (drin !== 'AB2C4D' && drin.indexOf('AB2C4D') > -1 && drin.indexOf('Gym-Log') > -1)
+      || 'kopiert wurde: ' + drin;
   });
   /* \u26a0\ufe0f Die Datenbank antwortet mit einem kurzen Wort, den Satz schreibt die App (steht
      so in `supabase-freunde.sql`). Kommt ein Wort dazu oder wird eines umbenannt, muss es
