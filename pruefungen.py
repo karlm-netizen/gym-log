@@ -1275,6 +1275,19 @@ window.addEventListener('error', e => {
     if (fragen !== 2) return 'es wurde ' + fragen + 'x nach dem Namen gefragt statt 2x';
     return fehler === 'Username ist schon vergeben.' || 'Meldung: ' + fehler;
   });
+  await tA('Die echte Antwort der Namens-Sperre (gemessen 15.09.) wird zu „Username ist schon vergeben"', async () => {
+    const mF = window.fetch; let fragen = 0;
+    window.fetch = async (url) => {
+      if (String(url).indexOf('/auth/v1/signup') > -1)
+        return { ok:false, status:500, json: async () => ({ code:'23505', message:'Benutzername vergeben' }) };
+      fragen++; return { ok:true, status:200, json: async () => false };
+    };
+    let fehler = '';
+    try { await authSignUp('karl', 'k@example.org', 'geheim123'); }
+    catch (e) { fehler = String(e); }
+    finally { window.fetch = mF; }
+    return fehler === 'Username ist schon vergeben.' || 'Meldung: ' + fehler;
+  });
   await tA('Andere Registrierungsfehler bleiben, wie sie sind', async () => {
     const mF = window.fetch; let fragen = 0;
     window.fetch = async (url) => {

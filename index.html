@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.114';
+var APP_FASSUNG = 'v0.115';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -8762,6 +8762,11 @@ async function authSignUp(username,email,password){ username=(username||'').trim
        ⚠️ Nur bei dieser Meldung. Jeder andere Fehler (E-Mail vergeben, Passwort zu kurz) geht
        unveraendert durch -- ein Nachfragen dort koennte den echten Grund verdecken. */
     const text = d.msg||d.error_description||d.message||d.error||'';
+    /* ✅ Nachgemessen am 15.09.2026 nach dem Einspielen: Supabase reicht die Meldung des
+       Triggers durch -- HTTP 500, {"code":"23505","message":"Benutzername vergeben"}.
+       Das ist eindeutig, hier muss nicht nachgefragt werden. Der Zweig darunter bleibt fuer
+       den Fall, dass Supabase die Meldung irgendwann wieder zu dem allgemeinen Satz macht. */
+    if(d.code === '23505' && /benutzername vergeben/i.test(text)) throw 'Username ist schon vergeben.';
     if(/database error saving new user/i.test(text) && await nameVergeben(username) === true)
       throw 'Username ist schon vergeben.';
     throw text||'Registrierung fehlgeschlagen.';

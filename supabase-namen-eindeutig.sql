@@ -68,6 +68,12 @@ $$;
 
 revoke all on function public.gym_name_eindeutig() from public, anon, authenticated;
 
+-- ⚠️ 15.09.2026: Beim ersten Einspielen lief von dieser Datei NICHTS -- weder Funktion noch
+--    Trigger (nachgemessen: pg_proc 0, pg_trigger 0), und unten stand trotzdem „No rows".
+--    Vermutlich das Warnfenster des SQL-Editors wegen `drop` ("destructive operation").
+--    Eingespielt wurde dann eine Fassung ohne diese Zeile. Wer die Datei erneut einspielt:
+--    Warnfenster bestaetigen, und danach nachzaehlen, nicht dem „No rows" glauben:
+--      select count(*) from pg_trigger where tgname = 'gym_name_eindeutig';   -- muss 1 sein
 drop trigger if exists gym_name_eindeutig on auth.users;
 create trigger gym_name_eindeutig
   before insert or update of raw_user_meta_data on auth.users

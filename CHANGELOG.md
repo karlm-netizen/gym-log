@@ -4,6 +4,22 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-15
 
+### v0.115 — Namens-Sperre eingespielt, von außen nachgemessen, App-Meldung an die echte Antwort angepasst
+
+**Erster Versuch lief nicht:** Karl bekam „No rows", in der Datenbank war aber weder Funktion noch
+Trigger angekommen (nachgezählt über `pg_proc`/`pg_trigger`). Mit einer Fassung ohne `drop trigger`
+und einer Zählzeile am Ende: Funktion 1, Trigger 1, doppelte Namen 0.
+
+**Von außen gemessen (Testkonten danach gelöscht, Anmeldung geprüft):**
+- Registrieren mit „ KARL " (Karl ist vergeben) → abgelehnt, kein Konto
+- Registrieren mit freiem Namen → geht
+- zweites Konto mit demselben Namen in Kleinschreibung → abgelehnt
+- bestehendes Konto per `PUT /auth/v1/user` auf „karl" umbenennen → abgelehnt
+
+**App:** Supabase reicht die Trigger-Meldung durch (`500`, `{"code":"23505","message":"Benutzername vergeben"}`),
+nicht den allgemeinen Satz, auf den v0.114 wartete. Dieser Fall wird jetzt direkt zu
+„Username ist schon vergeben." — neue Prüfung mit genau dieser Antwort.
+
 ### v0.114 — Kein Benutzername zweimal: die Sperre sitzt jetzt in der Datenbank
 
 **Karl:** *„hast du auch eine sperre für gleiche namen es darf keine gleichen geben"*.
