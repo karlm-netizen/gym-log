@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.112';
+var APP_FASSUNG = 'v0.113';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -5119,9 +5119,12 @@ function renderFood(){
      dort dieselbe Suche angewendet, statt eines leeren Felds neben einer gefilterten Liste. */
   h+=`<div class="food-suche">${LUPE_SVG}
       <input id="foodSearch" placeholder="${foodTab==='fav'?'Favoriten durchsuchen…':'Lebensmittel suchen…'}" autocomplete="off" value="${esc(foodQ)}"></div>`;
-  h+=`<div class="row between" style="margin:4px 4px 8px"><h2 style="font-size:17px">${
+  /* Ohne ein einziges eigenes Lebensmittel keine Ueberschrift „Meine Lebensmittel" (15.09.2026,
+     Karls Ansage) -- sie kommt mit dem ersten Eintrag zurueck. „Favoriten" bleibt immer stehen. */
+  const ueberschrift = foodTab==='fav' || kcalInit().foods.length;
+  h+=`${ueberschrift ? `<div class="row between" style="margin:4px 4px 8px"><h2 style="font-size:17px">${
       foodTab==='fav'?'Favoriten':'Meine Lebensmittel'}</h2>
-      <span class="tiny muted" id="foodZahl"></span></div>
+      <span class="tiny muted" id="foodZahl"></span></div>` : ''}
     <div id="foodList"></div>`;
 
   /* ➡️ Unten der grosse Knopf aus dem Entwurf, darunter „Fertig".
@@ -5276,11 +5279,15 @@ function renderFoodList(q){
     </div>`;
 
   let h = liste.map(zeile).join('');
-  if(!liste.length){
+  /* 15.09.2026, Karls Ansage: *„Meine Lebensmittel / Noch keine eigenen Lebensmittel -- die beiden
+     Texte raus. Sobald Lebensmittel eingetragen wurde, taucht Meine Lebensmittel wieder auf."*
+     Unter „Suchen" ohne ein einziges eigenes Lebensmittel steht deshalb GAR NICHTS -- keine
+     Ueberschrift (siehe renderFood), kein Leersatz. Die Datenbank-Suche darunter bleibt. */
+  if(!liste.length && !(foodTab==='suchen' && !k.foods.length)){
     h += `<div class="empty" style="padding:18px">${
       foodTab==='fav' ? (su && k.foods.some(istFavorit) ? 'Kein Favorit passt zu deiner Suche.'
                                                        : 'Noch keine Favoriten. Tipp in der Suche auf den Stern.')
-      : (k.foods.length ? 'Nichts gefunden.' : 'Noch keine eigenen Lebensmittel.')}</div>`;
+      : 'Nichts gefunden.'}</div>`;
   }
   /* Die Datenbanksuche steht nur unter dem Such-Reiter und nur mit Suchtext -- ohne beides
      waere sie ein Knopf ohne Frage.

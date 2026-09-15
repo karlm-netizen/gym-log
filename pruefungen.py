@@ -4139,6 +4139,25 @@ window.addEventListener('error', e => {
     d.zurueck(); profile.kcal=JSON.parse(sicher);
     return JSON.stringify(r)===JSON.stringify(['Sahnequark','Magerquark']) || 'Treffer: ' + r.join(', ');
   });
+  /* 15.09.2026, Karls Ansage: ohne eigene Lebensmittel weder „Meine Lebensmittel" noch
+     „Noch keine eigenen Lebensmittel." -- mit dem ersten Eintrag kommt die Ueberschrift zurueck. */
+  t('Ohne eigene Lebensmittel stehen weder Ueberschrift noch Leersatz da', () => {
+    const sicher=JSON.stringify(profile.kcal);
+    profile.kcal={goal:2000, foods:[], meals:[]};
+    const d=foodBauen('suchen'); renderFoodList('');
+    const leer=app.textContent;
+    d.zurueck();
+    profile.kcal={goal:2000, meals:[], foods:[{id:'a', name:'Quark', kcal:68, p:12, c:4, f:0, basis:'g100'}]};
+    const d2=foodBauen('suchen'); renderFoodList('');
+    const voll=app.textContent;
+    renderFoodList('zzz');
+    const nichts=app.textContent;
+    d2.zurueck(); profile.kcal=JSON.parse(sicher);
+    if(leer.indexOf('Meine Lebensmittel')>-1) return 'ohne Lebensmittel steht die Ueberschrift da';
+    if(leer.indexOf('Noch keine eigenen')>-1) return 'ohne Lebensmittel steht der Leersatz da';
+    if(voll.indexOf('Meine Lebensmittel')<0) return 'mit einem Lebensmittel fehlt die Ueberschrift';
+    return nichts.indexOf('Nichts gefunden')>-1 || 'mit Lebensmitteln und ohne Treffer fehlt „Nichts gefunden"';
+  });
   /* 15.09.2026, Karls Ansage: *„Im Reiter Favoriten soll man auch suchen koennen"*. */
   t('Unter Favoriten gibt es ein Suchfeld, und es filtert die Favoriten', () => {
     const sicher=JSON.stringify(profile.kcal);

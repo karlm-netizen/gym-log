@@ -4,6 +4,16 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-15
 
+### v0.113 — Ohne eigene Lebensmittel: keine Überschrift, kein Leersatz
+
+**Karls Ansage:** *„Meine Lebensmittel / Noch keine eigenen Lebensmittel. — die beiden Texte raus.
+Sobald Lebensmittel eingetragen wurde, taucht Meine Lebensmittel wieder auf."*
+Unter „Suchen" ohne ein einziges eigenes Lebensmittel steht jetzt nichts mehr; mit dem ersten kommt
+die Überschrift zurück. „Nichts gefunden." (Lebensmittel da, Suche ohne Treffer) und die
+Favoriten-Texte bleiben.
+
+🧪 1121 → **1122**. Gegenprobe: Überschrift immer an 1 rot.
+
 ### v0.112 — Wischen geht überall, nicht nur auf den Kacheln
 
 **Karls Meldung:** *„ich kann nur switchen wenn ich auf den Kacheln wische"*. Zwei Gründe:
