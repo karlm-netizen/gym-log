@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.115';
+var APP_FASSUNG = 'v0.116';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -8642,15 +8642,18 @@ const RUECKKEHR_ZIEL = () => location.origin + location.pathname;
    wer nur den Code herauskopieren will, soll ihn nicht aus einem Satz klauben muessen.
    ⚠️ Der Weg in der App steht mit drin -- „trag meinen Code ein" hilft niemandem, der nicht
    weiss, WO. Und der Link, weil der Empfaenger die App vielleicht noch gar nicht hat.
-   ⚠️ „gegenseitig" und „sobald ich bestaetige" sind nachgesehen, nicht angenommen:
-   `gym_freunde` hat EINE Zeile je Paar (beide sehen sie), und entstehen kann sie nur ueber
-   `freund_annehmen()` -- also erst, wenn der Code-Inhaber die Anfrage annimmt.
+   🔴 16.09.2026, Karls Ansage: der Satz „Sobald ich die Anfrage bestaetige, sehen wir uns
+   gegenseitig in der Bestenliste." ist RAUS. Er war sachlich richtig (nachgesehen:
+   `gym_freunde` hat EINE Zeile je Paar, entstehen kann sie nur ueber `freund_annehmen()`)
+   -- die Nachricht verspricht jetzt trotzdem nichts ueber die Bestenliste. Eine Pruefung
+   haelt das fest, sonst kommt der Satz beim naechsten Umbau still zurueck.
+   ⚠️ Der Absatzumbruch ist beim Loeschen an die Zeile davor gewandert -- ohne ihn klebte
+   der Link an „Code eintippen."
    💡 Kein 🎉 -- Karls Vorliebe. */
 function freundNachricht(code){
   return `Trainier mit mir auf Gym-Log!\n\n`
     + `Mein Freundes-Code:\n${code}\n\n`
-    + `So geht's: Profil → Freunde → „Freund hinzufügen" → Code eintippen. `
-    + `Sobald ich die Anfrage bestätige, sehen wir uns gegenseitig in der Bestenliste.\n\n`
+    + `So geht's: Profil → Freunde → „Freund hinzufügen" → Code eintippen.\n\n`
     + `Noch keine App? Hier geht's lang: ${RUECKKEHR_ZIEL()}`;
 }
 const BREMSE_KEY = 'gymlog:reset-bremse';

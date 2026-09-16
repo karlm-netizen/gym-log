@@ -2,6 +2,26 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-09-16
+
+### v0.116 — Der Bestenlisten-Satz ist aus der Freundes-Nachricht raus
+
+**Karls Ansage:** *„Sobald ich die Anfrage bestätige, sehen wir uns gegenseitig in der Bestenliste.
+Den Satz aus der freundschaftsanfrage löschen"*.
+
+Die Nachricht, die beim Kopieren des Freundes-Codes entsteht, besteht jetzt aus drei Teilen statt
+vier: Anrede, Code in eigener Zeile, Weg in der App, Link. **Über die Bestenliste wird nichts mehr
+versprochen.**
+
+⚠️ **Beim Löschen wäre fast der Absatzumbruch mitgegangen.** Er hing am Ende des gestrichenen
+Satzes — ohne ihn hätte „Noch keine App?" direkt hinter „Code eintippen." geklebt. Der Umbruch ist
+an die Zeile davor gewandert.
+
+🧪 **1126 → 1128.** Zwei neue Prüfungen, beide gegengeprobt (mit wieder eingebautem Satz rot):
+- *Die Freundes-Nachricht verspricht nichts über die Bestenliste* — eine gelöschte Zeile ist keine
+  Wache; beim nächsten Umbau an der Nachricht wäre der Satz sonst still wieder drin
+- *Vor dem App-Link steht eine Leerzeile* — bewacht genau den Umbruch, der fast verlorenging
+
 ## 2026-09-15
 
 ### v0.115 — Namens-Sperre eingespielt, von außen nachgemessen, App-Meldung an die echte Antwort angepasst

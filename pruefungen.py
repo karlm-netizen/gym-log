@@ -7427,6 +7427,21 @@ window.addEventListener('error', e => {
     if (n.indexOf('\u{1F389}') > -1) return 'eine Party-Tuete in der Nachricht';
     return n.indexOf(location.origin + location.pathname) > -1 || 'der Link zur App fehlt';
   });
+  /* 🔴 Karls Ansage vom 16.09.2026: der Bestenlisten-Satz ist raus. Die Pruefung steht hier,
+     weil eine geloeschte Zeile keine Wache ist -- beim naechsten Umbau an der Nachricht
+     waere der Satz sonst still wieder drin, und niemand wuerde es merken. */
+  t('Die Freundes-Nachricht verspricht nichts ueber die Bestenliste', () => {
+    const n = freundNachricht('AB2C4D');
+    if (/[Bb]estenliste/.test(n)) return 'die Bestenliste steht wieder in der Nachricht';
+    return /bestätige|bestaetige|gegenseitig/.test(n)
+      ? 'der geloeschte Satz ist wieder da' : true;
+  });
+  /* Der Absatzumbruch, der beim Loeschen des Satzes fast verlorengegangen waere: ohne ihn
+     klebt „Noch keine App?" direkt hinter „Code eintippen." */
+  t('Vor dem App-Link steht eine Leerzeile', () => {
+    const n = freundNachricht('AB2C4D');
+    return n.indexOf('eintippen.\n\nNoch keine App?') > -1 || 'der Absatz vor dem Link fehlt';
+  });
   /* 🔴 Der Einbau, nicht nur das Teil: ein Klick auf „Kopieren" muss die NACHRICHT in die
      Zwischenablage legen. Die Funktion allein zu pruefen, waere gruen, auch wenn der Knopf
      weiter nur den nackten Code kopiert. */
