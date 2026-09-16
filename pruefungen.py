@@ -89,16 +89,20 @@ window.addEventListener('error', e => {
   t('0 XP: nichts im Level drin',  () => eq(levelFromXP(0).into, 0));
   t('xpForLevel(1) ist 0',         () => eq(xpForLevel(1), 0));
   t('xpForLevel(2) ist 100',       () => eq(xpForLevel(2), 100));
-  t('xpForLevel(3) ist 240',       () => eq(xpForLevel(3), 240));
-  // ➡️ 14.09.2026, Karls Kurve: +40 je Level, ab Level 10 +50, ab 25 +60, ab 50 +100.
-  t('Kurve: bis Level 10 wie vorher (2.340)', () => eq(xpForLevel(10), 2340));
-  t('Kurve: Level 10 -> 11 kostet 470 (+50)', () => eq(levelFromXP(xpForLevel(10)).need, 470));
-  t('Kurve: Level 9 -> 10 kostet 420 (+40)',  () => eq(levelFromXP(xpForLevel(9)).need, 420));
-  t('Kurve: Level 25 -> 26 kostet 1.230 (+60)', () => eq(levelFromXP(xpForLevel(25)).need, 1230));
-  t('Kurve: Level 24 -> 25 kostet 1.170 (+50)', () => eq(levelFromXP(xpForLevel(24)).need, 1170));
-  t('Kurve: Level 50 -> 51 kostet 2.770 (+100)', () => eq(levelFromXP(xpForLevel(50)).need, 2770));
-  t('Kurve: Level 49 -> 50 kostet 2.670 (+60)', () => eq(levelFromXP(xpForLevel(49)).need, 2670));
-  t('Gigachad (Level 50) braucht 63.390 XP', () => eq(xpForLevel(50), 63390));
+  t('xpForLevel(3) ist 250',       () => eq(xpForLevel(3), 250));
+  /* ➡️ 16.09.2026, Kurve erschwert (Karls Ansage „die Level erschweren … your call"):
+     +50 je Level, ab Level 10 +70, ab 25 +100, ab 50 +150. Vorher: +40/+50/+60/+100.
+     ⚠️ Diese neun Zahlen standen vorher genauso da, nur mit den alten Werten. Sie sind
+     einzeln ausgerechnet und nicht aus der Funktion abgeleitet -- eine Pruefung, die
+     `xpLevelPlus()` noch einmal nachrechnet, gruesst nur sich selbst. */
+  t('Kurve: bis Level 10 sind es 2.700', () => eq(xpForLevel(10), 2700));
+  t('Kurve: Level 10 -> 11 kostet 570 (+70)', () => eq(levelFromXP(xpForLevel(10)).need, 570));
+  t('Kurve: Level 9 -> 10 kostet 500 (+50)',  () => eq(levelFromXP(xpForLevel(9)).need, 500));
+  t('Kurve: Level 25 -> 26 kostet 1.650 (+100)', () => eq(levelFromXP(xpForLevel(25)).need, 1650));
+  t('Kurve: Level 24 -> 25 kostet 1.550 (+70)', () => eq(levelFromXP(xpForLevel(24)).need, 1550));
+  t('Kurve: Level 50 -> 51 kostet 4.200 (+150)', () => eq(levelFromXP(xpForLevel(50)).need, 4200));
+  t('Kurve: Level 49 -> 50 kostet 4.050 (+100)', () => eq(levelFromXP(xpForLevel(49)).need, 4050));
+  t('Gigachad (Level 50) braucht 89.850 XP', () => eq(xpForLevel(50), 89850));
   t('Hin und zurueck: Level 1..80', () => {
     for (let l = 1; l <= 80; l++)
       if (levelFromXP(xpForLevel(l)).level !== l) return 'Level ' + l + ' -> ' + levelFromXP(xpForLevel(l)).level;
@@ -4739,12 +4743,15 @@ window.addEventListener('error', e => {
      Werte auffaellt und nicht stillschweigend durchgeht.
      ➡️ 40 -> 35 am 12.09.2026, Karls Ansage: „Gewicht eintragen soll nur 5 xp geben am
      Tag." Gewicht 10 -> 5, alles andere unveraendert. */
-  t('Aufgaben bringen hoechstens 35 XP am Tag', () => eq(AUFGABEN_MAX, 35));
-  t('Die vier Aufgaben tragen Karls Werte', () => {
-    const soll = { auf:5, mahlzeit:10, gewicht:5, train:15 };
+  /* ➡️ 35 -> 135 am 16.09.2026, Karls Ansage: „Schritte zaehlen ab jetzt in xp rein ein
+     festes Ziel 10k Schritte am Tag gibt 100xp." Fuenfte Aufgabe, und mit Abstand die
+     groesste -- deshalb steht die Zahl hier weiter einzeln. */
+  t('Aufgaben bringen hoechstens 135 XP am Tag', () => eq(AUFGABEN_MAX, 135));
+  t('Die fuenf Aufgaben tragen Karls Werte', () => {
+    const soll = { auf:5, mahlzeit:10, gewicht:5, train:15, schritte:100 };
     const ist = {}; AUFGABEN.forEach(a => ist[a.id] = a.xp);
     for(const k in soll) if(ist[k] !== soll[k]) return k + ' gibt ' + ist[k] + ' statt ' + soll[k];
-    return AUFGABEN.length === 4 || AUFGABEN.length + ' Aufgaben statt vier';
+    return AUFGABEN.length === 5 || AUFGABEN.length + ' Aufgaben statt fuenf';
   });
   /* 🔴 Die Aufgabe fuers Oeffnen war vom 29.08. bis 03.09.2026 draussen und ist auf Karls
      Ansage zurueck. Geprueft wird nicht nur, dass sie in der Liste steht -- sondern dass
@@ -4922,8 +4929,11 @@ window.addEventListener('error', e => {
      die Karl entschieden hat, kann sonst beim naechsten Anfassen der Liste still
      zurueckrutschen, und auf dem Bildschirm faellt eine vertauschte Zeile niemandem auf,
      der nicht genau danach sucht. */
+  /* ➡️ 16.09.2026: „schritte" kommt hinten dazu. Die Reihenfolge der ersten vier ist
+     unveraendert Karls Entscheidung vom 12.09. -- der Platz der fuenften ist MEINE
+     Begruendung (die Liste steigt nach Wert), nicht seine Ansage. */
   t('Die Tagesaufgaben stehen in Karls Reihenfolge', () => {
-    return eq(AUFGABEN.map(a=>a.id).join(','), 'auf,gewicht,mahlzeit,train');
+    return eq(AUFGABEN.map(a=>a.id).join(','), 'auf,gewicht,mahlzeit,train,schritte');
   });
   /* Und dass die Karte sie WIRKLICH in dieser Folge zeichnet -- die Liste allein waere
      das Teil, nicht der Einbau.
@@ -4961,10 +4971,35 @@ window.addEventListener('error', e => {
     return q.indexOf("aufgabeErledigen('auf')") >= 0
       || 'die App hakt „Reingeschaut" nirgends ab';
   });
-  t('Eine Einheit ist ein Vielfaches aller Tagesaufgaben wert', () => {
+  /* 🔴 16.09.2026 NEU GEFASST, und das ist eine inhaltliche Entscheidung, keine Reparatur.
+     Die Pruefung verlangte: eine Einheit >= 5x ALLE Tagesaufgaben. Mit den 100 XP fuer
+     10.000 Schritte (Karls Ansage von heute) schlug sie an: 240 XP gegen 135 XP.
+
+     ⚠️ **Sie hatte recht, und trotzdem war die Grenze die falsche.** Der Einwand, den sie
+     bewacht, ist Karls vom 29.08.2026: *„man kann nicht jeden Tag XP kriegen fuer wenn man
+     was gemacht hat, weil an manchen Tagen machst du ja nichts."* Das richtet sich gegen
+     **XP fuers Nichtstun** -- gegen „App geoeffnet", nicht gegen 10.000 Schritte.
+     10.000 Schritte SIND etwas. Sie in denselben Topf zu werfen wie „reingeschaut", nur
+     weil beides Tagesaufgaben sind, waere die bequeme Lesart gewesen.
+
+     ➡️ Gewacht wird ab jetzt ueber die Aufgaben OHNE eigene Leistung (auf, gewicht,
+     mahlzeit = 20 XP). Die Schwelle 5x bleibt unveraendert.
+     ➡️ Und eine zweite Pruefung kommt dazu, die es vorher nicht brauchte: in einer
+     TRAININGS-App muss Training mehr wert sein als Gehen. */
+  const AUFG_OHNE_LEISTUNG = ['auf','gewicht','mahlzeit'];
+  t('Eine Einheit ist ein Vielfaches der XP fuers blosse Eintragen wert', () => {
     const einheit = sessXP(einheitMit(12, 100, 2, 2), 2);
-    return einheit >= AUFGABEN_MAX * 5
-      || 'Einheit ' + einheit + ' XP gegen ' + AUFGABEN_MAX + ' XP Aufgaben - zu nah beieinander';
+    const gratis = AUFGABEN.filter(a => AUFG_OHNE_LEISTUNG.includes(a.id))
+                           .reduce((n,a) => n + a.xp, 0);
+    if (gratis !== 20) return 'die Gratis-Aufgaben geben ' + gratis + ' statt 20 XP';
+    return einheit >= gratis * 5
+      || 'Einheit ' + einheit + ' XP gegen ' + gratis + ' XP ohne Leistung - zu nah beieinander';
+  });
+  t('Eine Einheit ist mehr wert als 10.000 Schritte', () => {
+    const einheit = sessXP(einheitMit(12, 100, 2, 2), 2);
+    const schritte = AUFGABEN.find(a => a.id === 'schritte').xp;
+    return einheit > schritte
+      || 'Gehen (' + schritte + ' XP) bringt mindestens so viel wie Training (' + einheit + ' XP)';
   });
   t('Eine erledigte Aufgabe gibt ihre XP', () => {
     profile.aufgaben = { tag:'', fertig:{} };
@@ -8716,15 +8751,98 @@ window.addEventListener('error', e => {
   });
   /* \u26a0\ufe0f Der Satz ist keine Deko. Eine Zahl, die auf der Kalorien-Seite steht, sieht aus
      wie eine, die mitrechnet -- genau das war sie bis zum 10.09.2026 auch. */
-  t('Die Karte sagt selbst, dass Schritte nicht mitrechnen', () => {
+  /* 16.09.2026 UMGEDREHT, nicht geloescht: seit Karls Ansage geben 10.000 Schritte 100 XP.
+     Der alte Satz ("geht in keine Rechnung ein") waere jetzt falsch. Die Pruefung verlangt
+     deshalb das NEUE Versprechen -- und ausdruecklich auch, dass die alte Pauschalaussage
+     NICHT zurueckkommt. Geloescht waere hier eine Stelle ohne Wache, an der der falsche
+     Satz stillschweigend wieder auftauchen koennte. */
+  t('Die Karte sagt selbst, was Schritte bewirken', () => {
     schFrisch();
     const v = view; view = 'body'; renderBody(); const h = app.innerHTML; view = v;
     const schnitt = h.indexOf('Schritte gestern');
     if (schnitt < 0) return 'die Karte fehlt';
     // ⚠️ Derselbe Schnitt wie eine Pruefung hoeher, aus demselben Grund (12.09.2026).
     const ende = h.indexOf('<h2', schnitt);
-    return (ende < 0 ? h.slice(schnitt) : h.slice(schnitt, ende)).includes('keine Rechnung')
-      || 'der Satz dazu fehlt';
+    const karte = ende < 0 ? h.slice(schnitt) : h.slice(schnitt, ende);
+    if (karte.includes('noch in XP')) return 'der alte Satz behauptet weiter, XP gaebe es nicht';
+    if (!karte.includes('Kalorien-Tagesziel')) return 'der Satz zum Kalorienziel fehlt';
+    return karte.includes('100 XP') || 'die Karte sagt nicht, dass es XP gibt';
+  });
+
+  /* ================= Schritte geben XP (16.09.2026, Karls Ansage) =================
+     „Schritte zaehlen ab jetzt in xp rein ein festes Ziel 10k Schritte am Tag gibt 100xp." */
+  const schAufgFrisch = () => {
+    schFrisch();
+    profile.aufgaben = { tag: heuteKey(), fertig: {} };
+    profile.xp = 0;
+  };
+  t('10.000 Schritte gestern geben 100 XP', () => {
+    schAufgFrisch();
+    setzeSchritte(10000, gesternTs());
+    if (!schritteZielPruefen()) return 'die Aufgabe wurde nicht abgehakt';
+    return eq(profile.xp, 100);
+  });
+  /* 🔴 Die Schwelle ist die halbe Ansage. Ohne diese Pruefung waere „ab 9.000 reicht auch"
+     ein Fehler, den niemand bemerkt -- die 100 XP kaemen ja. */
+  t('9.999 Schritte geben nichts', () => {
+    schAufgFrisch();
+    setzeSchritte(9999, gesternTs());
+    if (schritteZielPruefen()) return 'unter der Schwelle wurde trotzdem abgehakt';
+    return eq(profile.xp, 0);
+  });
+  /* 🔴 Der Tagesdeckel. Wer zweimal eintraegt (oder die App zweimal oeffnet), darf nicht
+     zweimal 100 XP bekommen -- genau das war bei den anderen Aufgaben schon einmal Thema. */
+  t('Zweimal am selben Tag gibt nur einmal 100 XP', () => {
+    schAufgFrisch();
+    setzeSchritte(12000, gesternTs());
+    schritteZielPruefen();
+    setzeSchritte(15000, gesternTs());
+    if (schritteZielPruefen()) return 'der zweite Durchlauf hat nochmal gezahlt';
+    return eq(profile.xp, 100);
+  });
+  /* 🔴 Gemeint ist GESTERN. Wer heute 10.000 laeuft und es eintraegt, hat die Aufgabe von
+     morgen erfuellt, nicht die von heute -- sonst zaehlte eine halbe Wahrheit. */
+  t('Schritte von heute loesen die Aufgabe nicht aus', () => {
+    schAufgFrisch();
+    setzeSchritte(20000, Date.now());
+    if (schritteZielPruefen()) return 'die Schritte von heute haben gezahlt';
+    return eq(profile.xp, 0);
+  });
+  t('Der Tagesdeckel aller Aufgaben ist 135 XP', () => eq(AUFGABEN_MAX, 135));
+  /* 🔴 Der EINBAU, nicht nur das Teil. Alle Pruefungen darueber rufen `schritteZielPruefen()`
+     selbst auf -- sie waeren gruen, auch wenn die App die Funktion nirgends benutzt und
+     niemand je 100 XP bekaeme. Genau diese Luecke ist in diesem Projekt schon mehrfach
+     aufgefallen (zuletzt bei „Kopieren legt die Nachricht in die Zwischenablage").
+     ⚠️ ZWEI Aufrufstellen, und beide werden gebraucht:
+       · beim Eintragen  -- wer die Zahl jetzt tippt, will die XP jetzt sehen
+       · beim Start      -- wer gestern Abend eingetragen hat, loest heute nichts mehr aus */
+  t('Die App prueft das Schritt-Ziel beim Eintragen UND beim Start', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const treffer = (q.match(/schritteZielPruefen\(\)/g) || []).length;
+    if (treffer < 3) return 'schritteZielPruefen() steht nur ' + treffer + 'x im Quelltext (Definition + 2 Aufrufe erwartet)';
+    if (q.indexOf("aufgabeErledigen('auf');\n  /*") < 0 && q.indexOf('schritteZielPruefen();') < 0)
+      return 'der Aufruf beim Start fehlt';
+    return q.indexOf('const gab = schritteZielPruefen();') >= 0
+      || 'der Aufruf beim Eintragen fehlt';
+  });
+
+  /* ================= Level-Kurve erschwert (16.09.2026) =================
+     Karls Ansage: „ich moechte nochmal allgemein die Level erschweren oder weniger xp
+     ausschuetten your call". Gewaehlt: die Kurve. Die Zahlen sind ausgerechnet, nicht
+     geschaetzt -- sie stehen hier, damit ein spaeterer Dreh an `xpLevelPlus()` auffaellt. */
+  t('Gigachad (Level 50) kostet 89.850 XP', () => eq(xpForLevel(50), 89850));
+  t('Level 10 kostet 2.700 XP', () => eq(xpForLevel(10), 2700));
+  t('Level 25 kostet 18.600 XP', () => eq(xpForLevel(25), 18600));
+  /* ⚠️ Die Kurve muss STEIGEN -- jedes Level teurer als das davor. Ein vertauschter
+     Schwellenwert (l>=10 teurer als l>=25) waere sonst unsichtbar. */
+  t('Die Level-Kurve steigt ueber alle Schwellen', () => {
+    let vorher = 0;
+    for (let l = 2; l <= 60; l++) {
+      const kosten = xpForLevel(l) - xpForLevel(l - 1);
+      if (kosten < vorher) return 'Level ' + l + ' ist billiger als das davor';
+      vorher = kosten;
+    }
+    return true;
   });
 
   /* ================= Schritte-Kurve (12.09.2026) =================

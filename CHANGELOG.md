@@ -4,6 +4,56 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-16
 
+### v0.117 — Schritte geben XP, und die Level-Kurve wird steiler
+
+**Karls Ansage:** *„Schritte zählen ab jetzt in xp rein ein festes Ziel 10k Schritte am Tag gibt
+100xp und ich möchte nochmal allgemein die Level erschweren oder weniger xp ausschütten your call"*.
+
+**Schritte:** fünfte Tagesaufgabe, **10.000 Schritte gestern → 100 XP**, einmal je Kalendertag.
+Feste Schwelle, kein anteiliges Zählen: 9.999 geben nichts. Gemeint ist **gestern** — die App fragt
+seit dem 10.09. nach „Schritte gestern", weil eine mittags eingetragene Zahl eine halbe Wahrheit ist.
+Geprüft wird an **zwei** Stellen: beim Eintragen *und* beim Start (wer gestern Abend eingetragen hat,
+löst heute sonst nichts mehr aus). Neues Symbol: ein Laufschuh, gerendert angesehen.
+
+**Level-Kurve (die „your call"-Entscheidung):** +50 statt +40, ab Level 10 +70 statt +50, ab 25 +100
+statt +60, ab 50 +150 statt +100. **Gigachad kostet 89.850 statt 63.390 XP.**
+
+Gewählt wurde die **Kurve**, nicht niedrigere XP — zwei Gründe: sie trifft jede Quelle gleichmäßig
+(auch die neue), und die XP-Werte hat Karl am 12./14.09. selbst gesetzt.
+
+Nachgerechnet, warum es nötig war:
+
+| | XP pro Woche |
+|---|---|
+| Training 3× | ~960 |
+| **Schritte täglich 10k** | **700** |
+| alle anderen Tagesaufgaben | 245 |
+
+Bis Gigachad, täglich gehen + 3× Training: **alt 233 Tage → neu 330 Tage.** Nur durch Gehen, ohne
+ein einziges Training: **alt 1,7 Jahre → neu 2,5 Jahre.**
+
+⚠️ **Der Preis: bestehende Stände rutschen.** Die XP bleiben unangetastet (Regel vom 27.08.), die
+*Anzeige* ändert sich: 5.000 XP → Level 13 statt 14 · 15.000 → 22 statt 25 · 50.000 → 38 statt 44.
+Wer die App seit Ende Juli nutzt, liegt bei 5.000–10.000 XP und verliert höchstens ein Level.
+
+🔴 **Eine Prüfung hat dem Umbau widersprochen, und sie hatte teilweise recht.**
+*„Eine Einheit ist ein Vielfaches aller Tagesaufgaben wert"* schlug an: 240 XP gegen 135.
+Sie bewacht Karls Einwand vom 29.08. (*„man kann nicht jeden Tag XP kriegen … an manchen Tagen
+machst du ja nichts"*) — der richtet sich aber gegen **XP fürs Nichtstun**, und 10.000 Schritte
+sind etwas. Sie wacht jetzt über die Aufgaben **ohne eigene Leistung** (auf, Gewicht, Mahlzeit =
+20 XP), Schwelle 5× unverändert. Dazu **neu**: *„Eine Einheit ist mehr wert als 10.000 Schritte"* —
+in einer Trainings-App darf Gehen nicht das Training schlagen.
+
+**Datenschutzerklärung mitgezogen:** der Satz „geht in keine Rechnung ein — weder ins Tagesziel noch
+in XP" stimmte nicht mehr. Jetzt: „geht in kein Kalorien-Tagesziel ein; ab 10.000 Schritten 100 XP".
+Der Hook hat das selbst gemeldet, bevor irgendetwas committet war.
+
+🧪 **1128 → 1139.** Sieben Gegenproben, alle rot: Schwelle gesenkt · Aufruf beim Start entfernt ·
+Aufruf beim Eintragen entfernt · Tagesdeckel weg · gestern/heute vertauscht · Kurve zurückgedreht ·
+Schritt-XP auf 10. ⚠️ Die Einbau-Prüfung (*beide* Aufrufstellen) kam erst dazu, nachdem auffiel,
+dass alle anderen `schritteZielPruefen()` selbst aufrufen — sie wären grün, auch wenn die App die
+Funktion nie benutzt.
+
 ### v0.116 — Der Bestenlisten-Satz ist aus der Freundes-Nachricht raus
 
 **Karls Ansage:** *„Sobald ich die Anfrage bestätige, sehen wir uns gegenseitig in der Bestenliste.
