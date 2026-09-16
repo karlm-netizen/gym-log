@@ -4,6 +4,44 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-16
 
+### v0.118 — XP-Verlaufskurve, und die Designs stehen jetzt auch in den Einstellungen
+
+**Karls Ansage:** *„Und wir brauchen eine Kurve für xp Wachstum unter xp und die disings die man
+freigeschaltet hat sollen auch in den Einstellungen zusehen sein"*.
+
+**Die XP-Kurve** steht direkt unter der Gesamt-XP-Zeile auf der Rang-Seite, mit dem Zuwachs daneben
+(*„+4.663 XP in 24 Tagen"*).
+
+🔴 **Dafür musste erst der Verlauf entstehen — den gab es nicht.** `profile.xp` ist ein **Zähler**,
+keine Historie, und die XP kommen aus vier Quellen (Einheiten, Tagesaufgaben, Erfolge, seit heute
+Schritte), von denen **nur die Einheiten ein Datum tragen**. Eine Kurve aus `sessions` allein hätte
+ausgesehen wie der XP-Verlauf, wäre aber keiner gewesen.
+
+Neu: `profile.xpVerlauf` — ein Eintrag je Kalendertag, gestempelt in `save()`. **Der Aufruf sitzt
+dort und nicht an den vier Stellen, die XP vergeben:** eine vergessene Aufrufstelle wäre ein Loch in
+der Kurve, das niemand bemerkt — die Kurve sähe ja aus wie eine Kurve.
+
+⚠️ **Die Kurve fängt heute an.** Rückwirkend gibt es nichts, und das steht auch auf dem Bildschirm
+(*„Die Kurve entsteht ab jetzt — sie braucht mindestens zwei Tage"*). Ohne den Satz stünde am
+ersten Tag dort **nichts**, und das sähe aus wie ein Fehler.
+
+⚠️ **Die Liste geht bewusst NICHT in den Abgleich.** `cloudMerge()` führt ausdrücklich nur
+`sessions` und `profile.weights` zusammen. Sie daran anzuschließen hieße, den Abgleich anzufassen —
+und das wird Karl vorgelegt, nicht nebenbei gemacht. **Folge: auf zwei Geräten kann die Kurve
+unterschiedlich aussehen.** Der XP-Stand selbst ist nicht betroffen. Steht als Punkt in
+`gym-log-punkte`.
+
+**Die Designs** stehen jetzt zusätzlich in den Einstellungen, direkt unter „Ansicht" — dort sitzen
+System/Dunkel/Hell, und die erspielten Designs sind dieselbe Sache. **Herausgezogen statt kopiert**
+(`designGridHTML()`): ein zweiter Block hieße, dass jede künftige Änderung an zwei Orten passieren
+muss und beim zweiten Mal vergessen wird. Die gesperrten stehen mit dabei, mit Schloss und
+„ab ‚Gym-Legend'" — nur die freigeschalteten zu zeigen wäre die wörtlichere Lesart, aber dann sähe
+man nicht mehr, was es zu holen gibt.
+
+🧪 **1139 → 1149.** Beide Ansichten gerendert angesehen. Sechs Gegenproben, alle rot: Stempel aus
+`save()` · Stempel hängt an statt zu überschreiben · Designs aus den Einstellungen · Designs von der
+Rang-Seite · Kurve von der Rang-Seite · Erklärsatz im leeren Fall.
+
 ### v0.117 — Schritte geben XP, und die Level-Kurve wird steiler
 
 **Karls Ansage:** *„Schritte zählen ab jetzt in xp rein ein festes Ziel 10k Schritte am Tag gibt

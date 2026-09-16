@@ -3690,7 +3690,9 @@ window.addEventListener('error', e => {
        geht rot, ohne dass ein Aufruf dazugekommen waere. Beim Bauen der Schritte-Kurve
        ist genau das passiert. Kein stiller Fehler, aber einer, dessen Meldung in die
        falsche Richtung zeigt -- deshalb steht der Hinweis jetzt in der Meldung selbst. */
-    if (rufe.length !== 4) return 'erwartet 4 Aufrufe, gefunden ' + rufe.length
+    /* ➡️ **Fuenf seit dem 16.09.2026**: die XP-Kurve ist dazugekommen (Karls Ansage
+       „eine Kurve für xp Wachstum unter xp"). */
+    if (rufe.length !== 5) return 'erwartet 5 Aufrufe, gefunden ' + rufe.length
       + ' (Achtung: `lineChart` mit Klammer in einem KOMMENTAR zaehlt hier mit)';
     const ohne = rufe.filter(s => s.indexOf('{x:') < 0);
     return ohne.length === 0 || 'ohne Datum: ' + ohne.join(' // ');
@@ -8843,6 +8845,106 @@ window.addEventListener('error', e => {
       vorher = kosten;
     }
     return true;
+  });
+
+  /* ================= XP-Kurve und Designs (16.09.2026, Karls Ansagen) =================
+     „Und wir brauchen eine Kurve für xp Wachstum unter xp und die disings die man
+     freigeschaltet hat sollen auch in den Einstellungen zusehen sein." */
+  t('Der XP-Stand wird beim Speichern festgehalten', () => {
+    const vV = profile.xpVerlauf, xV = profile.xp;
+    profile.xpVerlauf = []; profile.xp = 500;
+    xpStempeln();
+    const n = profile.xpVerlauf.length, wert = n ? profile.xpVerlauf[0].xp : null;
+    profile.xpVerlauf = vV; profile.xp = xV;
+    return (n === 1 && wert === 500) || 'Eintraege=' + n + ' xp=' + wert;
+  });
+  /* 🔴 Ein Eintrag JE TAG, nicht je Speichervorgang. `save()` laeuft im Sekundentakt, wer
+     hier anhaengt statt zu ueberschreiben, hat nach einem Training 200 Punkte fuer denselben
+     Tag -- und die Kurve zeigte einen Tag als halbes Jahr. */
+  t('Zweimal am selben Tag gibt einen Eintrag, nicht zwei', () => {
+    const vV = profile.xpVerlauf, xV = profile.xp;
+    profile.xpVerlauf = []; profile.xp = 100;
+    xpStempeln();
+    profile.xp = 250;
+    xpStempeln();
+    const n = profile.xpVerlauf.length, wert = n ? profile.xpVerlauf[n-1].xp : null;
+    profile.xpVerlauf = vV; profile.xp = xV;
+    return (n === 1 && wert === 250) || 'Eintraege=' + n + ' letzter=' + wert;
+  });
+  t('Ein neuer Tag legt einen zweiten Eintrag an', () => {
+    const vV = profile.xpVerlauf, xV = profile.xp;
+    profile.xpVerlauf = [{ date: Date.now() - 2*864e5, xp: 100 }];
+    profile.xp = 300;
+    xpStempeln();
+    const n = profile.xpVerlauf.length;
+    profile.xpVerlauf = vV; profile.xp = xV;
+    return eq(n, 2);
+  });
+  /* 🔴 Der EINBAU: ohne den Aufruf in `save()` bliebe die Liste ewig leer und die Kurve
+     zeigte fuer immer „braucht mindestens zwei Tage". Die Pruefungen darueber rufen
+     `xpStempeln()` selbst und waeren trotzdem gruen. */
+  t('save() haelt den XP-Stand selbst fest', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const i = q.indexOf('function save(){');
+    if (i < 0) return 'save() nicht gefunden';
+    return q.slice(i, i + 400).indexOf('xpStempeln()') >= 0
+      || 'save() haelt den XP-Stand nicht fest';
+  });
+  t('Die Kurve sagt es, wenn sie noch nicht genug Tage hat', () => {
+    const vV = profile.xpVerlauf;
+    profile.xpVerlauf = [{ date: Date.now(), xp: 10 }];
+    const h = xpKurveHTML();
+    profile.xpVerlauf = vV;
+    return h.includes('mindestens zwei Tage') || 'der erklaerende Satz fehlt';
+  });
+  t('Mit zwei Tagen zeichnet die Kurve wirklich', () => {
+    const vV = profile.xpVerlauf;
+    profile.xpVerlauf = [{ date: Date.now()-864e5, xp: 100 }, { date: Date.now(), xp: 450 }];
+    const h = xpKurveHTML();
+    profile.xpVerlauf = vV;
+    if (h.indexOf('<svg') < 0) return 'es wird keine Kurve gezeichnet';
+    return h.includes('+350') || 'der Zuwachs steht nicht dabei';
+  });
+  /* 🔴 „unter xp" ist die Ansage, nicht „irgendwo auf der Seite". */
+  t('Die XP-Kurve steht unter der Gesamt-XP-Zeile', () => {
+    const v = view; view = 'rang'; renderRang(); const h = app.innerHTML; view = v;
+    const xp = h.indexOf('Gesamt-XP'), kurve = h.indexOf('XP-Verlauf');
+    if (xp < 0) return 'die Gesamt-XP-Zeile fehlt';
+    if (kurve < 0) return 'die XP-Kurve fehlt auf der Rang-Seite';
+    return kurve > xp || 'die Kurve steht ueber der XP-Zeile';
+  });
+  /* ⚠️ `renderSettings()` liest `session.username` -- im Prueframen ist niemand angemeldet,
+     und ohne Sitzung wirft es. Dieselbe Attrappe wie bei den Freundes-Pruefungen. */
+  const beideSeiten = () => {
+    const v = view, mSess = session;
+    session = { username:'Karl', access_token:'x', user:{ id:'ich', email:'k@example.org' } };
+    view = 'rang'; renderRang(); const rang = app.innerHTML;
+    view = 'settings'; renderSettings(); const set = app.innerHTML;
+    view = v; session = mSess;
+    return { rang, set };
+  };
+  /* 🔴 Karls Ansage sagt „AUCH in den Einstellungen" -- beide Orte, nicht umgezogen. */
+  t('Die Designs stehen auf der Rang-Seite UND in den Einstellungen', () => {
+    const { rang, set } = beideSeiten();
+    if (rang.indexOf('theme-grid') < 0) return 'auf der Rang-Seite fehlen die Designs';
+    if (set.indexOf('theme-grid') < 0) return 'in den Einstellungen fehlen die Designs';
+    return true;
+  });
+  /* ⚠️ Dieselben Kacheln, nicht eine zweite Fassung: in beiden muss JEDES Design stehen. */
+  t('Beide Orte zeigen jedes Design', () => {
+    const { rang, set } = beideSeiten();
+    for (const k in THEMES) {
+      const label = THEMES[k].label;
+      if (rang.indexOf(label) < 0) return label + ' fehlt auf der Rang-Seite';
+      if (set.indexOf(label) < 0) return label + ' fehlt in den Einstellungen';
+    }
+    return true;
+  });
+  t('Die Design-Kacheln kommen aus einer Quelle', () => {
+    const q = window.APP_QUELLE || ''; if(!q) return 'APP_QUELLE fehlt';
+    const treffer = (q.match(/designGridHTML\(\)/g) || []).length;
+    return treffer >= 3
+      || 'designGridHTML() steht nur ' + treffer + 'x im Quelltext (Definition + 2 Aufrufe erwartet)';
   });
 
   /* ================= Schritte-Kurve (12.09.2026) =================

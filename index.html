@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.117';
+var APP_FASSUNG = 'v0.118';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -1857,6 +1857,26 @@ function normalizeProfile(){
   if(!profile||typeof profile!=='object') profile={xp:0,theme:'system'};
   if(typeof profile.xp!=='number') profile.xp=0;
   if(!Array.isArray(profile.weights)) profile.weights=[];   // [{date, kg}] — Körpergewicht über die Zeit
+  /* ---------- XP-Verlauf (16.09.2026, Karls Ansage „eine Kurve für xp Wachstum") ----------
+     [{date, xp}] -- ein Eintrag je Kalendertag, der Stand am Ende dieses Tages.
+
+     🔴 **Warum eine eigene Liste und keine Rechnung aus den Einheiten:** `profile.xp` ist ein
+     ZAEHLER, keine Historie. Die XP kommen aus vier Quellen (Einheiten, Tagesaufgaben,
+     Erfolge, seit heute Schritte), und nur die Einheiten tragen ein Datum. Eine Kurve aus
+     `sessions` allein saehe aus wie der XP-Verlauf, waere aber keiner -- genau die Bauform,
+     die in diesem Projekt schon mehrfach Geld gekostet hat.
+     ⚠️ **Die Kurve faengt deshalb heute an.** Rueckwirkend gibt es nichts, und Erfundenes
+     waere schlimmer als eine kurze Kurve. Das steht auch so auf dem Bildschirm.
+
+     🔴 **NICHT im Abgleich, und das ist Absicht.** `cloudMerge()` fuehrt ausdruecklich nur
+     `sessions` und `profile.weights` zusammen; alles andere im Profil kommt von `basis`.
+     Diese Liste hier daran anzuschliessen hiesse, den Abgleich anzufassen -- und das wird
+     Karl vorgelegt, nicht nebenbei gemacht (Regel in CLAUDE.md).
+     ⚠️ **Folge, ausgeschrieben statt verschwiegen:** auf zwei Geraeten kann die KURVE
+     unterschiedlich aussehen. Der XP-Stand selbst ist davon nicht betroffen -- der wird
+     weiter richtig zusammengefuehrt. Es ist eine Anzeige, kein Datenverlust.
+     ➡️ Steht als Punkt in `gym-log-punkte`. */
+  if(!Array.isArray(profile.xpVerlauf)) profile.xpVerlauf=[];
   if(profile.rankSkin===undefined) profile.rankSkin=null;   // ausgerüsteter Rang (null = der echte)
   if(!profile.aufgaben||typeof profile.aufgaben!=='object') profile.aufgaben={tag:'',fertig:{}};  // Tagesaufgaben
   if(!profile.erfolge||typeof profile.erfolge!=='object') profile.erfolge={};              // schon ausgezahlte Erfolge
@@ -1964,7 +1984,35 @@ const PRIVACY_STAND='16. September 2026';  // bei jeder inhaltlichen Aenderung m
    wurde. Gefunden von datenschutz-pruefen.py, nicht von einem Menschen -- genau dafuer
    gibt es das Skript. Es vergleicht dieses Datum mit `git log -L` auf renderPrivacy()
    und schlaegt an, sobald der Text juenger ist als sein eigener Stand. */
+/* ---------- Den XP-Stand des Tages festhalten (16.09.2026) ----------
+   Ein Eintrag je Kalendertag, immer ueberschrieben -- am Ende steht der Stand am Tagesende.
+
+   🔴 Der Aufruf sitzt in `save()` und nicht an den vier Stellen, die XP vergeben. Das ist
+   Absicht: eine vergessene Aufrufstelle waere ein Loch in der Kurve, das niemand bemerkt
+   (die Kurve saehe ja aus wie eine Kurve). `save()` laeuft nach JEDER XP-Aenderung, weil
+   jede davon speichert.
+   ⚠️ Deshalb muss die Funktion billig sein: ein Blick auf den letzten Eintrag, kein Suchen
+   durch die Liste. Die Liste liegt aufsteigend, der heutige Tag ist immer der letzte.
+   ⚠️ Gedeckelt auf 730 Tage -- zwei Jahre Kurve reichen, und eine Liste, die ewig waechst,
+   wandert bei jedem Abgleich mit. */
+const XP_VERLAUF_MAX = 730;
+function xpStempeln(){
+  if(!Array.isArray(profile.xpVerlauf)) profile.xpVerlauf = [];
+  const l = profile.xpVerlauf, jetzt = Date.now(), xp = +profile.xp || 0;
+  const letzter = l.length ? l[l.length-1] : null;
+  if(letzter && sameDay(letzter.date, jetzt)){
+    if(letzter.xp === xp) return false;   // nichts Neues -- der haeufigste Fall
+    letzter.xp = xp; letzter.date = jetzt;
+    return true;
+  }
+  l.push({date: jetzt, xp});
+  if(l.length > XP_VERLAUF_MAX) l.splice(0, l.length - XP_VERLAUF_MAX);
+  return true;
+}
 function save(){
+  /* ⚠️ VOR dem Wegschreiben, sonst landet der frische Stempel erst beim naechsten save()
+     im Speicher -- und beim letzten save() des Tages gar nicht mehr. */
+  xpStempeln();
   const paare = {programs, sessions, active, settings, profile};
   const nicht = Object.keys(paare).filter(k => !DB.set(k, paare[k]));
   /* ⚠️ scheduleSync() laeuft AUCH nach einem Fehlschlag -- die Cloud ist dann der
@@ -3941,10 +3989,43 @@ function renderSession(){
   app.innerHTML=h;
 }
 
+/* ---------- Die XP-Kurve (16.09.2026, Karls Ansage) ----------
+   „Und wir brauchen eine Kurve für xp Wachstum unter xp" -- deshalb steht sie direkt unter
+   der Gesamt-XP-Zeile und nicht bei den anderen Kurven auf der Kalorien-Seite.
+
+   🔴 **Der leere Fall ist hier der Normalfall, nicht die Ausnahme.** `lineChart` gibt bei
+   weniger als zwei Punkten eine leere Zeichenkette zurueck -- ohne den Satz darunter stuende
+   an der Stelle einfach NICHTS, und das saehe aus wie ein Fehler. Am ersten Tag gibt es
+   genau einen Punkt, das ist unvermeidlich und kein Defekt.
+   ⚠️ Gezeigt wird der Stand je Tag, nicht der Zuwachs: eine Kurve, die nur steigen kann,
+   ist das, was „Wachstum" hier meint. Ein Balken „XP pro Tag" waere etwas anderes -- falls
+   Karl das meinte, ist es eine Zeile Aenderung (`v.map` auf die Differenz). */
+function xpKurveHTML(){
+  const v = (profile.xpVerlauf||[]).slice().sort((a,b)=>a.date-b.date);
+  if(v.length < 2){
+    return `<div class="card" style="padding:12px">
+      <div class="row between" style="margin-bottom:4px"><b class="tiny">XP-Verlauf</b></div>
+      <div class="tiny muted">Die Kurve entsteht ab jetzt — sie braucht mindestens zwei Tage.
+      ${v.length ? 'Heute ist der erste eingetragen.' : ''}</div></div>`;
+  }
+  const erst = v[0].xp, letzt = v[v.length-1].xp, zu = letzt - erst;
+  const tage = Math.max(1, Math.round((v[v.length-1].date - v[0].date)/864e5));
+  return `<div class="card" style="padding:10px 8px">
+    <div class="row between" style="margin:0 4px 6px">
+      <b class="tiny">XP-Verlauf</b>
+      <span class="tiny muted">+${zu.toLocaleString('de-DE')} XP in ${tage} ${tage===1?'Tag':'Tagen'}</span>
+    </div>
+    ${lineChart(v.map(x=>x.xp), 300, 110, {x:v.map(x=>x.date),
+      fmt:n=>Math.round(n).toLocaleString('de-DE')})}</div>`;
+}
+
 function renderRang(){
-  const lp=levelFromXP(profile.xp), real=rankForLevel(lp.level), shown=equippedRank(), nx=nextRank(lp.level), unlocked=unlockedThemes(lp.level);
+  // `unlocked` ist am 16.09.2026 hier weggefallen -- es wurde nur von den Design-Kacheln
+  // gebraucht, und die holen es sich jetzt selbst in `designGridHTML()`.
+  const lp=levelFromXP(profile.xp), real=rankForLevel(lp.level), shown=equippedRank(), nx=nextRank(lp.level);
   let h=rankCardHTML();
   h+=`<div class="tiny muted" style="text-align:center;margin:-4px 0 8px">Gesamt-XP: ${profile.xp}${nx?` · Nächster Rang „${esc(nx.name)}" ab Level ${nx.min}`:' · Höchster Rang erreicht'}</div>`;
+  h+=xpKurveHTML();
   // Brock steht nicht mehr hier, sondern oben auf der Startseite.
   // Leiter — erreichte Ränge lassen sich antippen und als Look übernehmen
   h+=`<div class="row between" style="margin:16px 4px 4px"><h2>Rang-Leiter</h2></div>
@@ -3963,7 +4044,27 @@ function renderRang(){
       </div></div>`; });
   if(profile.rankSkin!=null) h+=`<button class="btn ghost sm" style="margin-top:4px" data-skin="${profile.rankSkin}">Wieder meinen echten Rang zeigen</button>`;
   // Designs
-  h+=`<div class="row between" style="margin:18px 4px 4px"><h2>Designs</h2></div><div class="theme-grid">`;
+  h+=`<div class="row between" style="margin:18px 4px 4px"><h2>Designs</h2></div>`+designGridHTML();
+  app.innerHTML=h;
+}
+
+/* ---------- Die Design-Kacheln (16.09.2026 herausgezogen) ----------
+   Karls Ansage: „die disings die man freigeschaltet hat sollen auch in den Einstellungen
+   zusehen sein."
+
+   🔴 **Herausgezogen statt kopiert.** Der Block stand nur in `renderRang()`. Ihn ein zweites
+   Mal in die Einstellungen zu schreiben hiesse, dass jede kuenftige Aenderung an zwei Orten
+   passieren muss -- und beim zweiten Mal vergessen wird. Dasselbe Prinzip wie bei
+   `essenZuMahlzeit()` am 04.09.: was an zwei Orten steht, wird an einem repariert.
+   ⚠️ Der Aufruf braucht KEIN Argument: Level, freigeschaltete Designs und das aktive Design
+   stehen alle im `profile`. Ein durchgereichtes `level` waere eine zweite Wahrheit.
+   ⚠️ **Die UEBERSCHRIFT gehoert bewusst nicht hierher.** Auf der Rang-Seite ist sie ein
+   `<h2>`, in den Einstellungen ein `<label class="tiny muted">` wie bei „Ansicht" und
+   „Konto" -- die beiden Seiten sehen verschieden aus, und das soll so bleiben. Die Funktion
+   liefert nur die Kacheln; wer sie ruft, setzt seine eigene Ueberschrift davor. */
+function designGridHTML(){
+  const lvl = levelFromXP(profile.xp).level, unlocked = unlockedThemes(lvl);
+  let h = `<div class="theme-grid">`;
   Object.entries(THEMES).forEach(([key,t])=>{ const free=t.free, open=unlocked.has(key), on=profile.theme===key;
     const need=RANKS.find(r=>r.unlock===key);
     const sw=['--bg','--card2','--accent','--ok'].map(v=>`<i style="background:${t.vars[v]}"></i>`).join('');
@@ -3971,9 +4072,7 @@ function renderRang(){
       <div class="sw">${sw}</div><b class="tiny">${esc(t.label)}</b>
       <div class="tiny muted">${free?'immer frei':open?'freigeschaltet':`ab „${need?need.name:'?'}"`}</div>
       ${open?'':'<span class="lock">'+ic('schloss')+'</span>'}${on?'<span class="lock" style="color:var(--accent)">'+ic('haken')+'</span>':''}</div>`; });
-  h+=`</div>`;
-  // Einstellungen
-  app.innerHTML=h;
+  return h+`</div>`;
 }
 
 // ---------- Kalorien ----------
@@ -6440,6 +6539,17 @@ function renderSettings(){
       <div class="field" style="margin:0 0 16px"><label>Pausen-Timer (Sekunden)</label>
         <input id="restInput" type="number" inputmode="numeric" value="${settings.rest}" min="10" step="5"></div>
     </div>`;
+  /* ➡️ 16.09.2026, Karls Ansage: „die disings die man freigeschaltet hat sollen auch in den
+     Einstellungen zusehen sein." Direkt unter „Ansicht" -- dort stehen System/Dunkel/Hell,
+     und die freigeschalteten Designs sind dieselbe Sache, nur erspielt.
+     ⚠️ „auch" heisst auch: auf der Rang-Seite bleiben sie stehen. Dieselben Kacheln aus
+     `designGridHTML()`, nicht eine zweite Fassung -- sie sind anklickbar wie dort.
+     ⚠️ Die gesperrten stehen mit dabei, mit Schloss und „ab ,Gym-Legend'". Nur die
+     freigeschalteten zu zeigen waere die woertlichere Lesart, aber dann saehe man nicht
+     mehr, was es ueberhaupt zu holen gibt -- und genau das ist der Reiz daran. */
+  h+=`<div class="card">
+      <label class="tiny muted" style="display:block;margin-bottom:10px">Designs</label>
+      ${designGridHTML()}</div>`;
   /* ➡️ 10.09.2026: Hier stand der ganze Schritte-Block — Ein/Aus-Schalter,
      Eingabefeld fuer heute, die Adresse zum Kopieren und die vierstufige Anleitung fuer
      einen Kurzbefehl, der Apple Health ausliest. Karls Ansage: nur noch von Hand.
