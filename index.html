@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.119';
+var APP_FASSUNG = 'v0.120';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -3997,60 +3997,57 @@ function renderSession(){
    weniger als zwei Punkten eine leere Zeichenkette zurueck -- ohne den Satz darunter stuende
    an der Stelle einfach NICHTS, und das saehe aus wie ein Fehler. Am ersten Tag gibt es
    genau einen Punkt, das ist unvermeidlich und kein Defekt.
-   ➡️ **16.09.2026 abends, Karls Ansage: „bau die kurve pro zuwachs".** Bis dahin zeigte sie
-   den STAND je Tag (eine Linie, die nur steigen kann). Jetzt zeigt sie, wie viele XP an
-   jedem Tag DAZUGEKOMMEN sind.
+   ➡️ **Verlauf der Ansagen am 16.09.2026:** erst der Stand je Tag (v0.118) · dann auf
+   *„bau die kurve pro zuwachs"* der Zuwachs je Tag (v0.119) · dann auf *„die kurve soll
+   einfach immer steigen sobald es xp gibt"* wieder der STAND (v0.120). Das ist der jetzige.
 
-   🔴 **Tage ohne Eintrag zaehlen als 0 und stehen mit auf der Achse.** Ohne das verbaende
-   die Linie einen Tag mit 300 XP und einen fuenf Tage spaeter mit 200 XP schraeg -- und
-   behauptete damit drei Tage mit 250, die es nie gab. Die 0 ist hier keine Annahme: XP
-   entstehen nur in der App, jede Vergabe ruft `save()`, und `save()` stempelt. **Kein
-   Eintrag heisst also: an dem Tag kam nichts dazu.**
-   ⚠️ Einzige Ausnahme, bewusst hingenommen: XP, die der Abgleich von einem zweiten Geraet
-   mitbringt, landen auf dem Tag, an dem DIESES Geraet sie erfaehrt.
-   ⚠️ **Der erste Tag hat keinen Zuwachs** -- sein Stand enthaelt alles davor. Die Linie
-   faengt deshalb einen Tag nach dem ersten Eintrag an und braucht drei Tage, bis sie zwei
-   Punkte hat.
-   ⚠️ Ein Zuwachs kann negativ sein: wer eine alte Einheit bearbeitet, dem rechnet
-   `sessRecalc` sie mit den aktuellen Werten nach. Das bleibt sichtbar, statt auf 0
-   geklemmt zu werden. */
+   🔴 **„Immer steigen" ist woertlich umgesetzt: die Linie faellt nie.** Der XP-Stand selbst
+   kann in einem seltenen Fall sinken -- wer eine alte Einheit bearbeitet, dem rechnet
+   `sessRecalc` sie mit den aktuellen Werten nach (-10 je Einheit). Die Kurve haelt dann den
+   bisher hoechsten Stand. ⚠️ **Folge, bewusst hingenommen:** in diesem Fall steht am Ende der
+   Kurve ein paar XP mehr als in der Gesamt-XP-Zeile darueber.
+
+   🔴 **Tage ohne Eintrag stehen mit auf der Achse und halten den Vortagesstand.** Ohne das
+   verbaende die Linie zwei Tage schraeg und behauptete einen gleichmaessigen Anstieg an
+   Tagen, an denen nichts dazukam. Das ist keine Annahme: jede XP-Vergabe ruft `save()`,
+   und `save()` stempelt den Tag -- kein Eintrag heisst, der Stand blieb gleich.
+   ⚠️ Ausnahme: XP, die der Abgleich von einem zweiten Geraet mitbringt, landen auf dem
+   Tag, an dem DIESES Geraet sie erfaehrt. */
 /* Ein Kalendertag als Schluessel. ⚠️ Beim Weiterzaehlen steht die Uhr auf 12:00 und
    gezaehlt wird mit `setDate(+1)` -- Mittag liegt nie in der Umstellungsstunde, dieselbe
    Lehre wie bei `gesternTs()`. */
 function xpTagSchluessel(ts){ const d = new Date(ts); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
-function xpZuwachsProTag(){
+function xpStandProTag(){
   const v = (profile.xpVerlauf||[]).slice().sort((a,b)=>a.date-b.date);
-  if(v.length < 2) return [];
+  if(!v.length) return [];
   const proTag = new Map(); v.forEach(e => proTag.set(xpTagSchluessel(e.date), e));
   const tag = new Date(v[0].date); tag.setHours(12,0,0,0);
   const ende = new Date(v[v.length-1].date); ende.setHours(12,0,0,0);
-  const raus = []; let vorher = +v[0].xp || 0;
-  tag.setDate(tag.getDate()+1);
+  const raus = []; let stand = 0;
   // ⚠️ Der Deckel ist Absturzschutz, keine Regel: die Liste ist ohnehin auf XP_VERLAUF_MAX Tage begrenzt.
   for(let i = 0; tag <= ende && i < XP_VERLAUF_MAX + 5; i++){
     const e = proTag.get(xpTagSchluessel(tag.getTime()));
-    const xp = e ? (+e.xp || 0) : vorher;
-    raus.push({ date: tag.getTime(), zu: xp - vorher });
-    vorher = xp;
+    if(e) stand = Math.max(stand, +e.xp || 0);   // nie fallen -- siehe oben
+    raus.push({ date: tag.getTime(), xp: stand });
     tag.setDate(tag.getDate()+1);
   }
   return raus;
 }
 function xpKurveHTML(){
-  const z = xpZuwachsProTag();
-  if(z.length < 2){
+  const s = xpStandProTag();
+  if(s.length < 2){
     return `<div class="card" style="padding:12px">
-      <div class="row between" style="margin-bottom:4px"><b class="tiny">XP pro Tag</b></div>
-      <div class="tiny muted">Die Kurve entsteht ab jetzt — sie zeigt, wie viele XP du an jedem Tag
-      dazubekommst, und braucht dafür mindestens drei Tage.</div></div>`;
+      <div class="row between" style="margin-bottom:4px"><b class="tiny">XP-Verlauf</b></div>
+      <div class="tiny muted">Die Kurve entsteht ab jetzt — sie braucht mindestens zwei Tage.
+      ${s.length ? 'Heute ist der erste eingetragen.' : ''}</div></div>`;
   }
-  const schnitt = Math.round(z.reduce((n,x)=>n+x.zu,0) / z.length);
+  const zu = s[s.length-1].xp - s[0].xp, tage = s.length - 1;
   return `<div class="card" style="padding:10px 8px">
     <div class="row between" style="margin:0 4px 6px">
-      <b class="tiny">XP pro Tag</b>
-      <span class="tiny muted">Ø ${schnitt.toLocaleString('de-DE')} XP am Tag</span>
+      <b class="tiny">XP-Verlauf</b>
+      <span class="tiny muted">+${zu.toLocaleString('de-DE')} XP in ${tage} ${tage===1?'Tag':'Tagen'}</span>
     </div>
-    ${lineChart(z.map(x=>x.zu), 300, 110, {x:z.map(x=>x.date),
+    ${lineChart(s.map(x=>x.xp), 300, 110, {x:s.map(x=>x.date),
       fmt:n=>Math.round(n).toLocaleString('de-DE')})}</div>`;
 }
 

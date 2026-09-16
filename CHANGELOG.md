@@ -4,6 +4,23 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-16
 
+### v0.120 — Die XP-Kurve zeigt wieder den Stand und fällt nie
+
+**Karls Ansage:** *„die kurve soll einfach immer steigen sobald es xp gibt"*. Zurück auf den
+Gesamtstand je Tag, Überschrift wieder „XP-Verlauf", daneben „+X XP in N Tagen". v0.119 (Zuwachs pro
+Tag) ist damit ersetzt.
+
+🔴 **„Immer steigen" wörtlich: die Linie fällt nie.** Der XP-Stand kann in einem seltenen Fall sinken
+(alte Einheit bearbeitet → `sessRecalc` rechnet nach, −10 je Einheit). Die Kurve hält dann den bisher
+höchsten Stand. ⚠️ Folge: in dem Fall steht am Kurvenende ein paar XP mehr als in der Gesamt-XP-Zeile.
+
+**Aus v0.119 übernommen:** Tage ohne Eintrag stehen mit auf der Achse und halten den Vortagesstand —
+sonst verbände die Linie zwei Tage schräg und zeigte einen Anstieg an Tagen, an denen nichts dazukam.
+Die Kurve braucht wieder **zwei** Tage statt drei (der erste Tag zählt als Stand mit).
+
+🧪 **1152**, gerendert angesehen. Fünf Gegenproben, alle rot: Kurve darf fallen · Lücken nicht
+aufgefüllt · Zuwachs statt Stand · Erklärsatz weg · Kurve von der Rang-Seite entfernt.
+
 ### v0.119 — Die XP-Kurve zeigt den Zuwachs pro Tag
 
 **Karls Ansage:** *„bau die kurve pro zuwachs"*. Die Kurve unter der Gesamt-XP-Zeile zeigt nicht

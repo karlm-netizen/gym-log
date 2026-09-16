@@ -8890,41 +8890,40 @@ window.addEventListener('error', e => {
     return q.slice(i, i + 400).indexOf('xpStempeln()') >= 0
       || 'save() haelt den XP-Stand nicht fest';
   });
-  /* ➡️ 16.09.2026 abends, Karls Ansage „bau die kurve pro zuwachs": die Kurve zeigt nicht
-     mehr den Stand, sondern was an jedem Tag DAZUKAM. Die Tage stehen auf 12:00, damit
-     keine Pruefung davon abhaengt, um welche Uhrzeit der Pruefstand laeuft. */
+  /* ➡️ 16.09.2026 abends, Karls Ansage „die kurve soll einfach immer steigen sobald es xp
+     gibt": zurueck auf den STAND je Tag (v0.119 zeigte kurz den Zuwachs). Die Tage stehen auf
+     12:00, damit keine Pruefung davon abhaengt, um welche Uhrzeit der Pruefstand laeuft. */
   const xpTag = n => { const d = new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate() - n); return d.getTime(); };
   const mitVerlauf = (liste, f) => { const vV = profile.xpVerlauf; profile.xpVerlauf = liste;
     try { return f(); } finally { profile.xpVerlauf = vV; } };
-  t('Der Zuwachs je Tag ist die Differenz zum Vortag', () => mitVerlauf(
+  t('Die Kurve zeigt den Stand je Tag', () => mitVerlauf(
     [{ date: xpTag(2), xp: 100 }, { date: xpTag(1), xp: 300 }, { date: xpTag(0), xp: 350 }],
-    () => eq(xpZuwachsProTag().map(x => x.zu).join(','), '200,50')));
-  /* 🔴 Die Luecke. Ohne aufgefuellte Nullen verbaende die Linie zwei Tage schraeg und
-     behauptete Tage mit XP, an denen keine kamen. */
-  t('Tage ohne Eintrag zaehlen als 0 und stehen mit drin', () => mitVerlauf(
+    () => eq(xpStandProTag().map(x => x.xp).join(','), '100,300,350')));
+  /* 🔴 Die Luecke. Ohne die Vortagesstaende verbaende die Linie zwei Tage schraeg und
+     behauptete einen Anstieg an Tagen, an denen nichts dazukam. */
+  t('Tage ohne Eintrag halten den Vortagesstand', () => mitVerlauf(
     [{ date: xpTag(3), xp: 100 }, { date: xpTag(0), xp: 400 }],
-    () => eq(xpZuwachsProTag().map(x => x.zu).join(','), '0,0,300')));
-  /* ⚠️ Der erste Stand enthaelt alles davor -- er darf nicht als Zuwachs erscheinen, sonst
-     staende am ersten Tag ein Ausschlag von mehreren tausend XP. */
-  t('Der erste Tag erscheint nicht als Zuwachs', () => mitVerlauf(
-    [{ date: xpTag(1), xp: 5000 }, { date: xpTag(0), xp: 5040 }],
-    () => eq(xpZuwachsProTag().map(x => x.zu).join(','), '40')));
+    () => eq(xpStandProTag().map(x => x.xp).join(','), '100,100,100,400')));
+  /* 🔴 „immer steigen" -- woertlich. Sinkt der Stand (alte Einheit bearbeitet), bleibt die
+     Linie oben. */
+  t('Die Kurve faellt nie', () => mitVerlauf(
+    [{ date: xpTag(2), xp: 500 }, { date: xpTag(1), xp: 490 }, { date: xpTag(0), xp: 600 }],
+    () => eq(xpStandProTag().map(x => x.xp).join(','), '500,500,600')));
   t('Die Kurve sagt es, wenn sie noch nicht genug Tage hat', () => mitVerlauf(
-    [{ date: xpTag(1), xp: 10 }, { date: xpTag(0), xp: 60 }],
-    () => xpKurveHTML().includes('mindestens drei Tage') || 'der erklaerende Satz fehlt'));
-  t('Mit drei Tagen zeichnet die Kurve den Zuwachs', () => mitVerlauf(
-    [{ date: xpTag(2), xp: 100 }, { date: xpTag(1), xp: 300 }, { date: xpTag(0), xp: 350 }],
+    [{ date: xpTag(0), xp: 10 }],
+    () => xpKurveHTML().includes('mindestens zwei Tage') || 'der erklaerende Satz fehlt'));
+  t('Mit zwei Tagen zeichnet die Kurve den Stand', () => mitVerlauf(
+    [{ date: xpTag(1), xp: 100 }, { date: xpTag(0), xp: 450 }],
     () => {
       const h = xpKurveHTML();
       if (h.indexOf('<svg') < 0) return 'es wird keine Kurve gezeichnet';
-      if (!h.includes('Ø 125 XP am Tag')) return 'der Tagesschnitt steht nicht dabei';
-      // Der STAND (350) darf an der Achse nicht mehr auftauchen -- nur die Zuwaechse.
-      return !h.includes('>350') || 'die Kurve zeigt noch den Stand statt des Zuwachses';
+      if (!h.includes('+350 XP in 1 Tag')) return 'der Zuwachs steht nicht dabei';
+      return h.includes('>450') || 'die Kurve zeigt nicht den Stand';
     }));
   /* 🔴 „unter xp" ist die Ansage, nicht „irgendwo auf der Seite". */
   t('Die XP-Kurve steht unter der Gesamt-XP-Zeile', () => {
     const v = view; view = 'rang'; renderRang(); const h = app.innerHTML; view = v;
-    const xp = h.indexOf('Gesamt-XP'), kurve = h.indexOf('XP pro Tag');
+    const xp = h.indexOf('Gesamt-XP'), kurve = h.indexOf('XP-Verlauf');
     if (xp < 0) return 'die Gesamt-XP-Zeile fehlt';
     if (kurve < 0) return 'die XP-Kurve fehlt auf der Rang-Seite';
     return kurve > xp || 'die Kurve steht ueber der XP-Zeile';
