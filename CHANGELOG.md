@@ -4,6 +4,28 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-16
 
+### v0.119 — Die XP-Kurve zeigt den Zuwachs pro Tag
+
+**Karls Ansage:** *„bau die kurve pro zuwachs"*. Die Kurve unter der Gesamt-XP-Zeile zeigt nicht
+mehr den Stand (eine Linie, die nur steigen kann), sondern **wie viele XP an jedem Tag
+dazugekommen sind** — Überschrift „XP pro Tag", daneben der Tagesschnitt.
+
+🔴 **Tage ohne Eintrag zählen als 0 und stehen mit auf der Achse.** Ohne das hätte die Linie einen
+Tag mit 300 XP und einen fünf Tage später mit 200 schräg verbunden und damit Tage mit XP behauptet,
+an denen keine kamen. Die 0 ist keine Annahme: jede XP-Vergabe ruft `save()`, und `save()` stempelt
+den Tag — kein Eintrag heißt, es kam nichts dazu. ⚠️ Ausnahme: XP, die der Abgleich von einem
+zweiten Gerät mitbringt, landen auf dem Tag, an dem dieses Gerät sie erfährt.
+
+⚠️ **Der erste Tag hat keinen Zuwachs** — sein Stand enthält alles davor und wäre sonst ein
+Ausschlag von mehreren tausend XP. Die Kurve braucht deshalb **drei** Tage statt zwei, bis sie zwei
+Punkte hat, und sagt das auch.
+
+⚠️ Ein Zuwachs kann negativ sein (eine alte Einheit bearbeitet → `sessRecalc` rechnet nach). Das
+bleibt sichtbar, statt auf 0 geklemmt zu werden.
+
+🧪 **1149 → 1152**, gerendert angesehen. Fünf Gegenproben, alle rot: Stand statt Differenz ·
+Lücken nicht aufgefüllt · erster Tag als Zuwachs · Kurve zeichnet wieder den Stand · Erklärsatz weg.
+
 ### v0.118 — XP-Verlaufskurve, und die Designs stehen jetzt auch in den Einstellungen
 
 **Karls Ansage:** *„Und wir brauchen eine Kurve für xp Wachstum unter xp und die disings die man
