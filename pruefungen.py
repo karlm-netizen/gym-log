@@ -1821,10 +1821,16 @@ window.addEventListener('error', e => {
     profile.kcal = {art:'abnehmen', goal:2000, foods:[], meals:essenUeber(7, 2000)};
     return eq(regelkreis().stand, 'passt');
   });
+  /* 🔴 21.09.2026: der Sollwert kommt jetzt aus dem EIGENEN kg-Ziel (`zielProWoche`),
+     nicht mehr aus einer festen Zahl je Vorhaben — Karls Ansage, keine Tempi versprechen.
+     ⚠️ Deshalb setzen diese beiden Pruefungen jetzt `zielKg`/`tage` mit: 80 -> 74 kg in
+     84 Tagen sind genau -0,5 kg/Woche, also derselbe Sollwert wie vorher. Die Rechnung
+     dahinter ist unveraendert, nur ihre Herkunft ist eine andere. */
   t('Zu langsam wird erkannt und beziffert', () => {
     const n = Date.now();
     profile.weights = [{date:n-14*T, kg:80}, {date:n, kg:80}];    // 0 statt -0,5
-    profile.kcal = {art:'abnehmen', goal:2000, foods:[], meals:essenUeber(7, 2200)};
+    profile.kcal = {art:'abnehmen', goal:2000, foods:[], meals:essenUeber(7, 2200),
+                    startKg:80, zielKg:74, tage:84};
     const r = regelkreis();
     // Abweichung +0,5 kg/Woche -> 500 kcal/Tag zu viel -> neues Ziel 2200-500
     return (r.stand === 'daneben' && r.korrektur === 500 && r.neuesZiel === 1700) || JSON.stringify(r);
@@ -1834,9 +1840,22 @@ window.addEventListener('error', e => {
     // 80 -> 77 kg in 14 Tagen sind -1,5 kg/Woche, gewollt waren -0,5.
     // Abweichung -1,0 kg/Woche -> 1000 kcal/Tag zu wenig -> 1800 + 1000 = 2800.
     profile.weights = [{date:n-14*T, kg:80}, {date:n, kg:77}];
-    profile.kcal = {art:'abnehmen', goal:2000, foods:[], meals:essenUeber(7, 1800)};
+    profile.kcal = {art:'abnehmen', goal:2000, foods:[], meals:essenUeber(7, 1800),
+                    startKg:80, zielKg:74, tage:84};
     const r = regelkreis();
     return (r.stand === 'daneben' && r.korrektur === -1000 && r.neuesZiel === 2800) || JSON.stringify(r);
+  });
+  /* 🔴 NEU 21.09.2026 — die Gegenrichtung: OHNE eigenes kg-Ziel darf der Regelkreis nicht
+     stehenbleiben, sondern faellt auf die Richtung aus dem Versatz zurueck.
+     ⚠️ Das ist die Stelle, an der Karls Ansage („keine festen Tempi") und der Regelkreis
+     sich beissen koennten: ein Regler ohne Sollwert regelt nichts. -400 kcal/Tag sind
+     ueber 7 Tage 2.800 kcal, geteilt durch 7.700 kcal/kg = -0,364 kg/Woche. */
+  t('Ohne eigenes kg-Ziel regelt er trotzdem', () => {
+    const n = Date.now();
+    profile.weights = [{date:n-14*T, kg:80}, {date:n, kg:80}];
+    profile.kcal = {art:'abnehmen', goal:2000, foods:[], meals:essenUeber(7, 2200)};
+    const r = regelkreis();
+    return (r.stand === 'daneben' && Math.abs(r.soll + 0.3636) < 0.01) || JSON.stringify(r);
   });
   // ⚠️ Ohne Untergrenze koennte die Rechnung ein absurd niedriges Ziel ausspucken.
   t('Das neue Ziel faellt nie unter 1200 kcal', () => {
@@ -8313,17 +8332,43 @@ window.addEventListener('error', e => {
     document.querySelector('[data-act="kob:back"]').click();   // zurueck auf 2
     return eq(document.getElementById('kobKg').value, '82.5');
   });
+  /* 🔴 21.09.2026: Tage statt Wochen (Karls Ansage), `kob:w:` heisst jetzt `kob:t:`. */
   t('Zeitraum laesst sich waehlen, auch offen', () => {
     kobFrisch(); kobBauen();
     kobStep = 3; renderKcalOb();
-    document.querySelector('[data-act="kob:w:0"]').click();
-    const offen = kobDraft.wochen === 0;
-    document.querySelector('[data-act="kob:w:8"]').click();
-    return (offen && kobDraft.wochen === 8) || 'Zeitraum haengt';
+    document.querySelector('[data-act="kob:t:0"]').click();
+    const offen = kobDraft.tage === 0;
+    document.querySelector('[data-act="kob:t:30"]').click();
+    return (offen && kobDraft.tage === 30) || 'Zeitraum haengt';
   });
-  const kobDurch = (art, wochen, kg) => {
+  /* 🔴 NEU 21.09.2026 — Karls Ansage: „4 kacheln untereinander — 60/30/14/7 Tage am Stück
+     und denk die noch jeweils ein wort aus was du dahinter in klammern schreibst."
+     ⚠️ Geprueft wird die ANZAHL und die REIHENFOLGE, nicht nur „irgendwo steht 60":
+     eine Kachelwand, die die Reihenfolge dreht, faellt sonst nicht auf. */
+  t('Vier Zeitraeume, absteigend, jeder mit Wort', () => {
     kobFrisch(); kobBauen();
-    kobDraft.art = art; kobDraft.wochen = wochen; kobDraft.kg = kg;
+    kobStep = 3; const h = (renderKcalOb(), app.innerHTML);
+    const zahlen = KOB_TAGE.map(x => x.n);
+    if(String(zahlen) !== '60,30,14,7') return 'Reihenfolge: ' + zahlen;
+    if(KOB_TAGE.some(x => !x.wort)) return 'ein Zeitraum ohne Wort';
+    const fehlt = KOB_TAGE.filter(x => !h.includes(x.n + ' Tage am Stück') || !h.includes('(' + x.wort + ')'));
+    return fehlt.length === 0 ? true : 'fehlt in der Ansicht: ' + fehlt.map(x=>x.n).join(',');
+  });
+  /* ⚠️ Untereinander, nicht nebeneinander: die Kacheln sind `ob-opt` (volle Breite) und
+     stehen NICHT in einem `ob-grid`. Vorher waren es Chips in einem Raster — genau das
+     wollte Karl nicht, weil dort kein Wort hinter die Zahl passt. */
+  t('Die Zeitraeume stehen untereinander', () => {
+    kobFrisch(); kobBauen();
+    kobStep = 3; renderKcalOb();
+    const grid = document.querySelector('.ob-grid');
+    const opts = document.querySelectorAll('[data-act^="kob:t:"]');
+    if(grid) return 'steht noch in einem Raster';
+    return opts.length === 5 ? true : (opts.length + ' Kacheln statt 5');
+  });
+  const kobDurch = (art, tage, kg, zielKg) => {
+    kobFrisch(); kobBauen();
+    kobDraft.art = art; kobDraft.tage = tage; kobDraft.kg = kg;
+    if(zielKg !== undefined) kobDraft.zielKg = zielKg;
     // ⚠️ KOB_LAST statt einer festen 4: am 27.08.2026 kam der Schritt mit dem
     // KI-Schluessel dazu, und elf Pruefungen sprangen auf einen Schritt, auf dem es kein
     // "Fertig" gibt. Die Zusammenfassung ist der letzte Schritt, wie viele es auch sind.
@@ -8331,67 +8376,206 @@ window.addEventListener('error', e => {
     document.querySelector('[data-act="kob:finish"]').click();
   };
   t('Fertig legt Vorhaben, Zeitraum und Ziel ab', () => {
-    kobDurch('abnehmen', 12, 80);
+    kobDurch('abnehmen', 84, 80);
     const k = kcalInit();
-    // 80 kg x 30 = 2400, abnehmen -400 => 2000
-    return (k.art === 'abnehmen' && k.wochen === 12 && k.goal === 2000
+    // 80 kg x 30 = 2400, abnehmen ohne kg-Ziel -400 => 2000
+    return (k.art === 'abnehmen' && k.tage === 84 && k.goal === 2000
             && k.startKg === 80 && k.setup === true) || JSON.stringify(k);
+  });
+  /* 🔴 NEU 21.09.2026 — Karls Ansage: „es muss irgendwo auch das kg ziel eingegeben werden
+     und dann halt auf den Zeitraum der angegeben wurde muss das kalorien ziel berechnet
+     werden."
+     Rechnung: 80 -> 74 kg sind -6 kg = -46.200 kcal, auf 84 Tage sind das -550/Tag.
+     Erhalt 80 x 30 = 2400, minus 550 = 1850, auf 50 gerundet = 1850. */
+  t('Das Tagesziel kommt aus dem kg-Ziel', () => {
+    kobDurch('abnehmen', 84, 80, 74);
+    const k = kcalInit();
+    return (k.zielKg === 74 && k.goal === 1850) || JSON.stringify(k);
+  });
+  /* 🔴 Und die Gegenrichtung, die Karl eigentlich meint mit „keinen scheiss versprechen":
+     10 kg in 14 Tagen waeren -5.500 kcal am Tag. Gedeckelt wird auf 25 % unter Erhalt
+     (2400 - 600 = 1800), und der Deckel muss ANGESAGT werden, nicht still greifen. */
+  t('Ein unmoegliches kg-Ziel wird gedeckelt UND gesagt', () => {
+    kobFrisch(); kobBauen();
+    kobDraft.art='abnehmen'; kobDraft.tage=14; kobDraft.kg=80; kobDraft.zielKg=70;
+    kobStep = KOB_LAST; renderKcalOb();
+    const h = app.innerHTML.replace(/<[^>]*>/g, ' ');
+    document.querySelector('[data-act="kob:finish"]').click();
+    const k = kcalInit();
+    if(k.goal < 1200) return 'Ziel unter der Untergrenze: ' + k.goal;
+    if(k.goal !== 1800) return 'Ziel ' + k.goal + ' statt 1800';
+    return h.includes('mehr, als in der Zeit geht') ? true : 'gedeckelt, aber nicht gesagt';
   });
   // ⚠️ Das Gewicht aus dem Assistenten gehoert in die normale Kurve, nicht in eine
   // zweite Ablage daneben - sonst stehen zwei Wahrheiten in der App.
   t('Das Gewicht landet in der Gewichtskurve', () => {
-    kobDurch('halten', 8, 77.5);
+    kobDurch('halten', 56, 77.5);
     const w = lastWeight();
     return (w && w.kg === 77.5) || 'nicht in der Kurve';
   });
   t('Ohne Gewicht bleibt Fertig gesperrt', () => {
     kobFrisch(); kobBauen();
-    kobDraft.art = 'halten'; kobDraft.wochen = 8; kobDraft.kg = '';
+    kobDraft.art = 'halten'; kobDraft.tage = 56; kobDraft.kg = '';
     kobStep = KOB_LAST; renderKcalOb();
     return document.querySelector('[data-act="kob:finish"]').disabled || 'Fertig ist offen';
   });
-  t('Woche und Zieldatum stimmen', () => {
-    kobDurch('abnehmen', 12, 80);
+  t('Tag und Zieldatum stimmen', () => {
+    kobDurch('abnehmen', 84, 80);
     const k = kcalInit();
     k.start = Date.now() - 15 * 864e5;          // gut zwei Wochen her
-    const w = kcalWoche(), d = kcalZielDatum();
-    return (w === 3 && Math.round((d - k.start) / 864e5) === 84) || ('Woche ' + w);
+    const tag = kcalTagNr(), d = kcalZielDatum();
+    return (tag === 16 && Math.round((d - k.start) / 864e5) === 84) || ('Tag ' + tag);
   });
   t('Ohne festes Ende gibt es kein Zieldatum', () => {
     kobDurch('halten', 0, 80);
-    return (kcalZielDatum() === null && kcalPrognose() === null) || 'Datum trotz offen';
+    return (kcalZielDatum() === null) || 'Datum trotz offen';
   });
-  // ⚠️ Die Prognose kommt aus dem VORHABEN, nicht aus dem Verlauf: 80 kg, abnehmen
-  // (-0,5 kg/Woche), 12 Wochen => 74 kg.
-  t('Die Prognose rechnet aus dem Vorhaben', () => {
-    kobDurch('abnehmen', 12, 80);
-    const p = kcalPrognose();
-    return (p && Math.abs(p.kg - 74) < 0.01) || (p ? p.kg : 'keine Prognose');
+  /* 🔴 21.09.2026 — hier stand „Die Prognose rechnet aus dem Vorhaben". Die Prognose ist
+     auf Karls Ansage ersatzlos entfallen („so eine prognose sofort weg"), und mit ihr
+     diese Pruefung. An ihre Stelle tritt die Gegenrichtung: sie darf NICHT wiederkommen.
+     ⚠️ Eine Pruefung, die das Fehlen bewacht, ist hier noetig — der Satz „Wenn es so
+     laeuft, stehst du am ..." war nett gemeint und genau deshalb kommt so etwas zurueck. */
+  t('Keine Prognose mehr in der Zusammenfassung', () => {
+    kobFrisch(); kobBauen();
+    kobDraft.art='abnehmen'; kobDraft.tage=84; kobDraft.kg=80; kobDraft.zielKg=74;
+    kobStep = KOB_LAST; renderKcalOb();
+    const txt = app.innerHTML.replace(/<[^>]*>/g, ' ');
+    if(typeof kcalPrognose === 'function') return 'kcalPrognose() gibt es wieder';
+    return !/Wenn es so läuft|stehst du am/.test(txt) ? true : 'Prognose steht wieder da';
   });
-  t('Woche von Zeitraum steht in der Ansicht', () => {
-    kobDurch('abnehmen', 12, 80);
-    return kobBauen().includes('Woche 1 von 12') || 'Fortschritt fehlt';
+  t('Tag von Zeitraum steht in der Ansicht', () => {
+    kobDurch('abnehmen', 84, 80);
+    return kobBauen().includes('Tag 1 von 84') || 'Fortschritt fehlt';
   });
-  // ⚠️ Nach Ablauf darf die Anzeige nicht ueber den Zeitraum hinauslaufen ("Woche 15 von 12").
+  // ⚠️ Nach Ablauf darf die Anzeige nicht ueber den Zeitraum hinauslaufen ("Tag 90 von 30").
   t('Nach Ablauf bleibt die Anzeige stehen', () => {
-    kobDurch('abnehmen', 4, 80);
+    kobDurch('abnehmen', 30, 80);
     kcalInit().start = Date.now() - 70 * 864e5;
     const h = kobBauen();
-    return (h.includes('Woche 4 von 4') && h.includes('sind um')) || 'laeuft ueber';
+    return (h.includes('Tag 30 von 30') && h.includes('sind um')) || 'laeuft ueber';
   });
   // ⚠️ fmtDate endet selbst auf einen Punkt ("Fr., 30.10."). Wer dahinter einen Satzpunkt
   // setzt, bekommt "30.10.." — beim ersten Vorschaubild sofort aufgefallen.
   t('Kein doppelter Punkt hinter dem Zieldatum', () => {
-    kobDurch('abnehmen', 12, 80);
+    kobDurch('abnehmen', 84, 80);
     const h = kobBauen();
     return !/\d\.\.(?!\.)/.test(h.replace(/<[^>]*>/g, '')) || 'doppelter Punkt';
   });
   t('Vorhaben aendern startet ihn erneut', () => {
-    kobDurch('abnehmen', 12, 80);
+    kobDurch('abnehmen', 84, 80);
     kobBauen();
     document.querySelector('[data-act="kob:neu"]').click();
     return kobBauen().includes('Essen mitschreiben') || 'kommt nicht wieder';
   });
+  /* ========================================================================
+     🎨 21.09.2026 — Karls Ansagen zu Farben, Zielen und Texten.
+     ⚠️ Jede dieser Pruefungen bewacht eine ANSAGE, nicht eine Mechanik. Der Grund steht
+     in `app-bau-lehren`: eine Textaenderung faellt still zurueck, wenn niemand sie
+     festhaelt — genau so stand „Essen per Foto" an vier Stellen und „Trainingsplan
+     einrichten" wochenlang falsch da. Ein Satz im Changelog ist kein Riegel. */
+  t('Jede Mahlzeit hat ihre Farbe', () => {
+    const soll = {f:'#f0b429', m:'#3ecf8e', a:'#5b8def', s:'#ff8a3d'};
+    const falsch = MAHLZEITEN.filter(mz => mz.farbe !== soll[mz.id]);
+    if(falsch.length) return falsch.map(x=>x.id+'='+x.farbe).join(',');
+    return MAHLZEITEN.length === 4 ? true : MAHLZEITEN.length + ' Mahlzeiten';
+  });
+  /* ⚠️ Die Farbe muss in der ANSICHT ankommen, nicht nur in der Tabelle stehen.
+     Genau dieser Unterschied ist am 18.09. bei `seite-karte` teuer geworden. */
+  t('Die Farben stehen wirklich im Ernaehrungs-Teil', () => {
+    kobFrisch();
+    profile.kcal = {goal:2000, art:'halten', foods:[], meals:[], setup:true};
+    const h = kobBauen();
+    const fehlt = MAHLZEITEN.filter(mz => !h.includes('--mzf:' + mz.farbe));
+    return fehlt.length === 0 ? true : 'fehlt: ' + fehlt.map(x=>x.name).join(',');
+  });
+  t('Die vier Farben sind verschieden', () => {
+    const s = new Set(MAHLZEITEN.map(m => m.farbe));
+    return s.size === MAHLZEITEN.length ? true : 'nur ' + s.size + ' verschiedene';
+  });
+  /* 🔴 Karls Ansage: „diese Ziele brauchen wir aktuell gibt es ja nur 3 zur auswahl" */
+  t('Vier Ziele zur Auswahl', () => {
+    const ids = Object.keys(ZIELE);
+    return (ids.length === 4 && ids.includes('muskeln')) ? true : ids.join(',');
+  });
+  t('Die Ziele heissen, wie Karl sie genannt hat', () => {
+    const soll = {abnehmen:'Gewicht verlieren', halten:'Gewicht halten',
+                  zunehmen:'Gewicht zunehmen', muskeln:'Muskelaufbau'};
+    const falsch = Object.entries(soll).filter(([id,n]) => !ZIELE[id] || ZIELE[id].name !== n);
+    return falsch.length === 0 ? true : falsch.map(x=>x[0]).join(',');
+  });
+  /* 🔴 Der Kern von Karls Ansage: „die Genauen angaben irgendwie +0,25 kg die woche bitte
+     raus ... wir wollen ja keinen scheiß versprechen."
+     ⚠️ Geprueft wird der sichtbare TEXT der Auswahl, nicht das Datenfeld — versprochen
+     wird, was dort steht. */
+  t('Kein kg-pro-Woche-Versprechen in der Auswahl', () => {
+    kobFrisch(); kobBauen();
+    kobStep = 1; renderKcalOb();
+    const txt = app.innerHTML.replace(/<[^>]*>/g, ' ');
+    if(/kg (pro|die|je) Woche|kg\/Woche/i.test(txt)) return 'Tempo steht in der Auswahl';
+    // Auch nicht als Kalorienzahl hinter dem Vorhaben (stand dort bis zum 21.09.).
+    return !/·\s*[+−-]\d+ kcal am Tag/.test(txt) ? true : 'kcal-Versatz steht wieder dahinter';
+  });
+  t('ZIELE tragen kein festes proWoche mehr', () => {
+    const mit = Object.entries(ZIELE).filter(([,z]) => z.proWoche !== undefined);
+    return mit.length === 0 ? true : mit.map(x=>x[0]).join(',');
+  });
+  /* 🔴 „Essen per Foto ändern zu Essen per KI tracken" — an ALLEN Stellen, nicht an einer.
+     ⚠️ Das ist die Pruefrichtung, die am 20.09. bei der Schluesselliste gefehlt hat:
+     nicht „steht der neue Text irgendwo", sondern „ist der alte ueberall weg". */
+  /* ⚠️ `renderSettings()` liest `session.username`. Im Prueframen ist niemand angemeldet,
+     deshalb wird hier eine Sitzung vorgetaeuscht und danach wieder zurueckgesetzt --
+     genauso wie beim Widget-Block weiter oben. */
+  const einstellungenHTML = () => {
+    const v = view, seV = session;
+    session = {user:{id:'test', username:'karl'}, expires_at: Date.now()+3600e3, access_token:'x'};
+    view = 'settings'; renderSettings();
+    const h = app.innerHTML;
+    view = v; session = seV;
+    return h;
+  };
+  t('Heisst ueberall „Essen per KI tracken"', () => {
+    const stellen = [];
+    kobFrisch(); kobBauen(); kobStep = 4; renderKcalOb();
+    stellen.push(['Assistent', app.innerHTML]);
+    stellen.push(['Einstellungen', einstellungenHTML()]);
+    const alt = stellen.filter(([,txt]) => /Essen per Foto/.test(txt));
+    if(alt.length) return 'alter Name in: ' + alt.map(x=>x[0]).join(',');
+    const neu = stellen.filter(([,txt]) => !/Essen per KI tracken/.test(txt));
+    return neu.length === 0 ? true : 'neuer Name fehlt in: ' + neu.map(x=>x[0]).join(',');
+  });
+  /* 🔴 „auf der seite mit dem Ki schlüssel sollte statt weiter überspringen stehn" */
+  t('Ohne Schluessel heisst der Knopf „Ueberspringen"', () => {
+    try { localStorage.removeItem('gym.aikey'); } catch(e){}
+    settings.aiKey = ''; if(profile.settings) profile.settings.aiKey = '';
+    kobFrisch(); kobBauen(); kobStep = 4; renderKcalOb();
+    const b = document.querySelector('[data-act="kob:next"]');
+    if(!b) return 'kein Weiter-Knopf';
+    return /Überspringen/.test(b.innerText) ? true : 'steht: ' + b.innerText;
+  });
+  /* 🔴 „alles zusammenschmeißen bei den disigns ... da ist jetzt einfach was doppelt gemoppelt"
+     ⚠️ Geprueft wird die DOPPELUNG, nicht das Vorhandensein: „Dunkel" und „Hell" duerfen
+     nur noch auf EINEM Weg setzbar sein. */
+  t('Designs stehen nur noch einmal in den Einstellungen', () => {
+    const h = einstellungenHTML();
+    const alte = (h.match(/data-setbase=/g) || []).length;
+    const waende = (h.match(/class="theme-grid"/g) || []).length;
+    if(alte) return alte + ' alte System/Dunkel/Hell-Knoepfe';
+    return waende === 1 ? true : waende + ' Kachelwaende';
+  });
+  t('System bleibt als Design waehlbar', () => {
+    const h = einstellungenHTML();
+    return /data-theme="system"/.test(h) ? true : 'System fehlt in der Kachelwand';
+  });
+  /* 🔴 „Texte LKöschen: (viel text überfordert den user)" — beide namentlich genannt. */
+  t('Die zwei gestrichenen Saetze sind weg', () => {
+    kobFrisch(); kobBauen();
+    let alles = '';
+    for(const s of [0,1,2,3,4,5]){ kobStep = s; renderKcalOb(); alles += document.body.innerText + '\n'; }
+    const verboten = [/Ein Zeitraum macht aus einem Vorsatz/, /Wenn es so läuft, stehst du am/];
+    const drin = verboten.filter(r => r.test(alles));
+    return drin.length === 0 ? true : drin.length + ' gestrichene Saetze stehen wieder da';
+  });
+
   // ⚠️ Karls Ansage: "brock kann gerne links neben den kalorin kreis."
   /* ⚠️ Hiess bis zum 03.09.2026 „Brock steht links vom Ring" und prueft doch nur, dass
      er im HTML VOR dem Ring steht. Beim Umzug nach oben (Karls Ansage desselben Tages)
@@ -8399,7 +8583,7 @@ window.addEventListener('error', e => {
      etwas anderes als der Inhalt. Jetzt heisst sie, was sie tut, und prueft die neue
      Lage: Brock steht in seiner eigenen Karte oben, der Ring darunter. */
   t('Brock steht vor dem Ring, in eigener Karte', () => {
-    kobDurch('halten', 8, 80);
+    kobDurch('halten', 56, 80);
     const h = kobBauen();
     const pB = h.indexOf('class="mon"'), pR = h.indexOf('<svg viewBox="0 0 130 130"');
     if(pB < 0) return 'Brock fehlt ganz';

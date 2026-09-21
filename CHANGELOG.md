@@ -2,6 +2,85 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-09-21
+
+### v0.121 — Farben für die Mahlzeiten, vier Ziele, und das Kalorienziel kommt aus dem kg-Ziel
+
+**Zehn Ansagen von Karl an einem Morgen.** Der Kern: die App soll nichts mehr versprechen, was
+sie nicht halten kann — und weniger Text zeigen.
+
+#### 🎨 Farbe für die vier Mahlzeiten
+
+🟨 Frühstück (Morgen, Sonne) · 🟩 Mittagessen (ausgewogene Hauptmahlzeit) · 🟦 Abendessen (Ruhe,
+Abend) · 🟧 Snacks. Die Farbe sitzt am Zeichen, am Fortschrittsbalken und an der Kante des gerade
+fälligen Blocks.
+⚠️ **Feste Farbwerte, nicht die Design-Variablen:** die vier tragen eine Bedeutung (welche
+Mahlzeit), keine Stimmung. Aus `--ok` würde in „Crimson" ein anderes Grün.
+
+#### 🎯 Vier Ziele statt drei — ohne Tempo-Versprechen
+
+**Karls Ansage:** *„die Genauen angaben irgendwie +0,25 kg die woche bitte raus es gibt
+unterschiedliche typen und wir wollen ja keinen scheiß versprechen."*
+
+| | |
+|---|---|
+| **Gewicht verlieren** | Automatische Kalorienreduktion |
+| **Gewicht halten** | Kalorien auf Erhaltungsniveau |
+| **Gewicht zunehmen** | Kalorienüberschuss |
+| **Muskelaufbau** *(neu)* | Protein-Ziel, Krafttraining zählt mit |
+
+🔴 **Die festen Tempi (−0,5 / +0,25 kg pro Woche) sind weg**, auch der Zusatz „· −400 kcal am Tag"
+hinter jedem Vorhaben.
+
+#### 🔢 Das Tagesziel kommt jetzt aus dem eigenen kg-Ziel
+
+**Karls Ansage:** *„es muss irgendwo auch das kg ziel eingegeben werden und dann halt auf den
+Zeitraum der angegeben wurde muss das kalorien ziel berechnet werden."*
+
+Zielgewicht steht neben dem heutigen Gewicht. Rechnung: 1 kg ≈ 7.700 kcal, verteilt auf die
+gewählten Tage. **Das kehrt die Richtung um** — vorher gaben wir das Tempo vor und sagten, wo er
+landet; jetzt sagt er, wo er hinwill.
+
+🔴 **Gedeckelt, und der Deckel wird angesagt:** höchstens 25 % unter Erhalt, nie unter 1.200 kcal,
+höchstens +700 darüber. Wer 10 kg in 14 Tagen eingibt, bekommt **nicht** still eine andere Zahl,
+sondern den Satz *„Das ist mehr, als in der Zeit geht."* Genau das meint „keinen Scheiß versprechen".
+
+#### ⏱️ Vier Zeiträume, untereinander, in Tagen
+
+**60 (Umbau)** · **30 (Routine)** · **14 (Anlauf)** · **7 (Probe)** — statt vier Wochen-Chips
+nebeneinander. Nebeneinander passt kein Wort hinter die Zahl.
+ℹ️ Bestandskonten behalten ihr Ende: `kcalTage()` rechnet ein gespeichertes `wochen` um.
+
+#### ✂️ Weniger Text
+
+- **„Essen per Foto" heißt überall „Essen per KI tracken"** — Karl: *„hört sich einfach besser an
+  die leute lieben KI"*.
+- **Der Knopf auf der Schlüssel-Seite heißt „Überspringen"**, wenn keiner hinterlegt ist. Das war
+  seit dem 27.08. die Absicht und stand trotzdem als „Weiter" da.
+- **Zwei Sätze gestrichen** (Karl: *„viel text überfordert den user"*): *„Ein Zeitraum macht aus
+  einem Vorsatz eine Ansage mit Datum"* und die Prognose *„Wenn es so läuft, stehst du am …
+  bei rund … kg"*. 🔴 **Die Prognose ist ersatzlos weg** — sie war die Eingabe noch einmal, als
+  Vorhersage verkleidet.
+- Die beiden Erklärtexte auf der Schlüssel-Seite deutlich gekürzt.
+
+#### 🎨 Einstellungen: die Designs waren doppelt
+
+**Karls Ansage:** *„alles zusammenschmeißen bei den disigns also hell dunkel ist da ja schon drinne
+da ist jetzt einfach was doppelt gemoppelt."* Er hatte recht: oben drei Knöpfe System/Dunkel/Hell,
+darunter eine Kachelwand, die „Schlicht Dunkel" und „Schlicht Hell" **noch einmal** enthielt.
+➡️ Jetzt eine Wand, mit **System als erster Kachel**. Der Pausen-Timer hat eine eigene Karte.
+
+🔴 **Beim ersten Anlauf war die System-Kachel vergessen** — die Knöpfe raus, der Ersatz nicht
+gebaut. Damit hätte niemand mehr zur Geräteeinstellung zurückgefunden. **Der Prüfstand hat es
+gefangen**, weil die Prüfung vor dem Bau stand.
+
+#### 🧪 Prüfstand: 1.152 → 1.169
+
+17 neue Prüfungen, 2 entfallen (Prognose). **11 Gegenproben, alle rot wie gewollt** — jede zieht
+an dem Fehler, den die Prüfung bewacht, nicht an einem Wert daneben.
+⚠️ Neu dabei ist die Richtung *„ist der alte Text überall weg"* statt nur *„steht der neue
+irgendwo"* — genau die, die am 18.09. bei `seite-karte` gefehlt hat.
+
 ## 2026-09-16
 
 ### v0.120 — Die XP-Kurve zeigt wieder den Stand und fällt nie

@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.120';
+var APP_FASSUNG = 'v0.121';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -567,9 +567,15 @@ setTimeout(function(){
   /* Der jetzt faellige Block bekommt eine Kante statt einer Flaeche - eine gefuellte
      Zeile zwischen drei leeren sieht aus wie "ausgewaehlt", und ausgewaehlt ist hier
      nichts. Es ist ein Hinweis, keine Auswahl. */
-  .mz.jetzt{box-shadow:inset 3px 0 0 var(--ok)}
+  /* 🎨 21.09.2026: die Kante traegt jetzt die Farbe der Mahlzeit (--mzf, am Block gesetzt).
+     Sie sagte vorher nur "jetzt faellig" -- jetzt sagt sie zusaetzlich WELCHE. */
+  .mz.jetzt{box-shadow:inset 3px 0 0 var(--mzf, var(--ok))}
   .mz-icon{font-size:23px; width:38px; height:38px; border-radius:99px; background:var(--card2);
     display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto}
+  /* Das Zeichen bekommt die Farbe, der Kreis eine schwache Tönung davon.
+     ⚠️ color-mix statt zweier fester Werte: der Kreis muss auf hellem und dunklem Grund
+     funktionieren, und 16 % Farbe auf der Kartenfarbe tut das in beiden. */
+  .mz-icon.farbig{color:var(--mzf); background:color-mix(in srgb, var(--mzf) 16%, var(--card2))}
   /* ---- Die kleinen Zeichen als SVG (15.09.2026) -- Sammlung bei `ICON` im Skript ----
      Sie wachsen mit der Schrift (em) und sitzen auf der Zeile wie ein Buchstabe.
      Farbe nur dort, wo das Zeichen sie als Bedeutung trug: Warnung gelb, Flamme orange. */
@@ -4097,6 +4103,20 @@ function renderRang(){
 function designGridHTML(){
   const lvl = levelFromXP(profile.xp).level, unlocked = unlockedThemes(lvl);
   let h = `<div class="theme-grid">`;
+  /* 🔴 21.09.2026: „System" ist als erste Kachel dazugekommen. Vorher stand es als eigener
+     Knopf über der Wand — der ist mit Karls Ansage („alles zusammenschmeißen") weggefallen,
+     und ohne diese Kachel gäbe es KEINEN Weg zurück zur Geräteeinstellung.
+     ⚠️ Genau das war beim ersten Anlauf passiert: die Knöpfe raus, die Kachel vergessen.
+     Der Prüfstand hat es gefangen („System fehlt in der Kachelwand") — die Prüfung dazu
+     stand vor dem Bau, nicht danach.
+     ℹ️ Die Farbprobe zeigt, was das Gerät GERADE meldet (hell oder dunkel). Eine graue
+     Platzhalter-Kachel wäre die einfachere Lösung, sagt aber nicht, was passieren wird. */
+  { const eff = THEMES[resolveSystem()] || THEMES.dark, on = (profile.theme || 'system') === 'system';
+    const sw = ['--bg','--card2','--accent','--ok'].map(v=>`<i style="background:${eff.vars[v]}"></i>`).join('');
+    h += `<div class="theme-cell ${on?'on':''}" data-theme="system">
+      <div class="sw">${sw}</div><b class="tiny">System</b>
+      <div class="tiny muted">folgt dem Gerät</div>
+      ${on?'<span class="lock" style="color:var(--accent)">'+ic('haken')+'</span>':''}</div>`; }
   Object.entries(THEMES).forEach(([key,t])=>{ const free=t.free, open=unlocked.has(key), on=profile.theme===key;
     const need=RANKS.find(r=>r.unlock===key);
     const sw=['--bg','--card2','--accent','--ok'].map(v=>`<i style="background:${t.vars[v]}"></i>`).join('');
@@ -4126,7 +4146,11 @@ function designGridHTML(){
    ⚠️ Wer hier ein Feld dazunimmt, muss nichts weiter tun -- die Pruefung
    `kcal-felder-vollstaendig` haelt diese Liste gegen den Quelltext und wird rot,
    sobald irgendwo ein `k.neuesFeld=` steht, das hier fehlt. */
-const KCAL_SKALARE = ['goal','setup','art','wochen','start','startKg','schritte'];
+/* 🔴 21.09.2026: `tage` und `zielKg` sind dazugekommen (Karls Ansage zum kg-Ziel).
+   ⚠️ `wochen` BLEIBT drin, obwohl nichts mehr hineinschreibt: Bestandskonten haben es,
+   und `kcalTage()` rechnet es um. Würde es hier verschwinden, räumte `vereinige()` es
+   beim nächsten Abgleich weg — und ein laufendes Vorhaben hätte plötzlich kein Ende mehr. */
+const KCAL_SKALARE = ['goal','setup','art','wochen','tage','zielKg','start','startKg','schritte'];
 function kcalInit(){
   if(!profile.kcal || typeof profile.kcal!=='object') profile.kcal={};
   const k=profile.kcal;
@@ -4149,13 +4173,23 @@ function mealsToday(){ const n=Date.now(); return kcalInit().meals.filter(m=>sam
    haette jeden alten Eintrag falsch einsortiert und die Bloecke von Tag eins an
    unbrauchbar gemacht. Die Uhrzeit steht in jedem Eintrag — sie ist die beste
    Auskunft, die es rueckwirkend gibt.                                              */
+/* 🎨 Farbe je Mahlzeit (21.09.2026, Karls Ansage): Frühstück gelb (Morgen, Sonne),
+   Mittagessen grün (ausgewogene Hauptmahlzeit), Abendessen blau (Ruhe, Abend),
+   Snacks orange (kleine Zwischenmahlzeit).
+   ⚠️ Feste Hex-Werte und NICHT die Design-Variablen: die vier Farben tragen hier eine
+   Bedeutung (welche Mahlzeit), keine Stimmung. Aus `--ok` würde in „Crimson" ein anderes
+   Grün, und in „Schwarz-Gold" stünde Gelb auf Gelb. Sie sind so gewählt, dass sie auf
+   hellem wie dunklem Grund lesbar bleiben — geprüft wird das in `pruefungen.py`. */
 const MAHLZEITEN = [
   /* `icon` ist seit dem 15.09.2026 ein Name aus `ICON`, kein Emoji mehr (Karls Ansage). */
-  { id:'f', name:'Frühstück',   icon:'kaffee', anteil:0.30, von:4,  bis:11 },
-  { id:'m', name:'Mittagessen', icon:'pasta',  anteil:0.40, von:11, bis:16 },
-  { id:'a', name:'Abendessen',  icon:'salat',  anteil:0.25, von:16, bis:22 },
-  { id:'s', name:'Snacks',      icon:'apfel',  anteil:0.05, von:22, bis:4  },
+  { id:'f', name:'Frühstück',   icon:'kaffee', anteil:0.30, von:4,  bis:11, farbe:'#f0b429' },
+  { id:'m', name:'Mittagessen', icon:'pasta',  anteil:0.40, von:11, bis:16, farbe:'#3ecf8e' },
+  { id:'a', name:'Abendessen',  icon:'salat',  anteil:0.25, von:16, bis:22, farbe:'#5b8def' },
+  { id:'s', name:'Snacks',      icon:'apfel',  anteil:0.05, von:22, bis:4,  farbe:'#ff8a3d' },
 ];
+/* Die Farbe einer Mahlzeit, über ihre Kennung. Fällt auf die Akzentfarbe zurück, damit
+   ein unbekanntes `mz` nichts einfärbt, statt undefined ins CSS zu schreiben. */
+function mahlzeitFarbe(id){ const mz = MAHLZEITEN.find(x=>x.id===id); return mz ? mz.farbe : 'var(--accent)'; }
 /* Welche Mahlzeit gehoert zu dieser Stunde? Snacks umschliessen Mitternacht,
    deshalb die Fallunterscheidung statt eines einfachen Vergleichs. */
 function mahlzeitAusStunde(std){
@@ -4404,11 +4438,68 @@ function zielAmTag(ts){
 function zielHeute(){ return zielAmTag(Date.now()); }
 
 const ZIELE = {
-  abnehmen: {name:'Abnehmen', proWoche:-0.5, versatz:-400, satz:'0,5 kg pro Woche runter'},
-  halten:   {name:'Halten',   proWoche:0,    versatz:0,    satz:'Gewicht halten'},
-  zunehmen: {name:'Aufbauen', proWoche:0.25, versatz:300,  satz:'0,25 kg pro Woche rauf'}
+  /* 🔴 21.09.2026, Karls Ansage: „die Genauen angaben irgendwie +0,25 kg die woche bitte
+     raus es gibt unterschiedliche typen und wir wollen ja keinen scheiß versprechen."
+     ⚠️ Hier standen feste Tempi (−0,5 / +0,25 kg pro Woche) als ZUSAGE im Auswahltext.
+     Die sind weg. Was bleibt, ist `richtung` (wohin es gehen soll) und `versatz` als
+     Rückfallebene, solange kein eigenes kg-Ziel gesetzt ist.
+     ➡️ Steht ein kg-Ziel mit Zeitraum, rechnet `kcalAusZielKg()` das Tagesziel daraus —
+     aus SEINER Zahl, nicht aus einer, die wir ihm unterschieben. */
+  abnehmen: {name:'Gewicht verlieren', richtung:-1, versatz:-400,
+             satz:'Automatische Kalorienreduktion'},
+  halten:   {name:'Gewicht halten',    richtung:0,  versatz:0,
+             satz:'Kalorien auf Erhaltungsniveau'},
+  zunehmen: {name:'Gewicht zunehmen',  richtung:1,  versatz:300,
+             satz:'Kalorienüberschuss'},
+  /* Muskelaufbau ist bewusst ein eigenes Vorhaben und nicht „Zunehmen mit Sternchen":
+     der Kalorienüberschuss ist kleiner (Fett kommt sonst schneller als Muskel), und
+     das Eiweißziel ist hier die Hauptsache. Es gibt `eiweissZiel()` schon — bei diesem
+     Vorhaben wird es hervorgehoben statt nur mitgeführt. */
+  muskeln:  {name:'Muskelaufbau',      richtung:1,  versatz:200, protein:true,
+             satz:'Protein-Ziel, Krafttraining zählt mit'}
 };
 function zielArt(){ const k=kcalInit(); return ZIELE[k.art] ? k.art : null; }
+
+/* 🔢 Das Tagesziel aus dem eigenen kg-Ziel (21.09.2026, Karls Ansage: „es muss irgendwo
+   auch das kg ziel eingegeben werden und dann halt auf den Zeitraum der angegeben wurde
+   muss das kalorien ziel berechnet werden").
+
+   Faustregel: 1 kg Körperfett ≈ 7.700 kcal. Über `tage` verteilt ergibt das den
+   täglichen Versatz gegenüber dem Erhaltungsbedarf.
+
+   🔴 Und hier steckt genau das, was Karl meint mit „keinen Scheiß versprechen": wer
+   10 kg in 14 Tagen eintippt, bekommt rechnerisch −5.500 kcal am Tag. Das ist keine
+   Diät, das ist Unsinn. Deshalb wird GEDECKELT — und der Deckel wird ANGESAGT, nicht
+   still angewendet. Eine Zahl, die heimlich etwas anderes bedeutet als das, was der
+   Nutzer eingegeben hat, ist schlimmer als eine ehrliche Absage.
+     · Abnehmen:  höchstens 25 % unter Erhalt, nie unter 1.200 kcal am Tag
+     · Zunehmen:  höchstens 700 kcal über Erhalt — mehr wird ohnehin Fett
+   ⚠️ Die 1.200 sind eine Untergrenze für Erwachsene, keine Empfehlung. */
+const KCAL_PRO_KG = 7700, KCAL_MINIMUM = 1200, KCAL_MAX_PLUS = 700, KCAL_MAX_MINUS_ANTEIL = 0.25;
+function kcalAusZielKg(startKg, zielKg, tage, erhalt){
+  if(!(startKg > 0) || !(zielKg > 0) || !(tage > 0) || !(erhalt > 0)) return null;
+  const roh = ((zielKg - startKg) * KCAL_PRO_KG) / tage;   // kcal/Tag, ungedeckelt
+  const untenVersatz = -Math.min(erhalt * KCAL_MAX_MINUS_ANTEIL, erhalt - KCAL_MINIMUM);
+  const versatz = Math.max(untenVersatz, Math.min(KCAL_MAX_PLUS, roh));
+  const ziel = Math.max(KCAL_MINIMUM, Math.round((erhalt + versatz) / 50) * 50);
+  /* `gedeckelt` sagt der Oberfläche, dass sie etwas dazuschreiben muss. Die 20 kcal
+     Toleranz fangen die reine Rundung ab — sonst stünde der Hinweis auch dann da,
+     wenn nur auf 50 gerundet wurde. */
+  return { ziel, versatz: Math.round(versatz), roh: Math.round(roh),
+           gedeckelt: Math.abs(roh - versatz) > 20 };
+}
+/* Das Tempo, das aus dem eigenen Ziel folgt — in kg pro Woche. Der Regelkreis vergleicht
+   damit, was die Waage tatsächlich macht. ⚠️ Das ist KEINE Zusage an den Nutzer und wird
+   ihm auch nicht angezeigt; es ist der Sollwert einer Regelung. */
+function zielProWoche(){
+  const k = kcalInit(), t = kcalTage();
+  if(k.zielKg > 0 && k.startKg > 0 && t > 0)
+    return ((k.zielKg - k.startKg) / t) * 7;
+  const z = ZIELE[k.art];
+  /* Ohne eigenes kg-Ziel gibt es kein Tempo, nur eine Richtung. Aus dem Versatz
+     zurückgerechnet (1 kg ≈ 7.700 kcal) ist das ehrlicher als eine erfundene Zahl. */
+  return z ? (z.versatz * 7) / KCAL_PRO_KG : 0;
+}
 
 // Kalorienziel aus Gewicht UND Vorhaben. Ohne Vorhaben bleibt es beim reinen Erhalt.
 function kcalVorschlagFuer(art){
@@ -4498,7 +4589,10 @@ function regelkreis(){
   const schnitt=kcalSchnitt(RK_FENSTER);
   if(!schnitt || schnitt.tage<4) return {stand:'zu-wenig-essen', tage:schnitt?schnitt.tage:0};
 
-  const soll=ZIELE[art].proWoche, ist=trend.proWoche, abweichung=ist-soll;
+  /* 🔴 21.09.2026: `ZIELE[art].proWoche` war eine feste Zahl je Vorhaben. Die ist mit
+     Karls Ansage weggefallen — der Sollwert kommt jetzt aus SEINEM kg-Ziel und SEINEM
+     Zeitraum (`zielProWoche`). Ohne eigenes Ziel bleibt die Richtung aus dem Versatz. */
+  const soll=zielProWoche(), ist=trend.proWoche, abweichung=ist-soll;
   if(Math.abs(abweichung)<=0.15)
     return {stand:'passt', art, trend, schnitt, ist, soll};
 
@@ -4630,8 +4724,20 @@ function addMeal(d,menge){
 // jeher durch die Einrichtung, der Ernaehrungs-Teil fing als leerer Ring an. Wer ihn zum ersten
 // Mal aufmacht, sieht sonst eine Null und weiss nicht, woran er sie messen soll.
 //
-// ⚠️ Der Zeitraum ist NICHT Deko. Er macht aus einem Vorhaben eine Ansage mit Datum
-// (`kcalZielDatum`) und erlaubt eine Prognose (`kcalPrognose`) — beides gibt es ohne ihn nicht.
+// ⚠️ Der Zeitraum ist NICHT Deko. Zusammen mit dem Zielgewicht rechnet er das Tagesziel
+// aus (`kcalAusZielKg`) und gibt dem Vorhaben ein Datum (`kcalZielDatum`).
+/* 🔴 21.09.2026 — zwei Ansagen von Karl haben diesen Assistenten umgebaut:
+   1. „Wie lange bleibst du drann: 4 kacheln untereinander — 60/30/14/7 Tage am Stück"
+      ➡️ Aus vier Wochen-Chips nebeneinander sind vier Tages-Kacheln untereinander
+         geworden, jede mit einem Wort dahinter.
+   2. „es muss irgendwo auch das kg ziel eingegeben werden und dann halt auf den Zeitraum
+      der angegeben wurde muss das kalorien ziel berechnet werden"
+      ➡️ Das Zielgewicht steht jetzt neben dem heutigen Gewicht in Schritt 2, und das
+         Tagesziel wird daraus gerechnet statt aus einem festen Versatz je Vorhaben.
+   ⚠️ Beides zusammen kehrt die Rechenrichtung um: vorher gaben wir das Tempo vor und
+      sagten, wo er landet. Jetzt sagt er, wo er hinwill, und wir rechnen, was das am Tag
+      bedeutet. Das ist der Grund, warum die Prognose weg ist — sie war die Antwort auf
+      eine Frage, die der Nutzer jetzt selbst stellt. */
 /* ⚠️ Seit dem 27.08.2026 sechs Schritte statt fuenf. Karls Ansage: "beim Tutorial die
    Sache mit dem KI-Schluessel einfuegen, dass man das da schon machen kann, aber auch
    ueberspringen kann."
@@ -4646,10 +4752,19 @@ const KOB_SAY = [
   'Erstmal: wo soll die Reise hin?',
   'Ohne dein Gewicht rate ich nur. Und Raten kann jeder.',
   'Wie lange bleibst du dran? Sag was Ehrliches, nicht was Schönes.',
-  'Willst du dein Essen fotografieren können? Geht auch später.',
+  'Willst du dein Essen per KI eintragen? Geht auch später.',
   'Steht. Ab jetzt rechne ich mit.'
 ];
-const KOB_WOCHEN = [4, 8, 12, 16];
+/* Die vier Zeiträume (21.09.2026, Karls Ansage — Tage statt Wochen, untereinander).
+   Das Wort dahinter sagt, was der Zeitraum WIRKLICH ist. Es ist bewusst nicht
+   motivierend gemeint: „Probe" für eine Woche ist ehrlicher als „Starter-Paket",
+   und wer 60 Tage wählt, baut tatsächlich um. */
+const KOB_TAGE = [
+  { n:60, wort:'Umbau',   satz:'Lang genug, dass es Gewohnheit wird.' },
+  { n:30, wort:'Routine', satz:'Ein Monat. Der Klassiker.' },
+  { n:14, wort:'Anlauf',  satz:'Zwei Wochen, um reinzukommen.' },
+  { n:7,  wort:'Probe',   satz:'Erstmal gucken, ob es zu dir passt.' },
+];
 let kobStep = 0, kobDraft = null;
 
 // Der Assistent laeuft genau einmal. Danach steht `setup` und alles ist im Tab aenderbar.
@@ -4665,23 +4780,30 @@ let kobErzwingen = false;
 function kobInit(){
   const k = kcalInit(), w = lastWeight();
   kobStep = 0;
-  kobDraft = { art: k.art || null, wochen: (k.wochen > 0 || k.wochen === 0) ? k.wochen : 12, kg: w ? w.kg : '' };
+  kobDraft = { art: k.art || null, tage: kcalTage() || 30, kg: w ? w.kg : '',
+               zielKg: k.zielKg > 0 ? k.zielKg : '' };
 }
 function startKcalOb(){ kobErzwingen = true; kobInit(); view = 'body'; render(); }
-// Zieldatum aus Startzeitpunkt und Zeitraum. `wochen:0` heisst „offen" — dann gibt es keins.
-function kcalZielDatum(){ const k = kcalInit();
-  return (k.wochen > 0 && k.start) ? k.start + k.wochen * 7 * 864e5 : null; }
-// In welcher Woche des Vorhabens stehen wir? 1-basiert, damit „Woche 1 von 12" stimmt.
-function kcalWoche(){ const k = kcalInit();
-  return k.start ? Math.floor((Date.now() - k.start) / (7 * 864e5)) + 1 : null; }
-// Was am Ende herauskaeme, wenn es so laeuft wie vorgenommen.
-// ⚠️ Bewusst aus dem VORHABEN gerechnet, nicht aus dem bisherigen Verlauf — es ist die Ansage,
-// nicht die Vorhersage. Was wirklich passiert, sagt der Regelkreis.
-function kcalPrognose(){
-  const k = kcalInit(), z = ZIELE[k.art];
-  if(!z || !(k.wochen > 0) || !(k.startKg > 0)) return null;
-  return { kg: k.startKg + z.proWoche * k.wochen, wochen: k.wochen, von: k.startKg };
-}
+/* Der Zeitraum in TAGEN. 🔴 Bestandskonten haben `wochen`, neue haben `tage` — hier
+   laufen beide zusammen, damit kein laufendes Vorhaben sein Ende verliert.
+   `0` heisst „ohne festes Ende"; dann gibt es kein Zieldatum. */
+function kcalTage(){ const k = kcalInit();
+  if(k.tage > 0) return k.tage;
+  if(k.wochen > 0) return k.wochen * 7;
+  return 0; }
+// Zieldatum aus Startzeitpunkt und Zeitraum.
+function kcalZielDatum(){ const k = kcalInit(), t = kcalTage();
+  return (t > 0 && k.start) ? k.start + t * 864e5 : null; }
+// Der wievielte Tag des Vorhabens ist heute? 1-basiert, damit „Tag 1 von 30" stimmt.
+function kcalTagNr(){ const k = kcalInit();
+  return k.start ? Math.floor((Date.now() - k.start) / 864e5) + 1 : null; }
+/* 🔴 `kcalPrognose()` ist am 21.09.2026 ersatzlos entfallen. Karls Ansage:
+   „Wenn es so läuft, stehst du am Mo., 14.12. bei rund 99,5 kg. — so eine prognose sofort weg"
+   ⚠️ Sie rechnete das Wunschtempo linear hoch und stellte das Ergebnis mit Datum und
+   Nachkommastelle hin. Das sah aus wie eine Vorhersage, war aber nur die Eingabe noch
+   einmal — und genau das ist das Versprechen, das die App nicht halten kann.
+   ➡️ Was wirklich passiert, sagt weiter der Regelkreis: der misst die Waage gegen das,
+   was gegessen wurde, statt eine gerade Linie in die Zukunft zu ziehen. */
 
 function renderKcalOb(){
   const d = kobDraft;
@@ -4699,62 +4821,99 @@ function renderKcalOb(){
     <button class="btn primary" style="margin-top:12px" data-act="kob:next">Los</button>
     <button class="link" data-act="kob:skip" style="width:100%;text-align:center;margin-top:12px">Überspringen — ich stell das selbst ein</button></div>`; }
 
+  /* ⚠️ Der Zusatz „· −400 kcal am Tag" hinter jedem Vorhaben ist am 21.09.2026 weggefallen.
+     Er stand da, bevor es ein eigenes kg-Ziel gab — jetzt wäre er schlicht falsch: der
+     Versatz kommt aus Zielgewicht und Zeitraum, nicht aus dem Vorhaben. */
   else if(kobStep === 1){ h += `<div class="card">
     <h2 style="margin-top:0">Was hast du vor?</h2>
     <p class="muted tiny" style="margin-bottom:14px">Danach richtet sich dein Tagesziel.</p>
     ${Object.entries(ZIELE).map(([id, z]) => `<button class="ob-opt ${d.art === id ? 'on' : ''}" data-act="kob:art:${id}">
-      <b>${z.name}</b><span>${z.satz}${z.versatz ? ` · ${z.versatz > 0 ? '+' : '−'}${Math.abs(z.versatz)} kcal am Tag` : ' · Erhaltungsbedarf'}</span></button>`).join('')}
+      <b>${z.name}</b><span>${z.satz}</span></button>`).join('')}
     ${kobNav(!d.art)}</div>`; }
 
-  else if(kobStep === 2){ h += `<div class="card">
-    <h2 style="margin-top:0">Was wiegst du?</h2>
+  /* 🔴 21.09.2026: hier steht jetzt AUCH das Zielgewicht (Karls Ansage). Bei „Gewicht
+     halten" wird das Feld weggelassen — ein Zielgewicht, das dem heutigen entspricht,
+     ist keine Angabe, sondern eine Pflichtübung. */
+  else if(kobStep === 2){ const braucht = d.art && ZIELE[d.art] && ZIELE[d.art].richtung !== 0;
+    h += `<div class="card">
+    <h2 style="margin-top:0">${braucht ? 'Wo stehst du, wo willst du hin?' : 'Was wiegst du?'}</h2>
     <p class="muted tiny" style="margin-bottom:14px">Am besten morgens, nüchtern. Der Wert landet
       gleich in deiner Gewichtskurve.</p>
-    <div class="field" style="margin:0"><label>Gewicht (kg)</label>
+    <div class="field" style="margin:0"><label>Gewicht heute (kg)</label>
       <input id="kobKg" type="number" inputmode="decimal" step="0.1" min="20" max="500"
              value="${d.kg || ''}" placeholder="z. B. 78,5"></div>
+    ${braucht ? `<div class="field" style="margin:12px 0 0"><label>Zielgewicht (kg)</label>
+      <input id="kobZielKg" type="number" inputmode="decimal" step="0.1" min="20" max="500"
+             value="${d.zielKg || ''}" placeholder="${d.kg ? fmtKg(+String(d.kg).replace(',','.') + ZIELE[d.art].richtung * 5) : 'z. B. 73,5'}"></div>
+      <div class="tiny muted" style="margin-top:8px">Daraus und aus dem Zeitraum rechne ich
+        dein Tagesziel aus.</div>` : ''}
     ${kobNav(false)}</div>`; }
 
+  /* 🔴 21.09.2026, Karls Ansage: vier Kacheln UNTEREINANDER, in Tagen statt Wochen.
+     Vorher waren es vier Chips nebeneinander („4 Wo", „8 Wo", …) — nebeneinander passt
+     kein Wort dahinter, und genau das Wort macht den Unterschied zwischen einer Zahl
+     und einer Entscheidung.
+     ⚠️ Der Erklärsatz darüber („Ein Zeitraum macht aus einem Vorsatz eine Ansage mit
+     Datum") ist auf Karls Ansage weg — viel Text überfordert. */
   else if(kobStep === 3){ h += `<div class="card">
     <h2 style="margin-top:0">Wie lange bleibst du dran?</h2>
-    <p class="muted tiny" style="margin-bottom:14px">Ein Zeitraum macht aus einem Vorsatz eine
-      Ansage mit Datum. Verlängern kannst du jederzeit.</p>
-    <div class="ob-grid">${KOB_WOCHEN.map(n => `<button class="chip big ${d.wochen === n ? 'on' : ''}" data-act="kob:w:${n}">${n} Wo</button>`).join('')}</div>
-    <button class="ob-opt ${d.wochen === 0 ? 'on' : ''}" style="margin-top:12px" data-act="kob:w:0">
-      <b>Ohne festes Ende</b><span>Läuft einfach mit. Dann gibt es kein Zieldatum und keine Prognose.</span></button>
-    ${d.wochen > 0 ? `<div class="tiny muted" style="margin-top:12px">Das wären
-      <b style="color:var(--txt)">${fmtDate(Date.now() + d.wochen * 7 * 864e5)}</b>.</div>` : ''}
+    ${KOB_TAGE.map(t => `<button class="ob-opt ${d.tage === t.n ? 'on' : ''}" style="margin-bottom:8px" data-act="kob:t:${t.n}">
+      <b>${t.n} Tage am Stück <span style="color:var(--muted);font-weight:600">(${t.wort})</span></b>
+      <span>${t.satz}</span></button>`).join('')}
+    <button class="ob-opt ${d.tage === 0 ? 'on' : ''}" data-act="kob:t:0">
+      <b>Ohne festes Ende</b><span>Läuft einfach mit. Dann gibt es kein Zieldatum.</span></button>
+    ${d.tage > 0 ? `<div class="tiny muted" style="margin-top:12px">Das wäre bis
+      <b style="color:var(--txt)">${fmtDate(Date.now() + d.tage * 864e5)}</b>.</div>` : ''}
     ${kobNav(false)}</div>`; }
 
+  /* 🔴 21.09.2026, drei Ansagen von Karl in diesem einen Schritt:
+     · „Essen per Foto ändern zu Essen per KI tracken — hört sich einfach besser an
+       die leute lieben KI"
+     · die beiden Erklärtexte „deutlich verkürzen"
+     · „auf der seite mit dem Ki schlüssel sollte statt weiter überspringen stehn"
+     ⚠️ Der letzte Punkt ist der wichtigste und war schon 2026-08-27 die Absicht:
+     wer hier keinen Schlüssel hat, soll SEHEN, dass er weiterkommt. „Weiter" liest sich
+     wie „erst eintragen, dann weiter" — „Überspringen" sagt, dass es ohne geht. */
   else if(kobStep === 4){ const hat = !!aiKey() && !altSchluessel();
     h += `<div class="card">
-    <h2 style="margin-top:0">Essen per Foto</h2>
-    <p class="muted" style="font-size:13.5px;line-height:1.65">Statt jede Zutat einzeln
-      einzutippen, kannst du dein Essen fotografieren — die Nährwerte werden geschätzt.
-      Dafür wird ein API-Schlüssel von Google Gemini benötigt.</p>
+    <h2 style="margin-top:0">Essen per KI tracken</h2>
+    <p class="muted" style="font-size:13.5px;line-height:1.65">Essen fotografieren statt
+      eintippen — die KI schätzt die Nährwerte. Dafür brauchst du einen Schlüssel von
+      Google Gemini.</p>
     ${hat
       ? `<div class="row between" style="background:var(--card2);border-radius:12px;padding:12px 14px;margin-bottom:12px">
            <b>Schlüssel liegt</b><span class="pill">…${esc(aiKey().slice(-4))}</span></div>
          <button class="btn" style="width:100%" data-act="kob:key">Ändern</button>`
       : `<button class="btn primary" style="width:100%" data-act="kob:key">Schlüssel eintragen</button>`}
-    <div class="tiny muted" style="margin-top:10px;line-height:1.6">Kostenlos, ein Google-Konto
-      reicht. <b style="color:var(--txt)">Alles andere funktioniert auch ohne</b> — Barcode,
-      eigene Lebensmittel und das Tagesziel brauchen keinen Schlüssel.
-      <br>Nachtragen kannst du ihn jederzeit unter Einstellungen.</div>
-    ${kobNav(false)}</div>`; }
+    <div class="tiny muted" style="margin-top:10px;line-height:1.6">Kostenlos mit Google-Konto.
+      <b style="color:var(--txt)">Alles andere geht auch ohne</b> — und nachtragen kannst du
+      ihn jederzeit in den Einstellungen.</div>
+    ${kobNav(false, hat ? 'Weiter' : 'Überspringen')}</div>`; }
 
   else { const z = ZIELE[d.art], kg = +String(d.kg).replace(',', '.') || 0;
-    const ziel = kg > 0 ? Math.round((kg * erhaltFaktor() + (z ? z.versatz : 0)) / 50) * 50 : null;
-    const ende = (kg > 0 && z && d.wochen > 0) ? kg + z.proWoche * d.wochen : null;
+    const zkg = +String(d.zielKg).replace(',', '.') || 0;
+    const erhalt = kg > 0 ? kg * erhaltFaktor() : 0;
+    /* 🔢 Das Tagesziel kommt aus dem eigenen kg-Ziel, sobald eins da ist. Ohne Zielgewicht
+       (oder bei „Gewicht halten") bleibt der feste Versatz die Rückfallebene. */
+    const rech = (kg > 0 && zkg > 0 && d.tage > 0 && z && z.richtung !== 0)
+      ? kcalAusZielKg(kg, zkg, d.tage, erhalt) : null;
+    const ziel = rech ? rech.ziel
+      : (kg > 0 ? Math.round((erhalt + (z ? z.versatz : 0)) / 50) * 50 : null);
     h += `<div class="card">
     <h2 style="margin-top:0">Passt das so?</h2>
     <div class="sess"><span class="muted">Vorhaben</span><b>${z ? z.name : '—'}</b></div>
     <div class="sess"><span class="muted">Gewicht</span><b>${kg > 0 ? fmtKg(kg) + ' kg' : '—'}</b></div>
-    <div class="sess"><span class="muted">Zeitraum</span><b>${d.wochen > 0 ? d.wochen + ' Wochen' : 'ohne Ende'}</b></div>
+    ${zkg > 0 && z && z.richtung !== 0 ? `<div class="sess"><span class="muted">Zielgewicht</span><b>${fmtKg(zkg)} kg</b></div>` : ''}
+    <div class="sess"><span class="muted">Zeitraum</span><b>${d.tage > 0 ? d.tage + ' Tage' : 'ohne Ende'}</b></div>
     <div class="sess"><span class="muted">Tagesziel</span><b>${ziel ? ziel + ' kcal' : '—'}</b></div>
-    ${ende !== null ? `<div class="tiny muted" style="margin-top:12px">Wenn es so läuft, stehst du am
-      <b style="color:var(--txt)">${fmtDate(Date.now() + d.wochen * 7 * 864e5)}</b> bei rund
-      <b style="color:var(--txt)">${fmtKg(ende)} kg</b>.</div>` : ''}
+    ${z && z.protein && kg > 0 ? `<div class="sess"><span class="muted">Eiweiß am Tag</span><b>${Math.round(kg * 2.0)} g</b></div>` : ''}
+    ${/* 🔴 Der Deckel wird ANGESAGT, nicht still angewendet. Wer 10 kg in 14 Tagen
+          eingibt, bekommt sonst eine Zahl, die etwas anderes bedeutet als das, was
+          er eingetippt hat — und merkt es erst, wenn das Ziel nicht aufgeht. */''}
+    ${rech && rech.gedeckelt ? `<div class="tiny" style="color:#e9a23b;margin-top:12px;line-height:1.6">
+      ${ic('warn')} <b>Das ist mehr, als in der Zeit geht.</b> Für ${fmtKg(Math.abs(zkg - kg))} kg
+      in ${d.tage} Tagen bräuchte es ${Math.abs(rech.roh)} kcal am Tag ${rech.roh < 0 ? 'weniger' : 'mehr'}.
+      Ich rechne mit ${ziel} kcal — nimm dir mehr Zeit oder ein näheres Ziel.</div>` : ''}
     ${!ziel ? `<div class="tiny" style="color:var(--danger);margin-top:12px">Ohne Gewicht kann ich kein
       Tagesziel ausrechnen — geh einen Schritt zurück.</div>` : ''}
     <button class="btn primary" style="margin-top:14px" data-act="kob:finish" ${ziel ? '' : 'disabled'}>Fertig</button>
@@ -4762,15 +4921,20 @@ function renderKcalOb(){
 
   app.innerHTML = h;
 }
-function kobNav(sperre){
+/* `weiterText` (21.09.2026): der Weiter-Knopf heißt auf der Schlüssel-Seite „Überspringen",
+   wenn keiner hinterlegt ist. Karls Ansage — und es ist derselbe Knopf, nicht ein zweiter:
+   ein extra „Überspringen" daneben hätte zwei Wege nach vorn gezeigt, wo es einen gibt. */
+function kobNav(sperre, weiterText){
   return `<div class="row" style="gap:8px;margin-top:16px">
     <button class="btn" style="flex:1" data-act="kob:back">Zurück</button>
-    <button class="btn primary" style="flex:2" data-act="kob:next" ${sperre ? 'disabled' : ''}>Weiter</button></div>`;
+    <button class="btn primary" style="flex:2" data-act="kob:next" ${sperre ? 'disabled' : ''}>${weiterText || 'Weiter'}</button></div>`;
 }
-// ⚠️ Der Weiter-Knopf muss den Gewichtswert MITNEHMEN, bevor neu gezeichnet wird — sonst ist
-// die Eingabe beim Schrittwechsel weg, weil das Feld neu gebaut wird.
+// ⚠️ Der Weiter-Knopf muss die Eingaben MITNEHMEN, bevor neu gezeichnet wird — sonst sind
+// sie beim Schrittwechsel weg, weil die Felder neu gebaut werden.
 function kobMerkeKg(){ const el = document.getElementById('kobKg');
-  if(el && el.value !== '') kobDraft.kg = el.value; }
+  if(el && el.value !== '') kobDraft.kg = el.value;
+  const z = document.getElementById('kobZielKg');
+  if(z && z.value !== '') kobDraft.zielKg = z.value; }
 
 /* Die Flamme (23.08.2026, Karls Ansage). Sie sitzt im Kopf des Ernaehrungs-Teils,
    weil sie genau das misst, was dort passiert: mitschreiben, jeden Tag.
@@ -4803,7 +4967,7 @@ function renderBody(){
   // Karls Ansage vom 22.08.2026: „brock kann gerne links neben den kalorin kreis."
   // ⚠️ Sprechblase UNTER das Paar statt daneben: Figur (72) + Ring (130) + Text nebeneinander
   // waeren auf einem Telefon drei Spalten in ~340 px — der Text bricht dann nach jedem Wort um.
-  const woche = kcalWoche(), prog = kcalPrognose();
+  const tagNr = kcalTagNr(), tage = kcalTage();
   // ⚠️ `zt` statt k.goal ueberall in der Anzeige: im Schritt-Modus ist das Tagesziel
   // beweglich (Grundziel + heute gelaufene Schritte). k.goal bleibt das GRUNDziel.
   const zt = zielHeute();
@@ -4862,23 +5026,24 @@ function renderBody(){
         <div class="makro"><span>Fett</span><b>${s.f} g</b></div>
       </div></div>`;
 
-  // NEU: der Zeitraum aus dem Assistenten wird sichtbar. Ohne ihn ist „12 Wochen" nur eine
-  // Zahl in der Ablage — mit ihm steht in der App, in welcher Woche man ist und worauf es
-  // hinauslaeuft. ⚠️ Die Prognose kommt aus dem VORHABEN, nicht aus dem Verlauf; was
-  // tatsaechlich passiert, sagt eine Karte weiter unten der Regelkreis.
-  if(woche && k.wochen > 0){
-    const rest = k.wochen - woche + 1, durch = Math.min(1, woche / k.wochen);
+  /* Der Zeitraum aus dem Assistenten wird sichtbar: in welchem Tag man steht und bis wann.
+     🔴 21.09.2026: zählt in TAGEN statt Wochen (Karls Ansage), und die Prognose („Vorgenommen:
+     99,5 kg") ist ersatzlos weg — sie war die Eingabe noch einmal, als Vorhersage verkleidet.
+     ✅ Geblieben ist das Zielgewicht als reine Angabe, ohne Datum und ohne „wenn es so läuft":
+     es steht da, weil er es eingetippt hat, nicht weil wir es versprechen. */
+  if(tagNr && tage > 0){
+    const rest = tage - tagNr + 1;
     h+=`<div class="card" style="margin-top:10px">
       <div class="row between"><span class="tiny muted">${ZIELE[k.art] ? ZIELE[k.art].name : 'Vorhaben'}</span>
-        <b>Woche ${Math.min(woche, k.wochen)} von ${k.wochen}</b></div>
-      ${zielBalken(Math.min(woche, k.wochen), k.wochen, 'var(--ok)')}
+        <b>Tag ${Math.min(tagNr, tage)} von ${tage}</b></div>
+      ${zielBalken(Math.min(tagNr, tage), tage, 'var(--ok)')}
       <div class="tiny muted" style="margin-top:8px">${rest > 0
-        ? `Noch <b style="color:var(--txt)">${rest} ${rest === 1 ? 'Woche' : 'Wochen'}</b> bis
+        ? `Noch <b style="color:var(--txt)">${rest} ${rest === 1 ? 'Tag' : 'Tage'}</b> bis
            ${/* ⚠️ KEIN Punkt hinter fmtDate — das Format endet selbst auf einen ("Fr., 30.10."),
                 sonst steht dort "30.10..". */''}
-           <b style="color:var(--txt)">${fmtDate(kcalZielDatum())}</b>${prog
-             ? ` Vorgenommen: <b style="color:var(--txt)">${fmtKg(prog.kg)} kg</b>.` : ''}`
-        : `Die ${k.wochen} Wochen sind um.${prog ? ` Vorgenommen waren <b style="color:var(--txt)">${fmtKg(prog.kg)} kg</b>.` : ''}`}</div>
+           <b style="color:var(--txt)">${fmtDate(kcalZielDatum())}</b>`
+        : `Die ${tage} Tage sind um.`}${k.zielKg > 0
+        ? ` Ziel: <b style="color:var(--txt)">${fmtKg(k.zielKg)} kg</b>.` : ''}</div>
       <button class="btn sm ghost link" style="margin-top:8px" data-act="kob:neu">Vorhaben ändern</button></div>`;
   } else if(zielArt()){
     h+=`<div class="row between" style="margin:10px 4px 0">
@@ -4962,8 +5127,11 @@ function renderBody(){
   }
 
   /* ➡️ Der Wochenschnitt („Schnitt der letzten 7 Tage") ist am 03.09.2026 auf Karls Ansage
-     entfallen. `kcalWoche()` und `zielSchnitt` bleiben stehen -- der Regelkreis weiter
-     unten rechnet mit denselben Zahlen weiter, nur die eigene Karte ist weg. */
+     entfallen. `zielSchnitt` bleibt stehen -- der Regelkreis weiter unten rechnet mit
+     denselben Zahlen weiter, nur die eigene Karte ist weg.
+     ⚠️ 21.09.2026: hier stand `kcalWoche()`, die es seit dem Umbau auf Tage nicht mehr
+     gibt (sie heisst jetzt `kcalTagNr()`). Ein Kommentar, der auf eine geloeschte Funktion
+     zeigt, faellt keinem Pruefstand auf -- dieselbe Bauform wie `APP_FASSUNG` am 31.08. */
 
   /* ➡️ Zwei Ansagen von Karl am 03.09.2026, die zusammen eine sind:
      · *„ich will bitte das man sein essen nur noch ueber die einzelnen button bei
@@ -4992,10 +5160,10 @@ function renderBody(){
     const drin = heute.filter(m=>mahlzeitVon(m)===mz.id);
     const sum  = drin.reduce((a,m)=>a+(+m.kcal||0),0);
     const ziel = mahlzeitZiel(mz.id, zt);
-    h+=`<div class="mz${mz.id===jetztMz?' jetzt':''}${i?' trenn':''}">
+    h+=`<div class="mz${mz.id===jetztMz?' jetzt':''}${i?' trenn':''}" style="--mzf:${mz.farbe}">
       <div class="row between" style="align-items:center;gap:10px">
         <div class="row" style="gap:10px;align-items:center;min-width:0">
-          <span class="mz-icon" aria-hidden="true">${ic(mz.icon)}</span>
+          <span class="mz-icon farbig" aria-hidden="true">${ic(mz.icon)}</span>
           <div style="min-width:0">
             <b>${mz.name}</b>
             <div class="tiny muted">${Math.round(sum)}${ziel?` / ${ziel}`:''} kcal</div>
@@ -5009,7 +5177,7 @@ function renderBody(){
             der 44 px hohe Plus-Knopf mit Schlagschatten. Zwei Elemente, die sich beruehren,
             liest man als eines: der Balken sah aus wie der Unterrand des Knopfes.
             14 px trennen sie sichtbar, ohne den Block auseinanderzuziehen. */''}
-      ${ziel?`<div style="margin-top:14px">${zielBalken(sum, ziel, 'var(--ok)')}</div>`:''}
+      ${ziel?`<div style="margin-top:14px">${zielBalken(sum, ziel, mz.farbe)}</div>`:''}
       ${drin.length?`<div style="margin-top:8px">`+[...drin].reverse().map(m=>
         `<div class="mz-eintrag"><div style="min-width:0">
            <span>${esc(m.name)}</span>
@@ -6561,27 +6729,28 @@ function renderSettings(){
         Angemeldeten, sonst nur deine Freunde.</div>
     </div>`;
 
-  h+=`<div class="card">
-      <label class="tiny muted" style="display:block;margin-bottom:6px">Ansicht</label>
-      <div class="fab-row" style="margin-bottom:6px">
-        <button class="btn ${profile.theme==='system'?'primary':''}" data-setbase="system">System</button>
-        <button class="btn ${profile.theme==='dark'?'primary':''}" data-setbase="dark">Dunkel</button>
-        <button class="btn ${profile.theme==='light'?'primary':''}" data-setbase="light">Hell</button>
-      </div>
-      <div class="field" style="margin:0 0 16px"><label>Pausen-Timer (Sekunden)</label>
-        <input id="restInput" type="number" inputmode="numeric" value="${settings.rest}" min="10" step="5"></div>
-    </div>`;
-  /* ➡️ 16.09.2026, Karls Ansage: „die disings die man freigeschaltet hat sollen auch in den
-     Einstellungen zusehen sein." Direkt unter „Ansicht" -- dort stehen System/Dunkel/Hell,
-     und die freigeschalteten Designs sind dieselbe Sache, nur erspielt.
-     ⚠️ „auch" heisst auch: auf der Rang-Seite bleiben sie stehen. Dieselben Kacheln aus
-     `designGridHTML()`, nicht eine zweite Fassung -- sie sind anklickbar wie dort.
-     ⚠️ Die gesperrten stehen mit dabei, mit Schloss und „ab ,Gym-Legend'". Nur die
-     freigeschalteten zu zeigen waere die woertlichere Lesart, aber dann saehe man nicht
-     mehr, was es ueberhaupt zu holen gibt -- und genau das ist der Reiz daran. */
+  /* 🔴 21.09.2026, Karls Ansage: „alles zusammenschmeißen bei den disigns also hell dunkel
+     ist da ja schon drinne da ist jetzt einfach was doppelt gemoppelt."
+     ⚠️ Er hat recht, und es war belegbar doppelt: hier standen drei Knöpfe System/Dunkel/Hell,
+     und die Kachelwand darunter enthielt „Schlicht Dunkel" und „Schlicht Hell" als eigene
+     Designs — dieselben zwei Werte, über zwei Wege setzbar, in zwei Karten untereinander.
+     ➡️ Jetzt gibt es EINE Kachelwand. „System" ist als erste Kachel dazugekommen, damit der
+     Weg zurück zur Geräteeinstellung nicht verlorengeht.
+     ➡️ Der Pausen-Timer hat eine eigene Karte bekommen — er stand nur deshalb unter
+     „Ansicht", weil dort Platz war. Mit dem Training hat er zu tun, mit dem Aussehen nichts. */
   h+=`<div class="card">
       <label class="tiny muted" style="display:block;margin-bottom:10px">Designs</label>
       ${designGridHTML()}</div>`;
+  h+=`<div class="card">
+      <div class="field" style="margin:0"><label>Pausen-Timer (Sekunden)</label>
+        <input id="restInput" type="number" inputmode="numeric" value="${settings.rest}" min="10" step="5"></div>
+    </div>`;
+  /* 🔴 21.09.2026: HIER stand eine zweite Designs-Karte (16.09.2026, „die disings die man
+     freigeschaltet hat sollen auch in den Einstellungen zusehen sein"). Sie ist weg —
+     nicht die Kacheln, nur die Doppelung: dieselbe Wand steht jetzt ein Stück weiter oben,
+     an der Stelle, wo vorher System/Dunkel/Hell als eigene Knöpfe standen.
+     ⚠️ Karls Ansage war „alles zusammenschmeißen", nicht „die Designs raus" — auf der
+     Rang-Seite bleiben sie unverändert stehen, und anklickbar sind sie hier wie dort. */
   /* ➡️ 10.09.2026: Hier stand der ganze Schritte-Block — Ein/Aus-Schalter,
      Eingabefeld fuer heute, die Adresse zum Kopieren und die vierstufige Anleitung fuer
      einen Kurzbefehl, der Apple Health ausliest. Karls Ansage: nur noch von Hand.
@@ -6592,17 +6761,18 @@ function renderSettings(){
      und danach jeden Tag ueberspringt. */
 
   // KI-Schluessel fuers Essens-Foto. Steht hier, damit man ihn tauschen oder loeschen kann,
-  // ohne den Foto-Weg noch einmal durchlaufen zu muessen.
+  // ohne den Weg im Assistenten noch einmal durchlaufen zu muessen.
+  // 🔴 21.09.2026: heisst ueberall „Essen per KI tracken" (Karls Ansage), auch hier.
   h+=`<div class="card">
-      <label class="tiny muted" style="display:block;margin-bottom:6px">Essen per Foto (KI)</label>
+      <label class="tiny muted" style="display:block;margin-bottom:6px">Essen per KI tracken</label>
       <div class="row between" style="margin-bottom:10px">
         <b>${aiKey()?'Schlüssel hinterlegt':'Kein Schlüssel'}</b>
         <span class="pill">${aiKey()?'…'+esc(aiKey().slice(-4)):'aus'}</span></div>
       <div class="fab-row">
         <button class="btn" data-act="setkey">${aiKey()?'Ändern':'Eintragen'}</button>
         ${aiKey()?`<button class="btn danger" data-act="delkey">Entfernen</button>`:''}</div>
-      <div class="tiny muted" style="margin-top:6px">Erforderlich, um Mahlzeiten per Foto zu erfassen.
-        Dafür wird ein API-Schlüssel von Google Gemini benötigt.
+      <div class="tiny muted" style="margin-top:6px">Nötig fürs Fotografieren. Schlüssel gibt es
+        kostenlos bei Google Gemini.
         <br>Bei Fragen bitte ein Ticket öffnen.</div>
     </div>`;
   h+=`<div class="card" data-nav="privacy" style="cursor:pointer">
@@ -9441,7 +9611,12 @@ document.addEventListener('click',ev=>{
   if(t.dataset.libnew){ syncPlanInputs(); const nm=t.dataset.libnew.slice(0,60); const p=editPlans().find(x=>x.id===editPlanId);
     if(p){ p.exercises.push({id:uid(),name:nm,sets:volSets(),reps:10,vol:profile.vol,eigen:true}); save(); }
     closeModal(); render(); toast(`„${nm}" angelegt`); return; }
-  if(t.dataset.theme){ const lvl=levelFromXP(profile.xp).level; if(unlockedThemes(lvl).has(t.dataset.theme)){ profile.theme=t.dataset.theme; save(); applyTheme(); render(); } return; }
+  /* 🔴 21.09.2026: „system" muss hier durchkommen. `unlockedThemes()` kennt nur die
+     Designs aus THEMES — „system" steht dort nicht drin und wäre sonst die einzige
+     Kachel, die sich nicht anklicken lässt. */
+  if(t.dataset.theme){ const lvl=levelFromXP(profile.xp).level;
+    if(t.dataset.theme==='system' || unlockedThemes(lvl).has(t.dataset.theme)){
+      profile.theme=t.dataset.theme; save(); applyTheme(); render(); } return; }
   if(t.dataset.nav){
     // Zwischen zwei Reitern mit Bewegung, sonst wie bisher -- ein Sprung aus dem Verlauf
     // zurueck in die Einstellungen ist kein Nachbarwechsel und braucht keine Richtung.
@@ -9559,7 +9734,8 @@ document.addEventListener('click',ev=>{
   else if(a==='kob:skip'){ kcalInit().setup=true; save(); kobDraft=null; kobErzwingen=false; render();
     toast('Kannst du jederzeit nachholen'); }
   else if(a&&a.startsWith('kob:art:')){ kobDraft.art=a.slice(8); renderKcalOb(); }
-  else if(a&&a.startsWith('kob:w:')){ kobDraft.wochen=+a.slice(6); renderKcalOb(); }
+  /* 🔴 21.09.2026: `kob:w:` (Wochen) ist `kob:t:` (Tage) geworden — Karls Ansage. */
+  else if(a&&a.startsWith('kob:t:')){ kobDraft.tage=+a.slice(6); renderKcalOb(); }
   /* ⚠️ fragKey() bringt ein eigenes Fenster mit und liefert ein Versprechen. Danach neu
      zeichnen, damit der Schritt den hinterlegten Schluessel auch anzeigt -- sonst sieht es
      aus, als waere nichts passiert. */
@@ -9571,8 +9747,18 @@ document.addEventListener('click',ev=>{
     if(!(kg>0)){ toast('Ohne Gewicht geht es nicht'); return; }
     // Das Gewicht wandert in die normale Kurve — nicht in eine zweite Ablage daneben.
     addWeight(kg);
-    k.art=d.art; k.wochen=d.wochen; k.start=Date.now(); k.startKg=kg;
-    k.goal=Math.round((kg*erhaltFaktor()+(ZIELE[d.art]?ZIELE[d.art].versatz:0))/50)*50;
+    const z=ZIELE[d.art], zkg=+String(d.zielKg).replace(',','.')||0, erhalt=kg*erhaltFaktor();
+    k.art=d.art; k.tage=d.tage; k.start=Date.now(); k.startKg=kg;
+    /* ⚠️ `wochen` wird beim Neuanlegen geleert. Sonst stünde bei jemandem, der ein altes
+       Vorhaben überschreibt, noch die alte Wochenzahl daneben — und `kcalTage()` nähme
+       zwar `tage`, aber beim nächsten Abgleich zöge `vereinige()` ein Feld mit, das
+       nichts mehr bedeutet. */
+    k.wochen=0;
+    /* 🔢 21.09.2026, Karls Ansage: das Kalorienziel kommt aus Zielgewicht UND Zeitraum.
+       Ohne beides (oder bei „Gewicht halten") bleibt der feste Versatz die Rückfallebene. */
+    k.zielKg = (zkg>0 && z && z.richtung!==0) ? zkg : 0;
+    const rech = (k.zielKg>0 && d.tage>0) ? kcalAusZielKg(kg, zkg, d.tage, erhalt) : null;
+    k.goal = rech ? rech.ziel : Math.round((erhalt+(z?z.versatz:0))/50)*50;
     k.setup=true; save(); kobDraft=null; kobErzwingen=false; render();
     toast(k.goal+' kcal am Tag — los geht’s'); }
   else if(a==='ob:start'){ startOnboard(); }
