@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.122';
+var APP_FASSUNG = 'v0.123';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -567,9 +567,15 @@ setTimeout(function(){
   /* Der jetzt faellige Block bekommt eine Kante statt einer Flaeche - eine gefuellte
      Zeile zwischen drei leeren sieht aus wie "ausgewaehlt", und ausgewaehlt ist hier
      nichts. Es ist ein Hinweis, keine Auswahl. */
-  /* 🎨 21.09.2026: die Kante traegt jetzt die Farbe der Mahlzeit (--mzf, am Block gesetzt).
-     Sie sagte vorher nur "jetzt faellig" -- jetzt sagt sie zusaetzlich WELCHE. */
-  .mz.jetzt{box-shadow:inset 3px 0 0 var(--mzf, var(--ok))}
+  /* 🔴 21.09.2026, Karls Meldung: „Design Fehler beim Essen da ist oben bei Frühstück ein
+     gelber dünner Strich." Gemeint war diese Kante — 3 px am linken Rand des gerade
+     fälligen Blocks. Sie gibt es seit dem 23.08.; vorher war sie grün (`--ok`) und fiel
+     nicht auf, seit heute früh trug sie die Mahlzeitfarbe und sah aus wie ein Fehler.
+     ➡️ **Die Kante ist weg.** Der fällige Block wird jetzt über sein Zeichen markiert:
+     voll gefüllter Kreis statt nur getönt (siehe `.mz.jetzt .mz-icon.farbig`).
+     ⚠️ Eine gefüllte Zeile war schon am 23.08. verworfen worden — sie sieht aus wie
+     „ausgewählt", und ausgewählt ist hier nichts. Deshalb das Zeichen und nicht der Block. */
+  .mz.jetzt .mz-icon.farbig{background:var(--mzf); color:var(--bg)}
   .mz-icon{font-size:23px; width:38px; height:38px; border-radius:99px; background:var(--card2);
     display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto}
   /* Das Zeichen bekommt die Farbe, der Kreis eine schwache Tönung davon.
@@ -738,12 +744,14 @@ setTimeout(function(){
   /* 🔴 Die Untergrenze ist nicht kosmetisch. Auf einem kurzen Fenster (im Prüfstand sind
      es 485 px) bleibt nach `100vh - 172px` weniger übrig, als der längste Schritt braucht
      — dann wächst die Karte nicht, und die Leiste säße wieder direkt unter dem Inhalt.
-     Gemessen: der Zeitraum-Schritt mit vier Kacheln ist der längste. 580 px decken ihn.
+     Gemessen über BEIDE Assistenten: der längste Schritt ist der Trainings-Assistent mit
+     der Wochenübersicht; 660 px decken ihn. Beim ersten Anlauf standen hier 580 — das
+     reichte fürs Essen und sprang beim Training um 72 px.
      ⚠️ Einfache Vorgabe in der Zeile davor: ein Browser ohne `max()` überspringt die
      zweite Zeile und bekommt wenigstens die feste Höhe — dieselbe Vorsichtsregel wie bei
      `min(env(safe-area-inset-bottom), 26px)` in `app-bau-lehren`. */
-  .kob-seite{display:flex; flex-direction:column; min-height:580px}
-  .kob-seite{min-height:max(580px, calc(100vh - 172px))}
+  .kob-seite{display:flex; flex-direction:column; min-height:660px}
+  .kob-seite{min-height:max(660px, calc(100vh - 172px))}
   .kob-seite > .card{display:flex; flex-direction:column; flex:1}
   .kob-nav{margin-top:auto; padding-top:16px}
   .ob-sum > div{padding:9px 0; border-bottom:1px solid var(--line); font-size:14px}
@@ -3374,7 +3382,10 @@ function startOnboard(){ obStep=0;
 function obCanLeave(){ return !!profile.onboarded; }
 function renderOnboard(){
   const d=obDraft, last=OB_LAST;
-  let h=`<div class="ob-dots">${[0,1,2,3,4,5,6].map(i=>`<i class="${i<=obStep?'on':''}"></i>`).join('')}</div>`;
+  /* 🔴 21.09.2026, Karls Ansage: „Die Tutorials da kannst du überall das so machen das
+     Weiter und Zurück auf der gleichen Höhe bleiben." Dasselbe Gerüst wie im
+     Essens-Assistenten: `.kob-seite` aussen, `.kob-nav` an der Leiste. */
+  let h=`<div class="kob-seite"><div class="ob-dots">${[0,1,2,3,4,5,6].map(i=>`<i class="${i<=obStep?'on':''}"></i>`).join('')}</div>`;
   // Der Assistent ist NICHT das Tutorial — hier zeigt Brock den getragenen Rang wie ueberall sonst.
   // Beim ersten Konto ist das Couch-Potato, was zum Einstieg passt.
   h+=mascot(OB_SAY[obStep], (obStep===0||obStep===last)?'happy':'', obStep===0?96:72, equippedRank());
@@ -3454,16 +3465,17 @@ function renderOnboard(){
       <input id="obName" placeholder="z.B. PPL 3er" value="${esc(d.name||'')}"></div>
     <div class="tiny muted" style="margin-top:10px">Kommt als <b>neuer</b> Trainingsplan dazu und wird
       dein aktueller. Bestehende Pläne bleiben erhalten.</div>
-    <button class="btn primary" style="margin-top:16px" data-act="ob:finish">Plan erstellen</button>
-    <button class="link" data-act="ob:back" style="width:100%;text-align:center;margin-top:12px">Zurück</button>
-    ${obCanLeave()?`<button class="link" data-act="ob:cancel" style="width:100%;text-align:center;margin-top:8px">Abbrechen — alles so lassen</button>`:''}</div>`; }
+    <div class="kob-nav">
+      <button class="btn primary" style="width:100%" data-act="ob:finish">Plan erstellen</button>
+      <button class="link" data-act="ob:back" style="width:100%;text-align:center;margin-top:12px">Zurück</button>
+      ${obCanLeave()?`<button class="link" data-act="ob:cancel" style="width:100%;text-align:center;margin-top:8px">Abbrechen — alles so lassen</button>`:''}</div></div>`; }
 
-  app.innerHTML=h;
+  app.innerHTML=h+'</div>';
 }
-function obNav(disabled){ return `<div class="fab-row" style="margin-top:18px">
+function obNav(disabled){ return `<div class="kob-nav"><div class="fab-row">
   <button class="btn ghost" data-act="ob:back">Zurück</button>
   <button class="btn primary" data-act="ob:next" ${disabled?'disabled style="opacity:.45"':''}>Weiter</button></div>
-  ${obCanLeave()?`<button class="link" data-act="ob:cancel" style="width:100%;text-align:center;margin-top:12px">Abbrechen — alles so lassen</button>`:''}`; }
+  ${obCanLeave()?`<button class="link" data-act="ob:cancel" style="width:100%;text-align:center;margin-top:12px">Abbrechen — alles so lassen</button>`:''}</div>`; }
 // Wenn Karl keinen Namen eintippt, benennt sich der Plan nach seinem Split.
 function splitName(n){ return ({2:'Upper/Lower',3:'Push/Pull/Legs',4:'Upper/Lower 4er',
   5:'5er-Split',6:'PPL 6er'})[n] || `${n}er-Plan`; }

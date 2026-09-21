@@ -4,6 +4,44 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-21
 
+### v0.123 — Der gelbe Strich ist weg, und alle Assistenten stehen gleich
+
+#### 🟡 „Da ist oben bei Frühstück ein gelber dünner Strich"
+
+**Karls Meldung.** Gemeint war die **3-px-Kante am linken Rand des gerade fälligen Blocks**.
+Es gibt sie seit dem 23.08. — aber **vorher war sie grün** (`--ok`) und fiel niemandem auf.
+Heute früh bekam sie mit v0.121 die Mahlzeitfarbe, und morgens ist Frühstück fällig: gelb,
+dünn, am Rand. **Das sieht aus wie ein Darstellungsfehler, und als solcher wurde es gemeldet.**
+
+➡️ **Die Kante ist weg.** Der fällige Block wird jetzt über sein **Zeichen** markiert: voll
+gefüllter Kreis statt nur getönt.
+⚠️ **Eine gefüllte Zeile war schon am 23.08. verworfen worden** — sie sieht aus wie
+„ausgewählt", und ausgewählt ist hier nichts. Deshalb das Zeichen und nicht der Block.
+
+💡 **Was daran lehrreich ist:** die Farbe war neu, die Kante nicht. Eine Änderung an einer
+Stelle (Mahlzeitfarben) hat etwas an einer anderen sichtbar gemacht, das jahrelang
+unauffällig danebenstand.
+
+#### 📐 Das Gerüst gilt jetzt für alle Assistenten
+
+**Karls Ansage:** *„Die Tutorials da kannst du über all das so machen das Weiter und Zurück
+auf der gleichen Höhe bleiben."* Der **Trainings-Assistent** hat dasselbe Gerüst bekommen wie
+der Essens-Assistent.
+
+⚠️ **Dabei zeigte sich, dass die Untergrenze von 580 px zu knapp war:** sie reichte fürs
+Essen und ließ die Leiste beim Training um **72 px springen** — der Schritt mit der
+Wochenübersicht ist länger. **Jetzt 660 px, gemessen über beide.**
+
+#### 🧪 Prüfstand: 1.187 → 1.191
+
+Vier neue Prüfungen. **7 Gegenproben** — und eine davon hat einen Fehler in der Prüfung
+aufgedeckt: *„Der fällige Block ist trotzdem markiert"* verglich den fälligen Kreis mit dem
+eines **anderen** Blocks. Die haben aber ohnehin verschiedene Farben (gelb gegen grün), also
+war die Prüfung immer grün — **auch als die Markierung ersatzlos entfernt wurde.**
+➡️ Richtig ist der Vergleich jedes Blocks mit **seiner eigenen** Farbe: der fällige trägt sie
+voll, die anderen nur getönt. **Dritter Fall dieser Woche, in dem eine Gegenprobe zeigte,
+dass die Prüfung am falschen Hebel zog.**
+
 ### v0.122 — Der Essens-Assistent, radikal entschlackt
 
 **Sechs Nachfassungen von Karl, alle in dieselbe Richtung:** *„Texte löschen schon wieder

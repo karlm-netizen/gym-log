@@ -8502,6 +8502,45 @@ window.addEventListener('error', e => {
      in `app-bau-lehren`: eine Textaenderung faellt still zurueck, wenn niemand sie
      festhaelt — genau so stand „Essen per Foto" an vier Stellen und „Trainingsplan
      einrichten" wochenlang falsch da. Ein Satz im Changelog ist kein Riegel. */
+  /* 🔴 21.09.2026, Karls Meldung: „Design Fehler beim Essen da ist oben bei Frühstück ein
+     gelber dünner Strich." Das war die 3-px-Kante am gerade fälligen Block.
+     ⚠️ Zwei Pruefungen, nicht eine: dass der Strich weg ist UND dass der faellige Block
+     trotzdem noch erkennbar ist. Nur die erste zu pruefen hiesse, eine Markierung
+     ersatzlos verlieren zu duerfen, ohne dass etwas rot wird. */
+  const essenBloecke = () => {
+    kobFrisch();
+    profile.kcal = {goal:2000, art:'halten', foods:[], meals:[], setup:true};
+    kobBauen();
+    return [...app.querySelectorAll('.mz')];
+  };
+  t('Kein farbiger Strich am faelligen Block', () => {
+    const b = essenBloecke();
+    if(!b.length) return 'keine Bloecke';
+    const mit = b.filter(x => getComputedStyle(x).boxShadow !== 'none');
+    return mit.length === 0 ? true : mit.length + ' Block/Bloecke mit Kante: ' + getComputedStyle(mit[0]).boxShadow;
+  });
+  /* ⚠️ Erster Anlauf verglich den faelligen Kreis mit dem eines ANDEREN Blocks - die
+     haben aber ohnehin verschiedene Farben (gelb gegen gruen), also war die Pruefung
+     immer gruen. Gegenprobe deckte es auf: Markierung entfernt, trotzdem bestanden.
+     ➡️ Richtig ist der Vergleich JEDES Blocks mit SEINER eigenen Farbe: der faellige
+     traegt sie voll, die anderen nur getoent. */
+  t('Der faellige Block ist trotzdem markiert', () => {
+    const b = essenBloecke();
+    const jetzt = b.find(x => x.classList.contains('jetzt'));
+    if(!jetzt) return 'kein Block ist als faellig markiert';
+    const voll = el => {
+      const mzf = getComputedStyle(el).getPropertyValue('--mzf').trim();
+      const hg  = getComputedStyle(el.querySelector('.mz-icon')).backgroundColor;
+      // Hex in "rgb(r, g, b)" umrechnen, um vergleichen zu koennen.
+      const n = parseInt(mzf.slice(1), 16);
+      const soll = 'rgb(' + ((n>>16)&255) + ', ' + ((n>>8)&255) + ', ' + (n&255) + ')';
+      return hg === soll;
+    };
+    if(!voll(jetzt)) return 'faelliger Block traegt seine Farbe nicht voll';
+    const andere = b.filter(x => !x.classList.contains('jetzt'));
+    const auchVoll = andere.filter(voll);
+    return auchVoll.length === 0 ? true : auchVoll.length + ' nicht faellige sehen genauso aus';
+  });
   t('Jede Mahlzeit hat ihre Farbe', () => {
     const soll = {f:'#f0b429', m:'#3ecf8e', a:'#5b8def', s:'#ff8a3d'};
     const falsch = MAHLZEITEN.filter(mz => mz.farbe !== soll[mz.id]);
@@ -8568,6 +8607,31 @@ window.addEventListener('error', e => {
     const soll = Object.values(ZIELE).map(z => z.name);
     return String(namen) === String(soll) ? true : namen.join(' | ');
   });
+  /* 🔴 21.09.2026, Karls Ansage: „Die Tutorials da kannst du über all das so machen das
+     Weiter und Zurück auf der gleichen Höhe bleiben" — also AUCH im Trainings-Assistenten,
+     nicht nur beim Essen. Dieselbe Messung wie unten, anderer Assistent. */
+  t('Trainings-Assistent: Zurueck/Weiter stehen gleich hoch', () => {
+    startOnboard();
+    obDraft.erfahrung = 'mittel'; obDraft.days = [1,3,5];
+    const hoehen = [];
+    for(const s of [1, 2, 3, 4]){
+      obStep = s; renderOnboard();
+      const nav = app.querySelector('.kob-nav');
+      if(!nav) return 'Schritt ' + s + ' hat keine Navigationsleiste';
+      hoehen.push({s, y: Math.round(nav.getBoundingClientRect().top + window.scrollY)});
+    }
+    const min = Math.min(...hoehen.map(x=>x.y)), max = Math.max(...hoehen.map(x=>x.y));
+    return (max - min) <= 2 ? true
+      : 'springt um ' + (max-min) + ' px: ' + hoehen.map(x=>'S'+x.s+'='+x.y).join(' ');
+  });
+  t('Trainings-Assistent klebt nicht am Fenster', () => {
+    startOnboard(); obStep = 2; renderOnboard();
+    const nav = app.querySelector('.kob-nav');
+    if(!nav) return 'keine Leiste';
+    const pos = getComputedStyle(nav).position;
+    return (pos !== 'fixed' && pos !== 'sticky') ? true : 'position: ' + pos;
+  });
+
   /* 🔴 21.09.2026, Karls Ansage: „das zurück und weiter soll immer auf der gleichen Höhe
      bleiben, immer ganz unten."
      ⚠️ GEMESSEN, nicht angenommen: die Pruefung liest die tatsaechliche Position im
