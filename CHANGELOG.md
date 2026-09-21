@@ -4,6 +4,61 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-21
 
+### v0.122 — Der Essens-Assistent, radikal entschlackt
+
+**Sechs Nachfassungen von Karl, alle in dieselbe Richtung:** *„Texte löschen schon wieder
+Zuviel"* · *„ich will wenig Text im Tutorial"* · *„sowas ist unnötig"*.
+
+#### ✂️ Weg ist
+
+| | |
+|---|---|
+| Untertitel **„Danach richtet sich dein Tagesziel."** | |
+| **Alle vier Erklärzeilen unter den Vorhaben** | „Automatische Kalorienreduktion" usw. — `satz` ist aus dem Datenmodell entfernt, nicht nur ausgeblendet |
+| **Die Sätze unter den Zeiträumen** | das Wort in Klammern bleibt: **60 (Umbau) · 30 (Routine) · 14 (Anlauf) · 7 (Probe)** |
+| **„Ohne festes Ende"** | ganz raus aus der Auswahl |
+| **„Das wäre bis …"** | das Zieldatum steht nach dem Einrichten ohnehin im Ernährungs-Teil |
+| **Die Aufzählung 1./2./3.** auf der ersten Seite | sie kündigte an, was in den nächsten drei Schritten ohnehin kommt |
+| **Zwei Nebensätze** beim Gewicht | *„Am besten morgens, nüchtern"* bleibt — das ist echte Auskunft |
+
+ℹ️ `tage: 0` bleibt im Datenmodell gültig. Bestandskonten haben es, und ein Wert, den man nicht
+mehr setzen kann, aus der Ablage zu werfen, hätte laufenden Vorhaben ein Ende angedichtet.
+
+#### 🔒 Weiter ist gesperrt, solange nichts ausgewählt ist
+
+**Karls Ansage:** *„Mann soll nicht auf weiter klicken können wenn man nicht ausgewählt hat."*
+Gilt für Vorhaben, Gewicht und Zeitraum. **Beim Zeitraum gibt es dafür keine Vorauswahl mehr**
+(stand auf 30) — mit Vorauswahl wäre der Knopf immer offen und die Sperre wirkungslos.
+ℹ️ Das Gewichtsfeld gibt den Knopf per `oninput` frei, ohne neu zu zeichnen: sonst wäre der
+Fokus samt Tastatur nach jedem Tastendruck weg.
+
+#### 🤖 Der KI-Schritt entfällt, wenn schon ein Schlüssel da ist
+
+**Karls Ansage.** Er wird nicht versteckt, sondern aus der Schrittfolge genommen — sonst zeigten
+die Punkte oben sechs Stationen, von denen eine nie kommt. **Wer den Schlüssel löscht, bekommt
+ihn wieder.**
+
+#### 📐 Zurück/Weiter stehen immer gleich hoch, ganz unten
+
+**Karls Ansage.** Vorher sprang die Leiste um bis zu **198 px** zwischen den Schritten — bei vier
+Zeitraum-Kacheln tiefer als bei einem Eingabefeld.
+
+🔴 **Kein `position: fixed`.** Genau das hat in gym-log über v0.087, v0.111 und v0.118 Tage
+gekostet. Stattdessen ein Gerüst: Seite mindestens bildschirmhoch, Karte füllt den Rest,
+Leiste per `margin-top:auto` an deren Unterkante.
+
+⚠️ **Beim ersten Anlauf griff es nicht — und die Ursache war nicht das Gerüst.** Der Prüfstand
+läuft in einem 485 px hohen Fenster; nach `100vh − 172px` bleibt dort weniger übrig, als der
+längste Schritt braucht, also gab es nichts zu verteilen. **Ohne die gemessenen Zahlen in der
+Fehlermeldung hätte man am `margin-top:auto` gesucht, das völlig in Ordnung war.**
+➡️ Feste Untergrenze von 580 px dazu, mit einfacher Vorgabe davor für Browser ohne `max()`.
+
+#### 🧪 Prüfstand: 1.169 → 1.187
+
+18 neue Prüfungen. **Die Layout-Prüfung misst die tatsächliche Position** über alle Schritte und
+lässt 2 px Toleranz — ein `margin-top:auto`, das nicht greift, sieht im Quelltext aus wie eines,
+das greift. **15 Gegenproben, alle rot wie gewollt.**
+
 ### v0.121 — Farben für die Mahlzeiten, vier Ziele, und das Kalorienziel kommt aus dem kg-Ziel
 
 **Zehn Ansagen von Karl an einem Morgen.** Der Kern: die App soll nichts mehr versprechen, was

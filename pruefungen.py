@@ -8273,10 +8273,15 @@ window.addEventListener('error', e => {
     kobFrisch(); kobBauen();
     let n = 0;
     for(let i = 0; i < 12; i++){
-      // ⚠️ Schritt 1 sperrt Weiter, solange kein Vorhaben gewaehlt ist - das ist gewollt,
-      // also muss die Pruefung waehlen statt sich am eigenen Riegel aufzuhaengen.
+      /* ⚠️ Drei Schritte sperren Weiter, solange nichts gewaehlt ist (Karls Ansage vom
+         21.09.2026) - das ist gewollt, also muss die Pruefung jedes Mal waehlen statt
+         sich am eigenen Riegel aufzuhaengen. */
       const wahl = document.querySelector('[data-act="kob:art:halten"]');
       if(wahl) wahl.click();
+      const feld = document.getElementById('kobKg');
+      if(feld && !(+feld.value > 0)){ feld.value = '80'; feld.dispatchEvent(new Event('input')); }
+      const zeit = document.querySelector('[data-act="kob:t:30"]');
+      if(zeit) zeit.click();
       const w = document.querySelector('[data-act="kob:next"]');
       if(!w || w.disabled) break; w.click(); n++; }
     return (kobStep === KOB_LAST && n === KOB_LAST) || ('Schritt ' + kobStep + ' von ' + KOB_LAST + ', ' + n + ' Klicks');
@@ -8324,22 +8329,35 @@ window.addEventListener('error', e => {
     document.querySelector('[data-act="kob:next"]').click();
     document.querySelector('[data-act="kob:art:halten"]').click();
     document.querySelector('[data-act="kob:next"]').click();   // Schritt 2, Gewicht
+    /* ⚠️ 21.09.2026: Weiter ist hier jetzt gesperrt, bis ein Gewicht dasteht. Das Feld
+       wird gleich mit '82.5' gefuellt - das `input`-Ereignis gibt den Knopf frei. */
     // ⚠️ '82.5' mit Punkt, nicht mit Komma: das Feld ist type="number", und ein Komma
     // wirft der Browser sofort weg - der Wert waere danach leer, ohne dass die App
     // etwas falsch macht. Die Umrechnung von Komma auf Punkt passiert erst beim Fertig.
-    document.getElementById('kobKg').value = '82.5';
+    const kgFeld = document.getElementById('kobKg');
+    kgFeld.value = '82.5'; kgFeld.dispatchEvent(new Event('input'));
     document.querySelector('[data-act="kob:next"]').click();   // Schritt 3
     document.querySelector('[data-act="kob:back"]').click();   // zurueck auf 2
     return eq(document.getElementById('kobKg').value, '82.5');
   });
-  /* 🔴 21.09.2026: Tage statt Wochen (Karls Ansage), `kob:w:` heisst jetzt `kob:t:`. */
-  t('Zeitraum laesst sich waehlen, auch offen', () => {
+  /* 🔴 21.09.2026: Tage statt Wochen (Karls Ansage), `kob:w:` heisst jetzt `kob:t:`.
+     ⚠️ Zweite Runde: „Ohne festes Ende ganz raus" — die Kachel `kob:t:0` gibt es nicht
+     mehr, geprueft wird jetzt der Wechsel zwischen zwei echten Zeitraeumen. */
+  t('Zeitraum laesst sich waehlen und wechseln', () => {
     kobFrisch(); kobBauen();
     kobStep = 3; renderKcalOb();
-    document.querySelector('[data-act="kob:t:0"]').click();
-    const offen = kobDraft.tage === 0;
-    document.querySelector('[data-act="kob:t:30"]').click();
-    return (offen && kobDraft.tage === 30) || 'Zeitraum haengt';
+    document.querySelector('[data-act="kob:t:60"]').click();
+    const erst = kobDraft.tage === 60;
+    document.querySelector('[data-act="kob:t:7"]').click();
+    return (erst && kobDraft.tage === 7) || 'Zeitraum haengt';
+  });
+  /* 🔴 Karls Ansage: „Ohne festes Ende ganz raus". */
+  t('Kein „Ohne festes Ende" mehr zur Auswahl', () => {
+    kobFrisch(); kobBauen();
+    kobStep = 3; renderKcalOb();
+    const h = app.innerHTML;
+    if(h.includes('kob:t:0"')) return 'Kachel ist noch da';
+    return !/Ohne festes Ende/.test(h.replace(/<[^>]*>/g,' ')) ? true : 'Text steht noch da';
   });
   /* 🔴 NEU 21.09.2026 — Karls Ansage: „4 kacheln untereinander — 60/30/14/7 Tage am Stück
      und denk die noch jeweils ein wort aus was du dahinter in klammern schreibst."
@@ -8354,6 +8372,17 @@ window.addEventListener('error', e => {
     const fehlt = KOB_TAGE.filter(x => !h.includes(x.n + ' Tage am Stück') || !h.includes('(' + x.wort + ')'));
     return fehlt.length === 0 ? true : 'fehlt in der Ansicht: ' + fehlt.map(x=>x.n).join(',');
   });
+  /* 🔴 Zweite Runde, Karl: „das mit den Klammern ... kann bleiben aber die Texte darunter
+     wieder alle weg." Das Wort in Klammern steht IM `b` (eine Zeile), ein Erklaersatz
+     waere ein `span` daneben. */
+  t('Unter den Zeitraeumen steht kein Erklaersatz', () => {
+    const mitSatz = KOB_TAGE.filter(x => x.satz !== undefined);
+    if(mitSatz.length) return 'satz noch bei: ' + mitSatz.map(x=>x.n).join(',');
+    kobFrisch(); kobBauen(); kobStep = 3; renderKcalOb();
+    const zweite = [...app.querySelectorAll('[data-act^="kob:t:"]')]
+      .filter(b => [...b.children].some(c => c.tagName === 'SPAN'));
+    return zweite.length === 0 ? true : zweite.length + ' mit zweiter Zeile';
+  });
   /* ⚠️ Untereinander, nicht nebeneinander: die Kacheln sind `ob-opt` (volle Breite) und
      stehen NICHT in einem `ob-grid`. Vorher waren es Chips in einem Raster — genau das
      wollte Karl nicht, weil dort kein Wort hinter die Zahl passt. */
@@ -8363,7 +8392,7 @@ window.addEventListener('error', e => {
     const grid = document.querySelector('.ob-grid');
     const opts = document.querySelectorAll('[data-act^="kob:t:"]');
     if(grid) return 'steht noch in einem Raster';
-    return opts.length === 5 ? true : (opts.length + ' Kacheln statt 5');
+    return opts.length === 4 ? true : (opts.length + ' Kacheln statt 4');
   });
   const kobDurch = (art, tage, kg, zielKg) => {
     kobFrisch(); kobBauen();
@@ -8518,6 +8547,187 @@ window.addEventListener('error', e => {
   t('ZIELE tragen kein festes proWoche mehr', () => {
     const mit = Object.entries(ZIELE).filter(([,z]) => z.proWoche !== undefined);
     return mit.length === 0 ? true : mit.map(x=>x[0]).join(',');
+  });
+  /* 🔴 21.09.2026, zweite Runde — Karl: „Texte löschen schon wieder Zuviel ... Und alle
+     Texte unter Gewicht verlieren, Gewicht halten, zunehmen".
+     ⚠️ Geprueft wird BEIDES: dass `satz` aus dem Datenmodell raus ist (sonst lebt der Text
+     weiter und kommt zurueck, weil ihn jemand sieht und fuer gewollt haelt) UND dass in der
+     Auswahl nichts als die vier Namen steht. */
+  t('Die Vorhaben tragen keinen Erklaertext mehr', () => {
+    const mit = Object.entries(ZIELE).filter(([,z]) => z.satz !== undefined);
+    return mit.length === 0 ? true : 'satz noch bei: ' + mit.map(x=>x[0]).join(',');
+  });
+  t('In der Auswahl stehen nur die vier Namen', () => {
+    kobFrisch(); kobBauen();
+    kobStep = 1; renderKcalOb();
+    const knoepfe = [...app.querySelectorAll('[data-act^="kob:art:"]')];
+    if(knoepfe.length !== 4) return knoepfe.length + ' Vorhaben';
+    const mitZweiterZeile = knoepfe.filter(b => b.querySelector('span'));
+    if(mitZweiterZeile.length) return mitZweiterZeile.length + ' mit Erklaerzeile';
+    const namen = knoepfe.map(b => b.innerText.trim());
+    const soll = Object.values(ZIELE).map(z => z.name);
+    return String(namen) === String(soll) ? true : namen.join(' | ');
+  });
+  /* 🔴 21.09.2026, Karls Ansage: „das zurück und weiter soll immer auf der gleichen Höhe
+     bleiben, immer ganz unten."
+     ⚠️ GEMESSEN, nicht angenommen: die Pruefung liest die tatsaechliche Position im
+     Dokument ueber alle Schritte und vergleicht sie. Ein `margin-top:auto`, das nicht
+     greift (weil die Karte kein Flex-Container ist), sieht im Quelltext genauso aus wie
+     eines, das greift -- nur die Messung kennt den Unterschied.
+     ℹ️ 2 px Toleranz fuer Rundung bei gebrochenen Geraetepixeln. */
+  t('Zurueck/Weiter stehen auf allen Schritten gleich hoch', () => {
+    kobFrisch(); kobBauen();
+    kobDraft.art = 'halten'; kobDraft.kg = 80; kobDraft.tage = 30;
+    const hoehen = [];
+    for(const s of [1, 2, 3, 4]){
+      kobStep = s; renderKcalOb();
+      const nav = app.querySelector('.kob-nav');
+      if(!nav) return 'Schritt ' + s + ' hat keine Navigationsleiste';
+      const r = nav.getBoundingClientRect();
+      hoehen.push({s, y: Math.round(r.top + window.scrollY)});
+    }
+    const min = Math.min(...hoehen.map(x=>x.y)), max = Math.max(...hoehen.map(x=>x.y));
+    return (max - min) <= 2 ? true
+      : 'springt um ' + (max-min) + ' px: ' + hoehen.map(x=>'S'+x.s+'='+x.y).join(' ');
+  });
+  /* ⚠️ „immer ganz unten" heisst: sie sitzt am Fuss der Karte, nicht direkt unter dem
+     Inhalt. Bei einem kurzen Schritt (nur ein Eingabefeld) muss Luft dazwischen sein --
+     sonst greift `margin-top:auto` nicht, und die Gleichheit oben waere Zufall. */
+  t('Die Leiste sitzt unten, nicht direkt am Inhalt', () => {
+    kobFrisch(); kobBauen();
+    kobDraft.art = 'halten'; kobDraft.kg = 80;
+    kobStep = 2; renderKcalOb();
+    const nav = app.querySelector('.kob-nav');
+    const feld = app.querySelector('#kobKg');
+    if(!nav || !feld) return 'Leiste oder Feld fehlt';
+    const abstand = nav.getBoundingClientRect().top - feld.getBoundingClientRect().bottom;
+    if(abstand > 40) return true;
+    /* ⚠️ Bei Rot lohnt die Lage dazu: beim ersten Anlauf war die Ursache nicht das
+       Geruest, sondern das kurze Pruef-Fenster (485 px statt 844). Ohne diese Zahlen
+       haette man am `margin-top:auto` gesucht, das voellig in Ordnung war. */
+    const seite = app.querySelector('.kob-seite');
+    return 'nur ' + Math.round(abstand) + ' px Luft (Seite '
+      + (seite ? Math.round(seite.getBoundingClientRect().height) : '?') + ' px, Fenster '
+      + window.innerHeight + ' px, margin-top ' + getComputedStyle(nav).marginTop + ')';
+  });
+  /* 🔴 Und die Lehre, die das hier ueberhaupt erst zur eigenen Pruefung macht: NICHT fixed.
+     Die untere Leiste hat in gym-log ueber v0.087, v0.111 und v0.118 Tage gekostet. */
+  t('Die Leiste klebt nicht am Fenster', () => {
+    kobFrisch(); kobBauen();
+    kobStep = 3; renderKcalOb();
+    const nav = app.querySelector('.kob-nav');
+    const pos = getComputedStyle(nav).position;
+    return (pos !== 'fixed' && pos !== 'sticky') ? true : 'position: ' + pos;
+  });
+
+  /* 🔴 21.09.2026, Karls Ansage: „Wenn schon ein Schlüssel eingetragen ist kann die
+     tracken per ki raus im Essens Tutorial."
+     ⚠️ Geprueft wird BEIDES: dass der Schritt bei vorhandenem Schluessel verschwindet UND
+     dass er ohne Schluessel dableibt. Nur die erste Haelfte zu pruefen hiesse, einen
+     Assistenten gruen zu geben, der den Schritt NIE zeigt -- und dann traegt ihn niemand
+     mehr ein. */
+  /* ⚠️ `aiKey()` liest `DB.get('aikey')`, NICHT `settings.aiKey`. Beim ersten Anlauf stand
+     hier das falsche Feld - die drei Pruefungen waren rot, obwohl die App stimmte. */
+  const mitSchluessel = (fn) => {
+    const vorher = DB.get('aikey', '');
+    DB.set('aikey', 'AIzaSyTestSchluesselFuerDiePruefung1234567');
+    try { return fn(); } finally { DB.set('aikey', vorher); }
+  };
+  t('Mit Schluessel faellt der KI-Schritt aus dem Assistenten', () => mitSchluessel(() => {
+    const s = kobAktiveSchritte();
+    return !s.includes(4) ? true : 'Schritt 4 ist noch dabei';
+  }));
+  t('Ohne Schluessel bleibt der KI-Schritt drin', () => {
+    const vorher = DB.get('aikey', ''); DB.set('aikey', '');
+    const s = kobAktiveSchritte(); DB.set('aikey', vorher);
+    return s.includes(4) ? true : 'Schritt 4 fehlt, obwohl kein Schluessel da ist';
+  });
+  t('Mit Schluessel fuehrt Weiter von 3 direkt zur Zusammenfassung', () => mitSchluessel(() => {
+    kobFrisch(); kobBauen();
+    kobDraft.art = 'halten'; kobDraft.kg = 80; kobDraft.tage = 30;
+    kobStep = 3; renderKcalOb();
+    app.querySelector('[data-act="kob:next"]').click();
+    if(kobStep !== KOB_LAST) return 'landet auf Schritt ' + kobStep;
+    // und zurueck muss genauso wieder auf 3 fuehren, nicht auf 4
+    app.querySelector('[data-act="kob:back"]').click();
+    return kobStep === 3 ? true : 'zurueck landet auf ' + kobStep;
+  }));
+  t('Die Punkte oben zeigen nur die echten Schritte', () => mitSchluessel(() => {
+    kobFrisch(); kobBauen();
+    kobStep = 0; renderKcalOb();
+    const n = app.querySelectorAll('.ob-dots i').length;
+    return n === 5 ? true : n + ' Punkte statt 5';
+  }));
+
+  /* 🔴 21.09.2026, Karls Ansage: „Mann soll nicht auf weiter klicken können wenn man
+     nicht ausgewählt hat." Drei Schritte haben eine Auswahl — alle drei muessen sperren.
+     ⚠️ Geprueft wird der ZUSTAND des Knopfes, nicht ob ein Klick etwas tut: Karl sieht
+     den Knopf, nicht das Verhalten dahinter. Ein Knopf, der klickbar aussieht und nichts
+     macht, ist schlimmer als ein gesperrter. */
+  t('Ohne Vorhaben ist Weiter gesperrt', () => {
+    kobFrisch(); kobBauen();
+    kobStep = 1; renderKcalOb();
+    const b = app.querySelector('[data-act="kob:next"]');
+    if(!b.disabled) return 'offen ohne Auswahl';
+    app.querySelector('[data-act="kob:art:halten"]').click();
+    return !app.querySelector('[data-act="kob:next"]').disabled ? true : 'bleibt gesperrt nach Auswahl';
+  });
+  t('Ohne Gewicht ist Weiter gesperrt', () => {
+    kobFrisch(); kobBauen();
+    kobDraft.art = 'halten'; kobDraft.kg = '';
+    kobStep = 2; renderKcalOb();
+    const b = app.querySelector('[data-act="kob:next"]');
+    if(!b.disabled) return 'offen ohne Gewicht';
+    // Tippen gibt ihn frei, OHNE dass neu gezeichnet wird (Fokus/Tastatur bleiben).
+    const feld = document.getElementById('kobKg');
+    feld.value = '80'; feld.dispatchEvent(new Event('input'));
+    return !app.querySelector('[data-act="kob:next"]').disabled ? true : 'bleibt gesperrt nach Eingabe';
+  });
+  t('Ohne Zeitraum ist Weiter gesperrt', () => {
+    kobFrisch(); kobBauen();
+    kobDraft.art = 'halten'; kobDraft.kg = 80;
+    kobStep = 3; renderKcalOb();
+    const b = app.querySelector('[data-act="kob:next"]');
+    if(!b.disabled) return 'offen ohne Zeitraum';
+    app.querySelector('[data-act="kob:t:30"]').click();
+    return !app.querySelector('[data-act="kob:next"]').disabled ? true : 'bleibt gesperrt nach Auswahl';
+  });
+  /* ⚠️ Die Gegenrichtung: keine Vorauswahl beim Zeitraum. Stuende dort 30 voreingestellt,
+     waere der Knopf immer offen und die Sperre oben wirkungslos — gruen, aber sinnlos. */
+  t('Beim ersten Mal ist kein Zeitraum vorausgewaehlt', () => {
+    kobFrisch(); kobBauen();
+    if(kobDraft.tage) return 'vorausgewaehlt: ' + kobDraft.tage;
+    kobStep = 3; renderKcalOb();
+    return app.querySelectorAll('[data-act^="kob:t:"].on').length === 0 ? true : 'eine Kachel ist an';
+  });
+  /* 🔴 „Genauso dieses das wäre bis …… sowas ist unnötig ich will wenig Text im Tutorial" */
+  t('Kein „Das waere bis" mehr beim Zeitraum', () => {
+    kobFrisch(); kobBauen();
+    kobDraft.art = 'halten'; kobDraft.kg = 80; kobDraft.tage = 30;
+    kobStep = 3; renderKcalOb();
+    const txt = app.innerHTML.replace(/<[^>]*>/g, ' ');
+    return !/Das wäre bis/.test(txt) ? true : 'steht wieder da';
+  });
+  /* Der Assistent soll KURZ sein. Diese Pruefung haelt eine Obergrenze fest, damit sich
+     nicht ueber Wochen wieder Absaetze ansammeln — jede einzelne Ergaenzung sieht
+     harmlos aus, die Summe ist genau das, was Karl dreimal beanstandet hat. */
+  t('Kein Schritt im Assistenten ist eine Textwand', () => {
+    kobFrisch(); kobBauen();
+    const lang = [];
+    for(const s of [0,1,2,3]){
+      kobStep = s; renderKcalOb();
+      const txt = app.innerHTML.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      if(txt.length > 420) lang.push('Schritt ' + s + ': ' + txt.length + ' Zeichen');
+    }
+    return lang.length === 0 ? true : lang.join(' | ');
+  });
+
+  /* Der Untertitel „Danach richtet sich dein Tagesziel." ist auf dieselbe Ansage weg. */
+  t('Kein Untertitel ueber der Vorhaben-Auswahl', () => {
+    kobFrisch(); kobBauen();
+    kobStep = 1; renderKcalOb();
+    const txt = app.innerHTML.replace(/<[^>]*>/g, ' ');
+    return !/Danach richtet sich dein Tagesziel/.test(txt) ? true : 'Untertitel steht wieder da';
   });
   /* 🔴 „Essen per Foto ändern zu Essen per KI tracken" — an ALLEN Stellen, nicht an einer.
      ⚠️ Das ist die Pruefrichtung, die am 20.09. bei der Schluesselliste gefehlt hat:

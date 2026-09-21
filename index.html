@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.121';
+var APP_FASSUNG = 'v0.122';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -719,6 +719,33 @@ setTimeout(function(){
   .ob-opt.on{border-color:var(--accent)}
   .ob-opt b{display:block; font-size:15px; margin-bottom:4px}
   .ob-opt span{display:block; font-size:12.5px; color:var(--muted); line-height:1.55}
+  /* 🔴 21.09.2026: Kachel ohne zweite Zeile (Karls Ansage, die Erklärtexte unter den
+     Vorhaben sind weg). Ohne das behielte `b` seinen unteren Abstand und der Name säße
+     sichtbar zu weit oben in einer Kachel, die für zwei Zeilen gebaut ist. */
+  .ob-opt.einzeilig b{margin-bottom:0}
+  /* 🔴 21.09.2026, Karls Ansage: „das zurück und weiter soll immer auf der gleichen Höhe
+     bleiben, immer ganz unten." Vorher saß die Leiste direkt unter dem Inhalt — bei vier
+     Zeitraum-Kacheln tiefer als bei einem Eingabefeld, also sprang sie bei jedem Schritt.
+     ⚠️ KEIN `position: fixed`. Genau das hat in gym-log über v0.087, v0.111 und v0.118
+     Tage gekostet: Safari blendet seine eigene Leiste ein und aus und vermisst dabei das
+     Fenster neu, und alles, was unten am Fenster klebt, springt mit. Steht in
+     `app-bau-lehren` als erster Punkt.
+     ➡️ Stattdessen ein Gerüst: die Seite ist mindestens bildschirmhoch, die Karte füllt
+     den Rest, und die Leiste wird mit `margin-top:auto` an deren Unterkante gedrückt.
+     ℹ️ `vh`, nicht `dvh` — für „mindestens bildschirmhoch" ist `dvh` der geschrumpfte
+     Bereich und ergäbe eine Seite, die NICHT scrollt (dieselbe Lehre, zweiter Absatz).
+     Die 172 px sind Kopfabstand, Punkte, Brock und der Platz der unteren Leiste. */
+  /* 🔴 Die Untergrenze ist nicht kosmetisch. Auf einem kurzen Fenster (im Prüfstand sind
+     es 485 px) bleibt nach `100vh - 172px` weniger übrig, als der längste Schritt braucht
+     — dann wächst die Karte nicht, und die Leiste säße wieder direkt unter dem Inhalt.
+     Gemessen: der Zeitraum-Schritt mit vier Kacheln ist der längste. 580 px decken ihn.
+     ⚠️ Einfache Vorgabe in der Zeile davor: ein Browser ohne `max()` überspringt die
+     zweite Zeile und bekommt wenigstens die feste Höhe — dieselbe Vorsichtsregel wie bei
+     `min(env(safe-area-inset-bottom), 26px)` in `app-bau-lehren`. */
+  .kob-seite{display:flex; flex-direction:column; min-height:580px}
+  .kob-seite{min-height:max(580px, calc(100vh - 172px))}
+  .kob-seite > .card{display:flex; flex-direction:column; flex:1}
+  .kob-nav{margin-top:auto; padding-top:16px}
   .ob-sum > div{padding:9px 0; border-bottom:1px solid var(--line); font-size:14px}
   .ob-sum > div:last-child{border-bottom:none}
   .exa{fill:none; stroke:var(--txt); stroke-width:3; stroke-linecap:round; stroke-linejoin:round}
@@ -4445,18 +4472,20 @@ const ZIELE = {
      Rückfallebene, solange kein eigenes kg-Ziel gesetzt ist.
      ➡️ Steht ein kg-Ziel mit Zeitraum, rechnet `kcalAusZielKg()` das Tagesziel daraus —
      aus SEINER Zahl, nicht aus einer, die wir ihm unterschieben. */
-  abnehmen: {name:'Gewicht verlieren', richtung:-1, versatz:-400,
-             satz:'Automatische Kalorienreduktion'},
-  halten:   {name:'Gewicht halten',    richtung:0,  versatz:0,
-             satz:'Kalorien auf Erhaltungsniveau'},
-  zunehmen: {name:'Gewicht zunehmen',  richtung:1,  versatz:300,
-             satz:'Kalorienüberschuss'},
+  /* 🔴 21.09.2026, zweite Runde: `satz` ist ganz weg (Karls Ansage: „Texte löschen schon
+     wieder Zuviel ... Und alle Texte unter Gewicht verlieren, Gewicht halten, zunehmen").
+     ⚠️ Nicht nur aus der Auswahl ausgeblendet, sondern aus dem Datenmodell entfernt — ein
+     Feld, das nur noch an einer versteckten Stelle lebt, kommt in vier Wochen als Text
+     zurück, weil jemand es dort sieht und für gewollt hält. Der Regelkreis benutzt jetzt
+     `name` („Vorhaben: Gewicht verlieren"), was dort ohnehin besser liest. */
+  abnehmen: {name:'Gewicht verlieren', richtung:-1, versatz:-400},
+  halten:   {name:'Gewicht halten',    richtung:0,  versatz:0},
+  zunehmen: {name:'Gewicht zunehmen',  richtung:1,  versatz:300},
   /* Muskelaufbau ist bewusst ein eigenes Vorhaben und nicht „Zunehmen mit Sternchen":
      der Kalorienüberschuss ist kleiner (Fett kommt sonst schneller als Muskel), und
      das Eiweißziel ist hier die Hauptsache. Es gibt `eiweissZiel()` schon — bei diesem
      Vorhaben wird es hervorgehoben statt nur mitgeführt. */
-  muskeln:  {name:'Muskelaufbau',      richtung:1,  versatz:200, protein:true,
-             satz:'Protein-Ziel, Krafttraining zählt mit'}
+  muskeln:  {name:'Muskelaufbau',      richtung:1,  versatz:200, protein:true}
 };
 function zielArt(){ const k=kcalInit(); return ZIELE[k.art] ? k.art : null; }
 
@@ -4759,11 +4788,13 @@ const KOB_SAY = [
    Das Wort dahinter sagt, was der Zeitraum WIRKLICH ist. Es ist bewusst nicht
    motivierend gemeint: „Probe" für eine Woche ist ehrlicher als „Starter-Paket",
    und wer 60 Tage wählt, baut tatsächlich um. */
+/* 🔴 21.09.2026, zweite Runde — Karl: „ich habe dir ja das mit den Klammern gesagt das kann
+   bleiben aber die Texte darunter wieder alle weg." Das Wort bleibt, der Satz ist raus. */
 const KOB_TAGE = [
-  { n:60, wort:'Umbau',   satz:'Lang genug, dass es Gewohnheit wird.' },
-  { n:30, wort:'Routine', satz:'Ein Monat. Der Klassiker.' },
-  { n:14, wort:'Anlauf',  satz:'Zwei Wochen, um reinzukommen.' },
-  { n:7,  wort:'Probe',   satz:'Erstmal gucken, ob es zu dir passt.' },
+  { n:60, wort:'Umbau' },
+  { n:30, wort:'Routine' },
+  { n:14, wort:'Anlauf' },
+  { n:7,  wort:'Probe' },
 ];
 let kobStep = 0, kobDraft = null;
 
@@ -4780,10 +4811,26 @@ let kobErzwingen = false;
 function kobInit(){
   const k = kcalInit(), w = lastWeight();
   kobStep = 0;
-  kobDraft = { art: k.art || null, tage: kcalTage() || 30, kg: w ? w.kg : '',
+  /* 🔴 21.09.2026, Karls Ansage: „Mann soll nicht auf weiter klicken können wenn man
+     nicht ausgewählt hat." Deshalb KEINE Vorauswahl mehr beim Zeitraum (stand auf 30) —
+     eine Vorauswahl macht den Knopf immer klickbar, und die Sperre wäre wirkungslos.
+     ⚠️ Wer schon ein Vorhaben hat, bekommt seinen alten Zeitraum wieder vorausgewählt:
+     bei „Vorhaben ändern" ist das eine Auswahl, keine Voreinstellung. */
+  kobDraft = { art: k.art || null, tage: kcalTage() || null, kg: w ? w.kg : '',
                zielKg: k.zielKg > 0 ? k.zielKg : '' };
 }
 function startKcalOb(){ kobErzwingen = true; kobInit(); view = 'body'; render(); }
+/* 🔴 21.09.2026, Karls Ansage: „Wenn schon ein Schlüssel eingetragen ist kann die tracken
+   per ki raus im Essens Tutorial."
+   ⚠️ Der Schritt wird nicht versteckt, sondern aus der SCHRITTFOLGE genommen — sonst
+   zeigten die Punkte oben weiter sechs Stationen, von denen eine nie kommt, und „Weiter"
+   spränge scheinbar zwei Schritte. Wer den Schlüssel später löscht, bekommt ihn wieder.
+   ℹ️ `altSchluessel()` prüft mit: ein Schlüssel aus der alten Ablage zählt nicht als
+   eingetragen, sonst übersprängen wir den Schritt bei jemandem, der ihn gerade braucht. */
+function kobAktiveSchritte(){
+  const alle = [0, 1, 2, 3, 4, KOB_LAST];
+  return (!!aiKey() && !altSchluessel()) ? alle.filter(s => s !== 4) : alle;
+}
 /* Der Zeitraum in TAGEN. 🔴 Bestandskonten haben `wochen`, neue haben `tage` — hier
    laufen beide zusammen, damit kein laufendes Vorhaben sein Ende verliert.
    `0` heisst „ohne festes Ende"; dann gibt es kein Zieldatum. */
@@ -4807,47 +4854,59 @@ function kcalTagNr(){ const k = kcalInit();
 
 function renderKcalOb(){
   const d = kobDraft;
-  let h = '<div class="ob-dots">' + [0,1,2,3,4,5].map(i => '<i class="' + (i <= kobStep ? 'on' : '') + '"></i>').join('') + '</div>';
+  /* Die Punkte zeigen nur die Schritte, die es in diesem Durchlauf wirklich gibt. */
+  let h = '<div class="kob-seite"><div class="ob-dots">' + kobAktiveSchritte().map(i => '<i class="' + (i <= kobStep ? 'on' : '') + '"></i>').join('') + '</div>';
   h += mascot(KOB_SAY[kobStep], (kobStep === 0 || kobStep === KOB_LAST) ? 'happy' : '',
               kobStep === 0 ? 96 : 72, equippedRank());
 
   if(kobStep === 0){ h += `<div class="card">
     <h2 style="margin-top:0">Essen mitschreiben</h2>
-    <p class="muted" style="font-size:13.5px;line-height:1.65">Der Teil hier rechnet dir aus,
-      wie viel du am Tag essen solltest — und sagt dir hinterher, ob es aufgeht. Dafür brauche
-      ich drei Angaben.</p>
-    <div class="tiny muted" style="line-height:1.9;margin-bottom:4px">
-      1. Was du vorhast<br>2. Was du wiegst<br>3. Wie lange du dranbleiben willst</div>
-    <button class="btn primary" style="margin-top:12px" data-act="kob:next">Los</button>
-    <button class="link" data-act="kob:skip" style="width:100%;text-align:center;margin-top:12px">Überspringen — ich stell das selbst ein</button></div>`; }
+    ${/* 🔴 21.09.2026: Karl dreimal an einem Morgen — „viel text überfordert den user",
+          „Texte löschen schon wieder Zuviel", „ich will wenig Text im Tutorial".
+          Weg ist die Aufzählung 1./2./3.: sie kündigte an, was in den nächsten drei
+          Schritten ohnehin kommt. Der Satz darüber ist auf eine Zeile zusammengezogen. */''}
+    <p class="muted" style="font-size:13.5px;line-height:1.65">Ich rechne aus, wie viel du am
+      Tag essen solltest — und sage dir hinterher, ob es aufgeht.</p>
+    <div class="kob-nav">
+      <button class="btn primary" style="width:100%" data-act="kob:next">Los</button>
+      <button class="link" data-act="kob:skip" style="width:100%;text-align:center;margin-top:12px">Überspringen — ich stell das selbst ein</button></div></div>`; }
 
   /* ⚠️ Der Zusatz „· −400 kcal am Tag" hinter jedem Vorhaben ist am 21.09.2026 weggefallen.
      Er stand da, bevor es ein eigenes kg-Ziel gab — jetzt wäre er schlicht falsch: der
      Versatz kommt aus Zielgewicht und Zeitraum, nicht aus dem Vorhaben. */
+  /* 🔴 21.09.2026, zweite Runde — Karl: „Texte löschen schon wieder Zuviel".
+     Weg sind der Untertitel („Danach richtet sich dein Tagesziel.") UND die Erklärzeile
+     unter jedem Vorhaben. Übrig bleiben vier Namen.
+     ⚠️ `ob-opt` erwartet zwei Zeilen (fett + grau). Ohne die zweite säße der Name nicht
+     mittig, sondern oben in einer zu hohen Kachel — deshalb `einzeilig` dazu, nicht
+     einfach das `<span>` weglassen. */
   else if(kobStep === 1){ h += `<div class="card">
     <h2 style="margin-top:0">Was hast du vor?</h2>
-    <p class="muted tiny" style="margin-bottom:14px">Danach richtet sich dein Tagesziel.</p>
-    ${Object.entries(ZIELE).map(([id, z]) => `<button class="ob-opt ${d.art === id ? 'on' : ''}" data-act="kob:art:${id}">
-      <b>${z.name}</b><span>${z.satz}</span></button>`).join('')}
+    ${Object.entries(ZIELE).map(([id, z]) => `<button class="ob-opt einzeilig ${d.art === id ? 'on' : ''}" data-act="kob:art:${id}">
+      <b>${z.name}</b></button>`).join('')}
     ${kobNav(!d.art)}</div>`; }
 
   /* 🔴 21.09.2026: hier steht jetzt AUCH das Zielgewicht (Karls Ansage). Bei „Gewicht
      halten" wird das Feld weggelassen — ein Zielgewicht, das dem heutigen entspricht,
      ist keine Angabe, sondern eine Pflichtübung. */
+  /* 🔴 21.09.2026: „Am besten morgens, nüchtern" bleibt — das ist echte Auskunft, ohne
+     die die Zahl schwankt. Weg sind die zwei Nebensätze („landet in deiner Gewichtskurve",
+     „Daraus und aus dem Zeitraum rechne ich ..."): beides passiert ohnehin sichtbar.
+     ⚠️ Weiter ist gesperrt, solange kein Gewicht dasteht (Karls Ansage). Das Feld gibt
+     den Knopf per `oninput` frei — ohne das müsste man einmal weiterklicken, um zu
+     merken, dass es nicht geht. */
   else if(kobStep === 2){ const braucht = d.art && ZIELE[d.art] && ZIELE[d.art].richtung !== 0;
+    const kgDa = +String(d.kg).replace(',', '.') > 0;
     h += `<div class="card">
     <h2 style="margin-top:0">${braucht ? 'Wo stehst du, wo willst du hin?' : 'Was wiegst du?'}</h2>
-    <p class="muted tiny" style="margin-bottom:14px">Am besten morgens, nüchtern. Der Wert landet
-      gleich in deiner Gewichtskurve.</p>
+    <p class="muted tiny" style="margin-bottom:14px">Am besten morgens, nüchtern.</p>
     <div class="field" style="margin:0"><label>Gewicht heute (kg)</label>
       <input id="kobKg" type="number" inputmode="decimal" step="0.1" min="20" max="500"
-             value="${d.kg || ''}" placeholder="z. B. 78,5"></div>
+             value="${d.kg || ''}" placeholder="z. B. 78,5" oninput="kobKgGeaendert()"></div>
     ${braucht ? `<div class="field" style="margin:12px 0 0"><label>Zielgewicht (kg)</label>
       <input id="kobZielKg" type="number" inputmode="decimal" step="0.1" min="20" max="500"
-             value="${d.zielKg || ''}" placeholder="${d.kg ? fmtKg(+String(d.kg).replace(',','.') + ZIELE[d.art].richtung * 5) : 'z. B. 73,5'}"></div>
-      <div class="tiny muted" style="margin-top:8px">Daraus und aus dem Zeitraum rechne ich
-        dein Tagesziel aus.</div>` : ''}
-    ${kobNav(false)}</div>`; }
+             value="${d.zielKg || ''}" placeholder="${d.kg ? fmtKg(+String(d.kg).replace(',','.') + ZIELE[d.art].richtung * 5) : 'z. B. 73,5'}"></div>` : ''}
+    ${kobNav(!kgDa)}</div>`; }
 
   /* 🔴 21.09.2026, Karls Ansage: vier Kacheln UNTEREINANDER, in Tagen statt Wochen.
      Vorher waren es vier Chips nebeneinander („4 Wo", „8 Wo", …) — nebeneinander passt
@@ -4855,16 +4914,20 @@ function renderKcalOb(){
      und einer Entscheidung.
      ⚠️ Der Erklärsatz darüber („Ein Zeitraum macht aus einem Vorsatz eine Ansage mit
      Datum") ist auf Karls Ansage weg — viel Text überfordert. */
+  /* 🔴 21.09.2026, zweite Runde: „Ohne festes Ende ganz raus" (Karls Ansage) und die
+     Sätze unter den vier Kacheln ebenfalls. Übrig bleiben vier Zeilen mit Klammer-Wort.
+     ⚠️ `tage: 0` bleibt im Datenmodell gültig — Bestandskonten haben es, und `kcalTage()`
+     liefert dann 0, was den Fortschrittsblock korrekt weglässt. Nur WÄHLEN kann man es
+     nicht mehr. Ein Wert aus der Ablage zu entfernen, den man nicht mehr setzen kann,
+     hätte laufenden Vorhaben ein Ende angedichtet, das nie vereinbart war. */
   else if(kobStep === 3){ h += `<div class="card">
     <h2 style="margin-top:0">Wie lange bleibst du dran?</h2>
-    ${KOB_TAGE.map(t => `<button class="ob-opt ${d.tage === t.n ? 'on' : ''}" style="margin-bottom:8px" data-act="kob:t:${t.n}">
-      <b>${t.n} Tage am Stück <span style="color:var(--muted);font-weight:600">(${t.wort})</span></b>
-      <span>${t.satz}</span></button>`).join('')}
-    <button class="ob-opt ${d.tage === 0 ? 'on' : ''}" data-act="kob:t:0">
-      <b>Ohne festes Ende</b><span>Läuft einfach mit. Dann gibt es kein Zieldatum.</span></button>
-    ${d.tage > 0 ? `<div class="tiny muted" style="margin-top:12px">Das wäre bis
-      <b style="color:var(--txt)">${fmtDate(Date.now() + d.tage * 864e5)}</b>.</div>` : ''}
-    ${kobNav(false)}</div>`; }
+    ${KOB_TAGE.map(t => `<button class="ob-opt einzeilig ${d.tage === t.n ? 'on' : ''}" style="margin-bottom:8px" data-act="kob:t:${t.n}">
+      <b>${t.n} Tage am Stück <span style="color:var(--muted);font-weight:600">(${t.wort})</span></b></button>`).join('')}
+    ${/* 🔴 21.09.2026: „Das wäre bis …" ist raus (Karl: „sowas ist unnötig ich will wenig
+          Text im Tutorial"). Das Zieldatum steht nach dem Einrichten ohnehin im
+          Ernährungs-Teil, dort wo man es braucht. */''}
+    ${kobNav(!(d.tage > 0))}</div>`; }
 
   /* 🔴 21.09.2026, drei Ansagen von Karl in diesem einen Schritt:
      · „Essen per Foto ändern zu Essen per KI tracken — hört sich einfach besser an
@@ -4916,16 +4979,27 @@ function renderKcalOb(){
       Ich rechne mit ${ziel} kcal — nimm dir mehr Zeit oder ein näheres Ziel.</div>` : ''}
     ${!ziel ? `<div class="tiny" style="color:var(--danger);margin-top:12px">Ohne Gewicht kann ich kein
       Tagesziel ausrechnen — geh einen Schritt zurück.</div>` : ''}
-    <button class="btn primary" style="margin-top:14px" data-act="kob:finish" ${ziel ? '' : 'disabled'}>Fertig</button>
-    <button class="link" data-act="kob:back" style="width:100%;text-align:center;margin-top:10px">Zurück</button></div>`; }
+    <div class="kob-nav">
+      <button class="btn primary" style="width:100%" data-act="kob:finish" ${ziel ? '' : 'disabled'}>Fertig</button>
+      <button class="link" data-act="kob:back" style="width:100%;text-align:center;margin-top:10px">Zurück</button></div></div>`; }
 
-  app.innerHTML = h;
+  app.innerHTML = h + '</div>';
 }
 /* `weiterText` (21.09.2026): der Weiter-Knopf heißt auf der Schlüssel-Seite „Überspringen",
    wenn keiner hinterlegt ist. Karls Ansage — und es ist derselbe Knopf, nicht ein zweiter:
    ein extra „Überspringen" daneben hätte zwei Wege nach vorn gezeigt, wo es einen gibt. */
+/* 🔴 21.09.2026: gibt den Weiter-Knopf frei, sobald ein Gewicht dasteht (Karls Ansage).
+   ⚠️ Bewusst KEIN render() — das baute das Eingabefeld neu und der Fokus (samt Tastatur
+   am Handy) wäre nach jedem Tastendruck weg. Hier wird nur ein Attribut umgesetzt. */
+function kobKgGeaendert(){
+  const el = document.getElementById('kobKg');
+  const btn = document.querySelector('[data-act="kob:next"]');
+  if(!el || !btn) return;
+  if(kobDraft) kobDraft.kg = el.value;
+  btn.disabled = !(+String(el.value).replace(',', '.') > 0);
+}
 function kobNav(sperre, weiterText){
-  return `<div class="row" style="gap:8px;margin-top:16px">
+  return `<div class="row kob-nav" style="gap:8px">
     <button class="btn" style="flex:1" data-act="kob:back">Zurück</button>
     <button class="btn primary" style="flex:2" data-act="kob:next" ${sperre ? 'disabled' : ''}>${weiterText || 'Weiter'}</button></div>`;
 }
@@ -5102,14 +5176,14 @@ function renderBody(){
       <div class="tiny muted" style="margin-top:6px">
         ${fmtKg(rk.trend.von)} → ${fmtKg(rk.trend.bis)} kg, also
         <b style="color:var(--txt)">${rk.ist>0?'+':''}${fmtKg(rk.ist)} kg pro Woche</b>
-        bei Ø ${rk.schnitt.schnitt} kcal. Vorhaben: ${ZIELE[rk.art].satz}. <b style="color:var(--txt)">Nichts ändern.</b></div>`;
+        bei Ø ${rk.schnitt.schnitt} kcal. Vorhaben: ${ZIELE[rk.art].name}. <b style="color:var(--txt)">Nichts ändern.</b></div>`;
     else
       inhalt=`<div class="row between"><span><b>${rk.korrektur>0?'Zu langsam':'Zu schnell'}</b></span>
         <span class="tiny muted">${rk.trend.tage} Tage</span></div>
       <div class="tiny muted" style="margin-top:6px">
         ${fmtKg(rk.trend.von)} → ${fmtKg(rk.trend.bis)} kg, also
         <b style="color:var(--txt)">${rk.ist>0?'+':''}${fmtKg(rk.ist)} kg pro Woche</b>
-        bei Ø ${rk.schnitt.schnitt} kcal. Gewollt war ${ZIELE[rk.art].satz}.</div>
+        bei Ø ${rk.schnitt.schnitt} kcal. Vorhaben: ${ZIELE[rk.art].name}.</div>
       <div style="margin-top:8px">${ic('pfeil')} <b>${rk.neuesZiel} kcal</b> am Tag würden besser passen
         <span class="muted">(${rk.korrektur>0?'−':'+'}${Math.abs(rk.korrektur)})</span></div>
       <button class="btn" style="margin-top:8px" data-act="kcalziel-uebernehmen">Auf ${rk.neuesZiel} kcal umstellen</button>`;
@@ -9725,10 +9799,14 @@ document.addEventListener('click',ev=>{
     }
     else toast('Das sieht nicht nach Schritten aus'); }
   else if(a==='kob:neu'){ startKcalOb(); }
+  /* 🔴 21.09.2026: vor- und zurueck laufen ueber `kobAktiveSchritte()`, nicht mehr ueber
+     +1/-1. Der Schluessel-Schritt faellt weg, wenn schon einer hinterlegt ist. */
   else if(a==='kob:next'){ if(kobStep===2) kobMerkeKg();
-    kobStep=Math.min(KOB_LAST,kobStep+1); renderKcalOb(); }
+    const s=kobAktiveSchritte(), i=s.indexOf(kobStep);
+    kobStep = s[Math.min(s.length-1, (i<0?0:i)+1)]; renderKcalOb(); }
   else if(a==='kob:back'){ if(kobStep===2) kobMerkeKg();
-    if(kobStep>0){ kobStep--; renderKcalOb(); } }
+    const s=kobAktiveSchritte(), i=s.indexOf(kobStep);
+    if(i>0){ kobStep = s[i-1]; renderKcalOb(); } }
   // ⚠️ Ueberspringen setzt `setup`, sonst kaeme der Assistent beim naechsten Oeffnen wieder —
   // und „ich stell das selbst ein" waere eine Luege.
   else if(a==='kob:skip'){ kcalInit().setup=true; save(); kobDraft=null; kobErzwingen=false; render();
