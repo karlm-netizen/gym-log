@@ -8657,22 +8657,66 @@ window.addEventListener('error', e => {
   /* ⚠️ „immer ganz unten" heisst: sie sitzt am Fuss der Karte, nicht direkt unter dem
      Inhalt. Bei einem kurzen Schritt (nur ein Eingabefeld) muss Luft dazwischen sein --
      sonst greift `margin-top:auto` nicht, und die Gleichheit oben waere Zufall. */
-  t('Die Leiste sitzt unten, nicht direkt am Inhalt', () => {
+  /* 🔴 21.09.2026, Karls Ansage: „die Weiter / Zurück / überspringen button etc sollen
+     nicht in der selben kachel wie der text sein."
+     ⚠️ Geprueft wird die ELTERNSCHAFT im DOM, nicht der Abstand: eine Leiste kann weit
+     unten stehen und trotzdem in der Karte sitzen. Genau das war sie vorher. */
+  t('Die Leiste steht nicht in der Textkachel', () => {
     kobFrisch(); kobBauen();
-    kobDraft.art = 'halten'; kobDraft.kg = 80;
-    kobStep = 2; renderKcalOb();
-    const nav = app.querySelector('.kob-nav');
-    const feld = app.querySelector('#kobKg');
-    if(!nav || !feld) return 'Leiste oder Feld fehlt';
-    const abstand = nav.getBoundingClientRect().top - feld.getBoundingClientRect().bottom;
-    if(abstand > 40) return true;
-    /* ⚠️ Bei Rot lohnt die Lage dazu: beim ersten Anlauf war die Ursache nicht das
-       Geruest, sondern das kurze Pruef-Fenster (485 px statt 844). Ohne diese Zahlen
-       haette man am `margin-top:auto` gesucht, das voellig in Ordnung war. */
+    kobDraft.art = 'halten'; kobDraft.kg = 80; kobDraft.tage = 30;
+    const drin = [];
+    for(const s of [0, 1, 2, 3, 4, KOB_LAST]){
+      kobStep = s; renderKcalOb();
+      const nav = app.querySelector('.kob-nav');
+      if(!nav) return 'Schritt ' + s + ' hat keine Leiste';
+      if(nav.closest('.card')) drin.push(s);
+    }
+    return drin.length === 0 ? true : 'Schritt ' + drin.join(',') + ' hat sie in der Karte';
+  });
+  t('Trainings-Assistent: Leiste auch nicht in der Kachel', () => {
+    startOnboard();
+    obDraft.erfahrung = 'mittel'; obDraft.days = [1,3,5];
+    const drin = [];
+    for(const s of [0, 1, 2, 3, 4]){
+      obStep = s; renderOnboard();
+      const nav = app.querySelector('.kob-nav');
+      if(nav && nav.closest('.card')) drin.push(s);
+    }
+    return drin.length === 0 ? true : 'Schritt ' + drin.join(',') + ' hat sie in der Karte';
+  });
+  /* 🔴 „Die Tutorials sollen nicht scrollbar sein die sollen fest sein."
+     ⚠️ Gemessen wird die SEITE: sie hat eine feste Hoehe und schneidet ab. Der Inhalt
+     darin darf scrollen -- sonst waeren auf einem kurzen Geraet Knoepfe unerreichbar. */
+  t('Die Assistenten-Seite steht fest', () => {
+    kobFrisch(); kobBauen();
+    kobDraft.art = 'halten'; kobDraft.kg = 80; kobDraft.tage = 30;
+    kobStep = 3; renderKcalOb();
     const seite = app.querySelector('.kob-seite');
-    return 'nur ' + Math.round(abstand) + ' px Luft (Seite '
-      + (seite ? Math.round(seite.getBoundingClientRect().height) : '?') + ' px, Fenster '
-      + window.innerHeight + ' px, margin-top ' + getComputedStyle(nav).marginTop + ')';
+    const cs = getComputedStyle(seite);
+    if(cs.overflow !== 'hidden' && cs.overflowY !== 'hidden') return 'overflow: ' + cs.overflow;
+    if(!/^\d/.test(cs.height)) return 'keine feste Hoehe: ' + cs.height;
+    // Die Seite selbst darf nicht ueberlaufen.
+    return seite.scrollHeight <= seite.clientHeight + 1 ? true
+      : 'Seite laeuft ueber: ' + seite.scrollHeight + ' > ' + seite.clientHeight;
+  });
+  t('Der Inhalt darf scrollen, die Leiste nicht', () => {
+    kobFrisch(); kobBauen();
+    kobDraft.art = 'halten'; kobDraft.kg = 80; kobDraft.tage = 30;
+    kobStep = 3; renderKcalOb();
+    const inh = app.querySelector('.kob-inhalt'), nav = app.querySelector('.kob-nav');
+    if(!inh) return 'kein Inhaltsbereich';
+    if(getComputedStyle(inh).overflowY !== 'auto') return 'Inhalt scrollt nicht: ' + getComputedStyle(inh).overflowY;
+    return !inh.contains(nav) ? true : 'die Leiste liegt im scrollbaren Teil';
+  });
+  /* 🔴 „Text entfernen bei Trainings-Assistent: Zwei Wege — ... Der Text unter Bau ihn
+     für mich und Ich leg ihn selbst an." */
+  t('Trainings-Assistent Schritt 0 ohne Erklaertexte', () => {
+    startOnboard(); obStep = 0; renderOnboard();
+    const txt = app.innerHTML.replace(/<[^>]*>/g, ' ');
+    if(/Zwei Wege/.test(txt)) return 'der Zwei-Wege-Satz steht noch da';
+    const opt = [...app.querySelectorAll('[data-act="ob:next"], [data-act="ob:manual"]')];
+    const mitText = opt.filter(b => b.querySelector('span'));
+    return mitText.length === 0 ? true : mitText.length + ' mit Erklaerzeile';
   });
   /* 🔴 Und die Lehre, die das hier ueberhaupt erst zur eigenen Pruefung macht: NICHT fixed.
      Die untere Leiste hat in gym-log ueber v0.087, v0.111 und v0.118 Tage gekostet. */

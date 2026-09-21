@@ -4,6 +4,52 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-09-21
 
+### v0.124 — Die Assistenten stehen fest, die Knöpfe haben ihre eigene Kachel
+
+**Karls Ansage:** *„Die Tutorials sollen nicht scrollbar sein die sollen fest sein und die
+Weiter / Zurück / überspringen button etc sollen nicht in der selben kachel wie der text sein."*
+
+#### 📐 Fester Rahmen
+
+Der Assistent hat jetzt eine **feste Höhe** statt einer Mindesthöhe — die Seite selbst scrollt
+nicht mehr. `100dvh` abzüglich unterer Leiste und Kopfabstand.
+
+⚠️ **`dvh` ist hier richtig**, anders als vorher: das ist ein festes Gerüst, kein „mindestens
+bildschirmhoch". Für Letzteres wäre `vh` richtig — steht so in `app-bau-lehren`.
+
+ℹ️ **Der Inhalt darf intern scrollen**, wenn ein Schritt auf einem kurzen Gerät nicht passt.
+Sonst wären dort Knöpfe unerreichbar. Auf normalen Geräten sieht man davon nichts —
+*„nicht scrollbar"* heißt: die Seite steht fest, nicht dass Inhalt verschwinden darf.
+
+#### 🧩 Die Leiste ist raus aus der Textkachel
+
+Zurück/Weiter/Überspringen standen **in** der Karte. Jetzt stehen sie darunter, als eigenes
+Element. Gilt für beide Assistenten, alle Schritte.
+
+#### ✂️ Trainings-Assistent, Schritt 0
+
+Weg: *„Zwei Wege — bei beiden kannst du hinterher alles ändern."* und die Erklärzeilen unter
+**„Bau ihn für mich"** und **„Ich leg selbst an"**. Übrig bleiben die zwei Namen.
+
+#### 🔴 Zwei eigene Fehler, beide von Prüfungen gefangen
+
+1. **Der Umbau lief über einen Regex**, der `${kobNav(...)}` aus der Karte ziehen sollte.
+   Bei **`kobNav(!(d.tage > 0))`** griff er nicht — verschachtelte Klammern, `[^)]*` stoppt
+   an der ersten. **Acht von neun Stellen waren umgebaut, eine nicht**, und genau die stand
+   dann als einzige falsch. Die Höhen-Prüfung hat es gemeldet (Schritt 3 sprang um 190 px).
+2. **`kobSchluss()` suchte die Leiste über `class="kob-nav"`** — sie heißt aber mal
+   `class="row kob-nav"`. Dadurch landete sie **im scrollbaren Teil**, wo sie mitwandert.
+   ➡️ Jetzt ein eindeutiger Marker im HTML statt einer Textsuche.
+
+💡 **Beide Male dieselbe Bauform:** eine Änderung, die an *fast* allen Stellen greift, sieht
+aus wie eine, die überall greift. **Nur die Messung kennt den Unterschied.**
+
+#### 🧪 Prüfstand: 1.191 → 1.195
+
+Fünf neue Prüfungen, eine ersetzt. **Die entscheidende prüft die Elternschaft im DOM**, nicht
+den Abstand: eine Leiste kann weit unten stehen und trotzdem in der Karte sitzen — genau das
+war sie vorher. **7 Gegenproben, alle rot wie gewollt.**
+
 ### v0.123 — Der gelbe Strich ist weg, und alle Assistenten stehen gleich
 
 #### 🟡 „Da ist oben bei Frühstück ein gelber dünner Strich"

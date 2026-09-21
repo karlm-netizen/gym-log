@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.123';
+var APP_FASSUNG = 'v0.124';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -750,10 +750,24 @@ setTimeout(function(){
      ⚠️ Einfache Vorgabe in der Zeile davor: ein Browser ohne `max()` überspringt die
      zweite Zeile und bekommt wenigstens die feste Höhe — dieselbe Vorsichtsregel wie bei
      `min(env(safe-area-inset-bottom), 26px)` in `app-bau-lehren`. */
-  .kob-seite{display:flex; flex-direction:column; min-height:660px}
-  .kob-seite{min-height:max(660px, calc(100vh - 172px))}
-  .kob-seite > .card{display:flex; flex-direction:column; flex:1}
-  .kob-nav{margin-top:auto; padding-top:16px}
+  /* 🔴 21.09.2026, Karls Ansage: „Die Tutorials sollen nicht scrollbar sein die sollen
+     fest sein und die Weiter / Zurück / überspringen button etc sollen nicht in der selben
+     kachel wie der text sein."
+     ➡️ Zwei Änderungen in einer: der Assistent bekommt eine FESTE Höhe statt einer
+     Mindesthöhe (die Seite selbst scrollt nicht mehr), und die Leiste steht als eigenes
+     Element unter der Karte statt darin.
+     ⚠️ `dvh` hier richtig — das ist ein festes Gerüst, kein „mindestens bildschirmhoch".
+     Für Letzteres wäre `vh` richtig, siehe `app-bau-lehren`. Einfache Vorgabe in der
+     Zeile davor für Browser ohne `dvh`.
+     ⚠️ Abgezogen werden die untere Leiste der App (94 px Body-Polster) und der Kopfabstand.
+     ⚠️ Der Inhalt darf intern scrollen (`.kob-inhalt`), wenn ein Schritt auf einem kurzen
+     Gerät nicht passt — sonst wären Knöpfe unerreichbar. Auf normalen Geräten sieht man
+     davon nichts. „Nicht scrollbar" heißt: die SEITE steht fest, nicht dass Inhalt
+     verschwinden darf. */
+  .kob-seite{display:flex; flex-direction:column; height:calc(100vh - 130px); overflow:hidden}
+  .kob-seite{height:calc(100dvh - 94px - env(safe-area-inset-top) - 18px)}
+  .kob-inhalt{flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain}
+  .kob-nav{flex:0 0 auto; padding-top:12px}
   .ob-sum > div{padding:9px 0; border-bottom:1px solid var(--line); font-size:14px}
   .ob-sum > div:last-child{border-bottom:none}
   .exa{fill:none; stroke:var(--txt); stroke-width:3; stroke-linecap:round; stroke-linejoin:round}
@@ -3389,17 +3403,16 @@ function renderOnboard(){
   // Der Assistent ist NICHT das Tutorial — hier zeigt Brock den getragenen Rang wie ueberall sonst.
   // Beim ersten Konto ist das Couch-Potato, was zum Einstieg passt.
   h+=mascot(OB_SAY[obStep], (obStep===0||obStep===last)?'happy':'', obStep===0?96:72, equippedRank());
+  h+='<div class="kob-inhalt">';
 
   if(obStep===0){ h+=`<div class="card">
+    ${/* 🔴 21.09.2026, Karls Ansage: „Text entfernen bei Trainings-Assistent: Zwei Wege —
+          bei beiden kannst du hinterher alles ändern. Der Text unter Bau ihn für mich und
+          Ich leg ihn selbst an." Alle drei weg, übrig bleiben die zwei Namen. */''}
     <h2 style="margin-top:0">Wie willst du anfangen?</h2>
-    <p class="muted" style="font-size:13.5px;line-height:1.65">Zwei Wege — bei beiden kannst du hinterher alles ändern.</p>
-    <button class="ob-opt" data-act="ob:next">
-      <b>Bau ihn für mich</b><span>Vier kurze Fragen zu Tagen, Volumen und Lieblingsübungen. Danach stehen deine
-      Trainings fertig da, mit Übungen, Sätzen und Wiederholungen.</span></button>
-    <button class="ob-opt" data-act="ob:manual">
-      <b>Ich leg selbst an</b><span>Du gehst direkt zu den Trainings und stellst sie dir selbst zusammen —
-      die Bibliothek mit 80 Übungen hilft dabei.</span></button>
-    ${obCanLeave()?`<button class="link" data-act="ob:cancel" style="width:100%;text-align:center;margin-top:12px">Abbrechen — alles so lassen</button>`:''}</div>`; }
+    <button class="ob-opt einzeilig" data-act="ob:next"><b>Bau ihn für mich</b></button>
+    <button class="ob-opt einzeilig" data-act="ob:manual"><b>Ich leg selbst an</b></button>
+    </div>${KOB_MARKE}${obCanLeave()?`<div class="kob-nav"><button class="link" data-act="ob:cancel" style="width:100%;text-align:center">Abbrechen — alles so lassen</button></div>`:''}`; }
 
   /* Neu (02.09.2026, Karls Ansage): "sollte immer ein ganzkoerper training und nur 3
      trainingstage drinne haben" fuer die ersten Monate — aber aenderbar, nicht erzwungen.
@@ -3414,21 +3427,21 @@ function renderOnboard(){
       <b>Fortgeschritten</b><span>1 bis 3 Jahre.</span></button>
     <button class="ob-opt ${d.erfahrung==='erfahren'?'on':''}" data-act="ob:erf:erfahren">
       <b>Erfahren</b><span>Länger als 3 Jahre.</span></button>
-    ${obNav(!d.erfahrung)}</div>`; }
+    </div>${obNav(!d.erfahrung)}`; }
 
   else if(obStep===2){ h+=`<div class="card">
     <h2 style="margin-top:0">Wie oft pro Woche?</h2>
     <p class="muted tiny" style="margin-bottom:14px">Danach richtet sich, wie dein Split aufgeteilt wird.</p>
     <div class="ob-grid">${[2,3,4,5,6].map(n=>`<button class="chip big ${d.n===n?'on':''}" data-act="ob:n:${n}">${n}×</button>`).join('')}</div>
     <div class="tiny muted" style="margin-top:12px">${splitHint(d.n, d.erfahrung==='anfaenger')}</div>
-    ${obNav()}</div>`; }
+    </div>${obNav()}`; }
 
   else if(obStep===3){ h+=`<div class="card">
     <h2 style="margin-top:0">An welchen Tagen?</h2>
     <p class="muted tiny" style="margin-bottom:14px">Ausgewählt = Training, Rest = Ruhetag. Du hast ${d.days.length} von ${d.n} gewählt.</p>
     <div class="ob-days">${DAYNAME.map((n,i)=>`<button class="chip ${d.days.includes(i)?'on':''}" data-act="ob:day:${i}">${n}</button>`).join('')}</div>
     ${d.days.length===0?`<div class="tiny" style="color:var(--danger);margin-top:12px">Wähle mindestens einen Tag.</div>`:''}
-    ${obNav(d.days.length===0)}</div>`; }
+    </div>${obNav(d.days.length===0)}`; }
 
   else if(obStep===4){ h+=`<div class="card">
     <h2 style="margin-top:0">Wie trainierst du lieber?</h2>
@@ -3442,7 +3455,7 @@ function renderOnboard(){
       Er zählt nicht für Volumen, XP oder die Steigerung.</span></button>
     <button class="ob-opt ${d.warm?'':'on'}" data-act="ob:warm:0">
       <b>Ohne</b><span>Direkt mit dem Arbeitsgewicht anfangen.</span></button>
-    ${obNav()}</div>`; }
+    </div>${obNav()}`; }
 
   else if(obStep===5){ h+=`<div class="card">
     <h2 style="margin-top:0">Lieblingsübungen?</h2>
@@ -3450,7 +3463,7 @@ function renderOnboard(){
     ${Object.keys(FAVPOOL).map(g=>`<div style="margin-top:14px">
       <div class="tiny muted" style="margin-bottom:7px">${FAVLABEL[g]}</div>
       <div class="ob-favs">${FAVPOOL[g].map(n=>`<button class="chip ${d.favs.includes(n)?'on':''}" data-fav="${esc(n)}">${esc(n)}</button>`).join('')}</div></div>`).join('')}
-    ${obNav()}</div>`; }
+    </div>${obNav()}`; }
 
   else { const days=d.days.slice().sort((a,b)=>a-b);
     const split=splitFuer(days.length, d.erfahrung==='anfaenger');
@@ -3465,14 +3478,14 @@ function renderOnboard(){
       <input id="obName" placeholder="z.B. PPL 3er" value="${esc(d.name||'')}"></div>
     <div class="tiny muted" style="margin-top:10px">Kommt als <b>neuer</b> Trainingsplan dazu und wird
       dein aktueller. Bestehende Pläne bleiben erhalten.</div>
-    <div class="kob-nav">
+    </div>${KOB_MARKE}<div class="kob-nav">
       <button class="btn primary" style="width:100%" data-act="ob:finish">Plan erstellen</button>
       <button class="link" data-act="ob:back" style="width:100%;text-align:center;margin-top:12px">Zurück</button>
-      ${obCanLeave()?`<button class="link" data-act="ob:cancel" style="width:100%;text-align:center;margin-top:8px">Abbrechen — alles so lassen</button>`:''}</div></div>`; }
+      ${obCanLeave()?`<button class="link" data-act="ob:cancel" style="width:100%;text-align:center;margin-top:8px">Abbrechen — alles so lassen</button>`:''}</div>`; }
 
-  app.innerHTML=h+'</div>';
+  app.innerHTML=kobSchluss(h);
 }
-function obNav(disabled){ return `<div class="kob-nav"><div class="fab-row">
+function obNav(disabled){ return KOB_MARKE + `<div class="kob-nav"><div class="fab-row">
   <button class="btn ghost" data-act="ob:back">Zurück</button>
   <button class="btn primary" data-act="ob:next" ${disabled?'disabled style="opacity:.45"':''}>Weiter</button></div>
   ${obCanLeave()?`<button class="link" data-act="ob:cancel" style="width:100%;text-align:center;margin-top:12px">Abbrechen — alles so lassen</button>`:''}</div>`; }
@@ -4870,6 +4883,9 @@ function renderKcalOb(){
   let h = '<div class="kob-seite"><div class="ob-dots">' + kobAktiveSchritte().map(i => '<i class="' + (i <= kobStep ? 'on' : '') + '"></i>').join('') + '</div>';
   h += mascot(KOB_SAY[kobStep], (kobStep === 0 || kobStep === KOB_LAST) ? 'happy' : '',
               kobStep === 0 ? 96 : 72, equippedRank());
+  /* Alles ab hier bis zur Leiste steht im scrollbaren Teil. Die Leiste selbst wird in
+     `kobSchluss()` angehängt und bleibt damit ausserhalb. */
+  h += '<div class="kob-inhalt">';
 
   if(kobStep === 0){ h += `<div class="card">
     <h2 style="margin-top:0">Essen mitschreiben</h2>
@@ -4879,9 +4895,9 @@ function renderKcalOb(){
           Schritten ohnehin kommt. Der Satz darüber ist auf eine Zeile zusammengezogen. */''}
     <p class="muted" style="font-size:13.5px;line-height:1.65">Ich rechne aus, wie viel du am
       Tag essen solltest — und sage dir hinterher, ob es aufgeht.</p>
-    <div class="kob-nav">
+    </div>${KOB_MARKE}<div class="kob-nav">
       <button class="btn primary" style="width:100%" data-act="kob:next">Los</button>
-      <button class="link" data-act="kob:skip" style="width:100%;text-align:center;margin-top:12px">Überspringen — ich stell das selbst ein</button></div></div>`; }
+      <button class="link" data-act="kob:skip" style="width:100%;text-align:center;margin-top:12px">Überspringen — ich stell das selbst ein</button></div>`; }
 
   /* ⚠️ Der Zusatz „· −400 kcal am Tag" hinter jedem Vorhaben ist am 21.09.2026 weggefallen.
      Er stand da, bevor es ein eigenes kg-Ziel gab — jetzt wäre er schlicht falsch: der
@@ -4896,7 +4912,7 @@ function renderKcalOb(){
     <h2 style="margin-top:0">Was hast du vor?</h2>
     ${Object.entries(ZIELE).map(([id, z]) => `<button class="ob-opt einzeilig ${d.art === id ? 'on' : ''}" data-act="kob:art:${id}">
       <b>${z.name}</b></button>`).join('')}
-    ${kobNav(!d.art)}</div>`; }
+    </div>${kobNav(!d.art)}`; }
 
   /* 🔴 21.09.2026: hier steht jetzt AUCH das Zielgewicht (Karls Ansage). Bei „Gewicht
      halten" wird das Feld weggelassen — ein Zielgewicht, das dem heutigen entspricht,
@@ -4918,7 +4934,7 @@ function renderKcalOb(){
     ${braucht ? `<div class="field" style="margin:12px 0 0"><label>Zielgewicht (kg)</label>
       <input id="kobZielKg" type="number" inputmode="decimal" step="0.1" min="20" max="500"
              value="${d.zielKg || ''}" placeholder="${d.kg ? fmtKg(+String(d.kg).replace(',','.') + ZIELE[d.art].richtung * 5) : 'z. B. 73,5'}"></div>` : ''}
-    ${kobNav(!kgDa)}</div>`; }
+    </div>${kobNav(!kgDa)}`; }
 
   /* 🔴 21.09.2026, Karls Ansage: vier Kacheln UNTEREINANDER, in Tagen statt Wochen.
      Vorher waren es vier Chips nebeneinander („4 Wo", „8 Wo", …) — nebeneinander passt
@@ -4939,7 +4955,7 @@ function renderKcalOb(){
     ${/* 🔴 21.09.2026: „Das wäre bis …" ist raus (Karl: „sowas ist unnötig ich will wenig
           Text im Tutorial"). Das Zieldatum steht nach dem Einrichten ohnehin im
           Ernährungs-Teil, dort wo man es braucht. */''}
-    ${kobNav(!(d.tage > 0))}</div>`; }
+    </div>${kobNav(!(d.tage > 0))}`; }
 
   /* 🔴 21.09.2026, drei Ansagen von Karl in diesem einen Schritt:
      · „Essen per Foto ändern zu Essen per KI tracken — hört sich einfach besser an
@@ -4963,7 +4979,7 @@ function renderKcalOb(){
     <div class="tiny muted" style="margin-top:10px;line-height:1.6">Kostenlos mit Google-Konto.
       <b style="color:var(--txt)">Alles andere geht auch ohne</b> — und nachtragen kannst du
       ihn jederzeit in den Einstellungen.</div>
-    ${kobNav(false, hat ? 'Weiter' : 'Überspringen')}</div>`; }
+    </div>${kobNav(false, hat ? 'Weiter' : 'Überspringen')}`; }
 
   else { const z = ZIELE[d.art], kg = +String(d.kg).replace(',', '.') || 0;
     const zkg = +String(d.zielKg).replace(',', '.') || 0;
@@ -4991,11 +5007,25 @@ function renderKcalOb(){
       Ich rechne mit ${ziel} kcal — nimm dir mehr Zeit oder ein näheres Ziel.</div>` : ''}
     ${!ziel ? `<div class="tiny" style="color:var(--danger);margin-top:12px">Ohne Gewicht kann ich kein
       Tagesziel ausrechnen — geh einen Schritt zurück.</div>` : ''}
-    <div class="kob-nav">
+    </div>${KOB_MARKE}<div class="kob-nav">
       <button class="btn primary" style="width:100%" data-act="kob:finish" ${ziel ? '' : 'disabled'}>Fertig</button>
-      <button class="link" data-act="kob:back" style="width:100%;text-align:center;margin-top:10px">Zurück</button></div></div>`; }
+      <button class="link" data-act="kob:back" style="width:100%;text-align:center;margin-top:10px">Zurück</button></div>`; }
 
-  app.innerHTML = h + '</div>';
+  app.innerHTML = kobSchluss(h);
+}
+/* Schliesst den Inhaltsbereich VOR der Leiste. 🔴 Die Leiste darf nicht im scrollbaren
+   Teil liegen, sonst wandert sie beim Scrollen mit und steht nicht mehr fest.
+   ⚠️ Die Schritte hängen ihre Leiste direkt an `h` an; hier wird der Inhaltsbereich
+   davor zugemacht — an der Stelle, an der die erste `kob-nav` beginnt. */
+const KOB_MARKE = '<!--nav-->';
+function kobSchluss(h){
+  /* 🔴 Der Marker statt einer Textsuche nach `class="kob-nav"`: die Leiste heisst mal
+     `class="row kob-nav"`, mal `class="kob-nav"`. Beim ersten Anlauf suchte diese
+     Funktion nur die zweite Schreibweise, fand sie nicht -- und die Leiste landete IM
+     scrollbaren Teil, wo sie mitwandert. Gefunden hat es die Hoehen-Pruefung. */
+  const i = h.indexOf(KOB_MARKE);
+  const s = (i < 0 ? h + '</div>' : h.slice(0, i) + '</div>' + h.slice(i)) + '</div>';
+  return s.split(KOB_MARKE).join('');
 }
 /* `weiterText` (21.09.2026): der Weiter-Knopf heißt auf der Schlüssel-Seite „Überspringen",
    wenn keiner hinterlegt ist. Karls Ansage — und es ist derselbe Knopf, nicht ein zweiter:
@@ -5011,7 +5041,7 @@ function kobKgGeaendert(){
   btn.disabled = !(+String(el.value).replace(',', '.') > 0);
 }
 function kobNav(sperre, weiterText){
-  return `<div class="row kob-nav" style="gap:8px">
+  return KOB_MARKE + `<div class="row kob-nav" style="gap:8px">
     <button class="btn" style="flex:1" data-act="kob:back">Zurück</button>
     <button class="btn primary" style="flex:2" data-act="kob:next" ${sperre ? 'disabled' : ''}>${weiterText || 'Weiter'}</button></div>`;
 }
