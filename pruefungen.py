@@ -2791,7 +2791,7 @@ window.addEventListener('error', e => {
   // ---- Wer sie bekommt ----
   t('Nach dem Assistenten kommt die Einfuehrung, einmal', () => tourBuehne(() => {
     delete profile.tour; profile.onboarded = false;
-    startOnboard(); obStep = OB_LAST; renderOnboard();
+    startOnboard(); obDraft.name = 'Test'; obStep = OB_LAST; renderOnboard();
     const fertig = app.querySelector('[data-act="ob:finish"]');
     if (!fertig) return 'kein Fertig-Knopf im Assistenten';
     fertig.click();
@@ -2810,7 +2810,7 @@ window.addEventListener('error', e => {
      Einfuehrung laengst gesehen. Sie darf dann nicht wiederkommen. */
   t('Den Assistenten nochmal durchlaufen bringt keine Einfuehrung', () => tourBuehne(() => {
     profile.tour = true; profile.onboarded = true;
-    startOnboard(); obStep = OB_LAST; renderOnboard();
+    startOnboard(); obDraft.name = 'Test'; obStep = OB_LAST; renderOnboard();
     app.querySelector('[data-act="ob:finish"]').click();
     return !tourDa() || 'die Einfuehrung kam wieder';
   }));
@@ -10566,6 +10566,7 @@ window.addEventListener('error', e => {
     profile = {xp:0, weights:[], onboarded:true};
     programs = [];
     startOnboard();
+    obDraft.name = 'Test';   // seit 22.09.2026 Pflicht, sonst baut ob:finish nichts
     try { return fn(); }
     finally { session=sV; profile=pV; programs=prV; view=vV; obDraft=dV; obStep=stV; }
   };
@@ -10631,6 +10632,93 @@ window.addEventListener('error', e => {
     klick('ob:next'); klick('ob:erf:erfahren');
     klick('ob:finish');
     return eq(profile.erfahrung, 'erfahren');
+  }));
+
+  /* 22.09.2026 — Karls Ansagen zum Trainings-Assistenten. */
+  t('Schritt 0: „Leg einen Trainingsplan an" und „Wir bauen ihn zusammen"', () => mitOnboard(() => {
+    obStep = 0; renderOnboard();
+    const h = app.innerHTML;
+    if(!/Leg einen Trainingsplan an/.test(h)) return 'Ueberschrift fehlt';
+    if(/Wie willst du anfangen/.test(h)) return 'alte Ueberschrift steht noch';
+    if(/Bau ihn für mich/.test(h)) return 'alter Knopftext steht noch';
+    return /Wir bauen ihn zusammen/.test(h) || 'neuer Knopftext fehlt';
+  }));
+  const obText = () => app.innerText || app.textContent;
+  t('Die gestrichenen Saetze stehen in keinem Schritt mehr', () => mitOnboard(() => {
+    klick('ob:next'); klick('ob:erf:anfaenger'); obDraft.favs = ['Bankdrücken'];
+    const weg = ['Danach richtet sich, wie', 'Ganzkörper A/B im Wechsel', 'Ausgewählt = Training',
+      'Optional — was du hier', 'Kommt als', 'Übungen pro Einheit', 'Sätze ×'];
+    for(let st = 0; st <= OB_LAST; st++){
+      obStep = st; renderOnboard();
+      const txt = obText();
+      const da = weg.filter(w => txt.includes(w));
+      if(da.length) return 'Schritt ' + st + ': ' + da.join(' | ');
+    }
+    return true;
+  }));
+  t('„empfohlen" steht bei Anfaengern genau ueber der 3', () => mitOnboard(() => {
+    klick('ob:next'); klick('ob:erf:anfaenger'); klick('ob:next');
+    const zeile = app.querySelector('.ob-empf-zeile');
+    if(!zeile) return 'keine Empfehlungszeile';
+    const knopf = app.querySelector('[data-act="ob:n:3"]');
+    const wort = [...zeile.children].find(x => x.textContent.trim() === 'empfohlen');
+    if(!wort) return 'kein „empfohlen"';
+    const a = wort.getBoundingClientRect(), b = knopf.getBoundingClientRect();
+    if(Math.abs((a.left + a.right) / 2 - (b.left + b.right) / 2) > 2) return 'nicht mittig ueber der 3';
+    return a.bottom <= b.top + 1 || 'steht nicht darueber';
+  }));
+  t('Fortgeschrittene bekommen kein „empfohlen" bei den Tagen', () => mitOnboard(() => {
+    klick('ob:next'); klick('ob:erf:fortgeschritten'); klick('ob:next');
+    return !app.querySelector('.ob-empf-zeile') || 'Empfehlungszeile steht trotzdem da';
+  }));
+  const empfBei = (akt) => { const b = app.querySelector('[data-act="' + akt + '"]');
+    return !!(b && b.querySelector('.ob-empf')); };
+  t('Anfaenger: Viel Volumen und Aufwaermsatz empfohlen, Aufwaermsatz vorausgewaehlt', () => mitOnboard(() => {
+    obDraft.warm = false;
+    klick('ob:next'); klick('ob:erf:anfaenger');
+    if(!obDraft.warm) return 'Aufwaermsatz nicht vorausgewaehlt';
+    obStep = 4; renderOnboard();
+    if(!empfBei('ob:vol:high')) return 'Viel Volumen nicht empfohlen';
+    if(empfBei('ob:vol:low') || empfBei('ob:warm:0')) return 'falsche Option empfohlen';
+    return empfBei('ob:warm:1') || 'Aufwaermsatz nicht empfohlen';
+  }));
+  t('Andere: nur der Aufwaermsatz empfohlen, nichts vorausgewaehlt', () => mitOnboard(() => {
+    obDraft.warm = false;
+    klick('ob:next'); klick('ob:erf:erfahren');
+    if(obDraft.warm) return 'Aufwaermsatz wurde vorausgewaehlt';
+    obStep = 4; renderOnboard();
+    if(empfBei('ob:vol:high')) return 'Viel Volumen empfohlen, obwohl kein Anfaenger';
+    return empfBei('ob:warm:1') || 'Aufwaermsatz nicht empfohlen';
+  }));
+  t('Ohne Namen kein Plan, das Feld wird rot', () => mitOnboard(() => {
+    obDraft.name = ''; obStep = OB_LAST; renderOnboard();
+    app.querySelector('[data-act="ob:finish"]').click();
+    if(programs.length) return 'Plan wurde trotzdem gebaut';
+    if(view !== 'onboard') return 'Assistent wurde verlassen';
+    const f = document.getElementById('obName');
+    if(!f.classList.contains('fehlt')) return 'Feld nicht markiert';
+    if(getComputedStyle(f).borderTopColor === getComputedStyle(document.body).color) return 'kein roter Rahmen';
+    f.value = 'Mein Plan'; f.dispatchEvent(new Event('input', {bubbles:true}));
+    if(f.classList.contains('fehlt')) return 'Rot bleibt nach dem Tippen';
+    app.querySelector('[data-act="ob:finish"]').click();
+    return (programs.length === 1 && programs[0].name === 'Mein Plan') || 'mit Namen kein Plan: ' + programs.length;
+  }));
+  t('Nur Leerzeichen gelten nicht als Name', () => mitOnboard(() => {
+    obDraft.name = '   '; obStep = OB_LAST; renderOnboard();
+    app.querySelector('[data-act="ob:finish"]').click();
+    return programs.length === 0 || 'Plan mit leerem Namen gebaut';
+  }));
+  /* Keine untere Leiste im Assistenten -> die Knoepfe sitzen weiter unten als im
+     Essens-Assistenten, und trotzdem scrollt die Seite nicht. */
+  t('Trainings-Assistent: Knoepfe weiter unten, Seite scrollt nicht', () => mitOnboard(() => {
+    obStep = 2; view = 'onboard'; render();
+    if(!document.body.classList.contains('setup')) return 'body.setup fehlt';
+    const seite = app.querySelector('.kob-seite'), nav = app.querySelector('.kob-nav');
+    const luft = innerHeight - nav.getBoundingClientRect().bottom;
+    if(luft > 60) return 'unter den Knoepfen noch ' + Math.round(luft) + ' px frei';
+    if(luft < 0) return 'Knoepfe ragen unten raus: ' + Math.round(luft);
+    const sc = document.scrollingElement;
+    return sc.scrollHeight <= sc.clientHeight + 1 || 'Seite scrollt: ' + sc.scrollHeight + ' > ' + sc.clientHeight;
   }));
 
 

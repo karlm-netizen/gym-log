@@ -2,6 +2,32 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-09-22
+
+### v0.125 — Trainings-Assistent: neue Namen, Empfehlungen, Name ist Pflicht
+
+**Karls Ansagen zum Trainings-Assistenten:**
+
+| Was | Vorher | Jetzt |
+|---|---|---|
+| Überschrift Schritt 0 | „Wie willst du anfangen?" | **„Leg einen Trainingsplan an"** |
+| Knopf | „Bau ihn für mich" | **„Wir bauen ihn zusammen"** |
+| Wie oft pro Woche | — | bei **Anfängern** steht klein **„empfohlen"** über der 3 |
+| Viel Volumen | — | bei **Anfängern** „empfohlen" |
+| Mit Aufwärmsatz | — | bei **allen** „empfohlen", bei **Anfängern** zusätzlich vorausgewählt |
+| Planname | leer → Plan hieß nach dem Split | **Pflicht:** ohne Namen springt „Plan erstellen" zum Feld und rahmt es rot |
+| Knöpfe | Platz für die untere Leiste frei gehalten | **weiter unten** — im Assistenten gibt es keine Leiste |
+
+**Gestrichen:** „Danach richtet sich, wie dein Split aufgeteilt wird." · „Ganzkörper A/B im
+Wechsel — …" · „Ausgewählt = Training, Rest = Ruhetag. …" · „Optional — was du hier wählst …" ·
+„Kommt als neuer Trainingsplan dazu …" · die Zeile „4 Sätze × 8–12 Wdh je Übung · 6 Übungen pro
+Einheit".
+
+ℹ️ „Aufwärmsatz bei Anfängern immer drin" ist als **Vorauswahl** gebaut, nicht als Zwang —
+„Ohne" bleibt wählbar, wie bei den 3 Tagen.
+
+Prüfstand 1.195 → 1.204, 0 rot. Gegenprobe: 5 Stellen sabotiert, 5 Prüfungen rot.
+
 ## 2026-09-21
 
 ### v0.124 — Die Assistenten stehen fest, die Knöpfe haben ihre eigene Kachel

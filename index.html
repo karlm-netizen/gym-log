@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.124';
+var APP_FASSUNG = 'v0.125';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -768,6 +768,19 @@ setTimeout(function(){
   .kob-seite{height:calc(100dvh - 94px - env(safe-area-inset-top) - 18px)}
   .kob-inhalt{flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain}
   .kob-nav{flex:0 0 auto; padding-top:12px}
+  /* 22.09.2026, Karls Ansage: im Trainings-Assistenten gibt es keine untere Leiste
+     (body.setup blendet sie aus) — also dürfen die Knöpfe weiter runter. Statt 94 px
+     für die Leiste wird nur der sichere Rand unten plus etwas Luft abgezogen. */
+  /* ⚠️ `html` davor, weil weiter unten `body.setup main{padding-bottom:32px}` steht und
+     sonst als spätere Regel gewinnt. */
+  html body.setup{padding-bottom:0}
+  html body.setup main{padding-bottom:0}
+  body.setup .kob-seite{height:calc(100vh - 50px)}
+  body.setup .kob-seite{height:calc(100dvh - env(safe-area-inset-top) - 18px - 16px - env(safe-area-inset-bottom))}
+  .ob-empf-zeile{margin-bottom:4px}
+  .ob-empf-zeile span, .ob-empf{display:block; text-align:center; font-size:11px; font-weight:700; color:var(--accent); letter-spacing:.02em}
+  .ob-empf{text-align:left; margin-bottom:3px}
+  .field input.fehlt{border-color:var(--danger); box-shadow:0 0 0 1px var(--danger)}
   .ob-sum > div{padding:9px 0; border-bottom:1px solid var(--line); font-size:14px}
   .ob-sum > div:last-child{border-bottom:none}
   .exa{fill:none; stroke:var(--txt); stroke-width:3; stroke-linecap:round; stroke-linejoin:round}
@@ -3409,8 +3422,10 @@ function renderOnboard(){
     ${/* 🔴 21.09.2026, Karls Ansage: „Text entfernen bei Trainings-Assistent: Zwei Wege —
           bei beiden kannst du hinterher alles ändern. Der Text unter Bau ihn für mich und
           Ich leg ihn selbst an." Alle drei weg, übrig bleiben die zwei Namen. */''}
-    <h2 style="margin-top:0">Wie willst du anfangen?</h2>
-    <button class="ob-opt einzeilig" data-act="ob:next"><b>Bau ihn für mich</b></button>
+    ${/* 22.09.2026, Karls Ansage: Überschrift „Leg einen Trainingsplan an", Knopf
+          „Wir bauen ihn zusammen" statt „Bau ihn für mich". */''}
+    <h2 style="margin-top:0">Leg einen Trainingsplan an</h2>
+    <button class="ob-opt einzeilig" data-act="ob:next"><b>Wir bauen ihn zusammen</b></button>
     <button class="ob-opt einzeilig" data-act="ob:manual"><b>Ich leg selbst an</b></button>
     </div>${KOB_MARKE}${obCanLeave()?`<div class="kob-nav"><button class="link" data-act="ob:cancel" style="width:100%;text-align:center">Abbrechen — alles so lassen</button></div>`:''}`; }
 
@@ -3429,29 +3444,33 @@ function renderOnboard(){
       <b>Erfahren</b><span>Länger als 3 Jahre.</span></button>
     </div>${obNav(!d.erfahrung)}`; }
 
-  else if(obStep===2){ h+=`<div class="card">
+  /* 22.09.2026, Karls Ansage: bei Anfängern steht klein „empfohlen" über den 3 Tagen.
+     Eigene Zeile im selben Raster wie die Knöpfe, damit das Wort genau über der 3 sitzt.
+     Die Erklärsätze („Danach richtet sich …", „Ausgewählt = Training …") sind weg. */
+  else if(obStep===2){ const anf=d.erfahrung==='anfaenger', hint=splitHint(d.n, anf); h+=`<div class="card">
     <h2 style="margin-top:0">Wie oft pro Woche?</h2>
-    <p class="muted tiny" style="margin-bottom:14px">Danach richtet sich, wie dein Split aufgeteilt wird.</p>
+    ${anf?`<div class="ob-grid ob-empf-zeile">${[2,3,4,5,6].map(n=>`<span>${n===3?'empfohlen':''}</span>`).join('')}</div>`:''}
     <div class="ob-grid">${[2,3,4,5,6].map(n=>`<button class="chip big ${d.n===n?'on':''}" data-act="ob:n:${n}">${n}×</button>`).join('')}</div>
-    <div class="tiny muted" style="margin-top:12px">${splitHint(d.n, d.erfahrung==='anfaenger')}</div>
+    ${hint?`<div class="tiny muted" style="margin-top:12px">${hint}</div>`:''}
     </div>${obNav()}`; }
 
   else if(obStep===3){ h+=`<div class="card">
     <h2 style="margin-top:0">An welchen Tagen?</h2>
-    <p class="muted tiny" style="margin-bottom:14px">Ausgewählt = Training, Rest = Ruhetag. Du hast ${d.days.length} von ${d.n} gewählt.</p>
     <div class="ob-days">${DAYNAME.map((n,i)=>`<button class="chip ${d.days.includes(i)?'on':''}" data-act="ob:day:${i}">${n}</button>`).join('')}</div>
     ${d.days.length===0?`<div class="tiny" style="color:var(--danger);margin-top:12px">Wähle mindestens einen Tag.</div>`:''}
     </div>${obNav(d.days.length===0)}`; }
 
-  else if(obStep===4){ h+=`<div class="card">
+  /* 22.09.2026, Karls Ansage: „Mit Aufwärmsatz" ist bei allen empfohlen (bei Anfängern
+     zusätzlich vorausgewählt, siehe ob:erf:), „Viel Volumen" nur bei Anfängern. */
+  else if(obStep===4){ const anf=d.erfahrung==='anfaenger'; h+=`<div class="card">
     <h2 style="margin-top:0">Wie trainierst du lieber?</h2>
     <button class="ob-opt ${d.vol==='low'?'on':''}" data-act="ob:vol:low">
       <b>Wenig Volumen — 6–10 Wdh</b><span>3 Sätze je Übung, mehr Gewicht. Kürzere Einheiten.</span></button>
     <button class="ob-opt ${d.vol==='high'?'on':''}" data-act="ob:vol:high">
-      <b>Viel Volumen — 8–12 Wdh</b><span>4 Sätze je Übung, mehr Wiederholungen. Längere Einheiten.</span></button>
+      ${anf?'<small class="ob-empf">empfohlen</small>':''}<b>Viel Volumen — 8–12 Wdh</b><span>4 Sätze je Übung, mehr Wiederholungen. Längere Einheiten.</span></button>
     <div class="tiny muted" style="margin:18px 0 8px">Aufwärmsatz</div>
     <button class="ob-opt ${d.warm?'on':''}" data-act="ob:warm:1">
-      <b>Mit Aufwärmsatz</b><span>Vor jeder Übung ein lockerer Satz mit rund 70 % des Arbeitsgewichts.
+      <small class="ob-empf">empfohlen</small><b>Mit Aufwärmsatz</b><span>Vor jeder Übung ein lockerer Satz mit rund 70 % des Arbeitsgewichts.
       Er zählt nicht für Volumen, XP oder die Steigerung.</span></button>
     <button class="ob-opt ${d.warm?'':'on'}" data-act="ob:warm:0">
       <b>Ohne</b><span>Direkt mit dem Arbeitsgewicht anfangen.</span></button>
@@ -3459,7 +3478,6 @@ function renderOnboard(){
 
   else if(obStep===5){ h+=`<div class="card">
     <h2 style="margin-top:0">Lieblingsübungen?</h2>
-    <p class="muted tiny" style="margin-bottom:6px">Optional — was du hier wählst, kommt in deinen Trainings zuerst.</p>
     ${Object.keys(FAVPOOL).map(g=>`<div style="margin-top:14px">
       <div class="tiny muted" style="margin-bottom:7px">${FAVLABEL[g]}</div>
       <div class="ob-favs">${FAVPOOL[g].map(n=>`<button class="chip ${d.favs.includes(n)?'on':''}" data-fav="${esc(n)}">${esc(n)}</button>`).join('')}</div></div>`).join('')}
@@ -3473,11 +3491,10 @@ function renderOnboard(){
       ${days.map((x,i)=>`<div class="row between"><span>${DAYLONG[x]}</span><b>${split[i%split.length][0]}</b></div>`).join('')}
       ${[0,1,2,3,4,5,6].filter(x=>!days.includes(x)).map(x=>`<div class="row between muted"><span>${DAYLONG[x]}</span><span>Ruhetag</span></div>`).join('')}
     </div>
-    <div class="tiny muted" style="margin-top:12px">${d.vol==='low'?'3 Sätze × 6–10 Wdh':'4 Sätze × 8–12 Wdh'} je Übung · ${d.vol==='low'?5:6} Übungen pro Einheit${d.warm?' · mit Aufwärmsatz':''}${d.favs.length?` · ${d.favs.length} Lieblingsübungen bevorzugt`:''}</div>
+    ${/* 22.09.2026, Karls Ansage: die Zeile „4 Sätze × 8–12 Wdh …" und der Satz „Kommt als
+          neuer Trainingsplan dazu …" sind weg. Der Name ist jetzt Pflicht, siehe ob:finish. */''}
     <div class="field" style="margin:14px 0 0"><label>Name des Trainingsplans</label>
       <input id="obName" placeholder="z.B. PPL 3er" value="${esc(d.name||'')}"></div>
-    <div class="tiny muted" style="margin-top:10px">Kommt als <b>neuer</b> Trainingsplan dazu und wird
-      dein aktueller. Bestehende Pläne bleiben erhalten.</div>
     </div>${KOB_MARKE}<div class="kob-nav">
       <button class="btn primary" style="width:100%" data-act="ob:finish">Plan erstellen</button>
       <button class="link" data-act="ob:back" style="width:100%;text-align:center;margin-top:12px">Zurück</button>
@@ -3489,9 +3506,6 @@ function obNav(disabled){ return KOB_MARKE + `<div class="kob-nav"><div class="f
   <button class="btn ghost" data-act="ob:back">Zurück</button>
   <button class="btn primary" data-act="ob:next" ${disabled?'disabled style="opacity:.45"':''}>Weiter</button></div>
   ${obCanLeave()?`<button class="link" data-act="ob:cancel" style="width:100%;text-align:center;margin-top:12px">Abbrechen — alles so lassen</button>`:''}</div>`; }
-// Wenn Karl keinen Namen eintippt, benennt sich der Plan nach seinem Split.
-function splitName(n){ return ({2:'Upper/Lower',3:'Push/Pull/Legs',4:'Upper/Lower 4er',
-  5:'5er-Split',6:'PPL 6er'})[n] || `${n}er-Plan`; }
 /* Zentrale Stelle, welcher Split zu wie vielen Tagen gehoert -- buildPlans(),
    renderOnboard() (die Zusammenfassung) und splitHint() rufen ALLE dieselbe Funktion,
    damit die Anfaenger-Regel nicht wie der 503-Fund vom 31.08. an nur EINER von mehreren
@@ -3501,7 +3515,7 @@ function splitFuer(n, anfaenger){
   return SPLITS[Math.min(6,Math.max(2,n))]||SPLITS[3];
 }
 function splitHint(n, anfaenger){
-  if(anfaenger && n===3) return 'Ganzkörper A/B im Wechsel — am Anfang bringt das mehr als ein Split.';
+  if(anfaenger && n===3) return '';   // Satz auf Karls Ansage raus (22.09.2026)
   return ({2:'Upper/Lower — Oberkörper und Unterkörper im Wechsel.',
   3:'Push/Pull/Legs — der Klassiker.',
   4:'Upper/Lower, zweimal die Woche mit anderen Übungen.',
@@ -9898,18 +9912,23 @@ document.addEventListener('click',ev=>{
      die Karl am 02.09.2026 wollte. Der naechste Schritt (Tage/Woche) bleibt frei waehlbar,
      das hier aendert nur, was dort schon angehakt ist, wenn man ankommt. */
   else if(a&&a.startsWith('ob:erf:')){ obDraft.erfahrung=a.slice(7);
-    if(obDraft.erfahrung==='anfaenger'){ obDraft.n=3; obDraft.days=OB_DEFDAYS[3].slice(); }
+    // 22.09.2026: bei Anfängern ist der Aufwärmsatz vorausgewählt (Karl: „immer drinne").
+    if(obDraft.erfahrung==='anfaenger'){ obDraft.n=3; obDraft.days=OB_DEFDAYS[3].slice(); obDraft.warm=true; }
     renderOnboard(); }
   else if(a&&a.startsWith('ob:n:')){ obDraft.n=+a.slice(5); obDraft.days=(OB_DEFDAYS[obDraft.n]||OB_DEFDAYS[3]).slice(); renderOnboard(); }
   else if(a&&a.startsWith('ob:day:')){ const i=+a.slice(7), k=obDraft.days.indexOf(i);
     if(k<0) obDraft.days.push(i); else obDraft.days.splice(k,1); renderOnboard(); }
   else if(a&&a.startsWith('ob:vol:')){ obDraft.vol=a.slice(7); renderOnboard(); }
   else if(a&&a.startsWith('ob:warm:')){ obDraft.warm=a.slice(8)==='1'; renderOnboard(); }
+  /* 22.09.2026, Karls Ansage: ohne Namen kein Plan. „Plan erstellen" springt dann zum Feld
+     und rahmt es rot, statt den Plan nach seinem Split zu benennen. */
+  else if(a==='ob:finish' && !(obDraft.name||'').trim()){ const f=document.getElementById('obName');
+    if(f){ f.classList.add('fehlt'); f.scrollIntoView({block:'center', behavior:'smooth'}); f.focus({preventScroll:true}); } }
   else if(a==='ob:finish'){ profile.days=obDraft.days.slice().sort((x,y)=>x-y); profile.vol=obDraft.vol;
     profile.warmup=!!obDraft.warm; profile.erfahrung=obDraft.erfahrung||null;
     profile.favs=obDraft.favs.slice(); profile.onboarded=true;
     // Neuer Trainingsplan statt Ersetzen: bestehende Plaene bleiben, der neue wird der aktuelle.
-    const nm=(obDraft.name||'').trim() || splitName(obDraft.days.length);
+    const nm=obDraft.name.trim();
     const prog=neuerPlan(nm, buildPlans());
     programs.push(prog); profile.prog=prog.id; bindPlans();
     active=null; save(); view='home'; render(); toast(`„${nm}" steht — viel Erfolg!`); einfuehrungNachAssistent(); }
@@ -10127,7 +10146,7 @@ document.addEventListener('click',ev=>{
 });
 
 document.addEventListener('input',ev=>{ const t=ev.target;
-  if(t.id==='obName'&&obDraft){ obDraft.name=t.value; return; }   // ohne Neuzeichnen mitschreiben
+  if(t.id==='obName'&&obDraft){ obDraft.name=t.value; t.classList.remove('fehlt'); return; }   // ohne Neuzeichnen mitschreiben
   if(t.id==='libSearch'){ renderLibList(t.value); return; }
   if(t.id==='foodSearch'){ foodQ=t.value; renderFoodList(foodQ); return; }
   // Mengen-Vorschau: nur die drei Zahlen nachziehen, nicht neu zeichnen — sonst
