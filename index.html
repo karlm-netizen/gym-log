@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.125';
+var APP_FASSUNG = 'v0.126';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -1134,6 +1134,8 @@ setTimeout(function(){
 <div id="modal" class="modal"></div>
 <!-- Fuer „Essen per Foto": capture=environment oeffnet am Handy direkt die Kamera. -->
 <input id="fotoInput" type="file" accept="image/*" capture="environment" style="display:none">
+<!-- Fuer „Trainingsplan aus PDF" (24.10.2026). -->
+<input id="pdfInput" type="file" accept="application/pdf,.pdf" style="display:none">
 
 <script>
 "use strict";
@@ -2047,7 +2049,7 @@ const SUPA_KEY='sb_publishable_7UvOL7KzzgJK6om8OwUsSg_usOMz92l';
 // Git-Historie stünde. Karls Entscheidung am 03.08.2026.
 const PRIVACY_OWNER='Karl Fangmeyer (privat betriebene App)';
 const PRIVACY_CONTACT='karlm.fangmeyer@gmail.com';
-const PRIVACY_STAND='16. September 2026';  // bei jeder inhaltlichen Aenderung mit hochziehen
+const PRIVACY_STAND='24. Oktober 2026';  // bei jeder inhaltlichen Aenderung mit hochziehen
 /* 🔴 09.09.2026: Der Stand stand auf dem 24.08., obwohl der Text am 03.09. geaendert
    wurde. Gefunden von datenschutz-pruefen.py, nicht von einem Menschen -- genau dafuer
    gibt es das Skript. Es vergleicht dieses Datum mit `git log -L` auf renderPrivacy()
@@ -3721,8 +3723,10 @@ function renderProgs(){
   h+=`<div class="row between" style="margin:22px 4px 6px"><h2>Neuer Trainingsplan</h2></div>
     <div class="fab-row">
       <button class="btn" data-act="ob:start">Bauen lassen</button>
-      <button class="btn" data-act="newprog">Leer anlegen</button></div>
-    <div class="tiny muted" style="text-align:center;margin-top:8px">„Bauen lassen" fragt nach Tagen und Volumen und stellt die Trainings zusammen.</div>`;
+      <button class="btn" data-act="newprog">Leer anlegen</button>
+      <button class="btn" data-act="pdf:waehlen">Aus PDF</button></div>
+    <div class="tiny muted" style="text-align:center;margin-top:8px">„Bauen lassen" fragt nach Tagen und Volumen und stellt die Trainings zusammen.
+      „Aus PDF" liest einen Trainingsplan aus einer PDF-Datei.</div>`;
   app.innerHTML=h;
 }
 
@@ -7158,6 +7162,8 @@ function renderPrivacy(){
           zugestellt werden. Schaltest du Push aus, wird sie gelöscht.</li>
         <li>deine <b style="color:var(--txt)">Problemmeldungen</b> samt Antwort, wenn du welche schickst
           (siehe unten)</li>
+        <li><b style="color:var(--txt)">wann</b> du einen Trainingsplan als PDF eingelesen hast — 2 Tage lang,
+          als Bremse gegen zu viele Importe (siehe unten). Das PDF selbst wird nicht gespeichert</li>
       </ul>
 
       <b>Warum wir das dürfen</b>
@@ -7187,13 +7193,14 @@ function renderPrivacy(){
         Supabase arbeitet dabei nur im Auftrag und nach Weisung (Auftragsverarbeitung, Art. 28 DSGVO).
         Die Server dieses Projekts stehen in der <b style="color:var(--txt)">EU</b> —
         <b style="color:var(--txt)">deine gespeicherten Daten verlassen die EU nicht.</b>
-        <b style="color:var(--txt)">Drei Ausnahmen gibt es.</b> Zwei davon löst du selbst aus:
-        ein <b style="color:var(--txt)">Essens-Foto</b>, das du zum Schätzen abschickst, und eine
+        <b style="color:var(--txt)">Vier Ausnahmen gibt es.</b> Drei davon löst du selbst aus:
+        ein <b style="color:var(--txt)">Essens-Foto</b>, das du zum Schätzen abschickst, ein
+        <b style="color:var(--txt)">Trainingsplan als PDF</b>, den du einlesen lässt, und eine
         <b style="color:var(--txt)">Problemmeldung</b>, die dem Betreiber über Discord zugestellt wird.
-        Die dritte ist die <b style="color:var(--txt)">Geräte-Kennung für Benachrichtigungen</b>: sie
+        Die vierte ist die <b style="color:var(--txt)">Geräte-Kennung für Benachrichtigungen</b>: sie
         liegt beim Mitteilungsdienst deines Browsers (Apple bzw. Google) — die entsteht, sobald du Push
         erlaubst, und wird benutzt, wenn eine Antwort für dich da ist.
-        Alle drei gehen in die USA; Näheres steht weiter unten.
+        Alle vier gehen in die USA; Näheres steht weiter unten.
         Die App braucht ein Konto; einen Weg, sie ganz ohne Anmeldung zu benutzen, gibt es nicht.</p>
 
       <b>Wer die App ausliefert</b>
@@ -7248,6 +7255,27 @@ function renderPrivacy(){
           <b style="color:var(--txt)">Nimm keine Bilder auf, auf denen Personen zu erkennen sind.</b></li>
       </ul>
 
+      <b>Wenn du einen Trainingsplan als PDF einliest</b>
+      <p class="muted" style="margin:4px 0 14px">Unter „Alle Trainingspläne" › „Aus PDF" kannst du einen
+        Plan aus einer PDF-Datei übernehmen. Dafür geht <b style="color:var(--txt)">die ganze Datei</b> über
+        unsere Supabase-Funktion an <b style="color:var(--txt)">Anthropic</b> (Anthropic PBC,
+        <b style="color:var(--txt)">USA</b>), dessen KI Claude den Plan ausliest —
+        <b style="color:var(--txt)">damit verlässt das PDF die EU</b>. Mit geht die Liste der Übungsnamen,
+        die deine App kennt, damit Claude sie richtig zuordnet. Dein Name, deine E-Mail-Adresse und deine
+        Trainings gehen nicht mit. Anthropic verarbeitet das PDF nur in unserem Auftrag
+        (Auftragsverarbeitung, Art. 28 DSGVO), benutzt es nach seinen Geschäftsbedingungen
+        <b style="color:var(--txt)">nicht zum Trainieren seiner KI</b> und löscht es nach eigenen Angaben
+        <b style="color:var(--txt)">innerhalb von 30 Tagen</b>.
+        Bei uns wird das PDF <b style="color:var(--txt)">nicht gespeichert</b> — nur der fertige Plan landet
+        in deinen Trainings, und nur, wenn du ihn übernimmst.
+        Damit niemand die Kosten in die Höhe treibt, sind es <b style="color:var(--txt)">höchstens 3 PDFs
+        pro Tag</b>. Dafür merkt sich die Datenbank, <b style="color:var(--txt)">wann</b> du eins eingelesen
+        hast, und löscht diesen Eintrag <b style="color:var(--txt)">nach 2 Tagen</b>.
+        Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO: du löst den Import selbst aus, und ohne die KI
+        lässt er sich nicht machen.
+        <b style="color:var(--txt)">Steht in deinem PDF etwas, das nicht hinaus soll</b> — dein Name,
+        Angaben zu Verletzungen oder Krankheiten —, schwärze es vorher.</p>
+
       <b>Wenn du ein Problem meldest</b>
       <p class="muted" style="margin:4px 0 8px">Mit deinem Text gehen automatisch mit:
         <b style="color:var(--txt)">dein Username</b> (hat dein Konto keinen, stattdessen die
@@ -7266,7 +7294,7 @@ function renderPrivacy(){
         wenn du den Knopf drückst.</p>
 
       <b>Worauf sich die Übermittlung in die USA stützt</b>
-      <p class="muted" style="margin:4px 0 8px">Vier der Empfänger oben sitzen in den USA.
+      <p class="muted" style="margin:4px 0 8px">Fünf der Empfänger oben sitzen in den USA.
         Dafür gilt:</p>
       <ul class="muted" style="margin:0 0 14px;padding-left:18px">
         <li><b style="color:var(--txt)">Google</b> (Essens-Foto, Benachrichtigungen in Chrome),
@@ -7280,13 +7308,17 @@ function renderPrivacy(){
           Angaben auf die <b style="color:var(--txt)">Standardvertragsklauseln</b> der
           EU-Kommission (<b style="color:var(--txt)">Art. 46 Abs. 2 lit. c DSGVO</b>). Eine Kopie
           bekommst du auf Nachricht an die Adresse oben.</li>
+        <li><b style="color:var(--txt)">Anthropic</b> (PDF-Import) stützt Übermittlungen aus der EU
+          ebenfalls auf die <b style="color:var(--txt)">Standardvertragsklauseln</b>
+          (<b style="color:var(--txt)">Art. 46 Abs. 2 lit. c DSGVO</b>); sie sind Teil seines
+          Auftragsverarbeitungsvertrags. Eine Kopie bekommst du auf Nachricht an die Adresse oben.</li>
       </ul>
 
       <b>Wofür sie benutzt werden</b>
       <p class="muted" style="margin:4px 0 14px">Ausschließlich dafür, dir deine eigenen Trainings anzuzeigen.
         <b style="color:var(--txt)">Keine Werbung, kein Tracking, keine Analyse-Dienste.</b>
-        An Dritte geht nichts — mit Ausnahme der <b style="color:var(--txt)">vier Fälle oben: Suche, Barcode, Foto
-        und Problemmeldung</b>, die du jedes Mal selbst auslöst, und der
+        An Dritte geht nichts — mit Ausnahme der <b style="color:var(--txt)">fünf Fälle oben: Suche, Barcode, Foto,
+        PDF-Import und Problemmeldung</b>, die du jedes Mal selbst auslöst, und der
         <b style="color:var(--txt)">Geräte-Kennung für Benachrichtigungen</b>, solange du sie eingeschaltet hast,
         und dem Abruf der App bei <b style="color:var(--txt)">GitHub</b> (siehe oben).
         Es werden auch keine Cookies zu Werbezwecken gesetzt. XP, Level und Rang rechnet die App allein
@@ -7341,8 +7373,9 @@ function renderPrivacy(){
       <b>Wie lange</b>
       <p class="muted" style="margin:4px 0 14px">Bis du dein Konto löschst. Danach sind sie weg —
         „Konto löschen" entfernt die Daten <i>und</i> die Anmeldung, nicht nur das eine.
-        <b style="color:var(--txt)">Drei Dinge kann die App dabei nicht immer erreichen:</b> eine
-        Problemmeldung, die schon als Discord-Nachricht beim Betreiber liegt; alles, was du dir
+        <b style="color:var(--txt)">Vier Dinge kann die App dabei nicht immer erreichen:</b> eine
+        Problemmeldung, die schon als Discord-Nachricht beim Betreiber liegt; ein eingelesenes PDF,
+        das noch bis zu 30 Tage bei Anthropic liegt; alles, was du dir
         selbst heruntergeladen hast; und — falls das Löschen der Anmeldung scheitert —
         <b style="color:var(--txt)">deine Zeile in der Bestenliste</b> mit Name und XP-Stand.
         <b style="color:var(--txt)">Die App sagt dir nach dem Löschen auf dem Bildschirm, was geblieben ist.</b>
@@ -8545,6 +8578,148 @@ function importierePlan(){
   const pr=neuerPlan(planImport.name, neu); programs.push(pr);
   planImport=null; save(); closeModal(); editProgId=pr.id; view='plans'; render();
   toast(ohneTag ? `„${pr.name}" übernommen — ${ohneTag} ohne Tag` : `„${pr.name}" übernommen`);
+}
+
+// ---------- Trainingsplan aus PDF (24.10.2026) ----------
+/* Karls Idee: *„viele Leute haben einen trainingsplan per pdf und ich möchte das man das pdf
+   hochladen kann in meiner app und das automatisch als neuer traingplan drinne ist Mann kann
+   dann ersetzen oder einen neuen hinzufügen"*. Seine Wahl: mit KI (Claude Sonnet 5.5),
+   höchstens 3 Importe pro Person und Tag.
+   Der Weg: PDF -> Supabase-Funktion `plan-aus-pdf` (dort liegt der Anthropic-Schluessel, nie im
+   Browser) -> Claude liest den Plan -> zurueck kommt nur die Liste der Trainings. Davor steht
+   immer die Vorschau; ohne „Als neuen Plan" oder „Ersetzen" aendert sich nichts.
+   ⚠️ „Ersetzen" tauscht nur die Trainings des aktuellen Plans. Die Einheiten im Verlauf haengen
+   am Namen der Uebung, nicht am Plan -- sie bleiben. Waehrend ein Training laeuft, geht es
+   nicht: `active` zeigt auf ein Training, das es danach nicht mehr gaebe. */
+const PDF_FUNKTION = SUPA_URL + '/functions/v1/plan-aus-pdf';
+const PDF_MAX_MB = 5;
+let pdfImport = null;      // {name, hinweis, p:[{n, d, e:[[name, saetze, wdh]]}], neu}
+let pdfLaeuft = false;
+
+function pdfWaehlen(){
+  if(!session){ toast('Dafür musst du angemeldet sein'); return; }
+  if(!navigator.onLine){ toast('Dafür brauchst du Internet'); return; }
+  if(pdfLaeuft) return;
+  const fi=document.getElementById('pdfInput'); if(!fi) return;
+  fi.value=''; fi.click();
+}
+function pdfMeldung(titel, text){
+  const m=document.getElementById('modal');
+  m.innerHTML=`<div class="modal-box" style="max-width:360px;text-align:left">
+    <b>${esc(titel)}</b>
+    ${text?`<div class="tiny muted" style="margin-top:6px">${esc(text)}</div>`:''}
+    ${titel.endsWith('…')?'<div class="ladebalken"><i></i></div>'
+      :'<div class="fab-row" style="margin-top:16px"><button class="btn primary" data-act="pdf:abbruch">OK</button></div>'}</div>`;
+  m.classList.add('show');
+}
+function dateiAlsB64(file){
+  return new Promise((ok,nein)=>{ const r=new FileReader();
+    r.onload=()=>ok(String(r.result).split(',')[1]||'');
+    r.onerror=()=>nein(new Error('Die Datei ließ sich nicht lesen.'));
+    r.readAsDataURL(file); });
+}
+// Die Namen, die Claude zuordnen darf: die Bibliothek plus die eigenen Uebungen aus allen Plaenen.
+function pdfUebungsnamen(){
+  const s=new Set(EXLIB.map(x=>x.name));
+  (programs||[]).forEach(pr=>(pr.plans||[]).forEach(p=>(p.exercises||[]).forEach(e=>{ if(e.eigen&&e.name) s.add(e.name); })));
+  return [...s].slice(0,1000);
+}
+async function pdfLesen(file){
+  if(!file||pdfLaeuft) return;
+  if(file.size>PDF_MAX_MB*1024*1024){ toast(`Das PDF ist zu groß (höchstens ${PDF_MAX_MB} MB)`); return; }
+  if(file.type && file.type!=='application/pdf'){ toast('Das ist kein PDF'); return; }
+  pdfLaeuft=true; pdfImport=null;
+  pdfMeldung('Dein Plan wird gelesen …', 'Das dauert meist 10 bis 30 Sekunden.');
+  try{
+    if(!(await ensureToken())) throw new Error('Bitte melde dich neu an.');
+    const b64=await dateiAlsB64(file);
+    /* ⚠️ Das Warte-Fenster hat keinen Schliessen-Knopf. Ohne Zeitgrenze saesse man bei einer
+       haengenden Verbindung davor fest, bis der Server nach 150 s aufgibt. */
+    const ab=new AbortController(), uhr=setTimeout(()=>ab.abort(),90000);
+    let r;
+    try{ r=await fetch(PDF_FUNKTION,{ method:'POST', signal:ab.signal,
+      headers:{ 'content-type':'application/json', 'apikey':SUPA_KEY, 'authorization':'Bearer '+session.access_token },
+      body:JSON.stringify({ pdf:b64, uebungen:pdfUebungsnamen() }) }); }
+    catch(e){ throw new Error(ab.signal.aborted ? 'Das hat zu lange gedauert. Versuch es noch einmal.'
+                                                : 'Keine Verbindung. Versuch es mit Internet noch einmal.'); }
+    finally{ clearTimeout(uhr); }
+    let d=null; try{ d=await r.json(); }catch(e){}
+    if(!r.ok) throw new Error((d&&d.fehler)||('Der PDF-Import antwortet nicht ('+r.status+').'));
+    pdfImport=pdfAufbereiten(d);
+    if(!pdfImport.p.length) throw new Error((d&&d.hinweis)||'In dem PDF war kein Trainingsplan zu erkennen.');
+    zeigePdfImport();
+  }catch(e){ pdfImport=null; pdfMeldung('Das hat nicht geklappt', (e&&e.message)||'Unbekannter Fehler.'); }
+  finally{ pdfLaeuft=false; }
+}
+// Die Antwort der Funktion in die Form der Vorschau bringen. Alles wird begrenzt: die Antwort
+// kommt von einer KI, und eine Zahl wie 400 Saetze soll nicht ungeprueft in den Plan rutschen.
+function pdfAufbereiten(d){
+  const bekannt=new Map(pdfUebungsnamen().map(n=>[n.toLowerCase(),n]));
+  const neu=new Set();
+  const zahl=(x,min,max,sonst)=>{ const n=Math.round(+x); return n>=min ? Math.min(max,n) : sonst; };
+  const p=(Array.isArray(d&&d.trainings)?d.trainings:[]).slice(0,14).map(tr=>{
+    const e=(Array.isArray(tr&&tr.uebungen)?tr.uebungen:[]).slice(0,30).map(u=>{
+      const roh=String((u&&u.name)||'').trim().slice(0,60); if(!roh) return null;
+      const name=bekannt.get(roh.toLowerCase())||roh;
+      if(!bekannt.has(roh.toLowerCase())) neu.add(roh.toLowerCase());
+      return [name, zahl(u.saetze,1,10,3), zahl(u.wdh,1,100,10)];
+    }).filter(Boolean);
+    const tag=Number.isInteger(tr&&tr.tag)&&tr.tag>=0&&tr.tag<=6 ? tr.tag : null;
+    return { n:String((tr&&tr.name)||'').trim().slice(0,40)||'Training', d:tag, e };
+  }).filter(x=>x.e.length);
+  return { name:String((d&&d.name)||'').trim().slice(0,40)||'Plan aus PDF',
+           hinweis:String((d&&d.hinweis)||'').trim().slice(0,200), p, neu:neu.size };
+}
+function zeigePdfImport(){
+  const akt=activeProg();
+  const liste=pdfImport.p.map(p=>`<div style="padding:6px 0;border-bottom:1px solid var(--line)">
+    <div class="row between"><span>${esc(p.n)}${p.d!=null?` <span class="muted tiny">· ${DAYNAME[p.d]}</span>`:''}</span>
+      <span class="muted tiny">${p.e.length} Übungen</span></div>
+    <div class="muted tiny">${esc(p.e.slice(0,3).map(x=>x[0]).join(', '))}${p.e.length>3?' …':''}</div></div>`).join('');
+  const m=document.getElementById('modal');
+  m.innerHTML=`<div class="modal-box" style="max-width:400px;text-align:left">
+    <b>${esc(pdfImport.name)}</b>
+    <div class="tiny muted" style="margin:6px 0 10px">Aus deinem PDF gelesen. Schau kurz drüber — einzelne
+      Übungen kannst du danach unter „Bearbeiten" korrigieren.</div>
+    ${pdfImport.neu?`<div class="tiny" style="margin:0 0 10px">${ic('warn')}
+      ${pdfImport.neu===1?'Eine Übung kennt':pdfImport.neu+' Übungen kennt'} die App noch nicht — sie kommen als eigene Übungen dazu.</div>`:''}
+    ${pdfImport.hinweis?`<div class="tiny muted" style="margin:0 0 10px">${esc(pdfImport.hinweis)}</div>`:''}
+    ${liste}
+    <div class="tiny muted" style="margin-top:12px">„Ersetzen" tauscht die Trainings von „${esc(akt.name)}" aus. Dein Verlauf bleibt.</div>
+    <div class="fab-row" style="margin-top:12px;flex-wrap:wrap">
+      <button class="btn" data-act="pdf:abbruch">Abbrechen</button>
+      <button class="btn" data-act="pdf:ersetzen">Ersetzen</button>
+      <button class="btn primary" data-act="pdf:neu">Als neuen Plan</button></div></div>`;
+  m.classList.add('show');
+}
+// Dieselbe Ein-Training-pro-Tag-Regel wie beim geteilten Plan (importierePlan).
+function pdfTrainings(){
+  const bibliothek=new Set(EXLIB.map(x=>x.name));
+  const neu=[];
+  pdfImport.p.forEach(p=>{
+    let tag=p.d; if(tag!=null && neu.some(x=>x.day===tag)) tag=null;
+    neu.push({ id:uid(), name:p.n, day:tag, warmup:!!profile.warmup,
+      exercises:p.e.map(([n,s,r])=>{ const x={ id:uid(), name:n, sets:s, reps:r, vol:profile.vol };
+        if(!bibliothek.has(n)) x.eigen=true; return x; }) });
+  });
+  return neu;
+}
+function pdfAlsNeuerPlan(){
+  if(!pdfImport) return;
+  const pr=neuerPlan(pdfImport.name, pdfTrainings()); programs.push(pr);
+  pdfImport=null; save(); closeModal(); editProgId=pr.id; view='plans'; render();
+  toast(`„${pr.name}" angelegt`);
+}
+function pdfErsetzen(){
+  if(!pdfImport) return false;
+  if(active){ toast('Erst das laufende Training beenden'); return false; }
+  const pr=activeProg();
+  // splice statt Neuzuweisung: `plans` zeigt auf GENAU dieses Array (bindPlans).
+  pr.plans.splice(0, pr.plans.length, ...pdfTrainings());
+  pr.name=pdfImport.name;
+  pdfImport=null; bindPlans(); save(); closeModal(); editProgId=pr.id; view='plans'; render();
+  toast(`„${pr.name}" ersetzt — dein Verlauf bleibt`);
+  return true;
 }
 
 function exportData(){
@@ -10039,6 +10214,12 @@ document.addEventListener('click',ev=>{
     editProgId=pr.id; save(); view='plans'; render(); }
   else if(a==='importyes'){ importierePlan(); }
   else if(a==='importno'){ planImport=null; closeModal(); }
+  else if(a==='pdf:waehlen'){ pdfWaehlen(); }
+  else if(a==='pdf:neu'){ pdfAlsNeuerPlan(); }
+  else if(a==='pdf:ersetzen'){ if(!pdfImport) return;
+    if(active){ toast('Erst das laufende Training beenden'); return; }
+    confirmTwice('pdfersetzen',t,'Wirklich ersetzen?',pdfErsetzen); }
+  else if(a==='pdf:abbruch'){ pdfImport=null; closeModal(); }
   else if(a==='export'){ exportData(); }
   /* 🔴 13.09.2026: die Bestenlisten-Schalter UEBERLEBEN das Zuruecksetzen. Sie sind ein
      Widerspruch nach Art. 21, kein Fortschritt. Vorher stand hier nur `theme` -- ein Reset
@@ -10183,6 +10364,9 @@ document.addEventListener('change',ev=>{ if(view==='plan') syncPlanInputs();
 // Foto gewaehlt (Kamera oder Galerie) → an die KI schicken.
 (function(){ const fi=document.getElementById('fotoInput'); if(!fi) return;
   fi.addEventListener('change',()=>{ const f=fi.files&&fi.files[0]; if(f) schaetzeFoto(f); }); })();
+// PDF gewaehlt → an die Funktion plan-aus-pdf.
+(function(){ const fi=document.getElementById('pdfInput'); if(!fi) return;
+  fi.addEventListener('change',()=>{ const f=fi.files&&fi.files[0]; if(f) pdfLesen(f); }); })();
 
 // ---------- Start ----------
 applyTheme();

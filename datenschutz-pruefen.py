@@ -80,6 +80,9 @@ UNBEDENKLICH = {
 NICHT_MESSBAR = [
     ("Discord (USA)", "Problemmeldungen gehen ueber eine Supabase-Funktion hinaus, "
                       "nicht aus dem Browser. In supabase-meldungen.sql nachsehen."),
+    ("Anthropic (USA)", "Der PDF-Import geht ueber die Supabase-Funktion plan-aus-pdf hinaus, "
+                        "nicht aus dem Browser. In supabase/functions/plan-aus-pdf/index.ts "
+                        "nachsehen (24.10.2026)."),
 ]
 
 _funde = []
@@ -465,6 +468,12 @@ ZUSAGEN = [
      "Gewicht, Schritte und Mahlzeiten sind Gesundheitsdaten. Dafuer reicht "
      "Art. 6 nicht - es braucht die ausdrueckliche Einwilligung nach Art. 9 "
      "Abs. 2 lit. a."),
+    # 24.10.2026: Der Host der Supabase-Funktion ist derselbe wie der der Datenbank -
+    # pruefe_ziele sieht deshalb nichts Neues, obwohl das PDF bis in die USA geht.
+    ("plan-aus-pdf",
+     ("Anthropic PBC", "verlässt das PDF die EU"),
+     "Das ganze PDF geht ueber die Supabase-Funktion an Anthropic (USA). Der Host "
+     "ist der eigene - ohne diese Regel faellt ein fehlender Satz nirgends auf."),
 ]
 
 

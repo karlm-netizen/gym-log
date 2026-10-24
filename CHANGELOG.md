@@ -2,6 +2,35 @@
 
 Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
+## 2026-10-24
+
+### v0.126 — Trainingsplan aus PDF
+
+**Karls Idee:** *„viele Leute haben einen trainingsplan per pdf und ich möchte das man das pdf
+hochladen kann in meiner app und das automatisch als neuer traingplan drinne ist Mann kann dann
+ersetzen oder einen neuen hinzufügen"*.
+
+| Was | Wie |
+|---|---|
+| Knopf | „Alle Trainingspläne" › Neuer Trainingsplan › **„Aus PDF"** |
+| Lesen | **Claude Sonnet 5.5** über die Supabase-Funktion `plan-aus-pdf` (Karls Wahl, erst Haiku, dann *„lass es doch besser sonnet auslesen"*). Der Schlüssel liegt nur dort, nie im Browser |
+| Vorschau | Trainings mit Tag, Anzahl und ersten Übungen; Hinweis, wenn Übungen neu sind |
+| Übernehmen | **„Als neuen Plan"** (der aktuelle bleibt aktuell) oder **„Ersetzen"** (tauscht die Trainings des aktuellen Plans, zweimal tippen; der Verlauf bleibt; nicht während eines Trainings) |
+| Bremse | **3 PDFs pro Person und Tag**, 50 für alle zusammen, gezählt in der Datenbank (`supabase-pdf-import.sql`) |
+| Grenzen | höchstens 5 MB und 20 Seiten; Sätze 1–10, Wiederholungen 1–100 |
+
+**Datenschutzerklärung** (Stand 24. Oktober 2026): neuer Abschnitt zum PDF-Import, Anthropic als
+fünfter USA-Empfänger (Standardvertragsklauseln, Art. 46 Abs. 2 lit. c), 2 Tage Zeitstempel für die
+Bremse, bis zu 30 Tage bei Anthropic beim Konto-Löschen. `datenschutz-pruefen.py` kennt die Funktion
+jetzt als Zusage (der Host ist der eigene, die Ziel-Prüfung sah sie nicht).
+
+⚠️ **Geht erst, wenn in Supabase eingerichtet:** SQL ausführen, Funktion anlegen, Secret
+`ANTHROPIC_API_KEY` setzen (Kopf von `supabase-pdf-import.sql`). Bis dahin meldet der Knopf
+„Der PDF-Import ist gerade nicht eingerichtet" bzw. einen Verbindungsfehler.
+
+Prüfstand: fünf neue Prüfungen, alle für Schadensfälle (Ersetzen, laufendes Training, neuer Plan,
+Unsinnszahlen, zu große Datei geht nicht hinaus).
+
 ## 2026-09-22
 
 ### v0.125 — Trainings-Assistent: neue Namen, Empfehlungen, Name ist Pflicht

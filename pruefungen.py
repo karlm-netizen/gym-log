@@ -10721,7 +10721,82 @@ window.addEventListener('error', e => {
     return sc.scrollHeight <= sc.clientHeight + 1 || 'Seite scrollt: ' + sc.scrollHeight + ' > ' + sc.clientHeight;
   }));
 
+  // ================================================================ Trainingsplan aus PDF (24.10.2026)
+  /* Nur die Schadensfaelle (Regel vom 27.09.): Ersetzen darf nichts ausser den Trainings des
+     aktuellen Plans anfassen, Unsinn von der KI darf nicht in den Plan, und ein PDF, das zu
+     gross ist, darf gar nicht erst hinausgehen -- jeder Aufruf kostet Karl Geld. */
+  const pdfAntwort = { name:'Neu', trainings:[{ name:'Push', tag:0, uebungen:[
+    { name:'Bankdrücken', saetze:4, wdh:8 }, { name:'Fantasie-Übung', saetze:3, wdh:12 } ] }] };
+  const pdfZustand = () => ({ programs, sessions, prog:profile.prog, active, view, editProgId, pdfImport });
+  const pdfZurueck = V => { programs = V.programs; sessions = V.sessions; profile.prog = V.prog;
+    active = V.active; view = V.view; editProgId = V.editProgId; pdfImport = V.pdfImport; bindPlans(); closeModal(); };
+  const pdfZweiPlaene = () => {
+    programs = [ neuerPlan('A', [{ id:'a1', name:'Alt', day:0, exercises:[{ id:'x', name:'Kniebeuge', sets:3, reps:5 }] }]),
+                 neuerPlan('B', [{ id:'b1', name:'B-Tag', day:1, exercises:[] }]) ];
+    profile.prog = programs[0].id; active = null; bindPlans();
+  };
 
+  t('PDF: Unsinnszahlen der KI werden begrenzt', () => {
+    const d = pdfAufbereiten({ trainings:[
+      { name:'Push', tag:9, uebungen:[ { name:'bankdrücken', saetze:400, wdh:0 },
+                                       { name:'Fantasie-Übung', saetze:2.6, wdh:'x' },
+                                       { name:'', saetze:3, wdh:10 } ] },
+      { name:'Leer', tag:2, uebungen:[] } ] });
+    return eq(JSON.stringify([d.p, d.neu, d.name]),
+      JSON.stringify([[{ n:'Push', d:null, e:[['Bankdrücken',10,10], ['Fantasie-Übung',3,10]] }], 1, 'Plan aus PDF']));
+  });
+  t('PDF ersetzen: nur der aktuelle Plan, Verlauf und andere Pläne bleiben', () => {
+    const V = pdfZustand();
+    try {
+      pdfZweiPlaene();
+      const verlauf = JSON.stringify(sessions);
+      pdfImport = pdfAufbereiten(pdfAntwort);
+      const ging = pdfErsetzen();
+      const a = programs[0];
+      if (ging !== true) return 'pdfErsetzen lieferte ' + ging;
+      if (programs.length !== 2) return programs.length + ' Pläne';
+      if (a.name !== 'Neu' || a.plans.length !== 1 || a.plans[0].name !== 'Push') return 'aktueller Plan: ' + JSON.stringify(a).slice(0, 120);
+      if (programs[1].plans[0].name !== 'B-Tag') return 'der andere Plan wurde angefasst';
+      if (plans !== activeProg().plans) return '`plans` zeigt nicht mehr auf den aktuellen Plan';
+      if (JSON.stringify(sessions) !== verlauf) return 'der Verlauf hat sich verändert';
+      return true;
+    } finally { pdfZurueck(V); }
+  });
+  t('PDF ersetzen: während eines Trainings passiert nichts', () => {
+    const V = pdfZustand();
+    try {
+      pdfZweiPlaene();
+      active = { id:'lauf', planId:'a1', exercises:[] };
+      pdfImport = pdfAufbereiten(pdfAntwort);
+      const ging = pdfErsetzen();
+      return (ging === false && programs[0].plans[0].name === 'Alt' && pdfImport !== null)
+        || 'ging=' + ging + ' plan=' + programs[0].plans[0].name;
+    } finally { pdfZurueck(V); }
+  });
+  t('PDF als neuer Plan: der aktuelle bleibt, unbekannte Übung wird eigene', () => {
+    const V = pdfZustand();
+    try {
+      pdfZweiPlaene();
+      const vorher = activeProg().id;
+      pdfImport = pdfAufbereiten(pdfAntwort);
+      pdfAlsNeuerPlan();
+      const neu = programs[2], ex = neu && neu.plans[0].exercises;
+      if (programs.length !== 3) return programs.length + ' Pläne';
+      if (activeProg().id !== vorher) return 'der aktuelle Plan hat gewechselt';
+      return (ex[0].sets === 4 && ex[0].reps === 8 && !ex[0].eigen && ex[1].eigen === true)
+        || JSON.stringify(ex);
+    } finally { pdfZurueck(V); }
+  });
+  await tA('PDF: zu groß oder kein PDF -> es geht nichts hinaus', async () => {
+    const f = window.fetch, sV = session; let rufe = 0;
+    window.fetch = () => { rufe++; return Promise.reject(new Error('Pruefung')); };
+    session = { access_token:'x', refresh_token:'y', expires_at:Date.now() + 3600e3, user:{ id:'u' } };
+    try {
+      await pdfLesen({ size:6 * 1024 * 1024, type:'application/pdf' });
+      await pdfLesen({ size:1000, type:'image/png' });
+      return rufe === 0 || rufe + ' Anfragen gingen raus';
+    } finally { window.fetch = f; session = sV; closeModal(); }
+  });
 
   // ================================================================ Aufraeumen
   sessions = SICHER.sessions; profile = SICHER.profile; settings = SICHER.settings;
