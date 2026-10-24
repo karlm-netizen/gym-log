@@ -13,7 +13,8 @@
 //    der Zeitpunkt des Imports (Tabelle pdf_importe, 2 Tage, für die Bremse).
 //
 // Einrichten: siehe Kopf von supabase-pdf-import.sql — erst das SQL, dann diese Funktion, dann
-// das Secret.
+// das Secret. ⚠️ Im Projekt liegt sie unter der Adresse /functions/v1/quick-task (Name im
+// Dashboard: plan-aus-pdf) — Supabase hat beim Anlegen einen Zufallsnamen vergeben.
 
 import Anthropic from "npm:@anthropic-ai/sdk";
 

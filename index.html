@@ -99,7 +99,7 @@ var SPLASH_HOECHSTENS = 5000;
    aber genau dann zu sehen, wenn das noch nicht gelaufen ist. Deshalb hier oben, und
    Problemmeldungen lesen dieselbe Zahl.
    ⚠️ mit der Cacheversion in sw.js gleichziehen */
-var APP_FASSUNG = 'v0.126';
+var APP_FASSUNG = 'v0.127';
 function splashFassung(){ return 'Beta-Version · ' + APP_FASSUNG; }
 var NEUE_FASSUNG_KEY = 'gymlog:neue-fassung';
 var NEUE_FASSUNG = false;
@@ -8591,7 +8591,10 @@ function importierePlan(){
    ⚠️ „Ersetzen" tauscht nur die Trainings des aktuellen Plans. Die Einheiten im Verlauf haengen
    am Namen der Uebung, nicht am Plan -- sie bleiben. Waehrend ein Training laeuft, geht es
    nicht: `active` zeigt auf ein Training, das es danach nicht mehr gaebe. */
-const PDF_FUNKTION = SUPA_URL + '/functions/v1/plan-aus-pdf';
+/* ⚠️ Die Adresse heisst `quick-task`, nicht `plan-aus-pdf`: Supabase vergibt beim Anlegen im
+   Editor einen Zufallsnamen, und das spaetere Umbenennen aendert die Adresse nicht (24.10.2026).
+   Im Dashboard steht sie als „plan-aus-pdf". */
+const PDF_FUNKTION = SUPA_URL + '/functions/v1/quick-task';
 const PDF_MAX_MB = 5;
 let pdfImport = null;      // {name, hinweis, p:[{n, d, e:[[name, saetze, wdh]]}], neu}
 let pdfLaeuft = false;

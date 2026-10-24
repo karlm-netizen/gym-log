@@ -4,6 +4,15 @@ Neueste zuerst. Jede Zeile nennt den Commit, damit man zurückfindet.
 
 ## 2026-10-24
 
+### v0.127 — PDF-Import: die richtige Adresse
+
+Supabase hat der Funktion beim Anlegen im Editor den Zufallsnamen **`quick-task`** gegeben. Das
+Umbenennen in „plan-aus-pdf" ändert nur den Anzeigenamen, nicht die Adresse. Die App zeigte auf
+`/functions/v1/plan-aus-pdf` und bekam 404. Jetzt zeigt `PDF_FUNKTION` auf `quick-task`;
+nachgemessen: Vorabfrage 200 mit der eigenen Seite als Origin, falscher Token → „Bitte melde dich
+neu an." (die eigene Meldung der Funktion). `datenschutz-pruefen.py` hängt die Zusage jetzt an
+`PDF_FUNKTION` statt an der Adresse.
+
 ### v0.126 — Trainingsplan aus PDF
 
 **Karls Idee:** *„viele Leute haben einen trainingsplan per pdf und ich möchte das man das pdf

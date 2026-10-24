@@ -9,6 +9,9 @@
 --      Am Ende stehen zwei Zähler; beide müssen 1 sein.
 --   2. Edge Functions → „Deploy a new function" → „Via Editor", Name: plan-aus-pdf,
 --      Inhalt: supabase/functions/plan-aus-pdf/index.ts aus diesem Repo, dann „Deploy".
+--      ⚠️ Den Namen VOR dem Deploy eintragen. Sonst vergibt Supabase einen Zufallsnamen, und
+--      Umbenennen ändert die Adresse nicht. So ist es am 24.10.2026 passiert: die Adresse heißt
+--      seitdem /functions/v1/quick-task, und PDF_FUNKTION in index.html zeigt darauf.
 --      In den Einstellungen der Funktion „Verify JWT" AUSschalten — die Funktion prüft die
 --      Anmeldung selbst (/auth/v1/user), und mit den neuen Schlüsseln lehnt der Schalter
 --      sonst gültige Anmeldungen ab.

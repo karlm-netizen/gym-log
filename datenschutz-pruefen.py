@@ -470,7 +470,9 @@ ZUSAGEN = [
      "Abs. 2 lit. a."),
     # 24.10.2026: Der Host der Supabase-Funktion ist derselbe wie der der Datenbank -
     # pruefe_ziele sieht deshalb nichts Neues, obwohl das PDF bis in die USA geht.
-    ("plan-aus-pdf",
+    # Kennzeichen ist der Name der Konstante, nicht die Adresse: die heisst `quick-task`
+    # (von Supabase vergeben) und kann sich beim Neu-Anlegen wieder aendern.
+    ("PDF_FUNKTION",
      ("Anthropic PBC", "verlässt das PDF die EU"),
      "Das ganze PDF geht ueber die Supabase-Funktion an Anthropic (USA). Der Host "
      "ist der eigene - ohne diese Regel faellt ein fehlender Satz nirgends auf."),
